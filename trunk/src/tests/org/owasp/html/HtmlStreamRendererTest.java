@@ -1,0 +1,246 @@
+package org.owasp.html;
+
+import java.util.List;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
+import junit.framework.TestCase;
+
+public class HtmlStreamRendererTest extends TestCase {
+
+  private final List<String> errors = Lists.newArrayList();
+  private final StringBuilder rendered = new StringBuilder();
+  private final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
+      rendered, new Handler<String>() {
+        @Override
+        public void handle(String errorMessage) {
+          errors.add(errorMessage);
+        }
+      });
+
+  @Override
+  protected void setUp() throws Exception {
+    super.setUp();
+    errors.clear();
+    rendered.setLength(0);
+  }
+
+  @Override
+  protected void tearDown() throws Exception {
+    super.tearDown();
+    assertTrue(errors.isEmpty());  // Catch any tests that don't check errors.
+  }
+
+  public final void testEmptyDocument() throws Exception {
+    assertNormalized("", "");
+  }
+
+  public final void testElementNamesNormalized() throws Exception {
+    assertNormalized("<br>", "<br>");
+    assertNormalized("<br>", "<BR>");
+    assertNormalized("<br>", "<Br />");
+    assertNormalized("<br>", "<br\n>");
+  }
+
+  public final void testAttributeNamesNormalized() throws Exception {
+    assertNormalized("<input id=\"foo\">", "<input  id=foo>");
+    assertNormalized("<input id=\"foo\">", "<input id=\"foo\">");
+    assertNormalized("<input id=\"foo\">", "<input  ID='foo'>");
+    assertNormalized("<input id=\"foo\">", "<input\nid='foo'>");
+    assertNormalized("<input id=\"foo\">", "<input\nid=foo'>");
+  }
+
+  public final void testAttributeValuesEscaped() throws Exception {
+    assertNormalized("<div title=\"a&lt;b\"></div>", "<div title=a<b></div>");
+  }
+
+  public final void testRcdataEscaped() throws Exception {
+    assertNormalized(
+        "<title>I &lt;3 PONIES, OMG!!!</title>",
+        "<TITLE>I <3 PONIES, OMG!!!</TITLE>");
+  }
+
+  public final void testCdataNotEscaped() throws Exception {
+    assertNormalized(
+        "<script>I <3\n!!!PONIES, OMG</script>",
+        "<script>I <3\n!!!PONIES, OMG</script>");
+  }
+
+  public final void testIllegalElementName() throws Exception {
+    renderer.openDocument();
+    renderer.openTag(":svg", ImmutableList.<String>of());
+    renderer.openTag("svg:", ImmutableList.<String>of());
+    renderer.openTag("-1", ImmutableList.<String>of());
+    renderer.openTag("svg::svg", ImmutableList.<String>of());
+    renderer.openTag("a@b", ImmutableList.<String>of());
+    renderer.closeDocument();
+
+    String output = rendered.toString();
+    assertFalse(output, output.contains("<"));
+
+    assertEquals(
+        Joiner.on('\n').join(
+            "Invalid element name : :svg",
+            "Invalid element name : svg:",
+            "Invalid element name : -1",
+            "Invalid element name : svg::svg",
+            "Invalid element name : a@b"),
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testIllegalAttributeName() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("div", ImmutableList.of(":svg", "x"));
+    renderer.openTag("div", ImmutableList.of("svg:", "x"));
+    renderer.openTag("div", ImmutableList.of("-1", "x"));
+    renderer.openTag("div", ImmutableList.of("svg::svg", "x"));
+    renderer.openTag("div", ImmutableList.of("a@b", "x"));
+    renderer.closeDocument();
+
+    String output = rendered.toString();
+    assertFalse(output, output.contains("="));
+
+    assertEquals(
+        Joiner.on('\n').join(
+            "Invalid attr name : :svg",
+            "Invalid attr name : svg:",
+            "Invalid attr name : -1",
+            "Invalid attr name : svg::svg",
+            "Invalid attr name : a@b"),
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testCdataContainsEndTag1() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.of("type", "text/javascript"));
+    renderer.text("document.write('<SCRIPT>alert(42)</SCRIPT>')");
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<script type=\"text/javascript\"></script>", rendered.toString());
+    assertEquals(
+        "Unescaped text content contains close tag : script",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testCdataContainsEndTag2() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("style", ImmutableList.of("type", "text/css"));
+    renderer.text("/* </st");
+    // Split into two text chunks, and insert NULs.
+    renderer.text("\0yle> */");
+    renderer.closeTag("style");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<style type=\"text/css\"></style>", rendered.toString());
+    assertEquals(
+        "Unescaped text content contains close tag : style",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testRcdataContainsEndTag() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("textarea", ImmutableList.<String>of());
+    renderer.text("<textarea></textarea>");
+    renderer.closeTag("textarea");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<textarea>&lt;textarea&gt;&lt;/textarea&gt;</textarea>",
+        rendered.toString());
+  }
+
+  public final void testCdataContainsEndTagInEscapingSpan() throws Exception {
+    assertNormalized(
+        "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>",
+        "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>");
+  }
+
+  public final void testTagInCdata() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text("alert('");
+    renderer.openTag("b", ImmutableList.<String>of());
+    renderer.text("foo");
+    renderer.closeTag("b");
+    renderer.text("')");
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<script>alert('foo')</script>", rendered.toString());
+    assertEquals(
+        Joiner.on('\n').join(
+            "Tag content cannot appear inside CDATA element : b",
+            "Tag content cannot appear inside CDATA element : b"),
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testUnclosedEscapingTextSpan() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text("<!--alert('</script>')");
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals("<script></script>", rendered.toString());
+    assertEquals(
+        "Unescaped text content contains close tag : script",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  private void assertNormalized(String golden, String htmlInput)
+      throws Exception {
+    assertEquals(golden, normalize(htmlInput));
+
+    // Check that normalization is idempotent.
+    if (!golden.equals(htmlInput)) {
+      assertNormalized(golden, golden);
+    }
+  }
+
+  private String normalize(String htmlInput) throws Exception {
+    // Use a permissive sanitizer to generate the events.
+    new HtmlSanitizer().sanitize(htmlInput, new HtmlSanitizer.Policy() {
+      @Override
+      public void openTag(String elementName, List<String> attrs) {
+        renderer.openTag(elementName, attrs);
+      }
+
+      @Override
+      public void closeTag(String elementName) {
+        renderer.closeTag(elementName);
+      }
+
+      @Override
+      public void text(String textChunk) {
+        renderer.text(textChunk);
+      }
+
+      @Override
+      public void openDocument() {
+        renderer.openDocument();
+      }
+
+      @Override
+      public void closeDocument() {
+        renderer.closeDocument();
+      }
+
+    });
+
+    String result = rendered.toString();
+    rendered.setLength(0);
+    return result;
+  }
+}
