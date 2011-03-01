@@ -749,7 +749,6 @@ public class AntiSamyTest extends TestCase {
 			 */
 			s = "<b><u>foo<style><script>alert(1)</script></style>@import 'x';</u>bar";
 			sanitize(s);
-			sanitize(s);
 
 		} catch (Exception e) {
 			e.printStackTrace();

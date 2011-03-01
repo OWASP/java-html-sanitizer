@@ -2,10 +2,10 @@
 <classpath>
 	<classpathentry kind="src" path="src/tests"/>
 	<classpathentry kind="src" path="src/main"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jdk1.5.0_22"/>
 	<classpathentry kind="lib" path="lib/guava-libraries/guava.jar"/>
 	<classpathentry kind="lib" path="lib/htmlparser-1.3/htmlparser-1.3-with-transitions.jar"/>
 	<classpathentry kind="lib" path="lib/jsr305/jsr305.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/3"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
