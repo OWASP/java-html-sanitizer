@@ -1,0 +1,57 @@
+$Id: RELEASE-NOTES.txt 801709 2009-08-06 16:31:27Z niallp $
+
+			 Commons Codec Package
+			    Version 1.4
+			   Release Notes
+
+http://commons.apache.org/codec/
+
+The codec package contains simple encoder and decoders for various formats 
+such as Base64 and Hexadecimal. In addition to these widely used encoders and 
+decoders, the codec package also maintains a collection of phonetic encoding 
+utilities. 
+
+Compatibility
+o Codec 1.4 is binary compatible with Codec 1.3
+o Codec 1.4 has a minimum requirement of JDK 1.4
+
+Changes in this version include:
+
+  New Features:
+
+o [CODEC-60] Implement Caverphone.
+o [CODEC-52] Digest on InputStreams.
+o [CODEC-39] DigestUtils: Add methods for SHA-256, SHA-384, and SHA-512.
+o [CODEC-69] Streaming Base64 (Base64InputStream and Base64OutputStream added).
+o [CODEC-59] Add methods to Base64 which work with String instead of byte[]
+
+  Fixed bugs:
+
+o [CODEC-77] Base64 bug with empty input (new byte[0]).
+o [CODEC-72] Soundex and RefinedSoundex issues with character arrays.
+o [CODEC-71] Base64.isArrayByteBase64() method is inefficient for large byte arrays.
+o [CODEC-70] Thread safety and malicious code safety improvements.
+o [CODEC-68] isBase64 throws ArrayIndexOutOfBoundsException on some non-BASE64 bytes.
+o [CODEC-65] Fix case-insensitive string handling.
+o [CODEC-61] Base64.encodeBase64() throws NegativeArraySizeException on large files.
+o [CODEC-58] Character set used by Base64 not documented.
+o [CODEC-56] RefinedSoundex creates instance before al fields have been initialized.
+o [CODEC-51] Test failures in SoundexTest
+o [CODEC-10] Using US_ENGLISH in Soundex caused an NullPointerException.
+o [CODEC-6]  Source tarball spews files all over the place.
+o [CODEC-22] Base64.isArrayByteBase64() throws an ArrayIndexOutOfBoundsException for negative octets
+o [CODEC-78] Base64: Improve Code Coverage
+o [CODEC-81] Base64's new constructor parameters ignored
+o [CODEC-83] Improve Double Metaphone test coverage
+o [CODEC-84] Double Metaphone bugs in alternative encoding
+o [CODEC-73] Make string2byte conversions indepedent of platform default encoding
+
+  Changes:
+
+o [CODEC-75] Make Base64 URL-safe
+o [CODEC-74] Allow for uppercase letters output in Hex.encodeHex().
+o [CODEC-40] Add crypto-compatible BigInteger encoding support to Base64.
+
+Have fun!
+-The commons-codec team
+      
