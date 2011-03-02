@@ -245,6 +245,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
 
 
   @VisibleForTesting
+  @SuppressWarnings("fallthrough")
   static boolean isValidHtmlName(String name) {
     int n = name.length();
     if (n == 0) { return false; }
@@ -274,6 +275,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return true;
   }
 
+  @SuppressWarnings("fallthrough")
   static void escapeHtmlOnto(String plainText, Appendable output)
       throws IOException {
     int n = plainText.length();
