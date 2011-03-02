@@ -257,7 +257,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         case ':':
           if (isNamespaced) { return false; }
           isNamespaced = true;
-          // $FALL-THROUGH$
+          // FALL-THROUGH
         case '-':
           if (i == 0 || i + 1 == n) { return false; }
           break;
@@ -305,7 +305,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           }
           // Is a control character or possible full-width version of a
           // special character.
-          // $FALL-THROUGH$
+          // FALL-THROUGH
         case '+':  // UTF-7
         case '=':  // Special in attributes.
         case '@':  // Conditional compilation
