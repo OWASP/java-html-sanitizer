@@ -21,4 +21,8 @@ out/tests.tstamp: out out/classes.tstamp src/tests/org/owasp/html/*.java
 	javac ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out src/tests/org/owasp/html/*.java && touch out/tests.tstamp
 
 benchmark: out/tests.tstamp
-	java -cp ${CLASSPATH}:out org.owasp.html.Benchmark benchmark-data/Yahoo\!.html
+	java -cp ${TEST_CLASSPATH}:out org.owasp.html.Benchmark benchmark-data/Yahoo\!.html
+
+profile: out/java.hprof.txt
+out/java.hprof.txt: out/tests.tstamp
+	java -cp ${TEST_CLASSPATH}:out -agentlib:hprof=cpu=times,format=a,file=out/java.hprof.txt,lineno=y,doe=y org.owasp.html.Benchmark benchmark-data/Yahoo\!.html
