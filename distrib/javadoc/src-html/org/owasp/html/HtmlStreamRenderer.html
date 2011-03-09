@@ -1,0 +1,435 @@
+<HTML>
+<BODY BGCOLOR="white">
+<PRE>
+<FONT color="green">001</FONT>    // Copyright (c) 2011, Mike Samuel<a name="line.1"></a>
+<FONT color="green">002</FONT>    // All rights reserved.<a name="line.2"></a>
+<FONT color="green">003</FONT>    //<a name="line.3"></a>
+<FONT color="green">004</FONT>    // Redistribution and use in source and binary forms, with or without<a name="line.4"></a>
+<FONT color="green">005</FONT>    // modification, are permitted provided that the following conditions<a name="line.5"></a>
+<FONT color="green">006</FONT>    // are met:<a name="line.6"></a>
+<FONT color="green">007</FONT>    //<a name="line.7"></a>
+<FONT color="green">008</FONT>    // Redistributions of source code must retain the above copyright<a name="line.8"></a>
+<FONT color="green">009</FONT>    // notice, this list of conditions and the following disclaimer.<a name="line.9"></a>
+<FONT color="green">010</FONT>    // Redistributions in binary form must reproduce the above copyright<a name="line.10"></a>
+<FONT color="green">011</FONT>    // notice, this list of conditions and the following disclaimer in the<a name="line.11"></a>
+<FONT color="green">012</FONT>    // documentation and/or other materials provided with the distribution.<a name="line.12"></a>
+<FONT color="green">013</FONT>    // Neither the name of the OWASP nor the names of its contributors may<a name="line.13"></a>
+<FONT color="green">014</FONT>    // be used to endorse or promote products derived from this software<a name="line.14"></a>
+<FONT color="green">015</FONT>    // without specific prior written permission.<a name="line.15"></a>
+<FONT color="green">016</FONT>    // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS<a name="line.16"></a>
+<FONT color="green">017</FONT>    // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT<a name="line.17"></a>
+<FONT color="green">018</FONT>    // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS<a name="line.18"></a>
+<FONT color="green">019</FONT>    // FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE<a name="line.19"></a>
+<FONT color="green">020</FONT>    // COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,<a name="line.20"></a>
+<FONT color="green">021</FONT>    // INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,<a name="line.21"></a>
+<FONT color="green">022</FONT>    // BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;<a name="line.22"></a>
+<FONT color="green">023</FONT>    // LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER<a name="line.23"></a>
+<FONT color="green">024</FONT>    // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT<a name="line.24"></a>
+<FONT color="green">025</FONT>    // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN<a name="line.25"></a>
+<FONT color="green">026</FONT>    // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE<a name="line.26"></a>
+<FONT color="green">027</FONT>    // POSSIBILITY OF SUCH DAMAGE.<a name="line.27"></a>
+<FONT color="green">028</FONT>    <a name="line.28"></a>
+<FONT color="green">029</FONT>    package org.owasp.html;<a name="line.29"></a>
+<FONT color="green">030</FONT>    <a name="line.30"></a>
+<FONT color="green">031</FONT>    import com.google.common.annotations.VisibleForTesting;<a name="line.31"></a>
+<FONT color="green">032</FONT>    import java.io.Closeable;<a name="line.32"></a>
+<FONT color="green">033</FONT>    import java.io.Flushable;<a name="line.33"></a>
+<FONT color="green">034</FONT>    import java.io.IOException;<a name="line.34"></a>
+<FONT color="green">035</FONT>    import java.util.Iterator;<a name="line.35"></a>
+<FONT color="green">036</FONT>    import java.util.List;<a name="line.36"></a>
+<FONT color="green">037</FONT>    import javax.annotation.WillCloseWhenClosed;<a name="line.37"></a>
+<FONT color="green">038</FONT>    <a name="line.38"></a>
+<FONT color="green">039</FONT>    /**<a name="line.39"></a>
+<FONT color="green">040</FONT>     * Given a series of HTML tokens, writes valid, normalized HTML to the output.<a name="line.40"></a>
+<FONT color="green">041</FONT>     * The output will have well-defined tag boundaries, but there may be orphaned<a name="line.41"></a>
+<FONT color="green">042</FONT>     * or missing close and open tags.<a name="line.42"></a>
+<FONT color="green">043</FONT>     * The result of two renderers can always be concatenated to produce a larger<a name="line.43"></a>
+<FONT color="green">044</FONT>     * snippet of HTML, but if the first was called with<a name="line.44"></a>
+<FONT color="green">045</FONT>     * {@code writeOpenTag("plaintext", ...)}, then any tags in the second will not<a name="line.45"></a>
+<FONT color="green">046</FONT>     * be interpreted as tags in the concatenated version.<a name="line.46"></a>
+<FONT color="green">047</FONT>     */<a name="line.47"></a>
+<FONT color="green">048</FONT>    @TCB<a name="line.48"></a>
+<FONT color="green">049</FONT>    public class HtmlStreamRenderer implements HtmlStreamEventReceiver {<a name="line.49"></a>
+<FONT color="green">050</FONT>    <a name="line.50"></a>
+<FONT color="green">051</FONT>      private final Appendable output;<a name="line.51"></a>
+<FONT color="green">052</FONT>      private final Handler&lt;? super IOException&gt; ioExHandler;<a name="line.52"></a>
+<FONT color="green">053</FONT>      private final Handler&lt;? super String&gt; badHtmlHandler;<a name="line.53"></a>
+<FONT color="green">054</FONT>      private String lastTagOpened;<a name="line.54"></a>
+<FONT color="green">055</FONT>      private StringBuilder pendingUnescaped;<a name="line.55"></a>
+<FONT color="green">056</FONT>      private boolean open;<a name="line.56"></a>
+<FONT color="green">057</FONT>    <a name="line.57"></a>
+<FONT color="green">058</FONT>      /**<a name="line.58"></a>
+<FONT color="green">059</FONT>       * @param output the buffer to which HTML is streamed.<a name="line.59"></a>
+<FONT color="green">060</FONT>       * @param ioExHandler called with any exception raised by output.<a name="line.60"></a>
+<FONT color="green">061</FONT>       */<a name="line.61"></a>
+<FONT color="green">062</FONT>      public static HtmlStreamRenderer create(<a name="line.62"></a>
+<FONT color="green">063</FONT>          @WillCloseWhenClosed Appendable output,<a name="line.63"></a>
+<FONT color="green">064</FONT>          Handler&lt;? super IOException&gt; ioExHandler,<a name="line.64"></a>
+<FONT color="green">065</FONT>          Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.65"></a>
+<FONT color="green">066</FONT>        if (output instanceof Closeable) {<a name="line.66"></a>
+<FONT color="green">067</FONT>          return new CloseableHtmlStreamRenderer(<a name="line.67"></a>
+<FONT color="green">068</FONT>              output, ioExHandler, badHtmlHandler);<a name="line.68"></a>
+<FONT color="green">069</FONT>        } else {<a name="line.69"></a>
+<FONT color="green">070</FONT>          return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);<a name="line.70"></a>
+<FONT color="green">071</FONT>        }<a name="line.71"></a>
+<FONT color="green">072</FONT>      }<a name="line.72"></a>
+<FONT color="green">073</FONT>    <a name="line.73"></a>
+<FONT color="green">074</FONT>      private HtmlStreamRenderer(<a name="line.74"></a>
+<FONT color="green">075</FONT>          Appendable output, Handler&lt;? super IOException&gt; ioExHandler,<a name="line.75"></a>
+<FONT color="green">076</FONT>          Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.76"></a>
+<FONT color="green">077</FONT>        this.output = output;<a name="line.77"></a>
+<FONT color="green">078</FONT>        this.ioExHandler = ioExHandler;<a name="line.78"></a>
+<FONT color="green">079</FONT>        this.badHtmlHandler = badHtmlHandler;<a name="line.79"></a>
+<FONT color="green">080</FONT>      }<a name="line.80"></a>
+<FONT color="green">081</FONT>    <a name="line.81"></a>
+<FONT color="green">082</FONT>      public static HtmlStreamRenderer create(<a name="line.82"></a>
+<FONT color="green">083</FONT>          StringBuilder output, Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.83"></a>
+<FONT color="green">084</FONT>        // Propagate since StringBuilder should not throw IOExceptions.<a name="line.84"></a>
+<FONT color="green">085</FONT>        return create(output, Handler.PROPAGATE, badHtmlHandler);<a name="line.85"></a>
+<FONT color="green">086</FONT>      }<a name="line.86"></a>
+<FONT color="green">087</FONT>    <a name="line.87"></a>
+<FONT color="green">088</FONT>      /**<a name="line.88"></a>
+<FONT color="green">089</FONT>       * Called when the series of calls make no sense.<a name="line.89"></a>
+<FONT color="green">090</FONT>       * May be overridden to throw an unchecked throwable, to log, or to take some<a name="line.90"></a>
+<FONT color="green">091</FONT>       * other action.<a name="line.91"></a>
+<FONT color="green">092</FONT>       *<a name="line.92"></a>
+<FONT color="green">093</FONT>       * @param message for human consumption.<a name="line.93"></a>
+<FONT color="green">094</FONT>       * @param identifier an HTML identifier associated with the message.<a name="line.94"></a>
+<FONT color="green">095</FONT>       */<a name="line.95"></a>
+<FONT color="green">096</FONT>      private final void error(String message, String identifier) {<a name="line.96"></a>
+<FONT color="green">097</FONT>        if (ioExHandler != Handler.DO_NOTHING) {   // Avoid string append.<a name="line.97"></a>
+<FONT color="green">098</FONT>          badHtmlHandler.handle(message + " : " + identifier);<a name="line.98"></a>
+<FONT color="green">099</FONT>        }<a name="line.99"></a>
+<FONT color="green">100</FONT>      }<a name="line.100"></a>
+<FONT color="green">101</FONT>    <a name="line.101"></a>
+<FONT color="green">102</FONT>      /**<a name="line.102"></a>
+<FONT color="green">103</FONT>       *<a name="line.103"></a>
+<FONT color="green">104</FONT>       */<a name="line.104"></a>
+<FONT color="green">105</FONT>      public final void openDocument() throws IllegalStateException {<a name="line.105"></a>
+<FONT color="green">106</FONT>        if (open) { throw new IllegalStateException(); }<a name="line.106"></a>
+<FONT color="green">107</FONT>        open = true;<a name="line.107"></a>
+<FONT color="green">108</FONT>      }<a name="line.108"></a>
+<FONT color="green">109</FONT>    <a name="line.109"></a>
+<FONT color="green">110</FONT>      public final void closeDocument() throws IllegalStateException {<a name="line.110"></a>
+<FONT color="green">111</FONT>        if (!open) { throw new IllegalStateException(); }<a name="line.111"></a>
+<FONT color="green">112</FONT>        if (pendingUnescaped != null) {<a name="line.112"></a>
+<FONT color="green">113</FONT>          closeTag(lastTagOpened);<a name="line.113"></a>
+<FONT color="green">114</FONT>        }<a name="line.114"></a>
+<FONT color="green">115</FONT>        open = false;<a name="line.115"></a>
+<FONT color="green">116</FONT>        if (output instanceof Flushable) {<a name="line.116"></a>
+<FONT color="green">117</FONT>          try {<a name="line.117"></a>
+<FONT color="green">118</FONT>            ((Flushable) output).flush();<a name="line.118"></a>
+<FONT color="green">119</FONT>          } catch (IOException ex) {<a name="line.119"></a>
+<FONT color="green">120</FONT>            ioExHandler.handle(ex);<a name="line.120"></a>
+<FONT color="green">121</FONT>          }<a name="line.121"></a>
+<FONT color="green">122</FONT>        }<a name="line.122"></a>
+<FONT color="green">123</FONT>      }<a name="line.123"></a>
+<FONT color="green">124</FONT>    <a name="line.124"></a>
+<FONT color="green">125</FONT>      public final boolean isDocumentOpen() {<a name="line.125"></a>
+<FONT color="green">126</FONT>        return open;<a name="line.126"></a>
+<FONT color="green">127</FONT>      }<a name="line.127"></a>
+<FONT color="green">128</FONT>    <a name="line.128"></a>
+<FONT color="green">129</FONT>      public final void openTag(String elementName, List&lt;String&gt; attrs) {<a name="line.129"></a>
+<FONT color="green">130</FONT>        try {<a name="line.130"></a>
+<FONT color="green">131</FONT>          writeOpenTag(elementName, attrs);<a name="line.131"></a>
+<FONT color="green">132</FONT>        } catch (IOException ex) {<a name="line.132"></a>
+<FONT color="green">133</FONT>          ioExHandler.handle(ex);<a name="line.133"></a>
+<FONT color="green">134</FONT>        }<a name="line.134"></a>
+<FONT color="green">135</FONT>      }<a name="line.135"></a>
+<FONT color="green">136</FONT>    <a name="line.136"></a>
+<FONT color="green">137</FONT>      private void writeOpenTag(String elementName, List&lt;? extends String&gt; attrs)<a name="line.137"></a>
+<FONT color="green">138</FONT>          throws IOException {<a name="line.138"></a>
+<FONT color="green">139</FONT>        if (!open) { throw new IllegalStateException(); }<a name="line.139"></a>
+<FONT color="green">140</FONT>        elementName = HtmlLexer.canonicalName(elementName);<a name="line.140"></a>
+<FONT color="green">141</FONT>        if (!isValidHtmlName(elementName)) {<a name="line.141"></a>
+<FONT color="green">142</FONT>          error("Invalid element name", elementName);<a name="line.142"></a>
+<FONT color="green">143</FONT>          return;<a name="line.143"></a>
+<FONT color="green">144</FONT>        }<a name="line.144"></a>
+<FONT color="green">145</FONT>        if (pendingUnescaped != null) {<a name="line.145"></a>
+<FONT color="green">146</FONT>          error("Tag content cannot appear inside CDATA element", elementName);<a name="line.146"></a>
+<FONT color="green">147</FONT>          return;<a name="line.147"></a>
+<FONT color="green">148</FONT>        }<a name="line.148"></a>
+<FONT color="green">149</FONT>    <a name="line.149"></a>
+<FONT color="green">150</FONT>        switch (HtmlTextEscapingMode.getModeForTag(elementName)) {<a name="line.150"></a>
+<FONT color="green">151</FONT>          case CDATA:<a name="line.151"></a>
+<FONT color="green">152</FONT>          case CDATA_SOMETIMES:<a name="line.152"></a>
+<FONT color="green">153</FONT>          case PLAIN_TEXT:<a name="line.153"></a>
+<FONT color="green">154</FONT>            lastTagOpened = elementName;<a name="line.154"></a>
+<FONT color="green">155</FONT>            pendingUnescaped = new StringBuilder();<a name="line.155"></a>
+<FONT color="green">156</FONT>            break;<a name="line.156"></a>
+<FONT color="green">157</FONT>          default:<a name="line.157"></a>
+<FONT color="green">158</FONT>        }<a name="line.158"></a>
+<FONT color="green">159</FONT>    <a name="line.159"></a>
+<FONT color="green">160</FONT>        output.append('&lt;').append(elementName);<a name="line.160"></a>
+<FONT color="green">161</FONT>    <a name="line.161"></a>
+<FONT color="green">162</FONT>        for (Iterator&lt;? extends String&gt; attrIt = attrs.iterator();<a name="line.162"></a>
+<FONT color="green">163</FONT>             attrIt.hasNext();) {<a name="line.163"></a>
+<FONT color="green">164</FONT>          String name = attrIt.next();<a name="line.164"></a>
+<FONT color="green">165</FONT>          String value = attrIt.next();<a name="line.165"></a>
+<FONT color="green">166</FONT>          name = HtmlLexer.canonicalName(name);<a name="line.166"></a>
+<FONT color="green">167</FONT>          if (!isValidHtmlName(name)) {<a name="line.167"></a>
+<FONT color="green">168</FONT>            error("Invalid attr name", name);<a name="line.168"></a>
+<FONT color="green">169</FONT>            continue;<a name="line.169"></a>
+<FONT color="green">170</FONT>          }<a name="line.170"></a>
+<FONT color="green">171</FONT>          output.append(' ').append(name).append('=').append('"');<a name="line.171"></a>
+<FONT color="green">172</FONT>          escapeHtmlOnto(value, output);<a name="line.172"></a>
+<FONT color="green">173</FONT>          output.append('"');<a name="line.173"></a>
+<FONT color="green">174</FONT>        }<a name="line.174"></a>
+<FONT color="green">175</FONT>    <a name="line.175"></a>
+<FONT color="green">176</FONT>        output.append('&gt;');<a name="line.176"></a>
+<FONT color="green">177</FONT>      }<a name="line.177"></a>
+<FONT color="green">178</FONT>    <a name="line.178"></a>
+<FONT color="green">179</FONT>      public final void closeTag(String elementName) {<a name="line.179"></a>
+<FONT color="green">180</FONT>        try {<a name="line.180"></a>
+<FONT color="green">181</FONT>          writeCloseTag(elementName);<a name="line.181"></a>
+<FONT color="green">182</FONT>        } catch (IOException ex) {<a name="line.182"></a>
+<FONT color="green">183</FONT>          ioExHandler.handle(ex);<a name="line.183"></a>
+<FONT color="green">184</FONT>        }<a name="line.184"></a>
+<FONT color="green">185</FONT>      }<a name="line.185"></a>
+<FONT color="green">186</FONT>    <a name="line.186"></a>
+<FONT color="green">187</FONT>      private final void writeCloseTag(String elementName)<a name="line.187"></a>
+<FONT color="green">188</FONT>          throws IOException {<a name="line.188"></a>
+<FONT color="green">189</FONT>        if (!open) { throw new IllegalStateException(); }<a name="line.189"></a>
+<FONT color="green">190</FONT>        elementName = HtmlLexer.canonicalName(elementName);<a name="line.190"></a>
+<FONT color="green">191</FONT>        if (!isValidHtmlName(elementName)) {<a name="line.191"></a>
+<FONT color="green">192</FONT>          error("Invalid element name", elementName);<a name="line.192"></a>
+<FONT color="green">193</FONT>          return;<a name="line.193"></a>
+<FONT color="green">194</FONT>        }<a name="line.194"></a>
+<FONT color="green">195</FONT>    <a name="line.195"></a>
+<FONT color="green">196</FONT>        if (pendingUnescaped != null) {<a name="line.196"></a>
+<FONT color="green">197</FONT>          if (!lastTagOpened.equals(elementName)) {<a name="line.197"></a>
+<FONT color="green">198</FONT>            error("Tag content cannot appear inside CDATA element", elementName);<a name="line.198"></a>
+<FONT color="green">199</FONT>            return;<a name="line.199"></a>
+<FONT color="green">200</FONT>          } else {<a name="line.200"></a>
+<FONT color="green">201</FONT>            String unescaped = pendingUnescaped.toString();<a name="line.201"></a>
+<FONT color="green">202</FONT>            pendingUnescaped = null;<a name="line.202"></a>
+<FONT color="green">203</FONT>            if (!containsCloseTag(unescaped, lastTagOpened)) {<a name="line.203"></a>
+<FONT color="green">204</FONT>              output.append(unescaped);<a name="line.204"></a>
+<FONT color="green">205</FONT>            } else {<a name="line.205"></a>
+<FONT color="green">206</FONT>              error("Unescaped text content contains close tag", elementName);<a name="line.206"></a>
+<FONT color="green">207</FONT>              // Still output the close tag.<a name="line.207"></a>
+<FONT color="green">208</FONT>            }<a name="line.208"></a>
+<FONT color="green">209</FONT>          }<a name="line.209"></a>
+<FONT color="green">210</FONT>          if ("plaintext".equals(elementName)) { return; }<a name="line.210"></a>
+<FONT color="green">211</FONT>        }<a name="line.211"></a>
+<FONT color="green">212</FONT>        output.append("&lt;/").append(elementName).append("&gt;");<a name="line.212"></a>
+<FONT color="green">213</FONT>      }<a name="line.213"></a>
+<FONT color="green">214</FONT>    <a name="line.214"></a>
+<FONT color="green">215</FONT>      public final void text(String text) {<a name="line.215"></a>
+<FONT color="green">216</FONT>        try {<a name="line.216"></a>
+<FONT color="green">217</FONT>          writeText(text);<a name="line.217"></a>
+<FONT color="green">218</FONT>        } catch (IOException ex) {<a name="line.218"></a>
+<FONT color="green">219</FONT>          ioExHandler.handle(ex);<a name="line.219"></a>
+<FONT color="green">220</FONT>        }<a name="line.220"></a>
+<FONT color="green">221</FONT>      }<a name="line.221"></a>
+<FONT color="green">222</FONT>    <a name="line.222"></a>
+<FONT color="green">223</FONT>      private final void writeText(String text) throws IOException {<a name="line.223"></a>
+<FONT color="green">224</FONT>        if (!open) { throw new IllegalStateException(); }<a name="line.224"></a>
+<FONT color="green">225</FONT>        if (pendingUnescaped != null) {<a name="line.225"></a>
+<FONT color="green">226</FONT>          pendingUnescaped.append(text.replaceAll("\0", ""));<a name="line.226"></a>
+<FONT color="green">227</FONT>        } else {<a name="line.227"></a>
+<FONT color="green">228</FONT>          escapeHtmlOnto(text, output);  // Works for RCDATA.<a name="line.228"></a>
+<FONT color="green">229</FONT>        }<a name="line.229"></a>
+<FONT color="green">230</FONT>      }<a name="line.230"></a>
+<FONT color="green">231</FONT>    <a name="line.231"></a>
+<FONT color="green">232</FONT>      private static boolean containsCloseTag(String unescaped, String tagName) {<a name="line.232"></a>
+<FONT color="green">233</FONT>        boolean allowEscapingTextSpan = HtmlTextEscapingMode.allowsEscapingTextSpan(<a name="line.233"></a>
+<FONT color="green">234</FONT>            tagName);<a name="line.234"></a>
+<FONT color="green">235</FONT>    <a name="line.235"></a>
+<FONT color="green">236</FONT>        int unescapedLength = unescaped.length();<a name="line.236"></a>
+<FONT color="green">237</FONT>        int tagNameLength = tagName.length();<a name="line.237"></a>
+<FONT color="green">238</FONT>        int limit = unescapedLength - tagName.length() - 2;<a name="line.238"></a>
+<FONT color="green">239</FONT>        for (int i = -1; (i = unescaped.indexOf('&lt;', i + 1)) &gt;= 0;) {<a name="line.239"></a>
+<FONT color="green">240</FONT>          if (i &lt;= limit &amp;&amp; '/' == unescaped.charAt(i + 1)<a name="line.240"></a>
+<FONT color="green">241</FONT>              &amp;&amp; Strings.regionMatchesIgnoreCase(<a name="line.241"></a>
+<FONT color="green">242</FONT>                  unescaped, i + 2, tagName, 0, tagNameLength)) {<a name="line.242"></a>
+<FONT color="green">243</FONT>            // Content cannot be embedded.<a name="line.243"></a>
+<FONT color="green">244</FONT>            return true;<a name="line.244"></a>
+<FONT color="green">245</FONT>          } else if (allowEscapingTextSpan &amp;&amp; i + 4 &lt;= unescapedLength<a name="line.245"></a>
+<FONT color="green">246</FONT>                     &amp;&amp; '!' == unescaped.charAt(i + 1)<a name="line.246"></a>
+<FONT color="green">247</FONT>                     &amp;&amp; '-' == unescaped.charAt(i + 2)<a name="line.247"></a>
+<FONT color="green">248</FONT>                     &amp;&amp; '-' == unescaped.charAt(i + 3)) {<a name="line.248"></a>
+<FONT color="green">249</FONT>            // HTML 5 allows the end of an escaping text span to share dashes with<a name="line.249"></a>
+<FONT color="green">250</FONT>            // the open : &lt;!--&gt; and &lt;!---&gt; are both fully formed.<a name="line.250"></a>
+<FONT color="green">251</FONT>            if (i + 4 &lt; unescapedLength &amp;&amp; unescaped.charAt(i + 4) == '&gt;') {<a name="line.251"></a>
+<FONT color="green">252</FONT>              i = i + 5;<a name="line.252"></a>
+<FONT color="green">253</FONT>            } else if (i + 5 &lt; unescapedLength<a name="line.253"></a>
+<FONT color="green">254</FONT>                       &amp;&amp; unescaped.charAt(i + 4) == '-'<a name="line.254"></a>
+<FONT color="green">255</FONT>                       &amp;&amp; unescaped.charAt(i + 5) == '&gt;') {<a name="line.255"></a>
+<FONT color="green">256</FONT>              i = i + 6;<a name="line.256"></a>
+<FONT color="green">257</FONT>            } else {<a name="line.257"></a>
+<FONT color="green">258</FONT>              i = unescaped.indexOf("--&gt;", i + 4);<a name="line.258"></a>
+<FONT color="green">259</FONT>              if (i &lt; 0) {<a name="line.259"></a>
+<FONT color="green">260</FONT>                // If the escaping text span is not closed, then final close tag<a name="line.260"></a>
+<FONT color="green">261</FONT>                // would be covered by the unclosed escaping text span.<a name="line.261"></a>
+<FONT color="green">262</FONT>                return true;<a name="line.262"></a>
+<FONT color="green">263</FONT>              }<a name="line.263"></a>
+<FONT color="green">264</FONT>            }<a name="line.264"></a>
+<FONT color="green">265</FONT>          }<a name="line.265"></a>
+<FONT color="green">266</FONT>        }<a name="line.266"></a>
+<FONT color="green">267</FONT>        return false;<a name="line.267"></a>
+<FONT color="green">268</FONT>      }<a name="line.268"></a>
+<FONT color="green">269</FONT>    <a name="line.269"></a>
+<FONT color="green">270</FONT>    <a name="line.270"></a>
+<FONT color="green">271</FONT>      @VisibleForTesting<a name="line.271"></a>
+<FONT color="green">272</FONT>      static boolean isValidHtmlName(String name) {<a name="line.272"></a>
+<FONT color="green">273</FONT>        int n = name.length();<a name="line.273"></a>
+<FONT color="green">274</FONT>        if (n == 0) { return false; }<a name="line.274"></a>
+<FONT color="green">275</FONT>        if (n &gt; 128) { return false; }<a name="line.275"></a>
+<FONT color="green">276</FONT>        boolean isNamespaced = false;<a name="line.276"></a>
+<FONT color="green">277</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.277"></a>
+<FONT color="green">278</FONT>          char ch = name.charAt(i);<a name="line.278"></a>
+<FONT color="green">279</FONT>          switch (ch) {<a name="line.279"></a>
+<FONT color="green">280</FONT>            case ':':<a name="line.280"></a>
+<FONT color="green">281</FONT>              if (isNamespaced) { return false; }<a name="line.281"></a>
+<FONT color="green">282</FONT>              isNamespaced = true;<a name="line.282"></a>
+<FONT color="green">283</FONT>              if (i == 0 || i + 1 == n) { return false; }<a name="line.283"></a>
+<FONT color="green">284</FONT>              break;<a name="line.284"></a>
+<FONT color="green">285</FONT>            case '-':<a name="line.285"></a>
+<FONT color="green">286</FONT>              if (i == 0 || i + 1 == n) { return false; }<a name="line.286"></a>
+<FONT color="green">287</FONT>              break;<a name="line.287"></a>
+<FONT color="green">288</FONT>            default:<a name="line.288"></a>
+<FONT color="green">289</FONT>              if (ch &lt;= '9') {<a name="line.289"></a>
+<FONT color="green">290</FONT>                if (i == 0 || ch &lt; '0') { return false; }<a name="line.290"></a>
+<FONT color="green">291</FONT>              } else if ('A' &lt;= ch &amp;&amp; ch &lt;= 'z') {<a name="line.291"></a>
+<FONT color="green">292</FONT>                if ('Z' &lt; ch &amp;&amp; ch &lt; 'a') { return false; }<a name="line.292"></a>
+<FONT color="green">293</FONT>              } else {<a name="line.293"></a>
+<FONT color="green">294</FONT>                return false;<a name="line.294"></a>
+<FONT color="green">295</FONT>              }<a name="line.295"></a>
+<FONT color="green">296</FONT>              break;<a name="line.296"></a>
+<FONT color="green">297</FONT>          }<a name="line.297"></a>
+<FONT color="green">298</FONT>        }<a name="line.298"></a>
+<FONT color="green">299</FONT>        return true;<a name="line.299"></a>
+<FONT color="green">300</FONT>      }<a name="line.300"></a>
+<FONT color="green">301</FONT>    <a name="line.301"></a>
+<FONT color="green">302</FONT>      @SuppressWarnings("fallthrough")<a name="line.302"></a>
+<FONT color="green">303</FONT>      static void escapeHtmlOnto(String plainText, Appendable output)<a name="line.303"></a>
+<FONT color="green">304</FONT>          throws IOException {<a name="line.304"></a>
+<FONT color="green">305</FONT>        int n = plainText.length();<a name="line.305"></a>
+<FONT color="green">306</FONT>        int pos = 0;<a name="line.306"></a>
+<FONT color="green">307</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.307"></a>
+<FONT color="green">308</FONT>          char ch = plainText.charAt(i);<a name="line.308"></a>
+<FONT color="green">309</FONT>          switch (ch) {<a name="line.309"></a>
+<FONT color="green">310</FONT>            case '&lt;':<a name="line.310"></a>
+<FONT color="green">311</FONT>              output.append(plainText, pos, i).append("&amp;lt;");<a name="line.311"></a>
+<FONT color="green">312</FONT>              pos = i + 1;<a name="line.312"></a>
+<FONT color="green">313</FONT>              break;<a name="line.313"></a>
+<FONT color="green">314</FONT>            case '&gt;':<a name="line.314"></a>
+<FONT color="green">315</FONT>              output.append(plainText, pos, i).append("&amp;gt;");<a name="line.315"></a>
+<FONT color="green">316</FONT>              pos = i + 1;<a name="line.316"></a>
+<FONT color="green">317</FONT>              break;<a name="line.317"></a>
+<FONT color="green">318</FONT>            case '&amp;':<a name="line.318"></a>
+<FONT color="green">319</FONT>              output.append(plainText, pos, i).append("&amp;amp;");<a name="line.319"></a>
+<FONT color="green">320</FONT>              pos = i + 1;<a name="line.320"></a>
+<FONT color="green">321</FONT>              break;<a name="line.321"></a>
+<FONT color="green">322</FONT>            case '"':<a name="line.322"></a>
+<FONT color="green">323</FONT>              output.append(plainText, pos, i).append("&amp;#34;");<a name="line.323"></a>
+<FONT color="green">324</FONT>              pos = i + 1;<a name="line.324"></a>
+<FONT color="green">325</FONT>              break;<a name="line.325"></a>
+<FONT color="green">326</FONT>            case '\r': case '\n': break;<a name="line.326"></a>
+<FONT color="green">327</FONT>            default:<a name="line.327"></a>
+<FONT color="green">328</FONT>              if (0x20 &lt;= ch &amp;&amp; ch &lt; 0xff00) {<a name="line.328"></a>
+<FONT color="green">329</FONT>                continue;<a name="line.329"></a>
+<FONT color="green">330</FONT>              }<a name="line.330"></a>
+<FONT color="green">331</FONT>              // Is a control character or possible full-width version of a<a name="line.331"></a>
+<FONT color="green">332</FONT>              // special character.<a name="line.332"></a>
+<FONT color="green">333</FONT>              // FALL-THROUGH<a name="line.333"></a>
+<FONT color="green">334</FONT>            case '+':  // UTF-7<a name="line.334"></a>
+<FONT color="green">335</FONT>            case '=':  // Special in attributes.<a name="line.335"></a>
+<FONT color="green">336</FONT>            case '@':  // Conditional compilation<a name="line.336"></a>
+<FONT color="green">337</FONT>            case '\'': case '`':  // Quoting character<a name="line.337"></a>
+<FONT color="green">338</FONT>              output.append(plainText, pos, i).append("&amp;#")<a name="line.338"></a>
+<FONT color="green">339</FONT>                  .append(String.valueOf((int) ch)).append(';');<a name="line.339"></a>
+<FONT color="green">340</FONT>              pos = i + 1;<a name="line.340"></a>
+<FONT color="green">341</FONT>              break;<a name="line.341"></a>
+<FONT color="green">342</FONT>            case 0:<a name="line.342"></a>
+<FONT color="green">343</FONT>              output.append(plainText, pos, i);<a name="line.343"></a>
+<FONT color="green">344</FONT>              pos = i + 1;<a name="line.344"></a>
+<FONT color="green">345</FONT>              break;<a name="line.345"></a>
+<FONT color="green">346</FONT>          }<a name="line.346"></a>
+<FONT color="green">347</FONT>        }<a name="line.347"></a>
+<FONT color="green">348</FONT>        output.append(plainText, pos, n);<a name="line.348"></a>
+<FONT color="green">349</FONT>      }<a name="line.349"></a>
+<FONT color="green">350</FONT>    <a name="line.350"></a>
+<FONT color="green">351</FONT>    <a name="line.351"></a>
+<FONT color="green">352</FONT>      static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer<a name="line.352"></a>
+<FONT color="green">353</FONT>          implements Closeable {<a name="line.353"></a>
+<FONT color="green">354</FONT>        private final Closeable closeable;<a name="line.354"></a>
+<FONT color="green">355</FONT>    <a name="line.355"></a>
+<FONT color="green">356</FONT>        CloseableHtmlStreamRenderer(<a name="line.356"></a>
+<FONT color="green">357</FONT>            @WillCloseWhenClosed<a name="line.357"></a>
+<FONT color="green">358</FONT>            Appendable output, Handler&lt;? super IOException&gt; errorHandler,<a name="line.358"></a>
+<FONT color="green">359</FONT>            Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.359"></a>
+<FONT color="green">360</FONT>          super(output, errorHandler, badHtmlHandler);<a name="line.360"></a>
+<FONT color="green">361</FONT>          this.closeable = (Closeable) output;<a name="line.361"></a>
+<FONT color="green">362</FONT>        }<a name="line.362"></a>
+<FONT color="green">363</FONT>    <a name="line.363"></a>
+<FONT color="green">364</FONT>        public void close() throws IOException {<a name="line.364"></a>
+<FONT color="green">365</FONT>          if (isDocumentOpen()) { closeDocument(); }<a name="line.365"></a>
+<FONT color="green">366</FONT>          closeable.close();<a name="line.366"></a>
+<FONT color="green">367</FONT>        }<a name="line.367"></a>
+<FONT color="green">368</FONT>      }<a name="line.368"></a>
+<FONT color="green">369</FONT>    }<a name="line.369"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</PRE>
+</BODY>
+</HTML>
