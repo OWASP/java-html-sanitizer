@@ -30,8 +30,24 @@ package org.owasp.html;
 
 import com.google.common.collect.ImmutableMap;
 
+/**
+ * Utilities for decoding HTML entities, e.g., {@code &amp;}.
+ */
 class HtmlEntities {
 
+  /**
+   * Decodes any HTML entity at the given location.  This handles both named and
+   * numeric entities.
+   *
+   * @param html HTML text.
+   * @param offset the position of the sequence to decode.
+   * @param limit the last position in chars that could be part of the sequence
+   *    to decode.
+   * @return The offset after the end of the decoded sequence and the decoded
+   *    code-point or code-unit packed into a long.
+   *    The first 32 bits are the offset, and the second 32 bits are a
+   *    code-point or a code-unit.
+   */
   public static long decodeEntityAt(String html, int offset, int limit) {
     char ch = html.charAt(offset);
     if ('&' != ch) {
@@ -48,7 +64,7 @@ class HtmlEntities {
     entityloop:
     for (int i = offset + 1; i < entityLimit; ++i) {
       switch (html.charAt(i)) {
-        case ';':
+        case ';':  // An unbroken entity.
           end = i;
           tail = end + 1;
           break entityloop;
@@ -67,6 +83,9 @@ class HtmlEntities {
         case '6': case '7': case '8': case '9':
           break;
         case '=':
+          // An equal sign after an entity missing a closing semicolon should
+          // never have the semicolon inserted since that causes trouble with
+          // parameters in partially encoded URLs.
           return ((offset + 1L) << 32) | '&';
         default:  // A possible broken entity.
           end = i;
@@ -191,6 +210,7 @@ class HtmlEntities {
     return t.isTerminal();
   }
 
+  /** A trie that maps entity names to codepoints. */
   public static final Trie ENTITY_TRIE = new Trie(
       ImmutableMap.<String, Integer>builder()
     // C0 Controls and Basic Latin
