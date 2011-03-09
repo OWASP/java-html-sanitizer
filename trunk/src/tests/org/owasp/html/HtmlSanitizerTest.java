@@ -1,10 +1,5 @@
 package org.owasp.html;
 
-import com.google.common.collect.ImmutableSet;
-
-import java.util.List;
-import java.util.ListIterator;
-
 import junit.framework.TestCase;
 
 
@@ -24,149 +19,149 @@ public class HtmlSanitizerTest extends TestCase {
 
     // test interrupted escapes and escapes at end of file handled gracefully
     assertEquals(
-        HtmlSanitizer.decodeHtml("\\\\u000a"),
-        "\\\\u000a");
+        "\\\\u000a",
+        HtmlSanitizer.decodeHtml("\\\\u000a"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x000a;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#x000a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x00a;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#x00a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x0a;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#x0a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#xa;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#xa;"));
     assertEquals(
         HtmlSanitizer.decodeHtml("&#x10000;"),
         String.valueOf(Character.toChars(0x10000)));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#xa"),
-        "&#xa");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#xa"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x00ziggy"),
-        "&#x00ziggy");
+        "&#x00ziggy",
+        HtmlSanitizer.decodeHtml("&#x00ziggy"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#xa00z;"),
-        "&#xa00z;");
+        "&#xa00z;",
+        HtmlSanitizer.decodeHtml("&#xa00z;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#&#x000a;"),
-        "&#\n");
+        "&#\n",
+        HtmlSanitizer.decodeHtml("&#&#x000a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x&#x000a;"),
-        "&#x\n");
+        "&#x\n",
+        HtmlSanitizer.decodeHtml("&#x&#x000a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#xa&#x000a;"),
-        "&#xa\n");
+        "\n\n",
+        HtmlSanitizer.decodeHtml("&#xa&#x000a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#&#xa;"),
-        "&#\n");
+        "&#\n",
+        HtmlSanitizer.decodeHtml("&#&#xa;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x"),
-        "&#x");
+        "&#x",
+        HtmlSanitizer.decodeHtml("&#x"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x0"),
-        "&#x0");
+        "\u0000",
+        HtmlSanitizer.decodeHtml("&#x0"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#"),
-        "&#");
+        "&#",
+        HtmlSanitizer.decodeHtml("&#"));
 
     assertEquals(
-        HtmlSanitizer.decodeHtml("\\"),
-        "\\");
+        "\\",
+        HtmlSanitizer.decodeHtml("\\"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&"),
-        "&");
+        "&",
+        HtmlSanitizer.decodeHtml("&"));
 
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#000a;"),
-        "&#000a;");
+        "&#000a;",
+        HtmlSanitizer.decodeHtml("&#000a;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#10;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#10;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#010;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#010;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#0010;"),
-        "\n");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#0010;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#9;"),
-        "\t");
+        "\t",
+        HtmlSanitizer.decodeHtml("&#9;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#10"),
-        "&#10");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#10"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#00ziggy"),
-        "&#00ziggy");
+        "&#00ziggy",
+        HtmlSanitizer.decodeHtml("&#00ziggy"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#&#010;"),
-        "&#\n");
+        "&#\n",
+        HtmlSanitizer.decodeHtml("&#&#010;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#0&#010;"),
-        "&#0\n");
+        "\u0000\n",
+        HtmlSanitizer.decodeHtml("&#0&#010;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#01&#10;"),
-        "&#01\n");
+        "\u0001\n",
+        HtmlSanitizer.decodeHtml("&#01&#10;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#&#10;"),
-        "&#\n");
+        "&#\n",
+        HtmlSanitizer.decodeHtml("&#&#10;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#1"),
-        "&#1");
+        "\u0001",
+        HtmlSanitizer.decodeHtml("&#1"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#10"),
-        "&#10");
+        "\n",
+        HtmlSanitizer.decodeHtml("&#10"));
 
     // test the named escapes
     assertEquals(
-        HtmlSanitizer.decodeHtml("&lt;"),
-        "<");
+        "<",
+        HtmlSanitizer.decodeHtml("&lt;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&gt;"),
-        ">");
+        ">",
+        HtmlSanitizer.decodeHtml("&gt;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&quot;"),
-        "\"");
+        "\"",
+        HtmlSanitizer.decodeHtml("&quot;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&apos;"),
-        "'");
+        "'",
+        HtmlSanitizer.decodeHtml("&apos;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#39;"),
-        "'");
+        "'",
+        HtmlSanitizer.decodeHtml("&#39;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&#x27;"),
-        "'");
+        "'",
+        HtmlSanitizer.decodeHtml("&#x27;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&amp;"),
-        "&");
+        "&",
+        HtmlSanitizer.decodeHtml("&amp;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&amp;lt;"),
-        "&lt;");
+        "&lt;",
+        HtmlSanitizer.decodeHtml("&amp;lt;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&AMP;"),
-        "&");
+        "&",
+        HtmlSanitizer.decodeHtml("&AMP;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&AMP"),
-        "&AMP");
+        "&",
+        HtmlSanitizer.decodeHtml("&AMP"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&AmP;"),
-        "&");
+        "&",
+        HtmlSanitizer.decodeHtml("&AmP;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&Alpha;"),
-        "\u0391");
+        "\u0391",
+        HtmlSanitizer.decodeHtml("&Alpha;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&alpha;"),
-        "\u03b1");
+        "\u03b1",
+        HtmlSanitizer.decodeHtml("&alpha;"));
 
 
     assertEquals(
-        HtmlSanitizer.decodeHtml("&;"),
-        "&;");
+        "&;",
+        HtmlSanitizer.decodeHtml("&;"));
     assertEquals(
-        HtmlSanitizer.decodeHtml("&bogus;"),
-        "&bogus;");
+        "&bogus;",
+        HtmlSanitizer.decodeHtml("&bogus;"));
   }
 
 
@@ -184,35 +179,35 @@ public class HtmlSanitizerTest extends TestCase {
 
   public final void testEntities2() throws Exception {
     assertEquals("<b>hello <i>world</i></b>",
-		 sanitize("<b>hello <i>world</i></b>"));
+                 sanitize("<b>hello <i>world</i></b>"));
   }
 
   public final void testUnknownTagsRemoved() throws Exception {
     assertEquals("<b>hello <i>world</i></b>",
-		 sanitize("<b>hello <bogus></bogus><i>world</i></b>"));
+                 sanitize("<b>hello <bogus></bogus><i>world</i></b>"));
   }
 
   public final void testUnsafeTagsRemoved() throws Exception {
     assertEquals("<b>hello <i>world</i></b>",
-		 sanitize("<b>hello <i>world</i>"
-			  + "<script src=foo.js></script></b>"));
+                 sanitize("<b>hello <i>world</i>"
+                          + "<script src=foo.js></script></b>"));
   }
 
   public final void testUnsafeAttributesRemoved() throws Exception {
-    assertEquals("<b>hello <i>world</i></b>",
-		 sanitize(
-                     "<b>hello <i onclick=\"takeOverWorld(this)\">world</i></b>"));
+    assertEquals(
+        "<b>hello <i>world</i></b>",
+        sanitize("<b>hello <i onclick=\"takeOverWorld(this)\">world</i></b>"));
   }
 
   public final void testCruftEscaped() throws Exception {
     assertEquals("<b>hello <i>world&lt;</i></b> &amp; tomorrow the universe",
-		 sanitize(
+                 sanitize(
                      "<b>hello <i>world<</i></b> & tomorrow the universe"));
   }
 
   public final void testTagCruftRemoved() throws Exception {
     assertEquals("<b id=\"p-foo\">hello <i>world&lt;</i></b>",
-		 sanitize("<b id=\"foo\" / -->hello <i>world<</i></b>"));
+                 sanitize("<b id=\"foo\" / -->hello <i>world<</i></b>"));
   }
 
   public final void testIdsAndClassesPrefixed() throws Exception {
@@ -230,19 +225,20 @@ public class HtmlSanitizerTest extends TestCase {
 
   public final void testUnclosedTags() throws Exception {
     assertEquals("<div id=\"p-foo\">Bar<br>Baz</div>",
-		 sanitize("<div id=\"foo\">Bar<br>Baz"));
+                 sanitize("<div id=\"foo\">Bar<br>Baz"));
   }
 
   public final void testUnopenedTags() throws Exception {
     assertEquals("Foo<b>Bar</b>Baz",
-		 sanitize("Foo<b></select>Bar</b></b>Baz</select>"));
+                 sanitize("Foo<b></select>Bar</b></b>Baz</select>"));
   }
 
   public final void testUnsafeEndTags() throws Exception {
     assertEquals(
         "",
         sanitize(
-            "</meta http-equiv=\"refesh\" content=\"1;URL=http://evilgadget.com\">"));
+            "</meta http-equiv=\"refesh\""
+            + " content=\"1;URL=http://evilgadget.com\">"));
   }
 
   public final void testEmptyEndTags() throws Exception {
@@ -275,7 +271,7 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(
         "<p>P 1</p>",
         sanitize("<html><head><title>Foo</title></head>"
-		 + "<body><p>P 1</p></body></html>"));
+                 + "<body><p>P 1</p></body></html>"));
     assertEquals(
         "Hello",
         sanitize("<body bgcolor=\"blue\">Hello</body>"));
@@ -347,83 +343,38 @@ public class HtmlSanitizerTest extends TestCase {
 
   private static String sanitize(String html) throws Exception {
     StringBuilder sb = new StringBuilder();
-    final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
+    HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         sb,
         new Handler<String>() {
-          @Override
           public void handle(String errorMessage) {
             fail(errorMessage);
           }
         });
 
-    // A VERY SIMPLE WHITELISTING POLICY
-    final ImmutableSet<String> okTags = ImmutableSet.of(
-        "a", "b", "br", "div", "i", "img", "input", "li",
-        "ol", "p", "span", "ul");
-    final ImmutableSet<String> okAttrs = ImmutableSet.of(
-        "div", "checked", "class", "href", "id", "target", "title", "type");
-
-    HtmlSanitizer.Policy policy = new HtmlSanitizer.Policy() {
-
-      int ignoreDepth = 0;
-
-      @Override
-      public void openDocument() {
-        renderer.openDocument();
-      }
-
-      @Override
-      public void closeDocument() {
-        renderer.closeDocument();
-      }
-
-      @Override
-      public void text(String textChunk) {
-        if (ignoreDepth == 0) { renderer.text(textChunk); }
-      }
-
-      @Override
-      public void openTag(String elementName, List<String> attrs) {
-        if (okTags.contains(elementName)) {
-          for (ListIterator<String> it = attrs.listIterator();
-               it.hasNext();) {
-            String attrName = it.next();
-            if (okAttrs.contains(attrName)) {
-              String value = it.next();
-              if ("id".equals(attrName) || "class".equals(attrName)) {
-                it.set(value.replaceAll("(?:^|\\s)([a-zA-Z])", " p-$1")
-                       .replaceAll("\\s+", " ")
-                       .trim());
-              }
-            } else {
-              it.remove();
-              it.next();
-              it.remove();
+    HtmlSanitizer.Policy policy = new HtmlPolicyBuilder()
+        // Allow these tags.
+       .allowElements(
+           "a", "b", "br", "div", "i", "img", "input", "li",
+           "ol", "p", "span", "ul")
+       // And these attributes.
+       .allowAttributesGlobally(
+           "dir", "checked", "class", "href", "id", "target", "title", "type")
+       // Cleanup IDs and CLASSes and prefix them with p- to move to a separate
+       // name-space.
+       .allowAttributesGlobally(
+           new AttributePolicy() {
+            public String apply(
+                String elementName, String attributeName, String value) {
+              return value.replaceAll("(?:^|\\s)([a-zA-Z])", " p-$1")
+                  .replaceAll("\\s+", " ")
+                  .trim();
             }
-          }
-          renderer.openTag(elementName, attrs);
-        } else if (ignoreContents(elementName)) {
-          ++ignoreDepth;
-        }
-      }
+           }, "id", "class")
+       // Don't throw out useless <img> and <input> elements to ease debugging.
+       .allowWithoutAttributes("img", "input")
+       .build(renderer);
 
-      @Override
-      public void closeTag(String elementName) {
-        if (okTags.contains(elementName)) {
-          renderer.closeTag(elementName);
-        } else if (ignoreContents(elementName)) {
-          --ignoreDepth;
-        }
-      }
-
-      private boolean ignoreContents(String unsafeElementName) {
-        return !("body".equals(unsafeElementName)
-                 || "html".equals(unsafeElementName)
-                 || "head".equals(unsafeElementName));
-      }
-    };
-
-    new HtmlSanitizer().sanitize(html, policy);
+    HtmlSanitizer.sanitize(html, policy);
 
     return sb.toString();
   }

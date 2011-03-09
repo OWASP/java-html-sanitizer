@@ -5,21 +5,28 @@ import java.util.List;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
+/**
+ * Wraps an HTML stream event receiver to fill in missing close tags.
+ * If the balancer is given the HTML {@code <p>1<p>2}, the wrapped receiver will
+ * see events equivalent to {@code <p>1</p><p>2</p>}.
+ *
+ * @author Mike Samuel <mikesamuel@gmail.com>
+ */
 @TCB
-public class TagBalancingHtmlStreamEventReceiver implements HtmlStreamEventReceiver {
+public class TagBalancingHtmlStreamEventReceiver
+    implements HtmlStreamEventReceiver {
   private final HtmlStreamEventReceiver underlying;
   private final List<String> openElements = Lists.newArrayList();
 
-  public TagBalancingHtmlStreamEventReceiver(HtmlStreamEventReceiver underlying) {
+  public TagBalancingHtmlStreamEventReceiver(
+      HtmlStreamEventReceiver underlying) {
     this.underlying = underlying;
   }
 
-  @Override
   public void openDocument() {
     underlying.openDocument();
   }
 
-  @Override
   public void closeDocument() {
     while (!openElements.isEmpty()) {
       closeTag(openElements.get(openElements.size() - 1));
@@ -27,7 +34,6 @@ public class TagBalancingHtmlStreamEventReceiver implements HtmlStreamEventRecei
     underlying.closeDocument();
   }
 
-  @Override
   public void openTag(String elementName, List<String> attrs) {
     String canonElementName = HtmlLexer.canonicalName(elementName);
     String optionalEndTagPartition = END_TAG_PARTITIONS.get(canonElementName);
@@ -48,7 +54,6 @@ public class TagBalancingHtmlStreamEventReceiver implements HtmlStreamEventRecei
     underlying.openTag(elementName, attrs);
   }
 
-  @Override
   public void closeTag(String elementName) {
     String canonElementName = HtmlLexer.canonicalName(elementName);
     int index = openElements.lastIndexOf(canonElementName);
@@ -62,7 +67,6 @@ public class TagBalancingHtmlStreamEventReceiver implements HtmlStreamEventRecei
     underlying.closeTag(elementName);
   }
 
-  @Override
   public void text(String text) {
     underlying.text(text);
   }

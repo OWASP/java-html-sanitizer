@@ -7,12 +7,12 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * A flexible lexer for html.
+ * A flexible lexer for HTML.
  * This is hairy code, but it is outside the TCB for the HTML sanitizer.
  *
- * @author mikesamuel@gmail.com
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
-public final class HtmlLexer extends AbstractTokenStream {
+final class HtmlLexer extends AbstractTokenStream {
   private final String input;
   private final HtmlInputSplitter splitter;
   private State state = State.OUTSIDE_TAG;
@@ -23,8 +23,8 @@ public final class HtmlLexer extends AbstractTokenStream {
   }
 
   /**
-   * Normalize case of names that are not namespaced.  This lower-cases HTML
-   * element and attribute names, but not ones for embedded svg or mathml.
+   * Normalize case of names that are not name-spaced.  This lower-cases HTML
+   * element and attribute names, but not ones for embedded SVG or MATHML.
    */
   static String canonicalName(String elementOrAttribName) {
     return elementOrAttribName.indexOf(':') >= 0
@@ -49,7 +49,7 @@ public final class HtmlLexer extends AbstractTokenStream {
    * splitter.
    */
   @Override
-  protected HtmlToken produce() throws ParseException {
+  protected HtmlToken produce() {
     HtmlToken token = readToken();
     if (token == null) { return null; }
 
@@ -135,8 +135,7 @@ public final class HtmlLexer extends AbstractTokenStream {
   /**
    * Collapses all the following tokens of the same type into this.token.
    */
-  private HtmlToken collapseSubsequent(HtmlToken token)
-      throws ParseException {
+  private HtmlToken collapseSubsequent(HtmlToken token) {
     HtmlToken collapsed = token;
     for (HtmlToken next;
          (next= peekToken(0)) != null && next.type == token.type;
@@ -146,8 +145,7 @@ public final class HtmlLexer extends AbstractTokenStream {
     return collapsed;
   }
 
-  private HtmlToken collapseAttributeName(HtmlToken token)
-      throws ParseException {
+  private HtmlToken collapseAttributeName(HtmlToken token) {
     // We want to collapse tokens into the value that are not parts of an
     // attribute value.  We should include any space or text adjacent to the
     // value, but should stop at any of the following constructions:
@@ -191,7 +189,7 @@ public final class HtmlLexer extends AbstractTokenStream {
   }
 
   private final LinkedList<HtmlToken> lookahead = Lists.newLinkedList();
-  private HtmlToken readToken() throws ParseException {
+  private HtmlToken readToken() {
     if (!lookahead.isEmpty()) {
       return lookahead.remove();
     } else if (splitter.hasNext()) {
@@ -201,7 +199,7 @@ public final class HtmlLexer extends AbstractTokenStream {
     }
   }
 
-  private HtmlToken peekToken(int i) throws ParseException {
+  private HtmlToken peekToken(int i) {
     while (lookahead.size() <= i && splitter.hasNext()) {
       lookahead.add(splitter.next());
     }
@@ -693,12 +691,12 @@ final class HtmlInputSplitter extends AbstractTokenStream {
 abstract class AbstractTokenStream implements TokenStream {
   private HtmlToken tok;
 
-  public final boolean hasNext() throws ParseException {
+  public final boolean hasNext() {
     if (tok == null) { tok = produce(); }
     return tok != null;
   }
 
-  public HtmlToken next() throws ParseException {
+  public HtmlToken next() {
     if (this.tok == null) { this.tok = produce(); }
     HtmlToken t = this.tok;
     if (t == null) { throw new NoSuchElementException(); }
@@ -706,5 +704,5 @@ abstract class AbstractTokenStream implements TokenStream {
     return t;
   }
 
-  protected abstract HtmlToken produce() throws ParseException;
+  protected abstract HtmlToken produce();
 }

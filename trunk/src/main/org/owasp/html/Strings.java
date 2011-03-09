@@ -11,20 +11,21 @@ import javax.annotation.Nullable;
  * Turkish than if it is English.
  * <p>
  * These operations ignore all case folding for non-Roman letters, and are
- * independent of the current Locale.
- * Lowercasing is exactly equivalent to {@code tr/A-Z/a-z/}, uppercasing to
+ * independent of the current locale.
+ * Lower-casing is exactly equivalent to {@code tr/A-Z/a-z/}, upper-casing to
  * {@code tr/a-z/A-Z/}, and case insensitive comparison is equivalent to
- * lowercasing both then comparing by code-unit.
+ * lower-casing both then comparing by code-unit.
  * <p>
  * Because of this simpler case folding, it is the case that for all Strings s
  * <code>
  * Strings.toUpperCase(s).equals(Strings.toUpperCase(Strings.toLowerCase(s)))
  * </code>.
  *
- * @author mikesamuel@gmail.com
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
-public final class Strings {
-  public static boolean equalsIgnoreCase(@Nullable String a, @Nullable String b) {
+final class Strings {
+  public static boolean equalsIgnoreCase(
+      @Nullable String a, @Nullable String b) {
     if (a == null) { return b == null; }
     if (b == null) { return false; }
     int length = a.length();

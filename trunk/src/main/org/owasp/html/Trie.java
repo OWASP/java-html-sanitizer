@@ -13,7 +13,7 @@ import java.util.TreeMap;
  *
  * @author mikesamuel@gmail.com
  */
-public final class Trie {
+final class Trie {
   private final char[] childMap;
   private final Trie[] children;
   private final boolean terminal;

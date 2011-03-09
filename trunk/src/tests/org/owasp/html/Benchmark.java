@@ -16,31 +16,78 @@ import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 public class Benchmark {
 
   public static void main(String[] args) throws Exception {
-    int n = 0;
-
     String html = Files.toString(new File(args[0]), Charsets.UTF_8);
-    for (int i = 100; --i >= 0;) {
-      n += parseUsingLibhtmlparser(html);
+
+    boolean timeLibhtmlparser = true;
+    boolean timeSanitize = true;
+    boolean timePolicyBuilder = true;
+
+    if (args.length > 1) {
+      String s = args[1];
+      timeLibhtmlparser = s.contains("h");
+      timeSanitize = s.contains("s");
+      timePolicyBuilder = s.contains("p");
     }
 
-    for (int i = 100; --i >= 0;) {
-      n += sanitize(html).length();
+    int n = 0;  // Defeat optimizations.
+
+    if (timeLibhtmlparser) {
+      for (int i = 100; --i >= 0;) {
+        n += parseUsingLibhtmlparser(html);
+      }
     }
 
-    long t0 = System.nanoTime();
-    for (int i = 100; --i >= 0;) {
-      n += parseUsingLibhtmlparser(html);
+    if (timeSanitize) {
+      for (int i = 100; --i >= 0;) {
+        n += sanitize(html).length();
+      }
     }
-    long t1 = System.nanoTime();
 
-    long t2 = System.nanoTime();
-    for (int i = 100; --i >= 0;) {
-      n += sanitize(html).length();
+    if (timePolicyBuilder) {
+      for (int i = 100; --i >= 0;) {
+        n += sanitizeUsingPolicyBuilder(html).length();
+      }
     }
-    long t3 = System.nanoTime();
 
-    System.err.println(String.format("Tree parse    : %12d", (t1 - t0)));
-    System.err.println(String.format("Full sanitize : %12d", (t3 - t2)));
+    long t0 = 0, t1 = -1;
+    if (timeLibhtmlparser) {
+      t0 = System.nanoTime();
+      for (int i = 100; --i >= 0;) {
+        n += parseUsingLibhtmlparser(html);
+      }
+      t1 = System.nanoTime();
+    }
+
+    long t2 = 0, t3 = -1;
+    if (timeSanitize) {
+      t2 = System.nanoTime();
+      for (int i = 100; --i >= 0;) {
+        n += sanitize(html).length();
+      }
+      t3 = System.nanoTime();
+    }
+
+    long t4 = 0, t5 = -1;
+    if (timePolicyBuilder) {
+      t4 = System.nanoTime();
+      for (int i = 100; --i >= 0;) {
+        n += sanitize(html).length();
+      }
+      t5 = System.nanoTime();
+    }
+
+    if (timeLibhtmlparser) {
+      System.err.println(String.format(
+          "Tree parse           : %12d", (t1 - t0)));
+    }
+    if (timeSanitize) {
+      System.err.println(String.format(
+          "Full sanitize custom : %12d", (t3 - t2)));
+    }
+    if (timePolicyBuilder) {
+      System.err.println(String.format(
+          "Full sanitize w/ PB  : %12d", (t5 - t4)));
+    }
   }
 
   private static int parseUsingLibhtmlparser(String html) throws Exception {
@@ -55,30 +102,25 @@ public class Benchmark {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         sb, new Handler<String>() {
 
-          @Override
           public void handle(String x) {
             throw new AssertionError(x);
           }
         });
 
-    new HtmlSanitizer().sanitize(html, new HtmlSanitizer.Policy() {
+    HtmlSanitizer.sanitize(html, new HtmlSanitizer.Policy() {
 
-      @Override
       public void openDocument() {
         renderer.openDocument();
       }
 
-      @Override
       public void closeDocument() {
         renderer.closeDocument();
       }
 
-      @Override
       public void text(String textChunk) {
         renderer.text(textChunk);
       }
 
-      @Override
       public void openTag(String elementName, List<String> attrs) {
         if ("a".equals(elementName)) {
           for (ListIterator<String> it = attrs.listIterator(); it.hasNext();) {
@@ -95,13 +137,36 @@ public class Benchmark {
         }
       }
 
-      @Override
       public void closeTag(String elementName) {
         if ("a".equals(elementName)) {
           renderer.closeTag(elementName);
         }
       }
     });
+    return sb.toString();
+  }
+
+  private static HtmlPolicyBuilder policyBuilder;
+
+  private static String sanitizeUsingPolicyBuilder(String html)
+      throws Exception {
+    if (policyBuilder == null) {
+      policyBuilder = new HtmlPolicyBuilder()
+          .allowStandardUrlProtocols()
+          .allowElements("a")
+          .allowAttributesOnElement("a", "href");
+    }
+
+    StringBuilder sb = new StringBuilder(html.length());
+
+    HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
+        sb, new Handler<String>() {
+          public void handle(String x) {
+            throw new AssertionError(x);
+          }
+        });
+
+    HtmlSanitizer.sanitize(html, policyBuilder.build(renderer));
     return sb.toString();
   }
 

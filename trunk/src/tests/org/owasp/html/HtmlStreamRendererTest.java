@@ -14,7 +14,6 @@ public class HtmlStreamRendererTest extends TestCase {
   private final StringBuilder rendered = new StringBuilder();
   private final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
       rendered, new Handler<String>() {
-        @Override
         public void handle(String errorMessage) {
           errors.add(errorMessage);
         }
@@ -211,32 +210,26 @@ public class HtmlStreamRendererTest extends TestCase {
 
   private String normalize(String htmlInput) throws Exception {
     // Use a permissive sanitizer to generate the events.
-    new HtmlSanitizer().sanitize(htmlInput, new HtmlSanitizer.Policy() {
-      @Override
+    HtmlSanitizer.sanitize(htmlInput, new HtmlSanitizer.Policy() {
       public void openTag(String elementName, List<String> attrs) {
         renderer.openTag(elementName, attrs);
       }
 
-      @Override
       public void closeTag(String elementName) {
         renderer.closeTag(elementName);
       }
 
-      @Override
       public void text(String textChunk) {
         renderer.text(textChunk);
       }
 
-      @Override
       public void openDocument() {
         renderer.openDocument();
       }
 
-      @Override
       public void closeDocument() {
         renderer.closeDocument();
       }
-
     });
 
     String result = rendered.toString();

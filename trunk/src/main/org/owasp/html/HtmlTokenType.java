@@ -5,7 +5,7 @@ package org.owasp.html;
  *
  * @author mikesamuel@gmail.com
  */
-public enum HtmlTokenType {
+enum HtmlTokenType {
   /**
    * An html or xml attribute name consisting of characters other than
    * whitespace, =, or specials.

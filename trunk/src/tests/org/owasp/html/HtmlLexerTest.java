@@ -103,16 +103,17 @@ public class HtmlLexerTest extends TestCase {
       String escaped = input.substring(t.start, t.end)
           .replace("\\", "\\\\").replace("\n", "\\n");
       String type = t.type.toString();
-      while (type.length() < maxTypeLength) { type += " "; }
-      out.append(type).append(" [").append(escaped).append("]  :  ")
+      int nPadding = maxTypeLength - type.length();
+      out.append(type);
+      while (--nPadding >= 0) { out.append(' '); }
+      out.append(" [").append(escaped).append("]  :  ")
           .append(String.valueOf(t.start)).append('-')
           .append(String.valueOf(t.end))
           .append("\n");
     }
   }
 
-  private void assertTokens(String markup, String... golden)
-      throws ParseException {
+  private void assertTokens(String markup, String... golden) {
     HtmlLexer lexer = new HtmlLexer(markup);
     List<String> actual = Lists.newArrayList();
     while (lexer.hasNext()) {

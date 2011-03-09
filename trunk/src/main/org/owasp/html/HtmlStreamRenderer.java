@@ -1,12 +1,12 @@
 package org.owasp.html;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-
-import com.google.common.annotations.VisibleForTesting;
+import javax.annotation.WillCloseWhenClosed;
 
 /**
  * Given a series of HTML tokens, writes valid, normalized HTML to the output.
@@ -32,7 +32,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * @param ioExHandler called with any exception raised by output.
    */
   public static HtmlStreamRenderer create(
-      Appendable output, Handler<? super IOException> ioExHandler,
+      @WillCloseWhenClosed Appendable output,
+      Handler<? super IOException> ioExHandler,
       Handler<? super String> badHtmlHandler) {
     if (output instanceof Closeable) {
       return new CloseableHtmlStreamRenderer(
@@ -73,13 +74,11 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   /**
    *
    */
-  @Override
   public final void openDocument() throws IllegalStateException {
     if (open) { throw new IllegalStateException(); }
     open = true;
   }
 
-  @Override
   public final void closeDocument() throws IllegalStateException {
     if (!open) { throw new IllegalStateException(); }
     if (pendingUnescaped != null) {
@@ -99,7 +98,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return open;
   }
 
-  @Override
   public final void openTag(String elementName, List<String> attrs) {
     try {
       writeOpenTag(elementName, attrs);
@@ -150,7 +148,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     output.append('>');
   }
 
-  @Override
   public final void closeTag(String elementName) {
     try {
       writeCloseTag(elementName);
@@ -187,7 +184,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     output.append("</").append(elementName).append(">");
   }
 
-  @Override
   public final void text(String text) {
     try {
       writeText(text);
@@ -245,7 +241,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
 
 
   @VisibleForTesting
-  @SuppressWarnings("fallthrough")
   static boolean isValidHtmlName(String name) {
     int n = name.length();
     if (n == 0) { return false; }
@@ -257,7 +252,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         case ':':
           if (isNamespaced) { return false; }
           isNamespaced = true;
-          // FALL-THROUGH
+          if (i == 0 || i + 1 == n) { return false; }
+          break;
         case '-':
           if (i == 0 || i + 1 == n) { return false; }
           break;
@@ -299,6 +295,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           output.append(plainText, pos, i).append("&#34;");
           pos = i + 1;
           break;
+        case '\r': case '\n': break;
         default:
           if (0x20 <= ch && ch < 0xff00) {
             continue;
@@ -329,6 +326,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     private final Closeable closeable;
 
     CloseableHtmlStreamRenderer(
+        @WillCloseWhenClosed
         Appendable output, Handler<? super IOException> errorHandler,
         Handler<? super String> badHtmlHandler) {
       super(output, errorHandler, badHtmlHandler);
