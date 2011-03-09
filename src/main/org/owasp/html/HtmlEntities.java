@@ -2,7 +2,7 @@ package org.owasp.html;
 
 import com.google.common.collect.ImmutableMap;
 
-public class HtmlEntities {
+class HtmlEntities {
 
   public static long decodeEntityAt(String html, int offset, int limit) {
     char ch = html.charAt(offset);
@@ -13,6 +13,10 @@ public class HtmlEntities {
     int entityLimit = Math.min(limit, offset + 10);
     int end = -1;
     int tail = -1;
+    if (entityLimit == limit) {
+      // Assume a broken entity that ends at the end until shown otherwise.
+      end = tail = entityLimit;
+    }
     entityloop:
     for (int i = offset + 1; i < entityLimit; ++i) {
       switch (html.charAt(i)) {
@@ -53,6 +57,9 @@ public class HtmlEntities {
     if ('#' == ch1) {
       // numeric entity
       if ('x' == ch2 || 'X' == ch2) {
+        if (end == offset + 3) {  // No digits
+          return ((offset + 1L) << 32) | '&';
+        }
         codepoint = 0;
         // hex literal
         digloop:
@@ -442,4 +449,6 @@ public class HtmlEntities {
       .put("rsaquo", Integer.valueOf('\u203a'))
       .put("euro", Integer.valueOf('\u20ac'))
       .build());
+
+  private HtmlEntities() { /* uninstantiable */ }
 }

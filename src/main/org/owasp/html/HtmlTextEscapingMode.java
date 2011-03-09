@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableMap;
  *
  * @author mikesamuel@gmail.com
  */
-public enum HtmlTextEscapingMode {
+enum HtmlTextEscapingMode {
   /**
    * Normally escaped character data that breaks around comments and tags.
    */

@@ -28,19 +28,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.List;
-import java.util.ListIterator;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
-import org.owasp.html.HtmlSanitizer.Policy;
-
-import com.google.common.collect.ImmutableSet;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
+
 
 /**
  * This class tests AntiSamy functionality and the basic policy file which
@@ -53,47 +49,10 @@ public class AntiSamyTest extends TestCase {
 
   static final boolean RUN_KNOWN_FAILURES = false;
 
-  // A VERY SIMPLE WHITELISTING POLICY
-  static final ImmutableSet<String> okTags = ImmutableSet.of(
-      "a", "b", "br", "div", "font", "i", "img", "input", "li",
-      "ol", "p", "span", "ul");
-
-  static final ImmutableSet<String> okTagsWithoutAttrs = ImmutableSet.of(
-      "b", "br", "div", "i", "li", "ol", "p", "span", "ul");
-
-  static final ImmutableSet<String> okAttrs = ImmutableSet.of(
-      "div", "checked", "class", "color", "href", "id", "src",
-      "target", "title", "type");
-
-  private static boolean isUrlOk(String s) {
-    for (int i = 0, n = s.length(); i < n; ++i) {
-      switch (s.charAt(i)) {
-        case '/': case '#': case '?':  // No protocol.
-          return s.indexOf('(', i + 1) == -1;
-        case ':':
-          switch (i) {
-            case 4:
-              return Strings.regionMatchesIgnoreCase("http", 0, s, 0, 4)
-                  && s.indexOf('(', i + 1) == -1;
-            case 5:
-              return Strings.regionMatchesIgnoreCase("https", 0, s, 0, 5)
-                  && s.indexOf('(', i + 1) == -1;
-            case 6:
-              return Strings.regionMatchesIgnoreCase("mailto", 0, s, 0, 6)
-                  && s.indexOf('(', i + 1) == -1;
-            default: return false;
-          }
-        case '(': return false;
-      }
-    }
-    return true;
-  }
-
-  private static Policy makePolicy(Appendable buffer) {
+  private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         buffer,
         new Handler<IOException>() {
-          @Override
           public void handle(IOException ex) {
             AssertionFailedError failure = new AssertionFailedError();
             failure.initCause(ex);
@@ -101,93 +60,38 @@ public class AntiSamyTest extends TestCase {
           }
         },
         new Handler<String>() {
-          @Override
           public void handle(String errorMessage) {
             fail(errorMessage);
           }
         });
 
-    return new Policy() {
-
-      int ignoreDepth = 0;
-
-      @Override
-      public void openDocument() {
-        renderer.openDocument();
-      }
-
-      @Override
-      public void closeDocument() {
-        renderer.closeDocument();
-      }
-
-      @Override
-      public void text(String textChunk) {
-        if (ignoreDepth == 0) { renderer.text(textChunk); }
-      }
-
-      @Override
-      public void openTag(String elementName, List<String> attrs) {
-        boolean sawHref = false;
-        if (okTags.contains(elementName)) {
-          for (ListIterator<String> it = attrs.listIterator();
-               it.hasNext();) {
-            String attrName = it.next();
-            if (okAttrs.contains(attrName)) {
-              String value = it.next();
-              if ("id".equals(attrName) || "class".equals(attrName)) {
-                it.set(value.replaceAll("(?:^|\\s)([a-zA-Z])", " p-$1")
-                       .replaceAll("\\s+", " ")
-                       .trim());
-              } else if ("href".equals(attrName) || "src".equals(attrName)) {
-                if (isUrlOk(value)) {
-                  sawHref = true;
-                } else {
-                  it.remove();
-                  it.previous();
-                  it.remove();
-                }
+    return new HtmlPolicyBuilder()
+        .allowElements(
+            "a", "b", "br", "div", "font", "i", "img", "input", "li",
+            "ol", "p", "span", "td", "ul")
+        .allowAttributesOnElement("input", "checked", "type")
+        .allowAttributesOnElement("font", "color")
+        .allowAttributesOnElement("a", "href")
+        .allowAttributesOnElement("img", "src")
+        .allowAttributesGlobally("class", "id", "title")
+        .allowAttributesOnElement(
+            new AttributePolicy() {
+              public String apply(
+                  String elementName, String attributeName, String value) {
+                return value.length() == 1 ? value : null;
               }
-            } else {
-              it.remove();
-              it.next();
-              it.remove();
-            }
-          }
-          if (sawHref && "a".equals(elementName)) {
-            // Make sure that search engines do not index third-party content.
-            attrs.add("rel");
-            attrs.add("nofollow");
-          }
-          if (!attrs.isEmpty() || okTagsWithoutAttrs.contains(elementName)) {
-            renderer.openTag(elementName, attrs);
-          }
-        } else if (ignoreContents(elementName)) {
-          ++ignoreDepth;
-        }
-      }
-
-      @Override
-      public void closeTag(String elementName) {
-        if (okTags.contains(elementName)) {
-          renderer.closeTag(elementName);
-        } else if (ignoreContents(elementName)) {
-          --ignoreDepth;
-        }
-      }
-
-      private boolean ignoreContents(String unsafeElementName) {
-        return !("body".equals(unsafeElementName)
-                 || "html".equals(unsafeElementName)
-                 || "head".equals(unsafeElementName));
-      }
-    };
+            },
+            "td", "char")
+        .allowStandardUrlProtocols()
+        .requireRelNofollowOnLinks()
+        .allowStyling()
+        .build(renderer);
   }
 
-  private static String sanitize(String html) throws ParseException {
+  private static String sanitize(String html) {
     StringBuilder sb = new StringBuilder();
 
-    new HtmlSanitizer().sanitize(html, makePolicy(sb));
+    HtmlSanitizer.sanitize(html, makePolicy(sb));
 
     return sb.toString();
   }
@@ -480,14 +384,9 @@ public class AntiSamyTest extends TestCase {
    */
   public void testIllegalXML() throws Exception {
     for (int i = 0; i < BASE64_BAD_XML_STRINGS.length; i++) {
-      try {
-        String testStr = new String(Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i].getBytes()));
-        sanitize(testStr);
-        sanitize(testStr);
-
-      } catch (ParseException ex) {
-        // still success!
-      }
+      String testStr = new String(Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i].getBytes()));
+      sanitize(testStr);
+      sanitize(testStr);
     }
 
     // These fail in AntiSamy due to a bug in NekoHTML
@@ -540,9 +439,9 @@ public class AntiSamyTest extends TestCase {
 
 
     /* issue #28 */
-    if (RUN_KNOWN_FAILURES) {
-      assertSanitizedDoesContain("<div style=\"font-family: Geneva, Arial, courier new, sans-serif\">Test</div>", "font-family");
-    }
+    assertSanitizedDoesContain(
+        "<div style=\"font-family: Geneva, Arial, courier new, sans-serif\">Test</div>",
+        "face=\"Geneva, Arial, courier new, sans-serif\"");
 
     /* issue #29 - missing quotes around properties with spaces */
     if (RUN_KNOWN_FAILURES) {
@@ -598,24 +497,20 @@ public class AntiSamyTest extends TestCase {
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 
-      if (RUN_KNOWN_FAILURES) {
-        s = "<div style=\"color: #fff\">Test 3 letter code</div>";
-        expected = "<div style=\"color: rgb(255,255,255);\">Test 3 letter code</div>";
-        assertEquals(expected, sanitize(s));
-        assertEquals(expected, sanitize(s));
-      }
+      s = "<div style=\"color: #fff\">Test 3 letter code</div>";
+      expected = "<div><font color=\"#ffffff\">Test 3 letter code</font></div>";
+      assertEquals(expected, sanitize(s));
+      assertEquals(expected, sanitize(s));
 
       s = "<font color=\"red\">Test</font>";
       expected = "<font color=\"red\">Test</font>";
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 
-      if (RUN_KNOWN_FAILURES) {
-        s = "<font color=\"neonpink\">Test</font>";
-        expected = "<font>Test</font>";
-        assertEquals(expected, sanitize(s));
-        assertEquals(expected, sanitize(s));
-      }
+      s = "<font color=\"neonpink\">Test</font>";
+      expected = s;
+      assertEquals(expected, sanitize(s));
+      assertEquals(expected, sanitize(s));
 
       if (RUN_KNOWN_FAILURES) {
         s = "<font color=\"#0000\">Test</font>";
@@ -626,7 +521,7 @@ public class AntiSamyTest extends TestCase {
 
       if (RUN_KNOWN_FAILURES) {
         s = "<div style=\"color: #0000\">Test</div>";
-        expected = "<div style=\"\">Test</div>";
+        expected = "<div>Test</div>";
         assertEquals(expected, sanitize(s));
         assertEquals(expected, sanitize(s));
       }
@@ -636,24 +531,11 @@ public class AntiSamyTest extends TestCase {
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 
-      if (RUN_KNOWN_FAILURES) {
-        s = "<div style=\"color: #000000\">Test</div>";
-        expected = "<div style=\"color: rgb(0,0,0);\">Test</div>";
-        assertEquals(expected, sanitize(s));
-        assertEquals(expected, sanitize(s));
-      }
+      s = "<div style=\"color: #000000\">Test</div>";
+      expected = "<div><font color=\"#000000\">Test</font></div>";
+      assertEquals(expected, sanitize(s));
+      assertEquals(expected, sanitize(s));
 
-      /*
-       * This test case was failing because of the following code from the
-       * batik CSS library, which throws an exception if any character
-       * other than a '!' follows a beginning token of '<'. The
-       * ParseException is now caught in the node a CssScanner.java and
-       * the outside AntiSamyDOMScanner.java.
-       *
-       * 0398 nextChar(); 0399 if (current != '!') { 0400 throw new
-       * ParseException("character", 0401 reader.getLine(), 0402
-       * reader.getColumn());
-       */
       s = "<b><u>foo<style><script>alert(1)</script></style>@import 'x';</u>bar";
       sanitize(s);
     }
@@ -738,10 +620,11 @@ public class AntiSamyTest extends TestCase {
         "<a href='http://subdomain.domain/(S(ke0lpq54bw0fvp53a10e1a45))/MyPage.aspx'>test</a>", "(");
 
     /* issue #56 - unnecessary spaces */
-    if (RUN_KNOWN_FAILURES) {
+    {
       String s = "<SPAN style='font-weight: bold;'>Hello World!</SPAN>";
-      String expected = "<span style=\"font-weight: bold;\">Hello World!</span>";
-      assertEquals(expected, sanitize(s));
+      assertEquals(
+          "<span><font style=\"font-weight:bold;\">Hello World!</font></span>",
+          sanitize(s));
     }
 
     /* issue #58 - input not in list of allowed-to-be-empty tags */
@@ -760,7 +643,7 @@ public class AntiSamyTest extends TestCase {
 
     /* issue #69 - char attribute should allow single char or entity ref */
 
-    if (RUN_KNOWN_FAILURES) {
+    {
       String s = "<td char='.'>test</td>";
       assertSanitizedDoesContain(s, "char");
       assertSanitizedDoesContain(s, "char");
@@ -884,7 +767,7 @@ public class AntiSamyTest extends TestCase {
 
 
   private void assertSanitizedDoesNotContain(
-      String html, String dangerousContent) throws ParseException {
+      String html, String dangerousContent) {
     String sanitized = sanitize(html);
     int index = Strings.toLowerCase(sanitized).indexOf(
         Strings.toLowerCase(dangerousContent));
@@ -895,7 +778,7 @@ public class AntiSamyTest extends TestCase {
   }
 
   private void assertSanitizedDoesContain(
-      String html, String dangerousContent) throws ParseException {
+      String html, String dangerousContent) {
     String sanitized = sanitize(html);
     int index = Strings.toLowerCase(sanitized).indexOf(
         Strings.toLowerCase(dangerousContent));
@@ -905,8 +788,7 @@ public class AntiSamyTest extends TestCase {
         index >= 0);
   }
 
-  private void assertSanitized(String html, String sanitized)
-      throws ParseException {
+  private void assertSanitized(String html, String sanitized) {
     assertEquals(sanitized, sanitize(html));
   }
 }

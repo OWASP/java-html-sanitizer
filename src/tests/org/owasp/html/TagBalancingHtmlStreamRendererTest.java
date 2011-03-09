@@ -10,7 +10,6 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     final StringBuilder htmlOutputBuffer = new StringBuilder();
     HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(
         HtmlStreamRenderer.create(htmlOutputBuffer, new Handler<String>() {
-          @Override
           public void handle(String x) {
             fail("An unexpected error was raised during the testcase");
           }

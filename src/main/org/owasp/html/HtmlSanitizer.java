@@ -66,10 +66,8 @@ public final class HtmlSanitizer {
    *
    * @param html The html to sanitize.
    * @param policy The policy that should receive events based on the .
-   *
-   * @throws ParseException when the input HTML is too broken to sanitize.
    */
-  public void sanitize(String html, final Policy policy) throws ParseException {
+  public static void sanitize(String html, final Policy policy) {
     HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(
         policy);
 
@@ -144,7 +142,7 @@ public final class HtmlSanitizer {
     balancer.closeDocument();
   }
 
-  private String stripQuotes(String encodedAttributeValue) {
+  private static String stripQuotes(String encodedAttributeValue) {
     int n = encodedAttributeValue.length();
     if (n > 0) {
       char last = encodedAttributeValue.charAt(n - 1);
