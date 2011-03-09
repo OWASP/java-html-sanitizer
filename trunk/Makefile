@@ -74,5 +74,6 @@ out/staging.tstamp: out/javadoc.tstamp out/classes.tstamp
 	  cp "$$f" out/staging/"$$f"; \
 	done
 	jar cf out/staging/lib/owasp-java-html-sanitizer-src.jar -C out/staging/src/main org
-	rm -rf out/staging/org/src
+	rm -rf out/staging/src
+	cp COPYING out/staging/lib/owasp-java-html-sanitizer-COPYING
 	touch $@
