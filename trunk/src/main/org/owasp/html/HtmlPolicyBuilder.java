@@ -51,7 +51,7 @@ import com.google.common.collect.Sets;
  * processing modes; and finally call <code>build()</code> or
  * <code>toFactory()</code>.
  * </p>
- * {@code
+ * <pre class="prettyprint lang-java">
  * // Define the policy.
  * Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyDefinition
  *     = new HtmlPolicyBuilder()
@@ -61,7 +61,7 @@ import com.google.common.collect.Sets;
  *
  * // Sanitize your output.
  * HtmlSanitizer.sanitize(myHtml. policyDefinition.apply(myHtmlStreamRenderer));
- * }
+ * </pre>
  *
  * <h3>Embedded Content</h3>
  * <p>
