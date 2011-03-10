@@ -34,15 +34,21 @@ import junit.framework.TestCase;
 
 public class TagBalancingHtmlStreamRendererTest extends TestCase {
 
-  public final void testTagBalancing() {
-    final StringBuilder htmlOutputBuffer = new StringBuilder();
-    HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(
+  StringBuilder htmlOutputBuffer;
+  HtmlStreamEventReceiver balancer;
+
+  @Override protected void setUp() throws Exception {
+    super.setUp();
+    htmlOutputBuffer = new StringBuilder();
+    balancer = new TagBalancingHtmlStreamEventReceiver(
         HtmlStreamRenderer.create(htmlOutputBuffer, new Handler<String>() {
           public void handle(String x) {
             fail("An unexpected error was raised during the testcase");
           }
         }));
+  }
 
+  public final void testTagBalancing() {
     balancer.openDocument();
     balancer.openTag("html", ImmutableList.<String>of());
     balancer.openTag("head", ImmutableList.<String>of());
@@ -65,4 +71,39 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         + "<br>&lt;&lt;World&gt;&gt;!</p></body></html>",
         htmlOutputBuffer.toString());
   }
+
+  public final void testTagSoupIronedOut() {
+    balancer.openDocument();
+    balancer.openTag("i", ImmutableList.<String>of());
+    balancer.text("a");
+    balancer.openTag("b", ImmutableList.<String>of());
+    balancer.text("b");
+    balancer.closeTag("i");
+    balancer.text("c");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<i>a<b>b</b></i><b>c</b>",
+        htmlOutputBuffer.toString());
+  }
+
+  public final void testListNesting() {
+    balancer.openDocument();
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.openTag("li", ImmutableList.<String>of());
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.openTag("li", ImmutableList.<String>of());
+    balancer.text("foo");
+    balancer.closeTag("li");
+    balancer.closeTag("li");
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.openTag("li", ImmutableList.<String>of());
+    balancer.text("bar");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<ul><li><ul><li>foo</li></ul></li></ul><ul><li>bar</li></ul>",
+        htmlOutputBuffer.toString());
+  }
+
 }

@@ -71,7 +71,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click me out",
             "",
-            "<b>Fancy</b> with <i><b>soupy</b></i> tags.",
+            "<b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
             ""),
@@ -86,7 +86,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click me out",
             "",
-            "<b>Fancy</b> with <b>soupy</b> tags.",
+            "<b>Fancy</b> with <b>soupy</b><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
             ""),
@@ -189,7 +189,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
             "<p></p>",
-            "<p><b>Fancy</b> with <i><b>soupy</b></i> tags.",
+            "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             ("</p><p><font color=\"expression(foo())\" align=\"center\""
              + " style=\"font-weight:bold;\">"
              + "Stylish Para 1</font></p>"),
