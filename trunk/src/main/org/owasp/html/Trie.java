@@ -39,7 +39,7 @@ import java.util.TreeMap;
  * characters by preferring the longest punctuation string possible in a
  * greedy left-to-right scan.
  *
- * @author mikesamuel@gmail.com
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
 final class Trie {
   private final char[] childMap;

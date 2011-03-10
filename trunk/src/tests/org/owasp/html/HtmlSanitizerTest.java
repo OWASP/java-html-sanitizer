@@ -240,7 +240,8 @@ public class HtmlSanitizerTest extends TestCase {
 
   public final void testIdsAndClassesPrefixed() throws Exception {
     assertEquals(
-        "<b id=\"p-foo\" class=\"p-boo p-bar p-baz\">hello <i>world&lt;</i></b>",
+        "<b id=\"p-foo\" class=\"p-boo p-bar p-baz\">"
+        + "hello <i>world&lt;</i></b>",
         sanitize(
             "<b id=\"foo\" class=\"boo bar baz\">hello <i>world<</i></b>"));
   }
@@ -312,7 +313,7 @@ public class HtmlSanitizerTest extends TestCase {
             + "<p>Foo</p>"
             + "</head>"
             + "<body>"
-            + "<p>One</p>"
+            + "<p>One"
             + "<p>Two</p>"
             + "Three"
             + "<p>Four</p>"
@@ -351,12 +352,13 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   public final void testNul() throws Exception {
-    // See bug 614 for details.
     assertEquals(
-        "<a title=\"harmless  SCRIPT&#61;javascript:alert(1) ignored&#61;ignored\">"
+        "<a title="
+        + "\"harmless  SCRIPT&#61;javascript:alert(1) ignored&#61;ignored\">"
         + "</a>",
         sanitize(
-            "<A TITLE=\"harmless\0  SCRIPT=javascript:alert(1) ignored=ignored\">"
+            "<A TITLE="
+            + "\"harmless\0  SCRIPT=javascript:alert(1) ignored=ignored\">"
             ));
   }
 

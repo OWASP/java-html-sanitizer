@@ -37,10 +37,6 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
 
-/**
- *
- * @author mikesamuel@gmail.com
- */
 public class HtmlLexerTest extends TestCase {
 
   public final void testHtmlLexer() throws Exception {

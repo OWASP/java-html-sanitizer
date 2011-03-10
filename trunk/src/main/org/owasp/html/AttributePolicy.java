@@ -35,7 +35,7 @@ import javax.annotation.concurrent.Immutable;
  * A policy that can be applied to an HTML attribute to decide whether or not to
  * allow it in the output, possibly after transforming its value.
  *
- * @author Mike Samuel
+ * @author Mike Samuel <mikesamuel@gmail.com>
  * @see HtmlPolicyBuilder#allowAttributesGlobally(AttributePolicy, String...)
  */
 @TCB public interface AttributePolicy {

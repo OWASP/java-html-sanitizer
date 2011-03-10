@@ -49,7 +49,7 @@ import com.google.common.collect.ImmutableMap;
  * for the elements which fall in each category.
  * </p>
  *
- * @author mikesamuel@gmail.com
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
 enum HtmlTextEscapingMode {
   /**
