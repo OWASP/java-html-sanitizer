@@ -41,7 +41,7 @@ import javax.annotation.concurrent.Immutable;
  * {@link AttributePolicy attribute policies} so
  * they can be used to add extra attributes.
  *
- * @author Mike Samuel
+ * @author Mike Samuel <mikesamuel@gmail.com>
  * @see HtmlPolicyBuilder#allowElements(ElementPolicy, String...)
  */
 @TCB public interface ElementPolicy {

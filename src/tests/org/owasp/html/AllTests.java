@@ -28,45 +28,52 @@
 
 package org.owasp.html;
 
-/**
- * Types of HTML tokens.
- *
- * @author Mike Samuel <mikesamuel@gmail.com>
- */
-enum HtmlTokenType {
-  /**
-   * An HTML or XML attribute name consisting of characters other than
-   * whitespace, =, or specials.
-   */
-  ATTRNAME,
-  /** An HTML value, possibly a quoted string. */
-  ATTRVALUE,
-  /** An HTML or XML style comment, <tt>&lt;!-- for example --></tt>. */
-  COMMENT,
-  /**
-   * A directive such as a DOCTYPE declaration.
-   */
-  DIRECTIVE,
-  /** Unescaped tag, for instance, inside a script, or {@code xmp} tag. */
-  UNESCAPED,
-  /**
-   * A quoted string.  Should not show up in well formed HTML, but may where
-   * there is an attribute value without a corresponding name.
-   */
-  QSTRING,
-  /**
-   * The beginning of a tag -- not to be confused with a start tag.
-   * Valid tag beginnings include <tt>&lt;a</tt> and <tt>&lt;/a</tt>.  The
-   * rest of the tag is a series of attribute names, values, and the tag end.
-   */
-  TAGBEGIN,
-  /** The end of a tag.  Either <tt>&gt;</tt> or <tt>/&gt;</tt>. */
-  TAGEND,
-  /** A block of text, either inside a tag, or as element content. */
-  TEXT,
-  /** Ignorable whitespace nodes. */
-  IGNORABLE,
-  /** A server side script block a la php or jsp. */
-  SERVERCODE,
-  ;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import org.junit.runner.RunWith;
+
+import com.google.common.base.Charsets;
+import com.google.common.base.Throwables;
+import com.google.common.io.CharStreams;
+
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
+@RunWith(org.junit.runners.AllTests.class)
+public class AllTests {
+
+  public static Test suite() {
+    String[] allTests;
+    InputStream in = AllTests.class.getResourceAsStream("alltests");
+    if (in == null) {
+      throw new AssertionError("Failed to load list of tests");
+    }
+    try {
+      try {
+        allTests = CharStreams.toString(
+            new InputStreamReader(in, Charsets.UTF_8)).split("\r\n?|\n");
+      } finally {
+        in.close();
+      }
+    } catch (IOException ex) {
+      Throwables.propagate(ex);
+      return null;
+    }
+
+    TestSuite suite = new TestSuite();
+    ClassLoader loader = AllTests.class.getClass().getClassLoader();
+    if (loader == null) { loader = ClassLoader.getSystemClassLoader(); }
+    for (String test : allTests) {
+      try {
+        suite.addTestSuite(loader.loadClass(test).asSubclass(TestCase.class));
+      } catch (ClassNotFoundException ex) {
+        Throwables.propagate(ex);
+      }
+    }
+    return suite;
+  }
+
 }

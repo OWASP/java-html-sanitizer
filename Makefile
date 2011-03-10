@@ -3,7 +3,7 @@ TEST_CLASSPATH=lib/guava-libraries/guava.jar:lib/htmlparser-1.3/htmlparser-1.3.j
 JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint
 
 
-default: tests javadoc findbugs
+default: javadoc runtests findbugs
 
 clean:
 	rm -rf out
@@ -16,9 +16,15 @@ out/classes.tstamp: out src/main/org/owasp/html/*.java
 	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH} -d out src/main/org/owasp/html/*.java && touch out/classes.tstamp
 
 # Depends on all java files under tests.
-tests: out/tests.tstamp
+tests: out/tests.tstamp out/org/owasp/html/alltests
 out/tests.tstamp: out out/classes.tstamp src/tests/org/owasp/html/*.java
-	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out src/tests/org/owasp/html/*.java && touch out/tests.tstamp
+	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out src/tests/org/owasp/html/*.java
+	touch out/tests.tstamp
+out/org/owasp/html/alltests: src/tests/org/owasp/html/*Test.java
+	echo $? | tr ' ' '\n' | perl -pe 's#^src/tests/|\.java$$##g; s#/#.#g;' > $@
+
+runtests: tests
+	java -classpath out:src/tests:${TEST_CLASSPATH} junit.textui.TestRunner org.owasp.html.AllTests
 
 # Runs findbugs to identify problems.
 findbugs: out/findbugs.txt

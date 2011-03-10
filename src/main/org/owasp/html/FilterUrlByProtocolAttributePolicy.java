@@ -52,7 +52,7 @@ import com.google.common.collect.ImmutableSet;
  * do not look like they contain an authority portion.
  * </p>
  *
- * @author Mike Samuel
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
 @TCB
 public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {

@@ -60,7 +60,7 @@ final class HtmlLexer extends AbstractTokenStream {
   }
 
   /**
-   * An fsm that lets us reclassify text tokens inside tags as attribute
+   * An FSM that lets us reclassify text tokens inside tags as attribute
    * names/values
    */
   private static enum State {
@@ -714,7 +714,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
 /**
  * A TokenStream that lazily fetches one token at a time.
  *
- * @author msamuel@gmail.com (Mike Samuel)
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
 abstract class AbstractTokenStream implements TokenStream {
   private HtmlToken tok;

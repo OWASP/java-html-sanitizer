@@ -136,8 +136,8 @@ public class AntiSamyTest extends TestCase {
   }
 
   public void testCompareSpeeds() throws Exception {
-    double totalTime = 0;
-    double averageTime = 0;
+    long totalTime = 0;
+    long averageTime = 0;
 
     int testReps = 15;
 
@@ -169,22 +169,24 @@ public class AntiSamyTest extends TestCase {
         continue;
       }
 
-      double startTime = 0;
-      double endTime = 0;
+      long startTime = 0;
+      long endTime = 0;
 
       for (int j = 0; j < testReps; j++) {
-        startTime = System.currentTimeMillis();
+        startTime = System.nanoTime();
         sanitize(html);
-        endTime = System.currentTimeMillis();
+        endTime = System.nanoTime();
 
+        System.out.println(
+            "    Took " + ((endTime - startTime) / 1000000) + " ms");
         totalTime = totalTime + (endTime - startTime);
       }
 
       averageTime = totalTime / testReps;
     }
 
-    System.out.println("Total time seconds: " + totalTime/1000D);
-    System.out.println("Average time per rep seconds: " + averageTime/1000D);
+    System.out.println("Total time ms: " + totalTime/1000000L);
+    System.out.println("Average time per rep ms: " + averageTime/1000000L);
   }
 
   /*

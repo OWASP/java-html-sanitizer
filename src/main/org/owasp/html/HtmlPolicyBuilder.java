@@ -145,7 +145,7 @@ import com.google.common.collect.Sets;
  * binding policies to output channels is cheap so there's no need.
  * </p>
  *
- * @author Mike Samuel
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
 @TCB
 @NotThreadSafe
@@ -196,7 +196,7 @@ public class HtmlPolicyBuilder {
       ElementPolicy policy, String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = normalizeElementName(elementName);
+      elementName = HtmlLexer.canonicalName(elementName);
       ElementPolicy newPolicy = ElementPolicy.Util.join(
           elPolicies.get(elementName), policy);
       // Don't remove if newPolicy is the always reject policy since we want
@@ -235,7 +235,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder allowWithoutAttributes(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = normalizeElementName(elementName);
+      elementName = HtmlLexer.canonicalName(elementName);
       skipIfEmpty.remove(elementName);
     }
     return this;
@@ -250,7 +250,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder disallowWithoutAttributes(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = normalizeElementName(elementName);
+      elementName = HtmlLexer.canonicalName(elementName);
       skipIfEmpty.add(elementName);
     }
     return this;
@@ -297,7 +297,7 @@ public class HtmlPolicyBuilder {
       AttributePolicy policy, String... attributeNames) {
     invalidateCompiledState();
     for (String attributeName : attributeNames) {
-      attributeName = normalizeAttributeName(attributeName);
+      attributeName = HtmlLexer.canonicalName(attributeName);
       // We reinterpret the identity policy later via policy joining since its
       // the default passed from the policy-less method, but we don't do
       // anything here since we don't know until build() is called whether the
@@ -328,14 +328,14 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder allowAttributesOnElement(
       AttributePolicy policy, String elementName, String... attributeNames) {
     invalidateCompiledState();
-    elementName = normalizeElementName(elementName);
+    elementName = HtmlLexer.canonicalName(elementName);
     Map<String, AttributePolicy> policies = attrPolicies.get(elementName);
     if (policies == null) {
       policies = Maps.newLinkedHashMap();
       attrPolicies.put(elementName, policies);
     }
     for (String attributeName : attributeNames) {
-      attributeName = normalizeAttributeName(attributeName);
+      attributeName = HtmlLexer.canonicalName(attributeName);
       AttributePolicy oldPolicy = policies.get(attributeName);
       policies.put(
           attributeName,
@@ -579,16 +579,6 @@ public class HtmlPolicyBuilder {
               elPolicy, attrs.build(), skipIfEmpty.contains(elementName)));
     }
     return compiledPolicies = policiesBuilder.build();
-  }
-
-  private static String normalizeElementName(String name) {
-    // We could avoid lower casing name-spaced names, but SVG and MATHML
-    // embedded in HTML5 should be case-insensitive.
-    return Strings.toLowerCase(name);
-  }
-
-  private static String normalizeAttributeName(String name) {
-    return Strings.toLowerCase(name);
   }
 }
 
