@@ -148,7 +148,7 @@
 <FONT color="green">145</FONT>     * binding policies to output channels is cheap so there's no need.<a name="line.145"></a>
 <FONT color="green">146</FONT>     * &lt;/p&gt;<a name="line.146"></a>
 <FONT color="green">147</FONT>     *<a name="line.147"></a>
-<FONT color="green">148</FONT>     * @author Mike Samuel<a name="line.148"></a>
+<FONT color="green">148</FONT>     * @author Mike Samuel &lt;mikesamuel@gmail.com&gt;<a name="line.148"></a>
 <FONT color="green">149</FONT>     */<a name="line.149"></a>
 <FONT color="green">150</FONT>    @TCB<a name="line.150"></a>
 <FONT color="green">151</FONT>    @NotThreadSafe<a name="line.151"></a>
@@ -199,7 +199,7 @@
 <FONT color="green">196</FONT>          ElementPolicy policy, String... elementNames) {<a name="line.196"></a>
 <FONT color="green">197</FONT>        invalidateCompiledState();<a name="line.197"></a>
 <FONT color="green">198</FONT>        for (String elementName : elementNames) {<a name="line.198"></a>
-<FONT color="green">199</FONT>          elementName = normalizeElementName(elementName);<a name="line.199"></a>
+<FONT color="green">199</FONT>          elementName = HtmlLexer.canonicalName(elementName);<a name="line.199"></a>
 <FONT color="green">200</FONT>          ElementPolicy newPolicy = ElementPolicy.Util.join(<a name="line.200"></a>
 <FONT color="green">201</FONT>              elPolicies.get(elementName), policy);<a name="line.201"></a>
 <FONT color="green">202</FONT>          // Don't remove if newPolicy is the always reject policy since we want<a name="line.202"></a>
@@ -238,7 +238,7 @@
 <FONT color="green">235</FONT>      public HtmlPolicyBuilder allowWithoutAttributes(String... elementNames) {<a name="line.235"></a>
 <FONT color="green">236</FONT>        invalidateCompiledState();<a name="line.236"></a>
 <FONT color="green">237</FONT>        for (String elementName : elementNames) {<a name="line.237"></a>
-<FONT color="green">238</FONT>          elementName = normalizeElementName(elementName);<a name="line.238"></a>
+<FONT color="green">238</FONT>          elementName = HtmlLexer.canonicalName(elementName);<a name="line.238"></a>
 <FONT color="green">239</FONT>          skipIfEmpty.remove(elementName);<a name="line.239"></a>
 <FONT color="green">240</FONT>        }<a name="line.240"></a>
 <FONT color="green">241</FONT>        return this;<a name="line.241"></a>
@@ -253,7 +253,7 @@
 <FONT color="green">250</FONT>      public HtmlPolicyBuilder disallowWithoutAttributes(String... elementNames) {<a name="line.250"></a>
 <FONT color="green">251</FONT>        invalidateCompiledState();<a name="line.251"></a>
 <FONT color="green">252</FONT>        for (String elementName : elementNames) {<a name="line.252"></a>
-<FONT color="green">253</FONT>          elementName = normalizeElementName(elementName);<a name="line.253"></a>
+<FONT color="green">253</FONT>          elementName = HtmlLexer.canonicalName(elementName);<a name="line.253"></a>
 <FONT color="green">254</FONT>          skipIfEmpty.add(elementName);<a name="line.254"></a>
 <FONT color="green">255</FONT>        }<a name="line.255"></a>
 <FONT color="green">256</FONT>        return this;<a name="line.256"></a>
@@ -300,7 +300,7 @@
 <FONT color="green">297</FONT>          AttributePolicy policy, String... attributeNames) {<a name="line.297"></a>
 <FONT color="green">298</FONT>        invalidateCompiledState();<a name="line.298"></a>
 <FONT color="green">299</FONT>        for (String attributeName : attributeNames) {<a name="line.299"></a>
-<FONT color="green">300</FONT>          attributeName = normalizeAttributeName(attributeName);<a name="line.300"></a>
+<FONT color="green">300</FONT>          attributeName = HtmlLexer.canonicalName(attributeName);<a name="line.300"></a>
 <FONT color="green">301</FONT>          // We reinterpret the identity policy later via policy joining since its<a name="line.301"></a>
 <FONT color="green">302</FONT>          // the default passed from the policy-less method, but we don't do<a name="line.302"></a>
 <FONT color="green">303</FONT>          // anything here since we don't know until build() is called whether the<a name="line.303"></a>
@@ -331,14 +331,14 @@
 <FONT color="green">328</FONT>      public HtmlPolicyBuilder allowAttributesOnElement(<a name="line.328"></a>
 <FONT color="green">329</FONT>          AttributePolicy policy, String elementName, String... attributeNames) {<a name="line.329"></a>
 <FONT color="green">330</FONT>        invalidateCompiledState();<a name="line.330"></a>
-<FONT color="green">331</FONT>        elementName = normalizeElementName(elementName);<a name="line.331"></a>
+<FONT color="green">331</FONT>        elementName = HtmlLexer.canonicalName(elementName);<a name="line.331"></a>
 <FONT color="green">332</FONT>        Map&lt;String, AttributePolicy&gt; policies = attrPolicies.get(elementName);<a name="line.332"></a>
 <FONT color="green">333</FONT>        if (policies == null) {<a name="line.333"></a>
 <FONT color="green">334</FONT>          policies = Maps.newLinkedHashMap();<a name="line.334"></a>
 <FONT color="green">335</FONT>          attrPolicies.put(elementName, policies);<a name="line.335"></a>
 <FONT color="green">336</FONT>        }<a name="line.336"></a>
 <FONT color="green">337</FONT>        for (String attributeName : attributeNames) {<a name="line.337"></a>
-<FONT color="green">338</FONT>          attributeName = normalizeAttributeName(attributeName);<a name="line.338"></a>
+<FONT color="green">338</FONT>          attributeName = HtmlLexer.canonicalName(attributeName);<a name="line.338"></a>
 <FONT color="green">339</FONT>          AttributePolicy oldPolicy = policies.get(attributeName);<a name="line.339"></a>
 <FONT color="green">340</FONT>          policies.put(<a name="line.340"></a>
 <FONT color="green">341</FONT>              attributeName,<a name="line.341"></a>
@@ -583,39 +583,29 @@
 <FONT color="green">580</FONT>        }<a name="line.580"></a>
 <FONT color="green">581</FONT>        return compiledPolicies = policiesBuilder.build();<a name="line.581"></a>
 <FONT color="green">582</FONT>      }<a name="line.582"></a>
-<FONT color="green">583</FONT>    <a name="line.583"></a>
-<FONT color="green">584</FONT>      private static String normalizeElementName(String name) {<a name="line.584"></a>
-<FONT color="green">585</FONT>        // We could avoid lower casing name-spaced names, but SVG and MATHML<a name="line.585"></a>
-<FONT color="green">586</FONT>        // embedded in HTML5 should be case-insensitive.<a name="line.586"></a>
-<FONT color="green">587</FONT>        return Strings.toLowerCase(name);<a name="line.587"></a>
-<FONT color="green">588</FONT>      }<a name="line.588"></a>
+<FONT color="green">583</FONT>    }<a name="line.583"></a>
+<FONT color="green">584</FONT>    <a name="line.584"></a>
+<FONT color="green">585</FONT>    final class Factory<a name="line.585"></a>
+<FONT color="green">586</FONT>        implements Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt; {<a name="line.586"></a>
+<FONT color="green">587</FONT>      private final ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies;<a name="line.587"></a>
+<FONT color="green">588</FONT>      private final boolean allowStyling;<a name="line.588"></a>
 <FONT color="green">589</FONT>    <a name="line.589"></a>
-<FONT color="green">590</FONT>      private static String normalizeAttributeName(String name) {<a name="line.590"></a>
-<FONT color="green">591</FONT>        return Strings.toLowerCase(name);<a name="line.591"></a>
-<FONT color="green">592</FONT>      }<a name="line.592"></a>
-<FONT color="green">593</FONT>    }<a name="line.593"></a>
-<FONT color="green">594</FONT>    <a name="line.594"></a>
-<FONT color="green">595</FONT>    final class Factory<a name="line.595"></a>
-<FONT color="green">596</FONT>        implements Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt; {<a name="line.596"></a>
-<FONT color="green">597</FONT>      private final ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies;<a name="line.597"></a>
-<FONT color="green">598</FONT>      private final boolean allowStyling;<a name="line.598"></a>
-<FONT color="green">599</FONT>    <a name="line.599"></a>
-<FONT color="green">600</FONT>      Factory(<a name="line.600"></a>
-<FONT color="green">601</FONT>          ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies,<a name="line.601"></a>
-<FONT color="green">602</FONT>          boolean allowStyling) {<a name="line.602"></a>
-<FONT color="green">603</FONT>        this.policies = policies;<a name="line.603"></a>
-<FONT color="green">604</FONT>        this.allowStyling = allowStyling;<a name="line.604"></a>
-<FONT color="green">605</FONT>      }<a name="line.605"></a>
-<FONT color="green">606</FONT>    <a name="line.606"></a>
-<FONT color="green">607</FONT>      public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {<a name="line.607"></a>
-<FONT color="green">608</FONT>        if (allowStyling) {<a name="line.608"></a>
-<FONT color="green">609</FONT>          return new StylingPolicy(out, policies);<a name="line.609"></a>
-<FONT color="green">610</FONT>        } else {<a name="line.610"></a>
-<FONT color="green">611</FONT>          return new ElementAndAttributePolicyBasedSanitizerPolicy(<a name="line.611"></a>
-<FONT color="green">612</FONT>              out, policies);<a name="line.612"></a>
-<FONT color="green">613</FONT>        }<a name="line.613"></a>
-<FONT color="green">614</FONT>      }<a name="line.614"></a>
-<FONT color="green">615</FONT>    }<a name="line.615"></a>
+<FONT color="green">590</FONT>      Factory(<a name="line.590"></a>
+<FONT color="green">591</FONT>          ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies,<a name="line.591"></a>
+<FONT color="green">592</FONT>          boolean allowStyling) {<a name="line.592"></a>
+<FONT color="green">593</FONT>        this.policies = policies;<a name="line.593"></a>
+<FONT color="green">594</FONT>        this.allowStyling = allowStyling;<a name="line.594"></a>
+<FONT color="green">595</FONT>      }<a name="line.595"></a>
+<FONT color="green">596</FONT>    <a name="line.596"></a>
+<FONT color="green">597</FONT>      public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {<a name="line.597"></a>
+<FONT color="green">598</FONT>        if (allowStyling) {<a name="line.598"></a>
+<FONT color="green">599</FONT>          return new StylingPolicy(out, policies);<a name="line.599"></a>
+<FONT color="green">600</FONT>        } else {<a name="line.600"></a>
+<FONT color="green">601</FONT>          return new ElementAndAttributePolicyBasedSanitizerPolicy(<a name="line.601"></a>
+<FONT color="green">602</FONT>              out, policies);<a name="line.602"></a>
+<FONT color="green">603</FONT>        }<a name="line.603"></a>
+<FONT color="green">604</FONT>      }<a name="line.604"></a>
+<FONT color="green">605</FONT>    }<a name="line.605"></a>
 
 
 
