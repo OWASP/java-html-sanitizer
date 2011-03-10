@@ -13,24 +13,29 @@ out:
 
 classes: out/classes.tstamp
 out/classes.tstamp: out src/main/org/owasp/html/*.java
-	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH} -d out src/main/org/owasp/html/*.java && touch out/classes.tstamp
+	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH} -d out \
+	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
+	touch out/classes.tstamp
 
 # Depends on all java files under tests.
 tests: out/tests.tstamp out/org/owasp/html/alltests
 out/tests.tstamp: out out/classes.tstamp src/tests/org/owasp/html/*.java
-	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out src/tests/org/owasp/html/*.java
+	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out \
+	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/tests.tstamp
 out/org/owasp/html/alltests: src/tests/org/owasp/html/*Test.java
-	echo $? | tr ' ' '\n' | perl -pe 's#^src/tests/|\.java$$##g; s#/#.#g;' > $@
+	echo $^ | tr ' ' '\n' | perl -pe 's#^src/tests/|\.java$$##g; s#/#.#g;' > $@
 
 runtests: tests
 	java -classpath out:src/tests:${TEST_CLASSPATH} junit.textui.TestRunner org.owasp.html.AllTests
 
 # Runs findbugs to identify problems.
 findbugs: out/findbugs.txt
-	cat out/findbugs.txt
+	cat $^
 out/findbugs.txt: out/tests.tstamp
-	find out/org -type d | xargs tools/findbugs-1.3.9/bin/findbugs -textui -effort:max -auxclasspath ${TEST_CLASSPATH} > out/findbugs.txt
+	find out/org -type d | \
+	  xargs tools/findbugs-1.3.9/bin/findbugs -textui -effort:max \
+	  -auxclasspath ${TEST_CLASSPATH} > $@
 
 # Runs a benchmark that compares performance.
 benchmark: out/tests.tstamp
@@ -52,7 +57,7 @@ out/javadoc.tstamp: src/main/org/owasp/html/*.java
 	  -doctitle 'OWASP Java HTML Sanitizer' \
 	  -header '<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a>' \
 	  -J-Xmx250m -nohelp -sourcetab 8 -docencoding UTF-8 -protected \
-	  -encoding UTF-8 -author -version src/main/org/owasp/html/*.java \
+	  -encoding UTF-8 -author -version $^ \
 	&& touch out/javadoc.tstamp
 
 # Packages the documentation, and libraries in the distrib directory,
