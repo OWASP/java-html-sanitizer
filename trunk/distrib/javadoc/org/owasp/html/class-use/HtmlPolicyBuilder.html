@@ -37,7 +37,8 @@ function windowTitle()
 <A NAME="navbar_top_firstrow"><!-- --></A>
 <TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
   <TR ALIGN="center" VALIGN="top">
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../org/owasp/html/package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><FONT CLASS="NavBarFont1"><B>Class</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Use</B></FONT>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../overview-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
@@ -81,6 +82,21 @@ function windowTitle()
 <H2>
 <B>Uses of Class<br>org.owasp.html.HtmlPolicyBuilder</B></H2>
 </CENTER>
+
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+Packages that use <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><A HREF="#org.owasp.html"><B>org.owasp.html</B></A></TD>
+<TD>An efficient <A HREF="../../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><CODE>HtmlSanitizer</CODE></A>
+ configurable via a flexible
+ <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><CODE>HtmlPolicyBuilder</CODE></A>.&nbsp;</TD>
+</TR>
+</TABLE>
+&nbsp;
+<P>
 <A NAME="org.owasp.html"><!-- --></A>
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
 <TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
@@ -107,6 +123,26 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
 <CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
+<TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(java.util.regex.Pattern, java.lang.String...)">allowAttributesGlobally</A></B>(java.util.regex.Pattern&nbsp;p,
+                                               java.lang.String...&nbsp;attributeNames)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements as long as the value matches
+ the pattern.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
+<TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(com.google.common.base.Predicate, java.lang.String...)">allowAttributesGlobally</A></B>(com.google.common.base.Predicate&lt;? super java.lang.String&gt;&nbsp;p,
+                                               java.lang.String...&nbsp;attributeNames)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements as long as the value matches
+ the predicate.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
 <TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(java.lang.String...)">allowAttributesGlobally</A></B>(java.lang.String...&nbsp;attributeNames)</CODE>
 
 <BR>
@@ -121,6 +157,28 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the named attributes on the given element.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
+<TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(java.util.regex.Pattern, java.lang.String, java.lang.String...)">allowAttributesOnElement</A></B>(java.util.regex.Pattern&nbsp;p,
+                                                 java.lang.String&nbsp;elementName,
+                                                 java.lang.String...&nbsp;attributeNames)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements as long as the value matches
+ the pattern.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
+<TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(com.google.common.base.Predicate, java.lang.String, java.lang.String...)">allowAttributesOnElement</A></B>(com.google.common.base.Predicate&lt;? super java.lang.String&gt;&nbsp;p,
+                                                 java.lang.String&nbsp;elementName,
+                                                 java.lang.String...&nbsp;attributeNames)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on the given element as long as the value
+ matches the predicate.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -266,7 +324,8 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class
 <A NAME="navbar_bottom_firstrow"><!-- --></A>
 <TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
   <TR ALIGN="center" VALIGN="top">
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../org/owasp/html/package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><FONT CLASS="NavBarFont1"><B>Class</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Use</B></FONT>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../../overview-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
