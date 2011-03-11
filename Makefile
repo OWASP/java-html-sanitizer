@@ -17,6 +17,12 @@ out/classes.tstamp: out src/main/org/owasp/html/*.java
 	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/classes.tstamp
 
+examples: out/examples.tstamp
+out/examples.tstamp: out/classes.tstamp src/main/org/owasp/html/examples/*.java
+	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH}:out -d out \
+	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
+	touch out/examples.tstamp
+
 # Depends on all java files under tests.
 tests: out/tests.tstamp out/org/owasp/html/alltests
 out/tests.tstamp: out out/classes.tstamp src/tests/org/owasp/html/*.java
@@ -48,7 +54,7 @@ out/java.hprof.txt: out/tests.tstamp
 
 # Builds the documentation.
 javadoc: out/javadoc.tstamp
-out/javadoc.tstamp: src/main/org/owasp/html/*.java
+out/javadoc.tstamp: src/main/org/owasp/html/*.java src/main/org/owasp/html/examples/*.java
 	mkdir -p out/javadoc
 	javadoc -locale en -d out/javadoc \
 	  -classpath ${CLASSPATH} \

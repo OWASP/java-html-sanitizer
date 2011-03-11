@@ -31,10 +31,13 @@ package org.owasp.html;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -280,6 +283,40 @@ public class HtmlPolicyBuilder {
   }
 
   /**
+   * Allows the given attributes on any elements as long as the value matches
+   * the pattern.
+   *
+   * @param p A pattern that the attribute value must match.
+   */
+  public HtmlPolicyBuilder allowAttributesGlobally(
+      final Pattern p, String... attributeNames) {
+    return allowAttributesGlobally(
+        new AttributePolicy() {
+          public @Nullable String apply(
+              String elementName, String attributeName, String value) {
+            return p.matcher(value).matches() ? value : null;
+          }
+        }, attributeNames);
+  }
+
+  /**
+   * Allows the given attributes on any elements as long as the value matches
+   * the predicate.
+   *
+   * @param p A predicate that the attribute value must match.
+   */
+  public HtmlPolicyBuilder allowAttributesGlobally(
+      final Predicate<? super String> p, String... attributeNames) {
+    return allowAttributesGlobally(
+        new AttributePolicy() {
+          public @Nullable String apply(
+              String elementName, String attributeName, String value) {
+            return p.apply(value) ? value : null;
+          }
+        }, attributeNames);
+  }
+
+  /**
    * Allows the given attributes on any elements.
    * Global attribute policies are applied after element specific policies.
    * Be careful of using this with attributes like <code>type</code> which have
@@ -317,6 +354,41 @@ public class HtmlPolicyBuilder {
       String elementName, String... attributeNames) {
     return allowAttributesOnElement(
         AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, elementName, attributeNames);
+  }
+
+  /**
+   * Allows the given attributes on any elements as long as the value matches
+   * the pattern.
+   *
+   * @param p A pattern that the attribute value must match.
+   */
+  public HtmlPolicyBuilder allowAttributesOnElement(
+      final Pattern p, String elementName, String... attributeNames) {
+    return allowAttributesOnElement(
+        new AttributePolicy() {
+          public @Nullable String apply(
+              String elementName, String attributeName, String value) {
+            return p.matcher(value).matches() ? value : null;
+          }
+        }, elementName, attributeNames);
+  }
+
+  /**
+   * Allows the given attributes on the given element as long as the value
+   * matches the predicate.
+   *
+   * @param p A predicate that the attribute value must match.
+   */
+  public HtmlPolicyBuilder allowAttributesOnElement(
+      final Predicate<? super String> p, String elementName,
+      String... attributeNames) {
+    return allowAttributesOnElement(
+        new AttributePolicy() {
+          public @Nullable String apply(
+              String elementName, String attributeName, String value) {
+            return p.apply(value) ? value : null;
+          }
+        }, elementName, attributeNames);
   }
 
   /**

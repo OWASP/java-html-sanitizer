@@ -50,7 +50,7 @@ public final class HtmlSanitizer {
    * <b>Implementations of this class are in the TCB.</b>
    */
   @TCB
-  interface Policy extends HtmlStreamEventReceiver {
+  public interface Policy extends HtmlStreamEventReceiver {
     /**
      * Called when an HTML tag like {@code <foo bar=baz>} is seen in the input.
      *
