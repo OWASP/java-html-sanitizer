@@ -99,6 +99,21 @@ public class StylingPolicyTest extends TestCase {
         "text-align: left; direction: ltr;");
   }
 
+  public final void testTextDecoration() {
+    assertAttributesFromStyle(
+        "style=\"text-decoration:underline;\"",
+        "text-decoration: underline");
+    assertAttributesFromStyle(
+        "style=\"text-decoration:overline;\"",
+        "text-decoration: overline");
+    assertAttributesFromStyle(
+        "style=\"text-decoration:line-through;\"",
+        "text-decoration: line-through");
+    assertAttributesFromStyle(
+        "",
+        "text-decoration: expression(document.location=42)");
+  }
+
   private void assertAttributesFromStyle(String expectedAttrs, String css) {
     List<String> attributes = StylingPolicy.cssPropertiesToFontAttributes(css);
     StringBuilder sb = new StringBuilder();

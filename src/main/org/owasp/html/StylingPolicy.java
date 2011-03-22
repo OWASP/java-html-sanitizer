@@ -96,6 +96,7 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
     ALIGN,
     WEIGHT,
     STYLE,
+    TEXT_DECORATION,
     NONE
     ;
   }
@@ -109,6 +110,9 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
   private static final Pattern ALLOWED_CSS_STYLE = Pattern.compile(
       "italic|oblique|normal");
 
+  private static final Pattern ALLOWED_TEXT_DECORATION = Pattern.compile(
+      "underline|overline|line-through");
+
   private static final ImmutableMap<String, CssPropertyType>
       BY_CSS_PROPERTY_NAME = ImmutableMap.<String, CssPropertyType>builder()
       .put("font", CssPropertyType.FONT)
@@ -119,6 +123,7 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       .put("direction", CssPropertyType.DIR)
       .put("font-weight", CssPropertyType.WEIGHT)
       .put("font-style", CssPropertyType.STYLE)
+      .put("text-decoration", CssPropertyType.TEXT_DECORATION)
       .build();
 
   /**
@@ -142,7 +147,7 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       String align, dir;
       // These values are white-listed so we know they can't affect anything
       // other than font-face appearance, and layout.
-      String cssSize, cssWeight, cssFontStyle;
+      String cssSize, cssWeight, cssFontStyle, cssTextDecoration;
 
       public void url(String token) {
         // Ignore.
@@ -241,6 +246,11 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           case DIR:
             dir = token;
             break;
+          case TEXT_DECORATION:
+            if (ALLOWED_TEXT_DECORATION.matcher(token).matches()) {
+              cssTextDecoration = token;
+            }
+            break;
           default: break;
         }
       }
@@ -294,6 +304,9 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           }
           if (cssFontStyle != null) {
             b.add("font-style").add(cssFontStyle);
+          }
+          if (cssTextDecoration != null) {
+            b.add("text-decoration").add(cssTextDecoration);
           }
           styleParts = b.build();
         }
