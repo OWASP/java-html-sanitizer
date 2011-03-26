@@ -387,11 +387,13 @@ public class HtmlSanitizerTest extends TestCase {
            "a", "b", "br", "div", "i", "img", "input", "li",
            "ol", "p", "span", "ul")
        // And these attributes.
-       .allowAttributesGlobally(
+       .allowAttributes(
            "dir", "checked", "class", "href", "id", "target", "title", "type")
+       .globally()
        // Cleanup IDs and CLASSes and prefix them with p- to move to a separate
        // name-space.
-       .allowAttributesGlobally(
+       .allowAttributes("id", "class")
+       .matching(
            new AttributePolicy() {
             public String apply(
                 String elementName, String attributeName, String value) {
@@ -399,7 +401,8 @@ public class HtmlSanitizerTest extends TestCase {
                   .replaceAll("\\s+", " ")
                   .trim();
             }
-           }, "id", "class")
+           })
+       .globally()
        // Don't throw out useless <img> and <input> elements to ease debugging.
        .allowWithoutAttributes("img", "input")
        .build(renderer);

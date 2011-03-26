@@ -36,7 +36,7 @@ import javax.annotation.concurrent.Immutable;
  * allow it in the output, possibly after transforming its value.
  *
  * @author Mike Samuel <mikesamuel@gmail.com>
- * @see HtmlPolicyBuilder#allowAttributesGlobally(AttributePolicy, String...)
+ * @see HtmlPolicyBuilder.AttributeBuilder#matching(AttributePolicy)
  */
 @TCB public interface AttributePolicy {
 

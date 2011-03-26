@@ -38,6 +38,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -59,7 +60,7 @@ import com.google.common.collect.Sets;
  * Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyDefinition
  *     = new HtmlPolicyBuilder()
  *         .allowElements("a", "p")
- *         .allowAttributesOnElement("a", "href")
+ *         .allowAttributes("href").onElements("a")
  *         .toFactory();
  *
  * // Sanitize your output.
@@ -176,8 +177,8 @@ public class HtmlPolicyBuilder {
   /**
    * Allows the named elements.
    */
-  public HtmlPolicyBuilder allowElements(String... elementName) {
-    return allowElements(ElementPolicy.IDENTITY_ELEMENT_POLICY, elementName);
+  public HtmlPolicyBuilder allowElements(String... elementNames) {
+    return allowElements(ElementPolicy.IDENTITY_ELEMENT_POLICY, elementNames);
   }
 
   /**
@@ -185,8 +186,8 @@ public class HtmlPolicyBuilder {
    * there is no need to disallow elements, unless you are making an exception
    * based on an earlier allow.
    */
-  public HtmlPolicyBuilder disallowElements(String... elementName) {
-    return allowElements(ElementPolicy.REJECT_ALL_ELEMENT_POLICY, elementName);
+  public HtmlPolicyBuilder disallowElements(String... elementNames) {
+    return allowElements(ElementPolicy.REJECT_ALL_ELEMENT_POLICY, elementNames);
   }
 
   /**
@@ -260,81 +261,36 @@ public class HtmlPolicyBuilder {
   }
 
   /**
-   * Allows the given attributes on any elements.
-   * Be careful of using this with attributes like <code>type</code> which have
-   * different meanings on different attributes.
+   * Returns an object that lets you associate policies with the given
+   * attributes, and allow them globally or on specific elements.
    */
-  public HtmlPolicyBuilder allowAttributesGlobally(String... attributeNames) {
-    return allowAttributesGlobally(
-        AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, attributeNames);
+  public AttributeBuilder allowAttributes(String... attributeNames) {
+    ImmutableList.Builder<String> b = ImmutableList.builder();
+    for (String attributeName : attributeNames) {
+      b.add(HtmlLexer.canonicalName(attributeName));
+    }
+    return new AttributeBuilder(b.build());
   }
 
   /**
-   * Disallows the given attributes on any elements.
-   * Attributes are disallowed unless explicitly allowed, so there is no need
-   * to call this except to reverse an earlier
-   * {@link #allowAttributesGlobally allow}.
-   * Disallowing an attribute globally also disallows it on specific elements.
+   * Reverse an earlier attribute {@link #allowAttributes allow}.
+   * <p>
+   * For this to have an effect you must call at least one of
+   * {@link AttributeBuilder#globally} and {@link AttributeBuilder#onElements}.
+   * <p>
+   * Attributes are disallowed by default, so there is no need to call this
+   * with a laundry list of attribute/element pairs.
    */
-  public HtmlPolicyBuilder disallowAttributesGlobally(
-      String... attributeNames) {
-    return allowAttributesGlobally(
-        AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY, attributeNames);
+  public AttributeBuilder disallowAttributes(String... attributeNames) {
+    return this.allowAttributes(attributeNames)
+        .matching(AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY);
   }
 
-  /**
-   * Allows the given attributes on any elements as long as the value matches
-   * the pattern.
-   *
-   * @param p A pattern that the attribute value must match.
-   */
-  public HtmlPolicyBuilder allowAttributesGlobally(
-      final Pattern p, String... attributeNames) {
-    return allowAttributesGlobally(
-        new AttributePolicy() {
-          public @Nullable String apply(
-              String elementName, String attributeName, String value) {
-            return p.matcher(value).matches() ? value : null;
-          }
-        }, attributeNames);
-  }
 
-  /**
-   * Allows the given attributes on any elements as long as the value matches
-   * the predicate.
-   *
-   * @param p A predicate that the attribute value must match.
-   */
-  public HtmlPolicyBuilder allowAttributesGlobally(
-      final Predicate<? super String> p, String... attributeNames) {
-    return allowAttributesGlobally(
-        new AttributePolicy() {
-          public @Nullable String apply(
-              String elementName, String attributeName, String value) {
-            return p.apply(value) ? value : null;
-          }
-        }, attributeNames);
-  }
-
-  /**
-   * Allows the given attributes on any elements.
-   * Global attribute policies are applied after element specific policies.
-   * Be careful of using this with attributes like <code>type</code> which have
-   * different meanings on different attributes.
-   * Also be careful of allowing globally attributes like <code>href</code>
-   * which can have more far-reaching effects on tags like
-   * <code>&lt;base&gt;</code> and <code>&lt;link&gt;</code> than on
-   * <code>&lt;a&gt;</code> because in the former, they have an effect without
-   * user interaction and can change the behavior of the current page.
-   *
-   * @param policy Can allow, specify a different value for, or deny the
-   *     attribute.
-   */
-  public HtmlPolicyBuilder allowAttributesGlobally(
-      AttributePolicy policy, String... attributeNames) {
+  private HtmlPolicyBuilder allowAttributesGlobally(
+      AttributePolicy policy, List<String> attributeNames) {
     invalidateCompiledState();
     for (String attributeName : attributeNames) {
-      attributeName = HtmlLexer.canonicalName(attributeName);
       // We reinterpret the identity policy later via policy joining since its
       // the default passed from the policy-less method, but we don't do
       // anything here since we don't know until build() is called whether the
@@ -347,87 +303,24 @@ public class HtmlPolicyBuilder {
     return this;
   }
 
-  /**
-   * Allows the named attributes on the given element.
-   */
-  public HtmlPolicyBuilder allowAttributesOnElement(
-      String elementName, String... attributeNames) {
-    return allowAttributesOnElement(
-        AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, elementName, attributeNames);
-  }
-
-  /**
-   * Allows the given attributes on any elements as long as the value matches
-   * the pattern.
-   *
-   * @param p A pattern that the attribute value must match.
-   */
-  public HtmlPolicyBuilder allowAttributesOnElement(
-      final Pattern p, String elementName, String... attributeNames) {
-    return allowAttributesOnElement(
-        new AttributePolicy() {
-          public @Nullable String apply(
-              String elementName, String attributeName, String value) {
-            return p.matcher(value).matches() ? value : null;
-          }
-        }, elementName, attributeNames);
-  }
-
-  /**
-   * Allows the given attributes on the given element as long as the value
-   * matches the predicate.
-   *
-   * @param p A predicate that the attribute value must match.
-   */
-  public HtmlPolicyBuilder allowAttributesOnElement(
-      final Predicate<? super String> p, String elementName,
-      String... attributeNames) {
-    return allowAttributesOnElement(
-        new AttributePolicy() {
-          public @Nullable String apply(
-              String elementName, String attributeName, String value) {
-            return p.apply(value) ? value : null;
-          }
-        }, elementName, attributeNames);
-  }
-
-  /**
-   * Allows the named attributes on the given element.
-   *
-   * @param policy Can allow, specify a different value for, or deny the
-   *     attribute.
-   */
-  public HtmlPolicyBuilder allowAttributesOnElement(
-      AttributePolicy policy, String elementName, String... attributeNames) {
+  private HtmlPolicyBuilder allowAttributesOnElements(
+      AttributePolicy policy, List<String> attributeNames,
+      List<String> elementNames) {
     invalidateCompiledState();
-    elementName = HtmlLexer.canonicalName(elementName);
-    Map<String, AttributePolicy> policies = attrPolicies.get(elementName);
-    if (policies == null) {
-      policies = Maps.newLinkedHashMap();
-      attrPolicies.put(elementName, policies);
-    }
-    for (String attributeName : attributeNames) {
-      attributeName = HtmlLexer.canonicalName(attributeName);
-      AttributePolicy oldPolicy = policies.get(attributeName);
-      policies.put(
-          attributeName,
-          AttributePolicy.Util.join(oldPolicy, policy));
+    for (String elementName : elementNames) {
+      Map<String, AttributePolicy> policies = attrPolicies.get(elementName);
+      if (policies == null) {
+        policies = Maps.newLinkedHashMap();
+        attrPolicies.put(elementName, policies);
+      }
+      for (String attributeName : attributeNames) {
+        AttributePolicy oldPolicy = policies.get(attributeName);
+        policies.put(
+            attributeName,
+            AttributePolicy.Util.join(oldPolicy, policy));
+      }
     }
     return this;
-  }
-
-  /**
-   * Reverse an earlier element-specific attribute
-   * {@link #allowAttributesOnElement allow}.
-   * <p>
-   * Attributes are disallowed by default, so there is no need to call this
-   * with a laundry list of attribute/element pairs.
-   */
-  public HtmlPolicyBuilder disallowAttributesOnElement(
-      String elementName, String... attributeNames) {
-    return allowAttributesOnElement(
-        AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY,
-        elementName, attributeNames);
   }
 
   /**
@@ -652,6 +545,124 @@ public class HtmlPolicyBuilder {
     }
     return compiledPolicies = policiesBuilder.build();
   }
+
+  /**
+   * Builds the relationship between attributes, the values that they may have,
+   * and the elements on which they may appear.
+   *
+   * @author Mike Samuel
+   */
+  public final class AttributeBuilder {
+    private final List<String> attributeNames;
+    private AttributePolicy policy = AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
+
+    AttributeBuilder(List<? extends String> attributeNames) {
+      this.attributeNames = ImmutableList.copyOf(attributeNames);
+    }
+
+    /**
+     * Filters and/or transforms the attribute values
+     * allowed by later {@code allow*} calls.
+     * Multiple calls to {@code matching} are combined so that the policies
+     * receive the value in order, each seeing the value after any
+     * transformation by a previous policy.
+     */
+    public AttributeBuilder matching(AttributePolicy policy) {
+      this.policy = AttributePolicy.Util.join(this.policy, policy);
+      return this;
+    }
+
+    /**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * matching the pattern.
+     * Multiple calls to {@code matching} are combined to restrict to the
+     * intersection of possible matched values.
+     */
+    public AttributeBuilder matching(final Pattern pattern) {
+      return matching(new AttributePolicy() {
+        public @Nullable String apply(
+            String elementName, String attributeName, String value) {
+          return pattern.matcher(value).matches() ? value : null;
+        }
+      });
+    }
+
+    /**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * matching the given predicate.
+     * Multiple calls to {@code matching} are combined to restrict to the
+     * intersection of possible matched values.
+     */
+    public AttributeBuilder matching(
+        final Predicate<? super String> filter) {
+      return matching(new AttributePolicy() {
+        public @Nullable String apply(
+            String elementName, String attributeName, String value) {
+          return filter.apply(value) ? value : null;
+        }
+      });
+    }
+
+    /**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * supplied.
+     * Multiple calls to {@code matching} are combined to restrict to the
+     * intersection of possible matched values.
+     */
+    public AttributeBuilder matching(
+        boolean ignoreCase, String... allowedValues) {
+      return matching(ignoreCase, ImmutableSet.copyOf(allowedValues));
+    }
+
+    /**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * supplied.
+     * Multiple calls to {@code matching} are combined to restrict to the
+     * intersection of possible matched values.
+     */
+    public AttributeBuilder matching(
+        final boolean ignoreCase, Set<? extends String> allowedValues) {
+      final ImmutableSet<String> allowed = ImmutableSet.copyOf(allowedValues);
+      return matching(new AttributePolicy() {
+        public @Nullable String apply(
+            String elementName, String attributeName, String value) {
+          if (ignoreCase) { value = Strings.toLowerCase(value); }
+          return allowed.contains(value) ? value : null;
+        }
+      });
+    }
+
+    /**
+     * Allows the given attributes on any elements but filters the
+     * attributes' values based on previous calls to {@code matching(...)}.
+     * Global attribute policies are applied after element specific policies.
+     * Be careful of using this with attributes like <code>type</code> which
+     * have different meanings on different attributes.
+     * Also be careful of allowing globally attributes like <code>href</code>
+     * which can have more far-reaching effects on tags like
+     * <code>&lt;base&gt;</code> and <code>&lt;link&gt;</code> than on
+     * <code>&lt;a&gt;</code> because in the former, they have an effect without
+     * user interaction and can change the behavior of the current page.
+     */
+    public HtmlPolicyBuilder globally() {
+      return HtmlPolicyBuilder.this.allowAttributesGlobally(
+          policy, attributeNames);
+    }
+
+    /**
+     * Allows the named attributes on the given elements but filters the
+     * attributes' values based on previous calls to {@code matching(...)}.
+     */
+    public HtmlPolicyBuilder onElements(String... elementNames) {
+      ImmutableList.Builder<String> b = ImmutableList.builder();
+      for (String elementName : elementNames) {
+        b.add(HtmlLexer.canonicalName(elementName));
+      }
+      return HtmlPolicyBuilder.this.allowAttributesOnElements(
+          policy, attributeNames, b.build());
+    }
+  }
+
 }
 
 final class Factory

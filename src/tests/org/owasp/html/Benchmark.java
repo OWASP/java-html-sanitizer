@@ -182,7 +182,7 @@ public class Benchmark {
       policyBuilder = new HtmlPolicyBuilder()
           .allowStandardUrlProtocols()
           .allowElements("a")
-          .allowAttributesOnElement("a", "href");
+          .allowAttributes("href").onElements("a");
     }
 
     StringBuilder sb = new StringBuilder(html.length());

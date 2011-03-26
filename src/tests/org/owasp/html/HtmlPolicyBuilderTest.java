@@ -124,7 +124,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             ""),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
-              .allowAttributesOnElement("a", "href")));
+              .allowAttributes("href").onElements("a")));
   }
 
   public final void testExternalLinksAllowed() throws Exception {
@@ -143,7 +143,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
               .allowElements("a")
               // Allows http.
               .allowStandardUrlProtocols()
-              .allowAttributesOnElement("a", "href")));
+              .allowAttributes("href").onElements("a")));
   }
 
   public final void testLinksWithNofollow() throws Exception {
@@ -160,7 +160,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               // Allows http.
-              .allowAttributesOnElement("a", "href")
+              .allowAttributes("href").onElements("a")
               .requireRelNofollowOnLinks()));
   }
 
@@ -178,7 +178,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             ""),
         apply(new HtmlPolicyBuilder()
               .allowElements("img")
-              .allowAttributesOnElement("img", "src", "alt")
+              .allowAttributes("src", "alt").onElements("img")
               .allowUrlProtocols("https")));
   }
 
