@@ -55,7 +55,7 @@ function windowTitle()
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
 &nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
   <A HREF="../../../index.html?org/owasp/html/HtmlPolicyBuilder.html" target="_top"><B>FRAMES</B></A>  &nbsp;
 &nbsp;<A HREF="HtmlPolicyBuilder.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
@@ -75,7 +75,7 @@ function windowTitle()
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;<A HREF="#nested_class_summary">NESTED</A>&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
 DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>
@@ -97,7 +97,7 @@ java.lang.Object
 <HR>
 <DL>
 <DT><PRE><FONT SIZE="-1">@NotThreadSafe
-</FONT>public class <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.155"><B>HtmlPolicyBuilder</B></A><DT>extends java.lang.Object</DL>
+</FONT>public class <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.156"><B>HtmlPolicyBuilder</B></A><DT>extends java.lang.Object</DL>
 </PRE>
 
 <P>
@@ -115,7 +115,7 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
  Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyDefinition
      = new HtmlPolicyBuilder()
          .allowElements("a", "p")
-         .allowAttributesOnElement("a", "href")
+         .allowAttributes("href").onElements("a")
          .toFactory();
 
  // Sanitize your output.
@@ -213,7 +213,25 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 <HR>
 
 <P>
-<!-- =========== FIELD SUMMARY =========== -->
+<!-- ======== NESTED CLASS SUMMARY ======== -->
+
+<A NAME="nested_class_summary"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Nested Class Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;class</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder.AttributeBuilder</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Builds the relationship between attributes, the values that they may have,
+ and the elements on which they may appear.</TD>
+</TR>
+</TABLE>
+&nbsp;<!-- =========== FIELD SUMMARY =========== -->
 
 <A NAME="field_summary"><!-- --></A>
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
@@ -257,81 +275,12 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(org.owasp.html.AttributePolicy, java.lang.String...)">allowAttributesGlobally</A></B>(<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A>&nbsp;policy,
-                                               java.lang.String...&nbsp;attributeNames)</CODE>
+<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder.AttributeBuilder</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributes(java.lang.String...)">allowAttributes</A></B>(java.lang.String...&nbsp;attributeNames)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(java.util.regex.Pattern, java.lang.String...)">allowAttributesGlobally</A></B>(java.util.regex.Pattern&nbsp;p,
-                                               java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements as long as the value matches
- the pattern.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(com.google.common.base.Predicate, java.lang.String...)">allowAttributesGlobally</A></B>(com.google.common.base.Predicate&lt;? super java.lang.String&gt;&nbsp;p,
-                                               java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements as long as the value matches
- the predicate.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(java.lang.String...)">allowAttributesGlobally</A></B>(java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(org.owasp.html.AttributePolicy, java.lang.String, java.lang.String...)">allowAttributesOnElement</A></B>(<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A>&nbsp;policy,
-                                                 java.lang.String&nbsp;elementName,
-                                                 java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the named attributes on the given element.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(java.util.regex.Pattern, java.lang.String, java.lang.String...)">allowAttributesOnElement</A></B>(java.util.regex.Pattern&nbsp;p,
-                                                 java.lang.String&nbsp;elementName,
-                                                 java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on any elements as long as the value matches
- the pattern.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(com.google.common.base.Predicate, java.lang.String, java.lang.String...)">allowAttributesOnElement</A></B>(com.google.common.base.Predicate&lt;? super java.lang.String&gt;&nbsp;p,
-                                                 java.lang.String&nbsp;elementName,
-                                                 java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the given attributes on the given element as long as the value
- matches the predicate.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(java.lang.String, java.lang.String...)">allowAttributesOnElement</A></B>(java.lang.String&nbsp;elementName,
-                                                 java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the named attributes on the given element.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns an object that lets you associate policies with the given
+ attributes, and allow them globally or on specific elements.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -361,7 +310,7 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
 <CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowElements(java.lang.String...)">allowElements</A></B>(java.lang.String...&nbsp;elementName)</CODE>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowElements(java.lang.String...)">allowElements</A></B>(java.lang.String...&nbsp;elementNames)</CODE>
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows the named elements.</TD>
@@ -412,26 +361,16 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#disallowAttributesGlobally(java.lang.String...)">disallowAttributesGlobally</A></B>(java.lang.String...&nbsp;attributeNames)</CODE>
+<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder.AttributeBuilder</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#disallowAttributes(java.lang.String...)">disallowAttributes</A></B>(java.lang.String...&nbsp;attributeNames)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Disallows the given attributes on any elements.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reverse an earlier attribute <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributes(java.lang.String...)"><CODE>allow</CODE></A>.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
 <CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#disallowAttributesOnElement(java.lang.String, java.lang.String...)">disallowAttributesOnElement</A></B>(java.lang.String&nbsp;elementName,
-                                                       java.lang.String...&nbsp;attributeNames)</CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reverse an earlier element-specific attribute
- <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(java.lang.String, java.lang.String...)"><CODE>allow</CODE></A>.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#disallowElements(java.lang.String...)">disallowElements</A></B>(java.lang.String...&nbsp;elementName)</CODE>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#disallowElements(java.lang.String...)">disallowElements</A></B>(java.lang.String...&nbsp;elementNames)</CODE>
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Disallows the named elements.</TD>
@@ -496,7 +435,7 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 <A NAME="DEFAULT_SKIP_IF_EMPTY"><!-- --></A><H3>
 DEFAULT_SKIP_IF_EMPTY</H3>
 <PRE>
-public static final com.google.common.collect.ImmutableSet&lt;java.lang.String&gt; <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.163"><B>DEFAULT_SKIP_IF_EMPTY</B></A></PRE>
+public static final com.google.common.collect.ImmutableSet&lt;java.lang.String&gt; <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.164"><B>DEFAULT_SKIP_IF_EMPTY</B></A></PRE>
 <DL>
 <DD>The default set of elements that are removed if they have no attributes.
  Since <code>&lt;img&gt;</code> is in this set, by default, a policy will remove
@@ -521,7 +460,7 @@ public static final com.google.common.collect.ImmutableSet&lt;java.lang.String&g
 <A NAME="HtmlPolicyBuilder()"><!-- --></A><H3>
 HtmlPolicyBuilder</H3>
 <PRE>
-public <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.155"><B>HtmlPolicyBuilder</B></A>()</PRE>
+public <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.156"><B>HtmlPolicyBuilder</B></A>()</PRE>
 <DL>
 </DL>
 
@@ -538,7 +477,7 @@ public <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.155
 <A NAME="allowElements(java.lang.String...)"><!-- --></A><H3>
 allowElements</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.179"><B>allowElements</B></A>(java.lang.String...&nbsp;elementName)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.180"><B>allowElements</B></A>(java.lang.String...&nbsp;elementNames)</PRE>
 <DL>
 <DD>Allows the named elements.
 <P>
@@ -551,7 +490,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="disallowElements(java.lang.String...)"><!-- --></A><H3>
 disallowElements</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.188"><B>disallowElements</B></A>(java.lang.String...&nbsp;elementName)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.189"><B>disallowElements</B></A>(java.lang.String...&nbsp;elementNames)</PRE>
 <DL>
 <DD>Disallows the named elements.  Elements are disallowed by default, so
  there is no need to disallow elements, unless you are making an exception
@@ -566,7 +505,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowElements(org.owasp.html.ElementPolicy, java.lang.String...)"><!-- --></A><H3>
 allowElements</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.198"><B>allowElements</B></A>(<A HREF="../../../org/owasp/html/ElementPolicy.html" title="interface in org.owasp.html">ElementPolicy</A>&nbsp;policy,
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.199"><B>allowElements</B></A>(<A HREF="../../../org/owasp/html/ElementPolicy.html" title="interface in org.owasp.html">ElementPolicy</A>&nbsp;policy,
                                        java.lang.String...&nbsp;elementNames)</PRE>
 <DL>
 <DD>Allow the given elements with the given policy.
@@ -581,7 +520,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowCommonInlineFormattingElements()"><!-- --></A><H3>
 allowCommonInlineFormattingElements</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.216"><B>allowCommonInlineFormattingElements</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.217"><B>allowCommonInlineFormattingElements</B></A>()</PRE>
 <DL>
 <DD>A canned policy that allows a number of common formatting elements.
 <P>
@@ -594,7 +533,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowCommonBlockElements()"><!-- --></A><H3>
 allowCommonBlockElements</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.225"><B>allowCommonBlockElements</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.226"><B>allowCommonBlockElements</B></A>()</PRE>
 <DL>
 <DD>A canned policy that allows a number of common block elements.
 <P>
@@ -607,7 +546,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowWithoutAttributes(java.lang.String...)"><!-- --></A><H3>
 allowWithoutAttributes</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.238"><B>allowWithoutAttributes</B></A>(java.lang.String...&nbsp;elementNames)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.239"><B>allowWithoutAttributes</B></A>(java.lang.String...&nbsp;elementNames)</PRE>
 <DL>
 <DD>Assuming the given elements are allowed, allows them to appear without
  attributes.
@@ -622,7 +561,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="disallowWithoutAttributes(java.lang.String...)"><!-- --></A><H3>
 disallowWithoutAttributes</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.253"><B>disallowWithoutAttributes</B></A>(java.lang.String...&nbsp;elementNames)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.254"><B>disallowWithoutAttributes</B></A>(java.lang.String...&nbsp;elementNames)</PRE>
 <DL>
 <DD>Disallows the given elements from appearing without attributes.
 <P>
@@ -633,14 +572,13 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 </DL>
 <HR>
 
-<A NAME="allowAttributesGlobally(java.lang.String...)"><!-- --></A><H3>
-allowAttributesGlobally</H3>
+<A NAME="allowAttributes(java.lang.String...)"><!-- --></A><H3>
+allowAttributes</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.267"><B>allowAttributesGlobally</B></A>(java.lang.String...&nbsp;attributeNames)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder.AttributeBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.267"><B>allowAttributes</B></A>(java.lang.String...&nbsp;attributeNames)</PRE>
 <DL>
-<DD>Allows the given attributes on any elements.
- Be careful of using this with attributes like <code>type</code> which have
- different meanings on different attributes.
+<DD>Returns an object that lets you associate policies with the given
+ attributes, and allow them globally or on specific elements.
 <P>
 <DD><DL>
 </DL>
@@ -648,146 +586,15 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 </DL>
 <HR>
 
-<A NAME="disallowAttributesGlobally(java.lang.String...)"><!-- --></A><H3>
-disallowAttributesGlobally</H3>
+<A NAME="disallowAttributes(java.lang.String...)"><!-- --></A><H3>
+disallowAttributes</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.279"><B>disallowAttributesGlobally</B></A>(java.lang.String...&nbsp;attributeNames)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder.AttributeBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.284"><B>disallowAttributes</B></A>(java.lang.String...&nbsp;attributeNames)</PRE>
 <DL>
-<DD>Disallows the given attributes on any elements.
- Attributes are disallowed unless explicitly allowed, so there is no need
- to call this except to reverse an earlier
- <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesGlobally(java.lang.String...)"><CODE>allow</CODE></A>.
- Disallowing an attribute globally also disallows it on specific elements.
-<P>
-<DD><DL>
-</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesGlobally(java.util.regex.Pattern, java.lang.String...)"><!-- --></A><H3>
-allowAttributesGlobally</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.291"><B>allowAttributesGlobally</B></A>(java.util.regex.Pattern&nbsp;p,
-                                                 java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the given attributes on any elements as long as the value matches
- the pattern.
-<P>
-<DD><DL>
-<DT><B>Parameters:</B><DD><CODE>p</CODE> - A pattern that the attribute value must match.</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesGlobally(com.google.common.base.Predicate, java.lang.String...)"><!-- --></A><H3>
-allowAttributesGlobally</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.308"><B>allowAttributesGlobally</B></A>(com.google.common.base.Predicate&lt;? super java.lang.String&gt;&nbsp;p,
-                                                 java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the given attributes on any elements as long as the value matches
- the predicate.
-<P>
-<DD><DL>
-<DT><B>Parameters:</B><DD><CODE>p</CODE> - A predicate that the attribute value must match.</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesGlobally(org.owasp.html.AttributePolicy, java.lang.String...)"><!-- --></A><H3>
-allowAttributesGlobally</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.333"><B>allowAttributesGlobally</B></A>(<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A>&nbsp;policy,
-                                                 java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the given attributes on any elements.
- Global attribute policies are applied after element specific policies.
- Be careful of using this with attributes like <code>type</code> which have
- different meanings on different attributes.
- Also be careful of allowing globally attributes like <code>href</code>
- which can have more far-reaching effects on tags like
- <code>&lt;base&gt;</code> and <code>&lt;link&gt;</code> than on
- <code>&lt;a&gt;</code> because in the former, they have an effect without
- user interaction and can change the behavior of the current page.
-<P>
-<DD><DL>
-<DT><B>Parameters:</B><DD><CODE>policy</CODE> - Can allow, specify a different value for, or deny the
-     attribute.</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesOnElement(java.lang.String, java.lang.String...)"><!-- --></A><H3>
-allowAttributesOnElement</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.353"><B>allowAttributesOnElement</B></A>(java.lang.String&nbsp;elementName,
-                                                  java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the named attributes on the given element.
-<P>
-<DD><DL>
-</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesOnElement(java.util.regex.Pattern, java.lang.String, java.lang.String...)"><!-- --></A><H3>
-allowAttributesOnElement</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.365"><B>allowAttributesOnElement</B></A>(java.util.regex.Pattern&nbsp;p,
-                                                  java.lang.String&nbsp;elementName,
-                                                  java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the given attributes on any elements as long as the value matches
- the pattern.
-<P>
-<DD><DL>
-<DT><B>Parameters:</B><DD><CODE>p</CODE> - A pattern that the attribute value must match.</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesOnElement(com.google.common.base.Predicate, java.lang.String, java.lang.String...)"><!-- --></A><H3>
-allowAttributesOnElement</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.382"><B>allowAttributesOnElement</B></A>(com.google.common.base.Predicate&lt;? super java.lang.String&gt;&nbsp;p,
-                                                  java.lang.String&nbsp;elementName,
-                                                  java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the given attributes on the given element as long as the value
- matches the predicate.
-<P>
-<DD><DL>
-<DT><B>Parameters:</B><DD><CODE>p</CODE> - A predicate that the attribute value must match.</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="allowAttributesOnElement(org.owasp.html.AttributePolicy, java.lang.String, java.lang.String...)"><!-- --></A><H3>
-allowAttributesOnElement</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.400"><B>allowAttributesOnElement</B></A>(<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A>&nbsp;policy,
-                                                  java.lang.String&nbsp;elementName,
-                                                  java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Allows the named attributes on the given element.
-<P>
-<DD><DL>
-<DT><B>Parameters:</B><DD><CODE>policy</CODE> - Can allow, specify a different value for, or deny the
-     attribute.</DL>
-</DD>
-</DL>
-<HR>
-
-<A NAME="disallowAttributesOnElement(java.lang.String, java.lang.String...)"><!-- --></A><H3>
-disallowAttributesOnElement</H3>
-<PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.426"><B>disallowAttributesOnElement</B></A>(java.lang.String&nbsp;elementName,
-                                                     java.lang.String...&nbsp;attributeNames)</PRE>
-<DL>
-<DD>Reverse an earlier element-specific attribute
- <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributesOnElement(java.lang.String, java.lang.String...)"><CODE>allow</CODE></A>.
+<DD>Reverse an earlier attribute <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowAttributes(java.lang.String...)"><CODE>allow</CODE></A>.
+ <p>
+ For this to have an effect you must call at least one of
+ <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html#globally()"><CODE>HtmlPolicyBuilder.AttributeBuilder.globally()</CODE></A> and <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html#onElements(java.lang.String...)"><CODE>HtmlPolicyBuilder.AttributeBuilder.onElements(java.lang.String...)</CODE></A>.
  <p>
  Attributes are disallowed by default, so there is no need to call this
  with a laundry list of attribute/element pairs.
@@ -801,7 +608,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="requireRelNofollowOnLinks()"><!-- --></A><H3>
 requireRelNofollowOnLinks</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.437"><B>requireRelNofollowOnLinks</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.330"><B>requireRelNofollowOnLinks</B></A>()</PRE>
 <DL>
 <DD>Adds <a href="http://en.wikipedia.org/wiki/Nofollow"><code>rel=nofollow</code></a>
  to links.
@@ -815,7 +622,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowUrlProtocols(java.lang.String...)"><!-- --></A><H3>
 allowUrlProtocols</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.456"><B>allowUrlProtocols</B></A>(java.lang.String...&nbsp;protocols)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.349"><B>allowUrlProtocols</B></A>(java.lang.String...&nbsp;protocols)</PRE>
 <DL>
 <DD>Adds to the set of protocols that are allowed in URL attributes.
  For each URL attribute that is allowed, we further constrain it by
@@ -838,7 +645,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="disallowUrlProtocols(java.lang.String...)"><!-- --></A><H3>
 disallowUrlProtocols</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.473"><B>disallowUrlProtocols</B></A>(java.lang.String...&nbsp;protocols)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.366"><B>disallowUrlProtocols</B></A>(java.lang.String...&nbsp;protocols)</PRE>
 <DL>
 <DD>Reverses a decision made by <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowUrlProtocols(java.lang.String...)"><CODE>allowUrlProtocols(java.lang.String...)</CODE></A>.
 <P>
@@ -851,7 +658,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowStandardUrlProtocols()"><!-- --></A><H3>
 allowStandardUrlProtocols</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.486"><B>allowStandardUrlProtocols</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.379"><B>allowStandardUrlProtocols</B></A>()</PRE>
 <DL>
 <DD>A canned URL protocol policy that allows <code>http</code>,
  <code>https</code>, and <code>mailto</code>.
@@ -865,7 +672,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="allowStyling()"><!-- --></A><H3>
 allowStyling</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.495"><B>allowStyling</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.388"><B>allowStyling</B></A>()</PRE>
 <DL>
 <DD>Convert <code>style="&lt;CSS&gt;"</code> to simple non-JS containing
  <code>&lt;font&gt;</code> tags to allow color, font-size, typeface, and
@@ -880,7 +687,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="build(org.owasp.html.HtmlStreamEventReceiver)"><!-- --></A><H3>
 build</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.517"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.410"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
 <DL>
 <DD>Produces a policy based on the allow and disallow calls previously made.
 <P>
@@ -895,7 +702,7 @@ public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interf
 <A NAME="toFactory()"><!-- --></A><H3>
 toFactory</H3>
 <PRE>
-public com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>,<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&gt; <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.525"><B>toFactory</B></A>()</PRE>
+public com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>,<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&gt; <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.418"><B>toFactory</B></A>()</PRE>
 <DL>
 <DD>Like <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver)"><CODE>build(org.owasp.html.HtmlStreamEventReceiver)</CODE></A> but can be reused to create many different policies
  each backed by a different output channel.
@@ -935,7 +742,7 @@ public com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlS
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
 &nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
   <A HREF="../../../index.html?org/owasp/html/HtmlPolicyBuilder.html" target="_top"><B>FRAMES</B></A>  &nbsp;
 &nbsp;<A HREF="HtmlPolicyBuilder.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
@@ -955,7 +762,7 @@ public com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlS
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;<A HREF="#nested_class_summary">NESTED</A>&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
 DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>

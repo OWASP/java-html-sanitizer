@@ -66,12 +66,14 @@ public class SlashdotPolicyExample {
   public static final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy>
       POLICY_DEFINITION = new HtmlPolicyBuilder()
           .allowStandardUrlProtocols()
-          .allowAttributesGlobally("title")
-          .allowAttributesOnElement("a", "href")
+          .allowAttributes("title").globally()
+          .allowAttributes("href").onElements("a")
           .requireRelNofollowOnLinks()
-          .allowAttributesGlobally(Pattern.compile("[a-zA-Z]{2,20}"), "lang")
-          .allowAttributesOnElement(
-              Pattern.compile("cener|left|right|justify|char"), "p", "align")
+          .allowAttributes("lang").matching(Pattern.compile("[a-zA-Z]{2,20}"))
+              .globally()
+          .allowAttributes("align")
+              .matching(true, "center", "left", "right", "justify", "char")
+              .onElements("p")
           .allowElements(
               "a", "p", "div", "i", "b", "em", "blockquote", "tt", "strong",
               "br", "ul", "ol", "li")

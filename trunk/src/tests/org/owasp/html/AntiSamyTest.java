@@ -69,19 +69,18 @@ public class AntiSamyTest extends TestCase {
         .allowElements(
             "a", "b", "br", "div", "font", "i", "img", "input", "li",
             "ol", "p", "span", "td", "ul")
-        .allowAttributesOnElement("input", "checked", "type")
-        .allowAttributesOnElement("font", "color")
-        .allowAttributesOnElement("a", "href")
-        .allowAttributesOnElement("img", "src")
-        .allowAttributesGlobally("class", "id", "title")
-        .allowAttributesOnElement(
+        .allowAttributes("checked", "type").onElements("input")
+        .allowAttributes("color").onElements("font")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("src").onElements("img")
+        .allowAttributes("class", "id", "title").globally()
+        .allowAttributes("char").matching(
             new AttributePolicy() {
               public String apply(
                   String elementName, String attributeName, String value) {
                 return value.length() == 1 ? value : null;
               }
-            },
-            "td", "char")
+            }).onElements("td")
         .allowStandardUrlProtocols()
         .requireRelNofollowOnLinks()
         .allowStyling()
