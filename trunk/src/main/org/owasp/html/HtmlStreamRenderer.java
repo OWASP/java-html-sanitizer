@@ -198,12 +198,18 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         error("Tag content cannot appear inside CDATA element", elementName);
         return;
       } else {
-        String unescaped = pendingUnescaped.toString();
+        StringBuilder cdataContent = pendingUnescaped;
         pendingUnescaped = null;
-        if (!containsCloseTag(unescaped, lastTagOpened)) {
-          output.append(unescaped);
+        int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
+        if (problemIndex == -1) {
+          output.append(cdataContent);
         } else {
-          error("Unescaped text content contains close tag", elementName);
+          error(
+              "Invalid CDATA text content",
+              cdataContent.subSequence(
+                  problemIndex,
+                  Math.min(problemIndex + 10, cdataContent.length()))
+                  .toString());
           // Still output the close tag.
         }
       }
@@ -229,42 +235,64 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
-  private static boolean containsCloseTag(String unescaped, String tagName) {
-    boolean allowEscapingTextSpan = HtmlTextEscapingMode.allowsEscapingTextSpan(
-        tagName);
-
-    int unescapedLength = unescaped.length();
-    int tagNameLength = tagName.length();
-    int limit = unescapedLength - tagName.length() - 2;
-    for (int i = -1; (i = unescaped.indexOf('<', i + 1)) >= 0;) {
-      if (i <= limit && '/' == unescaped.charAt(i + 1)
-          && Strings.regionMatchesIgnoreCase(
-              unescaped, i + 2, tagName, 0, tagNameLength)) {
-        // Content cannot be embedded.
-        return true;
-      } else if (allowEscapingTextSpan && i + 4 <= unescapedLength
-                 && '!' == unescaped.charAt(i + 1)
-                 && '-' == unescaped.charAt(i + 2)
-                 && '-' == unescaped.charAt(i + 3)) {
-        // HTML 5 allows the end of an escaping text span to share dashes with
-        // the open : <!--> and <!---> are both fully formed.
-        if (i + 4 < unescapedLength && unescaped.charAt(i + 4) == '>') {
-          i = i + 5;
-        } else if (i + 5 < unescapedLength
-                   && unescaped.charAt(i + 4) == '-'
-                   && unescaped.charAt(i + 5) == '>') {
-          i = i + 6;
-        } else {
-          i = unescaped.indexOf("-->", i + 4);
-          if (i < 0) {
-            // If the escaping text span is not closed, then final close tag
-            // would be covered by the unclosed escaping text span.
-            return true;
+  private static int checkHtmlCdataCloseable(
+      String localName, StringBuilder sb) {
+    int escapingTextSpanStart = -1;
+    for (int i = 0, n = sb.length(); i < n; ++i) {
+      char ch = sb.charAt(i);
+      switch (ch) {
+        case '<':
+          if (i + 3 < n
+              && '!' == sb.charAt(i + 1)
+              && '-' == sb.charAt(i + 2)
+              && '-' == sb.charAt(i + 3)) {
+            if (escapingTextSpanStart == -1) {
+              escapingTextSpanStart = i;
+            } else {
+              return i;
+            }
+          } else if (i + 1 + localName.length() < n
+                     && '/' == sb.charAt(i + 1)
+                     && Strings.regionMatchesIgnoreCase(
+                         sb, i + 2, localName, 0, localName.length())) {
+            // A close tag contained in the content.
+            if (escapingTextSpanStart < 0) {
+              // We could try some recovery strategies here.
+              // E.g. prepending "/<!--\n" to sb if "script".equals(localName)
+              return i;
+            }
+            if (!"script".equals(localName)) {
+              // Script tags are commonly included inside script tags.
+              // <script><!--document.write('<script>f()</script>');--></script>
+              // but this does not happen in other CDATA element types.
+              // Actually allowing an end tag inside others is problematic.
+              // Specifically,
+              // <style><!--</style>-->/* foo */</style>
+              // displays the text "/* foo */" on some browsers.
+              return i;
+            }
           }
-        }
+          break;
+        case '>':
+          // From the HTML5 spec:
+          //    The text in style, script, title, and textarea elements must not
+          //    have an escaping text span start that is not followed by an
+          //    escaping text span end.
+          // We look left since the HTML 5 spec allows the escaping text span
+          // end to share dashes with the start.
+          if (i >= 2 && '-' == sb.charAt(i - 1) && '-' == sb.charAt(i - 2)) {
+            if (escapingTextSpanStart < 0) { return i - 2; }
+            escapingTextSpanStart = -1;
+          }
+          break;
       }
     }
-    return false;
+    if (escapingTextSpanStart >= 0) {
+      // We could try recovery strategies here.
+      // E.g. appending "//-->" to the buffer if "script".equals(localName)
+      return escapingTextSpanStart;
+    }
+    return -1;
   }
 
 
