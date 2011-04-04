@@ -151,7 +151,7 @@ public class HtmlStreamRendererTest extends TestCase {
     assertEquals(
         "<script type=\"text/javascript\"></script>", rendered.toString());
     assertEquals(
-        "Unescaped text content contains close tag : script",
+        "Invalid CDATA text content : </SCRIPT>'",
         Joiner.on('\n').join(errors));
     errors.clear();
   }
@@ -159,7 +159,7 @@ public class HtmlStreamRendererTest extends TestCase {
   public final void testCdataContainsEndTag2() throws Exception {
     renderer.openDocument();
     renderer.openTag("style", ImmutableList.of("type", "text/css"));
-    renderer.text("/* </st");
+    renderer.text("/* </St");
     // Split into two text chunks, and insert NULs.
     renderer.text("\0yle> */");
     renderer.closeTag("style");
@@ -168,7 +168,7 @@ public class HtmlStreamRendererTest extends TestCase {
     assertEquals(
         "<style type=\"text/css\"></style>", rendered.toString());
     assertEquals(
-        "Unescaped text content contains close tag : style",
+        "Invalid CDATA text content : </Style> *",
         Joiner.on('\n').join(errors));
     errors.clear();
   }
@@ -221,7 +221,7 @@ public class HtmlStreamRendererTest extends TestCase {
 
     assertEquals("<script></script>", rendered.toString());
     assertEquals(
-        "Unescaped text content contains close tag : script",
+        "Invalid CDATA text content : <!--alert(",
         Joiner.on('\n').join(errors));
     errors.clear();
   }

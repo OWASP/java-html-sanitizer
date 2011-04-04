@@ -58,11 +58,23 @@ final class Strings {
     if (b == null) { return false; }
     int length = a.length();
     if (b.length() != length) { return false; }
-    return regionMatchesIgnoreCase(a, 0, b, 0, length);
+    for (int i = length; --i >= 0;) {
+      char c = a.charAt(i), d = b.charAt(i);
+      if (c != d) {
+        if (c <= 'z' && c >= 'A') {
+          if (c <= 'Z') { c |= 0x20; }
+          if (d <= 'Z' && d >= 'A') { d |= 0x20; }
+          if (c == d) { continue; }
+        }
+        return false;
+      }
+    }
+    return true;
   }
 
   public static boolean regionMatchesIgnoreCase(
-      String a, int aoffset, String b, int boffset, int n) {
+      CharSequence a, int aoffset, CharSequence b, int boffset, int n) {
+    if (aoffset + n > a.length() || boffset + n > b.length()) { return false; }
     for (int i = n; --i >= 0;) {
       char c = a.charAt(aoffset + i), d = b.charAt(boffset + i);
       if (c != d) {
