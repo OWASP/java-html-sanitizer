@@ -41,26 +41,18 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
-import junit.framework.TestCase;
-
 import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 
 /**
- * Tests that the security of the policy is decoupled from that of the parser.
+ * Throws random policy calls to find evidence against the claim that the
+ * security of the policy is decoupled from that of the parser.
+ * This test is stochastic -- not guaranteed to pass or fail consistently.
+ * If you see a failure, please report it along with the seed from the output.
+ * If you want to repeat a failure, set the system property "junit.seed".
+ *
+ * @author Mike Samuel <mikesamuel@gmail.com>
  */
-public class HtmlPolicyBuilderFuzzerTest extends TestCase {
-
-  long seed = System.currentTimeMillis();
-  {
-    String seedStr = System.getProperty("junit.seed");
-    if (seedStr != null) {
-      try {
-        seed = Long.parseLong(seedStr);
-      } catch (NumberFormatException ex) {
-        ex.printStackTrace();
-      }
-    }
-  }
+public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyFactory
       = new HtmlPolicyBuilder()
@@ -93,7 +85,6 @@ public class HtmlPolicyBuilderFuzzerTest extends TestCase {
 
   public final void testFuzzedOutput() {
     try {
-      Random rnd = new Random(seed);
       for (int i = 1000; --i >= 0;) {
         StringBuilder sb = new StringBuilder();
         HtmlSanitizer.Policy policy = policyFactory.apply(

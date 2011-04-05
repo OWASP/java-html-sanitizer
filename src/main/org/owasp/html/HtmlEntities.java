@@ -137,6 +137,9 @@ class HtmlEntities {
               break digloop;
           }
         }
+        if (codepoint > Character.MAX_CODE_POINT) {
+          codepoint = 0xfffd;  // Unknown.
+        }
       } else {
         codepoint = 0;
         // decimal literal
@@ -157,6 +160,9 @@ class HtmlEntities {
               codepoint = -1;
               break digloop;
           }
+        }
+        if (codepoint > Character.MAX_CODE_POINT) {
+          codepoint = 0xfffd;  // Unknown.
         }
       }
     } else {
