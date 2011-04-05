@@ -149,7 +149,7 @@ Given a series of HTML tokens, writes valid, normalized HTML to the output.
              <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;? super java.lang.String&gt;&nbsp;badHtmlHandler)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Factory.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -158,7 +158,7 @@ Given a series of HTML tokens, writes valid, normalized HTML to the output.
              <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;? super java.lang.String&gt;&nbsp;badHtmlHandler)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Factory.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -219,16 +219,21 @@ Given a series of HTML tokens, writes valid, normalized HTML to the output.
 <A NAME="create(java.lang.Appendable, org.owasp.html.Handler, org.owasp.html.Handler)"><!-- --></A><H3>
 create</H3>
 <PRE>
-public static <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html">HtmlStreamRenderer</A> <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.62"><B>create</B></A>(<FONT SIZE="-1">@WillCloseWhenClosed</FONT>
+public static <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html">HtmlStreamRenderer</A> <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.67"><B>create</B></A>(<FONT SIZE="-1">@WillCloseWhenClosed</FONT>
                                         java.lang.Appendable&nbsp;output,
                                         <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;? super java.io.IOException&gt;&nbsp;ioExHandler,
                                         <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;? super java.lang.String&gt;&nbsp;badHtmlHandler)</PRE>
 <DL>
+<DD>Factory.
+<P>
 <DD><DL>
 </DL>
 </DD>
 <DD><DL>
-<DT><B>Parameters:</B><DD><CODE>output</CODE> - the buffer to which HTML is streamed.<DD><CODE>ioExHandler</CODE> - called with any exception raised by output.</DL>
+<DT><B>Parameters:</B><DD><CODE>output</CODE> - the buffer to which HTML is streamed.<DD><CODE>ioExHandler</CODE> - called with any exception raised by output.<DD><CODE>badHtmlHandler</CODE> - receives alerts when HTML cannot be rendered because
+    there is not valid HTML tree that results from that series of calls.
+    E.g. it is not possible to create an HTML <code>&lt;style&gt;</code> element whose
+    textual content is <code>"&lt;/style&gt;"</code>.</DL>
 </DD>
 </DL>
 <HR>
@@ -236,14 +241,19 @@ public static <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="c
 <A NAME="create(java.lang.StringBuilder, org.owasp.html.Handler)"><!-- --></A><H3>
 create</H3>
 <PRE>
-public static <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html">HtmlStreamRenderer</A> <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.82"><B>create</B></A>(java.lang.StringBuilder&nbsp;output,
+public static <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html">HtmlStreamRenderer</A> <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.87"><B>create</B></A>(java.lang.StringBuilder&nbsp;output,
                                         <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;? super java.lang.String&gt;&nbsp;badHtmlHandler)</PRE>
 <DL>
+<DD>Factory.
+<P>
 <DD><DL>
 </DL>
 </DD>
 <DD><DL>
-</DL>
+<DT><B>Parameters:</B><DD><CODE>output</CODE> - the buffer to which HTML is streamed.<DD><CODE>badHtmlHandler</CODE> - receives alerts when HTML cannot be rendered because
+    there is not valid HTML tree that results from that series of calls.
+    E.g. it is not possible to create an HTML <code>&lt;style&gt;</code> element whose
+    textual content is <code>"&lt;/style&gt;"</code>.</DL>
 </DD>
 </DL>
 <HR>
@@ -251,7 +261,7 @@ public static <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="c
 <A NAME="openDocument()"><!-- --></A><H3>
 openDocument</H3>
 <PRE>
-public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.105"><B>openDocument</B></A>()
+public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.118"><B>openDocument</B></A>()
                         throws java.lang.IllegalStateException</PRE>
 <DL>
 <DD><DL>
@@ -268,7 +278,7 @@ public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.h
 <A NAME="closeDocument()"><!-- --></A><H3>
 closeDocument</H3>
 <PRE>
-public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.110"><B>closeDocument</B></A>()
+public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.123"><B>closeDocument</B></A>()
                          throws java.lang.IllegalStateException</PRE>
 <DL>
 <DD><DL>
@@ -285,7 +295,7 @@ public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.h
 <A NAME="isDocumentOpen()"><!-- --></A><H3>
 isDocumentOpen</H3>
 <PRE>
-public final boolean <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.125"><B>isDocumentOpen</B></A>()</PRE>
+public final boolean <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.138"><B>isDocumentOpen</B></A>()</PRE>
 <DL>
 <DD><DL>
 </DL>
@@ -299,7 +309,7 @@ public final boolean <A HREF="../../../src-html/org/owasp/html/HtmlStreamRendere
 <A NAME="openTag(java.lang.String, java.util.List)"><!-- --></A><H3>
 openTag</H3>
 <PRE>
-public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.129"><B>openTag</B></A>(java.lang.String&nbsp;elementName,
+public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.142"><B>openTag</B></A>(java.lang.String&nbsp;elementName,
                           java.util.List&lt;java.lang.String&gt;&nbsp;attrs)</PRE>
 <DL>
 <DD><DL>
@@ -314,7 +324,7 @@ public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.h
 <A NAME="closeTag(java.lang.String)"><!-- --></A><H3>
 closeTag</H3>
 <PRE>
-public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.179"><B>closeTag</B></A>(java.lang.String&nbsp;elementName)</PRE>
+public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.192"><B>closeTag</B></A>(java.lang.String&nbsp;elementName)</PRE>
 <DL>
 <DD><DL>
 <DT><B>Specified by:</B><DD><CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#closeTag(java.lang.String)">closeTag</A></CODE> in interface <CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></DL>
@@ -328,7 +338,7 @@ public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.h
 <A NAME="text(java.lang.String)"><!-- --></A><H3>
 text</H3>
 <PRE>
-public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.221"><B>text</B></A>(java.lang.String&nbsp;text)</PRE>
+public final void <A HREF="../../../src-html/org/owasp/html/HtmlStreamRenderer.html#line.233"><B>text</B></A>(java.lang.String&nbsp;text)</PRE>
 <DL>
 <DD><DL>
 <DT><B>Specified by:</B><DD><CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#text(java.lang.String)">text</A></CODE> in interface <CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></DL>

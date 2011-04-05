@@ -56,8 +56,13 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private boolean open;
 
   /**
+   * Factory.
    * @param output the buffer to which HTML is streamed.
    * @param ioExHandler called with any exception raised by output.
+   * @param badHtmlHandler receives alerts when HTML cannot be rendered because
+   *    there is not valid HTML tree that results from that series of calls.
+   *    E.g. it is not possible to create an HTML {@code <style>} element whose
+   *    textual content is {@code "</style>"}.
    */
   public static HtmlStreamRenderer create(
       @WillCloseWhenClosed Appendable output,
@@ -71,18 +76,26 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
+  /**
+   * Factory.
+   * @param output the buffer to which HTML is streamed.
+   * @param badHtmlHandler receives alerts when HTML cannot be rendered because
+   *    there is not valid HTML tree that results from that series of calls.
+   *    E.g. it is not possible to create an HTML {@code <style>} element whose
+   *    textual content is {@code "</style>"}.
+   */
+  public static HtmlStreamRenderer create(
+      StringBuilder output, Handler<? super String> badHtmlHandler) {
+    // Propagate since StringBuilder should not throw IOExceptions.
+    return create(output, Handler.PROPAGATE, badHtmlHandler);
+  }
+
   private HtmlStreamRenderer(
       Appendable output, Handler<? super IOException> ioExHandler,
       Handler<? super String> badHtmlHandler) {
     this.output = output;
     this.ioExHandler = ioExHandler;
     this.badHtmlHandler = badHtmlHandler;
-  }
-
-  public static HtmlStreamRenderer create(
-      StringBuilder output, Handler<? super String> badHtmlHandler) {
-    // Propagate since StringBuilder should not throw IOExceptions.
-    return create(output, Handler.PROPAGATE, badHtmlHandler);
   }
 
   /**
@@ -93,7 +106,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * @param message for human consumption.
    * @param identifier an HTML identifier associated with the message.
    */
-  private final void error(String message, String identifier) {
+  private final void error(String message, CharSequence identifier) {
     if (ioExHandler != Handler.DO_NOTHING) {   // Avoid string append.
       badHtmlHandler.handle(message + " : " + identifier);
     }
@@ -208,8 +221,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
               "Invalid CDATA text content",
               cdataContent.subSequence(
                   problemIndex,
-                  Math.min(problemIndex + 10, cdataContent.length()))
-                  .toString());
+                  Math.min(problemIndex + 10, cdataContent.length())));
           // Still output the close tag.
         }
       }
