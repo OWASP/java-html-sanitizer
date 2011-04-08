@@ -624,7 +624,7 @@ public class AntiSamyTest extends TestCase {
     {
       String s = "<SPAN style='font-weight: bold;'>Hello World!</SPAN>";
       assertEquals(
-          "<span><font style=\"font-weight:bold;\">Hello World!</font></span>",
+          "<span><font style=\"font-weight:bold\">Hello World!</font></span>",
           sanitize(s));
     }
 

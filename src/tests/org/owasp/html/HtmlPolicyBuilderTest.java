@@ -191,9 +191,9 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<p></p>",
             "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             ("</p><p><font color=\"expression(foo())\" align=\"center\""
-             + " style=\"font-weight:bold;\">"
+             + " style=\"font-weight:bold\">"
              + "Stylish Para 1</font></p>"),
-            ("<p><font color=\"red\" dir=\"rtl\" style=\"font-weight:bold;\">"
+            ("<p><font color=\"red\" style=\"font-weight:bold;direction:rtl\">"
              + "Stylish Para 2</font></p>"),
             ""),
         apply(new HtmlPolicyBuilder()

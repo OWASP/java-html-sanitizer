@@ -36,6 +36,7 @@ public class StylingPolicyTest extends TestCase {
   public final void testNothingToOutput() {
     assertAttributesFromStyle("", "");
     assertAttributesFromStyle("", "/** no CSS here */");
+    assertAttributesFromStyle("", "/* props: disabled; font-weight: bold */");
     assertAttributesFromStyle("", "position: fixed");
     assertAttributesFromStyle(
         "", "background: url('javascript:alert%281337%29')");
@@ -54,22 +55,22 @@ public class StylingPolicyTest extends TestCase {
 
   public final void testFontWeight() {
     assertAttributesFromStyle(
-        "style=\"font-weight:bold;\"", "font-weight: bold");
+        "style=\"font-weight:bold\"", "font-weight: bold");
     assertAttributesFromStyle(
-        "style=\"font-weight:bold;\"", "font: bold");
+        "style=\"font-weight:bold\"", "font: bold");
     assertAttributesFromStyle(
-        "style=\"font-weight:bolder;\"", "font: bolder");
+        "style=\"font-weight:bolder\"", "font: Bolder");
     assertAttributesFromStyle(
         "", "font-weight: expression(alert(1337))");
   }
 
   public final void testFontStyle() {
     assertAttributesFromStyle(
-        "style=\"font-style:italic;\"", "font-style: italic");
+        "style=\"font-style:italic\"", "font-style: Italic");
     assertAttributesFromStyle(
-        "style=\"font-style:italic;\"", "font: italic");
+        "style=\"font-style:italic\"", "font: italic");
     assertAttributesFromStyle(
-        "style=\"font-style:oblique;\"", "font: oblique");
+        "style=\"font-style:oblique\"", "font: Oblique");
     assertAttributesFromStyle(
         "", "font-style: expression(alert(1337))");
   }
@@ -78,36 +79,39 @@ public class StylingPolicyTest extends TestCase {
     assertAttributesFromStyle(
         "face=\"arial, helvetica\"", "font: Arial, Helvetica");
     assertAttributesFromStyle(
-        "face=\"Arial, Helvetica\"", "font-family: Arial, Helvetica");
+        "face=\"Arial, Helvetica\"", "Font-family: Arial, Helvetica");
     assertAttributesFromStyle(
-        "face=\"Arial Bold, helvetica\"", "font: \"Arial Bold\", Helvetica");
+        "face=\"Arial Bold, helvetica\"", "FONT: \"Arial Bold\", Helvetica");
     assertAttributesFromStyle(
         "face=\"Arial Bold, Helvetica\"",
         "font-family: \"Arial Bold\", Helvetica");
+    assertAttributesFromStyle(
+        "face=\"Arial Bold, Helvetica\"",
+        "font-family: 'Arial Bold', Helvetica");
   }
 
   public final void testFont() {
     assertAttributesFromStyle(
         "face=\"arial\""
-        + " style=\"font-weight:bold;font-size:12pt;font-style:oblique;\"",
+        + " style=\"font-weight:bold;font-size:12pt;font-style:oblique\"",
         "font: Arial 12pt bold oblique");
   }
 
-  public final void testDirectionAttributes() {
+  public final void testBidiAndAlignmentAttributes() {
     assertAttributesFromStyle(
-        "align=\"left\" dir=\"ltr\"",
-        "text-align: left; direction: ltr;");
+        "align=\"left\" style=\"direction:ltr;unicode-bidi:embed\"",
+        "Text-align: left; Unicode-bidi: Embed; Direction: LTR;");
   }
 
   public final void testTextDecoration() {
     assertAttributesFromStyle(
-        "style=\"text-decoration:underline;\"",
-        "text-decoration: underline");
+        "style=\"text-decoration:underline\"",
+        "Text-Decoration: Underline");
     assertAttributesFromStyle(
-        "style=\"text-decoration:overline;\"",
+        "style=\"text-decoration:overline\"",
         "text-decoration: overline");
     assertAttributesFromStyle(
-        "style=\"text-decoration:line-through;\"",
+        "style=\"text-decoration:line-through\"",
         "text-decoration: line-through");
     assertAttributesFromStyle(
         "",

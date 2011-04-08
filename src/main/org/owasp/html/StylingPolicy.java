@@ -30,11 +30,13 @@ package org.owasp.html;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 /**
@@ -92,12 +94,13 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
     FACE,
     SIZE,
     COLOR,
-    DIR,
+    DIRECTION,
+    UNICODE_BIDI,
     ALIGN,
     WEIGHT,
     STYLE,
     TEXT_DECORATION,
-    NONE
+    NONE,
     ;
   }
 
@@ -107,11 +110,17 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
   private static final Pattern ALLOWED_CSS_WEIGHT = Pattern.compile(
       "normal|bold(?:er)?|lighter|[1-9]00");
 
-  private static final Pattern ALLOWED_CSS_STYLE = Pattern.compile(
-      "italic|oblique|normal");
+  private static final Set<String> ALLOWED_CSS_STYLE = ImmutableSet.of(
+      "italic", "oblique", "normal");
 
-  private static final Pattern ALLOWED_TEXT_DECORATION = Pattern.compile(
-      "underline|overline|line-through");
+  private static final Set<String> ALLOWED_TEXT_DECORATION = ImmutableSet.of(
+      "underline", "overline", "line-through");
+
+  private static final Set<String> ALLOWED_UNICODE_BIDI = ImmutableSet.of(
+      "inherit", "normal", "embed", "bidi-override");
+
+  private static final Set<String> ALLOWED_DIRECTION = ImmutableSet.of(
+      "inherit", "ltr", "rtl");
 
   private static final ImmutableMap<String, CssPropertyType>
       BY_CSS_PROPERTY_NAME = ImmutableMap.<String, CssPropertyType>builder()
@@ -120,10 +129,11 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       .put("font-size", CssPropertyType.SIZE)
       .put("color", CssPropertyType.COLOR)
       .put("text-align", CssPropertyType.ALIGN)
-      .put("direction", CssPropertyType.DIR)
+      .put("direction", CssPropertyType.DIRECTION)
       .put("font-weight", CssPropertyType.WEIGHT)
       .put("font-style", CssPropertyType.STYLE)
       .put("text-decoration", CssPropertyType.TEXT_DECORATION)
+      .put("unicode-bidi", CssPropertyType.UNICODE_BIDI)
       .build();
 
   /**
@@ -144,10 +154,12 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       // Values that are not-whitelisted are put into font attributes to render
       // the innocuous.
       StringBuilder face, color;
-      String align, dir;
+      String align;
       // These values are white-listed so we know they can't affect anything
       // other than font-face appearance, and layout.
       String cssSize, cssWeight, cssFontStyle, cssTextDecoration;
+      // Bidi support styles.
+      String cssDir, cssUnicodeBidi;
 
       public void url(String token) {
         // Ignore.
@@ -216,7 +228,7 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
               cssWeight = token;
             } else if (ALLOWED_CSS_SIZE.matcher(token).matches()) {
               cssSize = token;
-            } else if (ALLOWED_CSS_STYLE.matcher(token).matches()) {
+            } else if (ALLOWED_CSS_STYLE.contains(token)) {
               cssFontStyle = token;
             } else {
               if (face == null) { face = new StringBuilder(); }
@@ -236,18 +248,28 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
             break;
           case STYLE:
             token = Strings.toLowerCase(token);
-            if (ALLOWED_CSS_STYLE.matcher(token).matches()) {
+            if (ALLOWED_CSS_STYLE.contains(token)) {
               cssFontStyle = token;
             }
             break;
           case ALIGN:
             align = token;
             break;
-          case DIR:
-            dir = token;
+          case DIRECTION:
+            token = Strings.toLowerCase(token);
+            if (ALLOWED_DIRECTION.contains(token)) {
+              cssDir = token;
+            }
+            break;
+          case UNICODE_BIDI:
+            token = Strings.toLowerCase(token);
+            if (ALLOWED_UNICODE_BIDI.contains(token)) {
+              cssUnicodeBidi = token;
+            }
             break;
           case TEXT_DECORATION:
-            if (ALLOWED_TEXT_DECORATION.matcher(token).matches()) {
+            token = Strings.toLowerCase(token);
+            if (ALLOWED_TEXT_DECORATION.contains(token)) {
               cssTextDecoration = token;
             }
             break;
@@ -289,10 +311,6 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           fontAttributes.add("align");
           fontAttributes.add(align);
         }
-        if (dir != null) {
-          fontAttributes.add("dir");
-          fontAttributes.add(dir);
-        }
         ImmutableList<String> styleParts;
         {
           ImmutableList.Builder<String> b = ImmutableList.builder();
@@ -308,6 +326,12 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           if (cssTextDecoration != null) {
             b.add("text-decoration").add(cssTextDecoration);
           }
+          if (cssDir != null) {
+            b.add("direction").add(cssDir);
+          }
+          if (cssUnicodeBidi != null) {
+            b.add("unicode-bidi").add(cssUnicodeBidi);
+          }
           styleParts = b.build();
         }
         if (!styleParts.isEmpty()) {
@@ -316,6 +340,10 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           for (String stylePart : styleParts) {
             cssProperties.append(stylePart).append(isPropertyName ? ':' : ';');
             isPropertyName = !isPropertyName;
+          }
+          int len = cssProperties.length();
+          if (len != 0 && cssProperties.charAt(len - 1) == ';') {
+            cssProperties.setLength(len - 1);
           }
           fontAttributes.add("style");
           fontAttributes.add(cssProperties.toString());
