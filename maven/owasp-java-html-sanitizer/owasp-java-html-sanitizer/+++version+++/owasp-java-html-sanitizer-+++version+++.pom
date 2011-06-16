@@ -1,12 +1,13 @@
-<!-- -*- mode: xml-mode; indent-tabs-mode: nil; -*- -->
 <!-- See http://maven.apache.org/ref/3.0.3/maven-model/maven.html for details
   - of the meanings of various elements.
+  - See the README in the maven directory for an explanation of the
+  - strange syntactic features in this file.
   -->
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>owasp-java-html-sanitizer</artifactId>
   <groupId>owasp-java-html-sanitizer</groupId>
-  ##REPLACE##<version>+++version+++</version>##END##
+  <!--##REPLACE##<version>+++version+++</version>##END##-->
   <packaging>jar</packaging>
   <name>OWASP Java HTML Sanitizer</name>
   <description>

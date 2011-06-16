@@ -1,7 +1,6 @@
-<!-- -*- mode: xml-mode; indent-tabs-mode: nil; -*- -->
 <!-- This maintains a list of the published versions.
   - Each version corresponds to a sibling directory.
-  - See the README in the root maven directory for an explanation of the
+  - See the README in the maven directory for an explanation of the
   - strange syntactic features in this file.
   -->
 <metadata>
@@ -16,7 +15,7 @@
       <!-- The line above is a template for generating a new version by the
         - script that cuts a maven release. -->
     </versions>
-    <!--##REPLACE##<lastUpdated>+++timestamp+++</lastUpdated>##END##-->
+    <lastUpdated>20110408170706</lastUpdated> <!--##REPLACE##<lastUpdated>+++timestamp+++</lastUpdated>##END##-->
     <!-- The line above is replaced with the time the last release was cut in
       - YYYYMMDDhhmmss format -->
   </versioning>
