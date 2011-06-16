@@ -98,3 +98,10 @@ out/staging.tstamp: out/javadoc.tstamp out/classes.tstamp
 	rm -rf out/staging/src
 	cp COPYING out/staging/lib/owasp-java-html-sanitizer-COPYING
 	touch $@
+
+# Packages the distrib jars into the maven directory which is a sibling of
+# trunk.
+release: out/run_me_before_committing_maven.sh
+out/run_me_before_committing_maven.sh: distrib
+	tools/cut_release.py > $@
+	chmod +x $@
