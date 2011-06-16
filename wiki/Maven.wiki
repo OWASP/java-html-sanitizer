@@ -28,3 +28,5 @@ Second, you need to add a dependency.  Copy the `<dependency>` element below int
 Third, you should choose a more recent version than `r30`.  Look at the [http://owasp-java-html-sanitizer.googlecode.com/svn/maven/owasp-java-html-sanitizer/owasp-java-html-sanitizer/maven-metadata.xml maven metadata] and pick the most recent version which should be inside `<release>...</release>`.  There are no unstable releases in maven.  Bigger numbers are more recent.
 
 Fourth, there is no fourth.  You should be able to build with the HTML sanitizer.  You can peruse the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/index.html javadoc], and if you have questions that aren't answered by these wiki pages, you can ask on the [http://groups.google.com/group/owasp-java-html-sanitizer-support mailing list].
+
+Happy sanitizing...
