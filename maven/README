@@ -1,0 +1,37 @@
+The release script will create a new maven <version>.
+To do so, it copies the directory structure under
+    owasp-java-html-sanitizer/owasp-java-html-sanitizer/+++version+++
+and rewrites them as below
+
+It then rewrites
+    owasp-java-html-sanitizer/owasp-java-html-sanitizer/maven-metadata.xml
+to make sure the version list is up-to-date.
+
+
+====================
+Rewriting file paths
+====================
+Within a file path, field names surrounded by three pluses are replaced.
+So if the timestamp field is 19700101120000 then "/foo/+++timestamp+++.txt"
+becomes "/foo/19700101120000.txt".
+
+
+======================
+Rewriting file content
+======================
+Any line containing
+    <!--##REPLACE##...##END##-->
+is replaced with
+    ... <!--##REPLACE##...##END##-->
+where the first ... has +++fields+++ expanded.
+
+Any line containing
+    ##DUPE##...##END##
+is output unchanged but preceded by ... with ++fields+++ expanded.
+
+
+=================
+Field definitions
+=================
++++version+++ : The SVN version, like r123.
++++timestamp+++ : The current time in UTC in YYYYMMDDhhmmss format.
