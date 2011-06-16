@@ -9,8 +9,9 @@
   <!-- Version numbers are based on revision control labels -->
   <versioning>
     <!-- Disabled until we cut first release. -->
-    <!--##REPLACE##<release>+++version+++</release>##END##-->
+    <release>r30</release> <!--##REPLACE##<release>+++version+++</release>##END##-->
     <versions>
+      <version>r30</version>
       <!--##DUPE##<version>+++version+++</version>##END##-->
       <!-- The line above is a template for generating a new version by the
         - script that cuts a maven release. -->
