@@ -63,17 +63,24 @@ import com.google.common.io.CharStreams;
  */
 public class SlashdotPolicyExample {
 
+  /** A policy definition that matches the minimal HTML that Slashdot allows. */
   public static final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy>
       POLICY_DEFINITION = new HtmlPolicyBuilder()
           .allowStandardUrlProtocols()
+          // Allow title="..." on any element.
           .allowAttributes("title").globally()
+          // Allow href="..." on <a> elements.
           .allowAttributes("href").onElements("a")
+          // Defeat link spammers.
           .requireRelNofollowOnLinks()
+          // Allow lang= with an alphabetic value on any element.
           .allowAttributes("lang").matching(Pattern.compile("[a-zA-Z]{2,20}"))
               .globally()
+          // The align attribute on <p> elements can have any value below.
           .allowAttributes("align")
               .matching(true, "center", "left", "right", "justify", "char")
               .onElements("p")
+          // These elements are allowed.
           .allowElements(
               "a", "p", "div", "i", "b", "em", "blockquote", "tt", "strong",
               "br", "ul", "ol", "li")
@@ -83,25 +90,31 @@ public class SlashdotPolicyExample {
           .toFactory();
 
   public static void main(String[] args) throws IOException {
-    if (args.length == 1) {
+    if (args.length != 0) {
       System.err.println("Reads from STDIN and writes to STDOUT");
       System.exit(-1);
     }
     System.err.println("[Reading from STDIN]");
+    // Fetch the HTML to sanitize.
     String html = CharStreams.toString(
         new InputStreamReader(System.in, Charsets.UTF_8));
+    // Set up an output channel to receive the sanitized HTML.
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         System.out,
+        // Receives notifications on a failure to write to the output.
         new Handler<IOException>() {
           public void handle(IOException ex) {
             Throwables.propagate(ex);  // System.out suppresses IOExceptions
           }
         },
+        // Our HTML parser is very lenient, but this receives notifications on
+        // truly bizarre inputs.
         new Handler<String>() {
           public void handle(String x) {
             throw new AssertionError(x);
           }
         });
+    // Use the policy defined above to sanitize the HTML.
     HtmlSanitizer.sanitize(html, POLICY_DEFINITION.apply(renderer));
   }
 }
