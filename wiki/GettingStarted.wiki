@@ -5,7 +5,7 @@
 
 == Getting the JARs ==
 
-If you are using Maven then follow the [Maven maven] directions to add a dependency.  Otherwise, download the latest source from [/p/owasp-java-html-sanitizer/source/checkout] and build the jars yourself or [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/lib/ download prebuilt jars] and add them to your [http://download.oracle.com/javase/1.3/docs/tooldocs/win32/classpath.html CLASSPATH].
+If you are using Maven then follow the [Maven maven] directions to add a dependency.  Otherwise, download the latest source from [http://code.google.com/p/owasp-java-html-sanitizer/source/checkout checkout] and build the latest source or [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/lib/ download prebuilt jars] and add them to your [http://download.oracle.com/javase/1.3/docs/tooldocs/win32/classpath.html CLASSPATH].
 
 Once you have your CLASSPATH set up correctly with the relevant JARs you should be able to add
 
