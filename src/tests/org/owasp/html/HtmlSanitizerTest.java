@@ -30,6 +30,8 @@ package org.owasp.html;
 
 import junit.framework.TestCase;
 
+import javax.annotation.Nullable;
+
 
 public class HtmlSanitizerTest extends TestCase {
 
@@ -195,6 +197,7 @@ public class HtmlSanitizerTest extends TestCase {
 
   public final void testEmpty() throws Exception {
     assertEquals("", sanitize(""));
+    assertEquals("", sanitize(null));
   }
 
   public final void testSimpleText() throws Exception {
@@ -371,7 +374,7 @@ public class HtmlSanitizerTest extends TestCase {
             ));
   }
 
-  private static String sanitize(String html) throws Exception {
+  private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         sb,
