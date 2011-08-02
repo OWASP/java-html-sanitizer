@@ -101,12 +101,14 @@ public final class HtmlSanitizer {
    *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
    */
   public static void sanitize(@Nullable String html, final Policy policy) {
+    if (html == null) { html = ""; }
+
     HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(
         policy);
 
     balancer.openDocument();
 
-    HtmlLexer lexer = new HtmlLexer(html != null ? html : "");
+    HtmlLexer lexer = new HtmlLexer(html);
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
     // way.
     LinkedList<String> attrs = Lists.newLinkedList();
