@@ -96,7 +96,7 @@ java.lang.Object
 </PRE>
 <HR>
 <DL>
-<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.41"><B>HtmlSanitizer</B></A><DT>extends java.lang.Object</DL>
+<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.42"><B>HtmlSanitizer</B></A><DT>extends java.lang.Object</DL>
 </PRE>
 
 <P>
@@ -186,7 +186,7 @@ Consumes an HTML stream, and dispatches events to a policy object which
 <A NAME="HtmlSanitizer()"><!-- --></A><H3>
 HtmlSanitizer</H3>
 <PRE>
-public <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.41"><B>HtmlSanitizer</B></A>()</PRE>
+public <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.42"><B>HtmlSanitizer</B></A>()</PRE>
 <DL>
 </DL>
 
@@ -203,7 +203,8 @@ public <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.41"><B>
 <A NAME="sanitize(java.lang.String, org.owasp.html.HtmlSanitizer.Policy)"><!-- --></A><H3>
 sanitize</H3>
 <PRE>
-public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.98"><B>sanitize</B></A>(java.lang.String&nbsp;html,
+public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.103"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+                            java.lang.String&nbsp;html,
                             <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&nbsp;policy)</PRE>
 <DL>
 <DD>Sanitizes the given HTML by applying the given policy to it.
@@ -217,7 +218,11 @@ public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#
  Use <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A> to render content to an output buffer.
 <P>
 <DD><DL>
-<DT><B>Parameters:</B><DD><CODE>html</CODE> - The html to sanitize.<DD><CODE>policy</CODE> - The policy that should receive events based on the .</DL>
+<DT><B>Parameters:</B><DD><CODE>html</CODE> - A snippet of HTML to sanitize.  <code>null</code> is treated as the
+     empty string and will not result in a <code>NullPointerException</code>.<DD><CODE>policy</CODE> - The Policy that will receive events based on the tokens in
+     html.  Typically, this policy ends up routing the events to an
+     <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A> after filtering.
+     <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><CODE>HtmlPolicyBuilder</CODE></A> provides an easy way to create policies.</DL>
 </DD>
 </DL>
 <!-- ========= END OF CLASS DATA ========= -->

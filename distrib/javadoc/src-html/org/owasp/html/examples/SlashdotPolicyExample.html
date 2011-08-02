@@ -66,48 +66,61 @@
 <FONT color="green">063</FONT>     */<a name="line.63"></a>
 <FONT color="green">064</FONT>    public class SlashdotPolicyExample {<a name="line.64"></a>
 <FONT color="green">065</FONT>    <a name="line.65"></a>
-<FONT color="green">066</FONT>      public static final Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt;<a name="line.66"></a>
-<FONT color="green">067</FONT>          POLICY_DEFINITION = new HtmlPolicyBuilder()<a name="line.67"></a>
-<FONT color="green">068</FONT>              .allowStandardUrlProtocols()<a name="line.68"></a>
-<FONT color="green">069</FONT>              .allowAttributes("title").globally()<a name="line.69"></a>
-<FONT color="green">070</FONT>              .allowAttributes("href").onElements("a")<a name="line.70"></a>
-<FONT color="green">071</FONT>              .requireRelNofollowOnLinks()<a name="line.71"></a>
-<FONT color="green">072</FONT>              .allowAttributes("lang").matching(Pattern.compile("[a-zA-Z]{2,20}"))<a name="line.72"></a>
-<FONT color="green">073</FONT>                  .globally()<a name="line.73"></a>
-<FONT color="green">074</FONT>              .allowAttributes("align")<a name="line.74"></a>
-<FONT color="green">075</FONT>                  .matching(true, "center", "left", "right", "justify", "char")<a name="line.75"></a>
-<FONT color="green">076</FONT>                  .onElements("p")<a name="line.76"></a>
-<FONT color="green">077</FONT>              .allowElements(<a name="line.77"></a>
-<FONT color="green">078</FONT>                  "a", "p", "div", "i", "b", "em", "blockquote", "tt", "strong",<a name="line.78"></a>
-<FONT color="green">079</FONT>                  "br", "ul", "ol", "li")<a name="line.79"></a>
-<FONT color="green">080</FONT>              // Custom slashdot tags.<a name="line.80"></a>
-<FONT color="green">081</FONT>              // These could be rewritten in the sanitizer using an ElementPolicy.<a name="line.81"></a>
-<FONT color="green">082</FONT>              .allowElements("quote", "ecode")<a name="line.82"></a>
-<FONT color="green">083</FONT>              .toFactory();<a name="line.83"></a>
-<FONT color="green">084</FONT>    <a name="line.84"></a>
-<FONT color="green">085</FONT>      public static void main(String[] args) throws IOException {<a name="line.85"></a>
-<FONT color="green">086</FONT>        if (args.length == 1) {<a name="line.86"></a>
-<FONT color="green">087</FONT>          System.err.println("Reads from STDIN and writes to STDOUT");<a name="line.87"></a>
-<FONT color="green">088</FONT>          System.exit(-1);<a name="line.88"></a>
-<FONT color="green">089</FONT>        }<a name="line.89"></a>
-<FONT color="green">090</FONT>        System.err.println("[Reading from STDIN]");<a name="line.90"></a>
-<FONT color="green">091</FONT>        String html = CharStreams.toString(<a name="line.91"></a>
-<FONT color="green">092</FONT>            new InputStreamReader(System.in, Charsets.UTF_8));<a name="line.92"></a>
-<FONT color="green">093</FONT>        HtmlStreamRenderer renderer = HtmlStreamRenderer.create(<a name="line.93"></a>
-<FONT color="green">094</FONT>            System.out,<a name="line.94"></a>
-<FONT color="green">095</FONT>            new Handler&lt;IOException&gt;() {<a name="line.95"></a>
-<FONT color="green">096</FONT>              public void handle(IOException ex) {<a name="line.96"></a>
-<FONT color="green">097</FONT>                Throwables.propagate(ex);  // System.out suppresses IOExceptions<a name="line.97"></a>
-<FONT color="green">098</FONT>              }<a name="line.98"></a>
-<FONT color="green">099</FONT>            },<a name="line.99"></a>
-<FONT color="green">100</FONT>            new Handler&lt;String&gt;() {<a name="line.100"></a>
-<FONT color="green">101</FONT>              public void handle(String x) {<a name="line.101"></a>
-<FONT color="green">102</FONT>                throw new AssertionError(x);<a name="line.102"></a>
-<FONT color="green">103</FONT>              }<a name="line.103"></a>
-<FONT color="green">104</FONT>            });<a name="line.104"></a>
-<FONT color="green">105</FONT>        HtmlSanitizer.sanitize(html, POLICY_DEFINITION.apply(renderer));<a name="line.105"></a>
-<FONT color="green">106</FONT>      }<a name="line.106"></a>
-<FONT color="green">107</FONT>    }<a name="line.107"></a>
+<FONT color="green">066</FONT>      /** A policy definition that matches the minimal HTML that Slashdot allows. */<a name="line.66"></a>
+<FONT color="green">067</FONT>      public static final Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt;<a name="line.67"></a>
+<FONT color="green">068</FONT>          POLICY_DEFINITION = new HtmlPolicyBuilder()<a name="line.68"></a>
+<FONT color="green">069</FONT>              .allowStandardUrlProtocols()<a name="line.69"></a>
+<FONT color="green">070</FONT>              // Allow title="..." on any element.<a name="line.70"></a>
+<FONT color="green">071</FONT>              .allowAttributes("title").globally()<a name="line.71"></a>
+<FONT color="green">072</FONT>              // Allow href="..." on &lt;a&gt; elements.<a name="line.72"></a>
+<FONT color="green">073</FONT>              .allowAttributes("href").onElements("a")<a name="line.73"></a>
+<FONT color="green">074</FONT>              // Defeat link spammers.<a name="line.74"></a>
+<FONT color="green">075</FONT>              .requireRelNofollowOnLinks()<a name="line.75"></a>
+<FONT color="green">076</FONT>              // Allow lang= with an alphabetic value on any element.<a name="line.76"></a>
+<FONT color="green">077</FONT>              .allowAttributes("lang").matching(Pattern.compile("[a-zA-Z]{2,20}"))<a name="line.77"></a>
+<FONT color="green">078</FONT>                  .globally()<a name="line.78"></a>
+<FONT color="green">079</FONT>              // The align attribute on &lt;p&gt; elements can have any value below.<a name="line.79"></a>
+<FONT color="green">080</FONT>              .allowAttributes("align")<a name="line.80"></a>
+<FONT color="green">081</FONT>                  .matching(true, "center", "left", "right", "justify", "char")<a name="line.81"></a>
+<FONT color="green">082</FONT>                  .onElements("p")<a name="line.82"></a>
+<FONT color="green">083</FONT>              // These elements are allowed.<a name="line.83"></a>
+<FONT color="green">084</FONT>              .allowElements(<a name="line.84"></a>
+<FONT color="green">085</FONT>                  "a", "p", "div", "i", "b", "em", "blockquote", "tt", "strong",<a name="line.85"></a>
+<FONT color="green">086</FONT>                  "br", "ul", "ol", "li")<a name="line.86"></a>
+<FONT color="green">087</FONT>              // Custom slashdot tags.<a name="line.87"></a>
+<FONT color="green">088</FONT>              // These could be rewritten in the sanitizer using an ElementPolicy.<a name="line.88"></a>
+<FONT color="green">089</FONT>              .allowElements("quote", "ecode")<a name="line.89"></a>
+<FONT color="green">090</FONT>              .toFactory();<a name="line.90"></a>
+<FONT color="green">091</FONT>    <a name="line.91"></a>
+<FONT color="green">092</FONT>      public static void main(String[] args) throws IOException {<a name="line.92"></a>
+<FONT color="green">093</FONT>        if (args.length != 0) {<a name="line.93"></a>
+<FONT color="green">094</FONT>          System.err.println("Reads from STDIN and writes to STDOUT");<a name="line.94"></a>
+<FONT color="green">095</FONT>          System.exit(-1);<a name="line.95"></a>
+<FONT color="green">096</FONT>        }<a name="line.96"></a>
+<FONT color="green">097</FONT>        System.err.println("[Reading from STDIN]");<a name="line.97"></a>
+<FONT color="green">098</FONT>        // Fetch the HTML to sanitize.<a name="line.98"></a>
+<FONT color="green">099</FONT>        String html = CharStreams.toString(<a name="line.99"></a>
+<FONT color="green">100</FONT>            new InputStreamReader(System.in, Charsets.UTF_8));<a name="line.100"></a>
+<FONT color="green">101</FONT>        // Set up an output channel to receive the sanitized HTML.<a name="line.101"></a>
+<FONT color="green">102</FONT>        HtmlStreamRenderer renderer = HtmlStreamRenderer.create(<a name="line.102"></a>
+<FONT color="green">103</FONT>            System.out,<a name="line.103"></a>
+<FONT color="green">104</FONT>            // Receives notifications on a failure to write to the output.<a name="line.104"></a>
+<FONT color="green">105</FONT>            new Handler&lt;IOException&gt;() {<a name="line.105"></a>
+<FONT color="green">106</FONT>              public void handle(IOException ex) {<a name="line.106"></a>
+<FONT color="green">107</FONT>                Throwables.propagate(ex);  // System.out suppresses IOExceptions<a name="line.107"></a>
+<FONT color="green">108</FONT>              }<a name="line.108"></a>
+<FONT color="green">109</FONT>            },<a name="line.109"></a>
+<FONT color="green">110</FONT>            // Our HTML parser is very lenient, but this receives notifications on<a name="line.110"></a>
+<FONT color="green">111</FONT>            // truly bizarre inputs.<a name="line.111"></a>
+<FONT color="green">112</FONT>            new Handler&lt;String&gt;() {<a name="line.112"></a>
+<FONT color="green">113</FONT>              public void handle(String x) {<a name="line.113"></a>
+<FONT color="green">114</FONT>                throw new AssertionError(x);<a name="line.114"></a>
+<FONT color="green">115</FONT>              }<a name="line.115"></a>
+<FONT color="green">116</FONT>            });<a name="line.116"></a>
+<FONT color="green">117</FONT>        // Use the policy defined above to sanitize the HTML.<a name="line.117"></a>
+<FONT color="green">118</FONT>        HtmlSanitizer.sanitize(html, POLICY_DEFINITION.apply(renderer));<a name="line.118"></a>
+<FONT color="green">119</FONT>      }<a name="line.119"></a>
+<FONT color="green">120</FONT>    }<a name="line.120"></a>
 
 
 
