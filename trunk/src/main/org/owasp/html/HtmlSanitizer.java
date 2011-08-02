@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.LinkedList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -47,7 +48,7 @@ public final class HtmlSanitizer {
    * the sanitized output.
    *
    * <p>
-   * <b>Implementations of this class are in the TCB.</b>
+   * <b>Implementations of this class are in the TCB.</b></p>
    */
   @TCB
   public interface Policy extends HtmlStreamEventReceiver {
@@ -92,16 +93,20 @@ public final class HtmlSanitizer {
    * they accept and do nothing on things they reject.
    * Use {@link HtmlStreamRenderer} to render content to an output buffer.
    *
-   * @param html The html to sanitize.
-   * @param policy The policy that should receive events based on the .
+   * @param html A snippet of HTML to sanitize.  {@code null} is treated as the
+   *     empty string and will not result in a {@code NullPointerException}.
+   * @param policy The Policy that will receive events based on the tokens in
+   *     html.  Typically, this policy ends up routing the events to an
+   *     {@link HtmlStreamRenderer} after filtering.
+   *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
    */
-  public static void sanitize(String html, final Policy policy) {
+  public static void sanitize(@Nullable String html, final Policy policy) {
     HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(
         policy);
 
     balancer.openDocument();
 
-    HtmlLexer lexer = new HtmlLexer(html);
+    HtmlLexer lexer = new HtmlLexer(html != null ? html : "");
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
     // way.
     LinkedList<String> attrs = Lists.newLinkedList();
