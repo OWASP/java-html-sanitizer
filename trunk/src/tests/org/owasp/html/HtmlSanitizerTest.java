@@ -374,6 +374,14 @@ public class HtmlSanitizerTest extends TestCase {
             ));
   }
 
+  public final void testSupplementaryCodepointEncoding() throws Exception {
+    // &#xd87e;&#xdc1a; is not appropriate.
+    // &#x2f81a; is appropriate as is the 
+    assertEquals(
+        "&#x2f81a; | &#x2f81a; | &#x2f81a;",
+        sanitize("&#x2F81A; | \ud87e\udc1a | &#xd87e;&#xdc1a;"));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

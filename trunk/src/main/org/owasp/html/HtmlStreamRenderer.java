@@ -365,7 +365,23 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           break;
         case '\r': case '\n': break;
         default:
+          // Emit supplemental codepoints as entity so that they cannot
+          // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
+          // and get involved in UTF-16/UCS-2 confusion.
+          if (Character.isHighSurrogate(ch) && i + 1 < n) {
+            char next = plainText.charAt(i + 1);
+            if (Character.isLowSurrogate(next)) {
+              int codepoint = Character.toCodePoint(ch, next);
+              output.append(plainText, pos, i);
+              appendNumericEntity(codepoint, output);
+              ++i;  // Consume high surrogate.
+              pos = i + 1;
+              continue;
+            }
+          }
           if (0x20 <= ch && ch < 0xff00) {
+            // Includes surrogates, so all supplementary codepoints are
+            // rendered raw.
             continue;
           }
           // Is a control character or possible full-width version of a
@@ -375,8 +391,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         case '=':  // Special in attributes.
         case '@':  // Conditional compilation
         case '\'': case '`':  // Quoting character
-          output.append(plainText, pos, i).append("&#")
-              .append(String.valueOf((int) ch)).append(';');
+          output.append(plainText, pos, i);
+          appendNumericEntity(ch, output);
           pos = i + 1;
           break;
         case 0:
@@ -387,6 +403,36 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
     output.append(plainText, pos, n);
   }
+
+  static void appendNumericEntity(int codepoint, Appendable output)
+     throws IOException {
+    if (codepoint < 100) {
+      output.append("&#");
+      if (codepoint < 10) {
+        output.append((char) ('0' + codepoint));
+      } else {
+        output.append((char) ('0' + (codepoint / 10)));
+        output.append((char) ('0' + (codepoint % 10)));
+      }
+      output.append(";");
+    } else {
+      int nDigits = (codepoint < 0x1000
+                     ? codepoint < 0x100 ? 2 : 3
+                     : (codepoint < 0x10000 ? 4
+                        : codepoint < 0x100000 ? 5 : 6));
+      output.append("&#x");
+      for (int digit = nDigits; --digit >= 0;) {
+        int hexDigit = (codepoint >>> (digit << 2)) & 0xf;
+        output.append(HEX_NUMERAL[hexDigit]);
+      }
+      output.append(";");
+    }
+  }
+
+  private static final char[] HEX_NUMERAL = {
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+  };
 
 
   static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer

@@ -226,6 +226,28 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
+  public final void testSupplementaryCodepoints() throws Exception {
+    renderer.openDocument();
+    renderer.text("\uD87E\uDC1A");  // Supplementary codepoint U+2F81A
+    renderer.closeDocument();
+
+    assertEquals("&#x2f81a;", rendered.toString());
+  }
+
+  public final void testAppendNumericEntity() throws Exception {
+    StringBuilder sb = new StringBuilder();
+    for (int codepoint : new int[] {
+        0, 9, '\n', '@', 0x80, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xffff,
+        0x10000, Character.MAX_CODE_POINT }) {
+      HtmlStreamRenderer.appendNumericEntity(codepoint, sb);
+      sb.append(" ");
+    }
+    assertEquals(
+         "&#0; &#9; &#10; &#64; &#x80; &#xff; &#x100; &#xfff; &#x1000; "
+         + "&#x123a; &#xffff; &#x10000; &#x10ffff; ",
+         sb.toString());
+  }
+
   private void assertNormalized(String golden, String htmlInput)
       throws Exception {
     assertEquals(golden, normalize(htmlInput));
