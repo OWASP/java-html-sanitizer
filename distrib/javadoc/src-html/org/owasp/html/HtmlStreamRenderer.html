@@ -368,48 +368,94 @@
 <FONT color="green">365</FONT>              break;<a name="line.365"></a>
 <FONT color="green">366</FONT>            case '\r': case '\n': break;<a name="line.366"></a>
 <FONT color="green">367</FONT>            default:<a name="line.367"></a>
-<FONT color="green">368</FONT>              if (0x20 &lt;= ch &amp;&amp; ch &lt; 0xff00) {<a name="line.368"></a>
-<FONT color="green">369</FONT>                continue;<a name="line.369"></a>
-<FONT color="green">370</FONT>              }<a name="line.370"></a>
-<FONT color="green">371</FONT>              // Is a control character or possible full-width version of a<a name="line.371"></a>
-<FONT color="green">372</FONT>              // special character.<a name="line.372"></a>
-<FONT color="green">373</FONT>              // FALL-THROUGH<a name="line.373"></a>
-<FONT color="green">374</FONT>            case '+':  // UTF-7<a name="line.374"></a>
-<FONT color="green">375</FONT>            case '=':  // Special in attributes.<a name="line.375"></a>
-<FONT color="green">376</FONT>            case '@':  // Conditional compilation<a name="line.376"></a>
-<FONT color="green">377</FONT>            case '\'': case '`':  // Quoting character<a name="line.377"></a>
-<FONT color="green">378</FONT>              output.append(plainText, pos, i).append("&amp;#")<a name="line.378"></a>
-<FONT color="green">379</FONT>                  .append(String.valueOf((int) ch)).append(';');<a name="line.379"></a>
-<FONT color="green">380</FONT>              pos = i + 1;<a name="line.380"></a>
-<FONT color="green">381</FONT>              break;<a name="line.381"></a>
-<FONT color="green">382</FONT>            case 0:<a name="line.382"></a>
-<FONT color="green">383</FONT>              output.append(plainText, pos, i);<a name="line.383"></a>
-<FONT color="green">384</FONT>              pos = i + 1;<a name="line.384"></a>
-<FONT color="green">385</FONT>              break;<a name="line.385"></a>
-<FONT color="green">386</FONT>          }<a name="line.386"></a>
-<FONT color="green">387</FONT>        }<a name="line.387"></a>
-<FONT color="green">388</FONT>        output.append(plainText, pos, n);<a name="line.388"></a>
-<FONT color="green">389</FONT>      }<a name="line.389"></a>
-<FONT color="green">390</FONT>    <a name="line.390"></a>
-<FONT color="green">391</FONT>    <a name="line.391"></a>
-<FONT color="green">392</FONT>      static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer<a name="line.392"></a>
-<FONT color="green">393</FONT>          implements Closeable {<a name="line.393"></a>
-<FONT color="green">394</FONT>        private final Closeable closeable;<a name="line.394"></a>
-<FONT color="green">395</FONT>    <a name="line.395"></a>
-<FONT color="green">396</FONT>        CloseableHtmlStreamRenderer(<a name="line.396"></a>
-<FONT color="green">397</FONT>            @WillCloseWhenClosed<a name="line.397"></a>
-<FONT color="green">398</FONT>            Appendable output, Handler&lt;? super IOException&gt; errorHandler,<a name="line.398"></a>
-<FONT color="green">399</FONT>            Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.399"></a>
-<FONT color="green">400</FONT>          super(output, errorHandler, badHtmlHandler);<a name="line.400"></a>
-<FONT color="green">401</FONT>          this.closeable = (Closeable) output;<a name="line.401"></a>
-<FONT color="green">402</FONT>        }<a name="line.402"></a>
-<FONT color="green">403</FONT>    <a name="line.403"></a>
-<FONT color="green">404</FONT>        public void close() throws IOException {<a name="line.404"></a>
-<FONT color="green">405</FONT>          if (isDocumentOpen()) { closeDocument(); }<a name="line.405"></a>
-<FONT color="green">406</FONT>          closeable.close();<a name="line.406"></a>
-<FONT color="green">407</FONT>        }<a name="line.407"></a>
-<FONT color="green">408</FONT>      }<a name="line.408"></a>
-<FONT color="green">409</FONT>    }<a name="line.409"></a>
+<FONT color="green">368</FONT>              // Emit supplemental codepoints as entity so that they cannot<a name="line.368"></a>
+<FONT color="green">369</FONT>              // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper<a name="line.369"></a>
+<FONT color="green">370</FONT>              // and get involved in UTF-16/UCS-2 confusion.<a name="line.370"></a>
+<FONT color="green">371</FONT>              if (Character.isHighSurrogate(ch) &amp;&amp; i + 1 &lt; n) {<a name="line.371"></a>
+<FONT color="green">372</FONT>                char next = plainText.charAt(i + 1);<a name="line.372"></a>
+<FONT color="green">373</FONT>                if (Character.isLowSurrogate(next)) {<a name="line.373"></a>
+<FONT color="green">374</FONT>                  int codepoint = Character.toCodePoint(ch, next);<a name="line.374"></a>
+<FONT color="green">375</FONT>                  output.append(plainText, pos, i);<a name="line.375"></a>
+<FONT color="green">376</FONT>                  appendNumericEntity(codepoint, output);<a name="line.376"></a>
+<FONT color="green">377</FONT>                  ++i;  // Consume high surrogate.<a name="line.377"></a>
+<FONT color="green">378</FONT>                  pos = i + 1;<a name="line.378"></a>
+<FONT color="green">379</FONT>                  continue;<a name="line.379"></a>
+<FONT color="green">380</FONT>                }<a name="line.380"></a>
+<FONT color="green">381</FONT>              }<a name="line.381"></a>
+<FONT color="green">382</FONT>              if (0x20 &lt;= ch &amp;&amp; ch &lt; 0xff00) {<a name="line.382"></a>
+<FONT color="green">383</FONT>                // Includes surrogates, so all supplementary codepoints are<a name="line.383"></a>
+<FONT color="green">384</FONT>                // rendered raw.<a name="line.384"></a>
+<FONT color="green">385</FONT>                continue;<a name="line.385"></a>
+<FONT color="green">386</FONT>              }<a name="line.386"></a>
+<FONT color="green">387</FONT>              // Is a control character or possible full-width version of a<a name="line.387"></a>
+<FONT color="green">388</FONT>              // special character.<a name="line.388"></a>
+<FONT color="green">389</FONT>              // FALL-THROUGH<a name="line.389"></a>
+<FONT color="green">390</FONT>            case '+':  // UTF-7<a name="line.390"></a>
+<FONT color="green">391</FONT>            case '=':  // Special in attributes.<a name="line.391"></a>
+<FONT color="green">392</FONT>            case '@':  // Conditional compilation<a name="line.392"></a>
+<FONT color="green">393</FONT>            case '\'': case '`':  // Quoting character<a name="line.393"></a>
+<FONT color="green">394</FONT>              output.append(plainText, pos, i);<a name="line.394"></a>
+<FONT color="green">395</FONT>              appendNumericEntity(ch, output);<a name="line.395"></a>
+<FONT color="green">396</FONT>              pos = i + 1;<a name="line.396"></a>
+<FONT color="green">397</FONT>              break;<a name="line.397"></a>
+<FONT color="green">398</FONT>            case 0:<a name="line.398"></a>
+<FONT color="green">399</FONT>              output.append(plainText, pos, i);<a name="line.399"></a>
+<FONT color="green">400</FONT>              pos = i + 1;<a name="line.400"></a>
+<FONT color="green">401</FONT>              break;<a name="line.401"></a>
+<FONT color="green">402</FONT>          }<a name="line.402"></a>
+<FONT color="green">403</FONT>        }<a name="line.403"></a>
+<FONT color="green">404</FONT>        output.append(plainText, pos, n);<a name="line.404"></a>
+<FONT color="green">405</FONT>      }<a name="line.405"></a>
+<FONT color="green">406</FONT>    <a name="line.406"></a>
+<FONT color="green">407</FONT>      static void appendNumericEntity(int codepoint, Appendable output)<a name="line.407"></a>
+<FONT color="green">408</FONT>         throws IOException {<a name="line.408"></a>
+<FONT color="green">409</FONT>        if (codepoint &lt; 100) {<a name="line.409"></a>
+<FONT color="green">410</FONT>          output.append("&amp;#");<a name="line.410"></a>
+<FONT color="green">411</FONT>          if (codepoint &lt; 10) {<a name="line.411"></a>
+<FONT color="green">412</FONT>            output.append((char) ('0' + codepoint));<a name="line.412"></a>
+<FONT color="green">413</FONT>          } else {<a name="line.413"></a>
+<FONT color="green">414</FONT>            output.append((char) ('0' + (codepoint / 10)));<a name="line.414"></a>
+<FONT color="green">415</FONT>            output.append((char) ('0' + (codepoint % 10)));<a name="line.415"></a>
+<FONT color="green">416</FONT>          }<a name="line.416"></a>
+<FONT color="green">417</FONT>          output.append(";");<a name="line.417"></a>
+<FONT color="green">418</FONT>        } else {<a name="line.418"></a>
+<FONT color="green">419</FONT>          int nDigits = (codepoint &lt; 0x1000<a name="line.419"></a>
+<FONT color="green">420</FONT>                         ? codepoint &lt; 0x100 ? 2 : 3<a name="line.420"></a>
+<FONT color="green">421</FONT>                         : (codepoint &lt; 0x10000 ? 4<a name="line.421"></a>
+<FONT color="green">422</FONT>                            : codepoint &lt; 0x100000 ? 5 : 6));<a name="line.422"></a>
+<FONT color="green">423</FONT>          output.append("&amp;#x");<a name="line.423"></a>
+<FONT color="green">424</FONT>          for (int digit = nDigits; --digit &gt;= 0;) {<a name="line.424"></a>
+<FONT color="green">425</FONT>            int hexDigit = (codepoint &gt;&gt;&gt; (digit &lt;&lt; 2)) &amp; 0xf;<a name="line.425"></a>
+<FONT color="green">426</FONT>            output.append(HEX_NUMERAL[hexDigit]);<a name="line.426"></a>
+<FONT color="green">427</FONT>          }<a name="line.427"></a>
+<FONT color="green">428</FONT>          output.append(";");<a name="line.428"></a>
+<FONT color="green">429</FONT>        }<a name="line.429"></a>
+<FONT color="green">430</FONT>      }<a name="line.430"></a>
+<FONT color="green">431</FONT>    <a name="line.431"></a>
+<FONT color="green">432</FONT>      private static final char[] HEX_NUMERAL = {<a name="line.432"></a>
+<FONT color="green">433</FONT>        '0', '1', '2', '3', '4', '5', '6', '7',<a name="line.433"></a>
+<FONT color="green">434</FONT>        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',<a name="line.434"></a>
+<FONT color="green">435</FONT>      };<a name="line.435"></a>
+<FONT color="green">436</FONT>    <a name="line.436"></a>
+<FONT color="green">437</FONT>    <a name="line.437"></a>
+<FONT color="green">438</FONT>      static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer<a name="line.438"></a>
+<FONT color="green">439</FONT>          implements Closeable {<a name="line.439"></a>
+<FONT color="green">440</FONT>        private final Closeable closeable;<a name="line.440"></a>
+<FONT color="green">441</FONT>    <a name="line.441"></a>
+<FONT color="green">442</FONT>        CloseableHtmlStreamRenderer(<a name="line.442"></a>
+<FONT color="green">443</FONT>            @WillCloseWhenClosed<a name="line.443"></a>
+<FONT color="green">444</FONT>            Appendable output, Handler&lt;? super IOException&gt; errorHandler,<a name="line.444"></a>
+<FONT color="green">445</FONT>            Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.445"></a>
+<FONT color="green">446</FONT>          super(output, errorHandler, badHtmlHandler);<a name="line.446"></a>
+<FONT color="green">447</FONT>          this.closeable = (Closeable) output;<a name="line.447"></a>
+<FONT color="green">448</FONT>        }<a name="line.448"></a>
+<FONT color="green">449</FONT>    <a name="line.449"></a>
+<FONT color="green">450</FONT>        public void close() throws IOException {<a name="line.450"></a>
+<FONT color="green">451</FONT>          if (isDocumentOpen()) { closeDocument(); }<a name="line.451"></a>
+<FONT color="green">452</FONT>          closeable.close();<a name="line.452"></a>
+<FONT color="green">453</FONT>        }<a name="line.453"></a>
+<FONT color="green">454</FONT>      }<a name="line.454"></a>
+<FONT color="green">455</FONT>    }<a name="line.455"></a>
 
 
 
