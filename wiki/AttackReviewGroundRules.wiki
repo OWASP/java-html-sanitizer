@@ -3,14 +3,14 @@
 
 = Attack Review Ground Rules =
 
-Please take a look at [http://canyouxssthis.com/reflect].  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/src/main/org/owasp/html/examples/EbayPolicyExample.java | Ebay policy example].
+Please take a look at [http://canyouxssthis.com/reflect].  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/src/main/org/owasp/html/examples/EbayPolicyExample.java Ebay policy example].
 
-Enter an attack payload in that form, and it will be reflected back to you.  For example, if you enter `<b>Hello,</b> <i>World!</i>` you should see "**Hello,** _World!_" upon submitting the form.  If you want to see the actual HTML produced, just view source.
+Enter an attack payload in that form, and it will be reflected back to you.  For example, if you enter `<b>Hello</b>, <i>World!</i>` you should see "**Hello**, _World!_" upon submitting the form.  If you want to see the actual HTML produced, just view source.
 
 == How to win ==
 There are many ways we might have failed.
 
-If you are the first to provide me with a payload that does any of the following on one of [http://yuilibrary.com/yui/docs/tutorials/gbs/ | Yahoo's A-list browsers], then I owe you dinner next time we're in the same city.
+If you are the first to provide me with a payload that does any of the following on one of [http://yuilibrary.com/yui/docs/tutorials/gbs/ Yahoo's A-list browsers], then I owe you a nice dinner next time we're in the same city (or coupon for dinner in your city).  Only the first reported payload that demonstrates a particular bug counts.
 
   * Pop up an `alert` with any text.
   * Cause a network load of `http://ha.ckers.org/xss.js` as JS
@@ -23,7 +23,10 @@ If you are the first to provide me with a payload that does any of the following
 
 This is not an exhaustive list and creative attacks are welcome.
 
-Please report successful attacks with example input at [http://code.google.com/p/owasp-java-html-sanitizer/issues/entry].  If you wish to be credited, please provide a name or handle for me to credit.  If you wish to remain anonymous and still claim dinner at my expense, please file the issue with the label `Private` and let me know how you will authenticate yourself.
+If you find the web interface cumbersome, feel free to download and test the sanitizer directly.  See [GettingStarted] for instructions.
+
+== Reporting Vulnerabilities ==
+Please report successful attacks with example input via [http://code.google.com/p/owasp-java-html-sanitizer/issues/entry the issue tracker].  If you wish to be credited, please provide a name or handle for me to credit.  If you wish to remain anonymous and still claim dinner at my expense, please file the issue with the label `Private` and let me know how you will authenticate yourself.
 
 == Out of Bounds ==
 We are testing the HTML sanitizer as written, not the servers on which the test framework runs, so hacking the server to change the code behind it or rewrite the HTML sanitizer is out of bounds.
