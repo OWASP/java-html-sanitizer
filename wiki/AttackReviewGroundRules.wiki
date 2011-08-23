@@ -34,6 +34,8 @@ If you wish to be credited, please provide a name or handle for me to credit.
 
 If you wish to remain anonymous and still claim dinner at my expense, please file an issue with the label `Private` or send an email to `mikesamuel`@`gmail`.`com` and let me know how you will authenticate yourself should we meet.
 
-
 == Out of Bounds ==
 We are testing the HTML sanitizer as written, not the servers on which the test framework runs, so hacking the server to change the code behind it or rewrite the HTML sanitizer is out of bounds.
+
+== Questions ==
+Feel free to ask question in comments on this wiki page, or via the project group, or via my email address above.
