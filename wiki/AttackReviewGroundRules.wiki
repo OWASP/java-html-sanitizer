@@ -26,7 +26,14 @@ This is not an exhaustive list and creative attacks are welcome.
 If you find the web interface cumbersome, feel free to download and test the sanitizer directly.  See [GettingStarted] for instructions.
 
 == Reporting Vulnerabilities ==
-Please report successful attacks with example input via [http://code.google.com/p/owasp-java-html-sanitizer/issues/entry the issue tracker].  If you wish to be credited, please provide a name or handle for me to credit.  If you wish to remain anonymous and still claim dinner at my expense, please file the issue with the label `Private` and let me know how you will authenticate yourself.
+Please report successful attacks with example input via [http://code.google.com/p/owasp-java-html-sanitizer/issues/entry the issue tracker].
+
+If you believe the issue might affect production systems, please file the issue with the label `Private`.
+
+If you wish to be credited, please provide a name or handle for me to credit.
+
+If you wish to remain anonymous and still claim dinner at my expense, please file an issue with the label `Private` or send an email to `mikesamuel`@`gmail`.`com` and let me know how you will authenticate yourself should we meet.
+
 
 == Out of Bounds ==
 We are testing the HTML sanitizer as written, not the servers on which the test framework runs, so hacking the server to change the code behind it or rewrite the HTML sanitizer is out of bounds.
