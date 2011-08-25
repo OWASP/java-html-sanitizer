@@ -20,6 +20,8 @@ If you are the first to provide me with a payload that does any of the following
   * Cause a save-file dialog to pop-up.
   * Crash the browser or cause it to loop infinitely until the browser halts JS or consume inordinate resources for an input of that size.
   * Cause an exception, crash, or inf. loop in the sanitizer that causes it to fail to provide service or consume inordinate resources for an input of that size.
+  * Exfiltrate information from the page, such as the name or value of an input or the page title.
+  * Exfiltrate keystrokes from the page.
 
 This is not an exhaustive list and creative attacks are welcome.
 
