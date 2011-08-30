@@ -40,4 +40,6 @@ If you wish to remain anonymous and still claim dinner at my expense, please fil
 We are testing the HTML sanitizer as written, not the servers on which the test framework runs, so hacking the server to change the code behind it or rewrite the HTML sanitizer is out of bounds.
 
 == Questions ==
-Feel free to ask question in comments on this wiki page, or via the project group, or via my email address above.
+Feel free to ask question in comments on this wiki page, or via the [http://groups.google.com/group/owasp-java-html-sanitizer-support project group], or via my email address above.
+
+I will also lurk on ICQ `/join #owasp-html-sanitizer` using the handle `mikesamuel`.
