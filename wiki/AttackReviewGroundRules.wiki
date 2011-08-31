@@ -42,4 +42,4 @@ We are testing the HTML sanitizer as written, not the servers on which the test 
 == Questions ==
 Feel free to ask question in comments on this wiki page, or via the [http://groups.google.com/group/owasp-java-html-sanitizer-support project group], or via my email address above.
 
-I will also lurk on ICQ `/join #owasp-html-sanitizer` using the handle `mikesamuel`.
+I will also lurk on IRC `/join #owasp-html-sanitizer` using the handle `mikesamuel`.
