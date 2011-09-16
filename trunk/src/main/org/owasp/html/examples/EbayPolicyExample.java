@@ -119,7 +119,8 @@ public class EbayPolicyExample {
   private static final Pattern HISTORY_BACK = Pattern.compile(
       "(?:javascript:)?\\Qhistory.go(-1)\\E");
 
-  private static final Pattern ONE_CHAR = Pattern.compile(".?", Pattern.DOTALL);
+  private static final Pattern ONE_CHAR = Pattern.compile(
+      ".?", Pattern.DOTALL);
 
 
 
