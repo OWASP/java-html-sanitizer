@@ -64,17 +64,17 @@ public class EbayPolicyExample {
 
   // The 16 colors defined by the HTML Spec (also used by the CSS Spec)
   private static final Pattern COLOR_NAME = Pattern.compile(
-      "(aqua|black|blue|fuchsia|gray|grey|green|lime|maroon|navy|olive|purple"
+      "(?:aqua|black|blue|fuchsia|gray|grey|green|lime|maroon|navy|olive|purple"
       + "|red|silver|teal|white|yellow)");
 
   // HTML/CSS Spec allows 3 or 6 digit hex to specify color
   private static final Pattern COLOR_CODE = Pattern.compile(
-      "(#([0-9a-fA-F]{6}|[0-9a-fA-F]{3}))");
+      "(?:#(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)");
 
   private static final Pattern NUMBER_OR_PERCENT = Pattern.compile(
-      "(\\d)+(%{0,1})");
+      "[0-9]+%?");
   private static final Pattern PARAGRAPH = Pattern.compile(
-      "([\\p{L}\\p{N},'\\.\\s\\-_\\(\\)]|&[0-9]{2};)*");
+      "(?:[\\p{L}\\p{N},'\\.\\s\\-_\\(\\)]|&[0-9]{2};)*");
   private static final Pattern HTML_ID = Pattern.compile(
       "[a-zA-Z0-9\\:\\-_\\.]+");
   // force non-empty with a '+' at the end instead of '*'
@@ -84,18 +84,18 @@ public class EbayPolicyExample {
       "[a-zA-Z0-9\\s,\\-_]+");
 
   private static final Pattern ONSITE_URL = Pattern.compile(
-      "([\\p{L}\\p{N}\\\\\\.\\#@\\$%\\+&;\\-_~,\\?=/!]+|\\#(\\w)+)");
+      "(?:[\\p{L}\\p{N}\\\\\\.\\#@\\$%\\+&;\\-_~,\\?=/!]+|\\#(\\w)+)");
   private static final Pattern OFFSITE_URL = Pattern.compile(
-      "(\\s)*((ht|f)tp(s?)://|mailto:)[\\p{L}\\p{N}]+"
-      + "[\\p{L}\\p{N}\\p{Zs}\\.\\#@\\$%\\+&;:\\-_~,\\?=/!\\(\\)]*(\\s)*");
+      "\\s*(?:(?:ht|f)tps?://|mailto:)[\\p{L}\\p{N}]"
+      + "[\\p{L}\\p{N}\\p{Zs}\\.\\#@\\$%\\+&;:\\-_~,\\?=/!\\(\\)]*\\s*");
 
   private static final Pattern NUMBER = Pattern.compile(
-      "(-|\\+)?([0-9]+(\\.[0-9]+)?)");
+      "[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|\\.[0-9]+)");
 
   private static final Pattern NAME = Pattern.compile("[a-zA-Z0-9\\-_\\$]+");
 
   private static final Pattern ALIGN = Pattern.compile(
-      "(?i)cener|left|right|justify|char");
+      "(?i)center|left|right|justify|char");
 
   private static final Pattern VALIGN = Pattern.compile(
       "(?i)baseline|bottom|middle|top");
@@ -119,7 +119,7 @@ public class EbayPolicyExample {
   private static final Pattern HISTORY_BACK = Pattern.compile(
       "(?:javascript:)?\\Qhistory.go(-1)\\E");
 
-  private static final Pattern ONE_CHAR = Pattern.compile(".?");
+  private static final Pattern ONE_CHAR = Pattern.compile(".?", Pattern.DOTALL);
 
 
 
