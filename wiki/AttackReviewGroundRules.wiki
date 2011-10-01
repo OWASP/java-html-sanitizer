@@ -3,7 +3,7 @@
 
 = Attack Review Ground Rules =
 
-Please take a look at [http://canyouxssthis.com/reflect].  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/src/main/org/owasp/html/examples/EbayPolicyExample.java Ebay policy example].
+Please take a look at [http://canyouxssthis.com/HTMLSanitizer].  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/src/main/org/owasp/html/examples/EbayPolicyExample.java Ebay policy example].
 
 Enter an attack payload in that form, and it will be reflected back to you.  For example, if you enter `<b>Hello</b>, <i>World!</i>` you should see "**Hello**, _World!_" upon submitting the form.  If you want to see the actual HTML produced, just view source.
 
