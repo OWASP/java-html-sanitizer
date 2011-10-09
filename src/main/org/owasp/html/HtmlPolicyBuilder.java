@@ -36,7 +36,6 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -416,8 +415,8 @@ public class HtmlPolicyBuilder {
    * Like {@link #build} but can be reused to create many different policies
    * each backed by a different output channel.
    */
-  public Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> toFactory() {
-    return new Factory(compilePolicies(), allowStyling);
+  public PolicyFactory toFactory() {
+    return new PolicyFactory(compilePolicies(), allowStyling);
   }
 
   // Speed up subsequent builds by caching the compiled policies.
@@ -661,29 +660,6 @@ public class HtmlPolicyBuilder {
       }
       return HtmlPolicyBuilder.this.allowAttributesOnElements(
           policy, attributeNames, b.build());
-    }
-  }
-
-}
-
-final class Factory
-    implements Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> {
-  private final ImmutableMap<String, ElementAndAttributePolicies> policies;
-  private final boolean allowStyling;
-
-  Factory(
-      ImmutableMap<String, ElementAndAttributePolicies> policies,
-      boolean allowStyling) {
-    this.policies = policies;
-    this.allowStyling = allowStyling;
-  }
-
-  public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {
-    if (allowStyling) {
-      return new StylingPolicy(out, policies);
-    } else {
-      return new ElementAndAttributePolicyBasedSanitizerPolicy(
-          out, policies);
     }
   }
 }
