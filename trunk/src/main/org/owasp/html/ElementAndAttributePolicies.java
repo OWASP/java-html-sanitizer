@@ -29,10 +29,8 @@
 package org.owasp.html;
 
 import java.util.Map;
-
-import javax.annotation.concurrent.Immutable;
-
 import com.google.common.collect.ImmutableMap;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Encapsulates all the information needed by the
@@ -58,5 +56,32 @@ final class ElementAndAttributePolicies {
     this.elPolicy = elPolicy;
     this.attrPolicies = ImmutableMap.copyOf(attrPolicies);
     this.skipIfEmpty = skipIfEmpty;
+  }
+
+  ElementAndAttributePolicies and(ElementAndAttributePolicies p) {
+    assert elementName.equals(p.elementName):
+      elementName + " != " + p.elementName;
+    ImmutableMap.Builder<String, AttributePolicy> joinedAttrPolicies
+        = ImmutableMap.builder();
+    for (Map.Entry<String, AttributePolicy> e : this.attrPolicies.entrySet()) {
+      String attrName = e.getKey();
+      AttributePolicy a = e.getValue();
+      AttributePolicy b = p.attrPolicies.get(attrName);
+      if (b != null) {
+        a = AttributePolicy.Util.join(a, b);
+      }
+      joinedAttrPolicies.put(attrName, a);
+    }
+    for (Map.Entry<String, AttributePolicy> e : p.attrPolicies.entrySet()) {
+      String attrName = e.getKey();
+      if (!this.attrPolicies.containsKey(attrName)) {
+        joinedAttrPolicies.put(attrName, e.getValue());
+      }
+    }
+    return new ElementAndAttributePolicies(
+        elementName,
+        ElementPolicy.Util.join(elPolicy, p.elPolicy),
+        joinedAttrPolicies.build(),
+        skipIfEmpty || p.skipIfEmpty);
   }
 }
