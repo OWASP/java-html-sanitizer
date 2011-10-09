@@ -110,17 +110,23 @@ enum HtmlTextEscapingMode {
       .put("xmp", CDATA)
 
       // Nodes that can't contain content.
+      // http://www.w3.org/TR/html-markup/syntax.html#void-elements
+      .put("area", VOID)
       .put("base", VOID)
+      .put("br", VOID)
+      .put("col", VOID)
+      .put("command", VOID)
+      .put("embed", VOID)
+      .put("hr", VOID)
+      .put("img", VOID)
+      .put("input", VOID)
+      .put("keygen", VOID)
       .put("link", VOID)
       .put("meta", VOID)
-      .put("hr", VOID)
-      .put("br", VOID)
-      .put("img", VOID)
-      .put("embed", VOID)
       .put("param", VOID)
-      .put("area", VOID)
-      .put("col", VOID)
-      .put("input", VOID)
+      .put("source", VOID)
+      .put("track", VOID)
+      .put("wbr", VOID)
       .build();
 
 
