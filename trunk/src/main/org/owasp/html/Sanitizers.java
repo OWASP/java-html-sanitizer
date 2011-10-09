@@ -35,16 +35,16 @@ package org.owasp.html;
  * These policies can be used to sanitize content.
  * </p>
  * <pre>
- *   Sanitizers.FORMATTING.sanitize("<b>Hello, World!</b>")
+ *   Sanitizers.FORMATTING.sanitize("&lt;b>Hello, World!&lt;/b>")
  * </pre>
  * and can be chained
  * <pre>
  *   PolicyFactory sanitizer = Sanitizers.FORMATTING.and(Sanitizers.BLOCKS);
- *   System.out.println(sanitizer.sanitze("<p>Hello, <b>World!</b>"));
+ *   System.out.println(sanitizer.sanitze("&lt;p>Hello, &lt;b>World!&lt;/b>"));
  * </pre>
  *
  * <p>
- * For more fine-grained control over sanitization, see
+ * For more fine-grained control over sanitization, use
  * {@link HtmlPolicyBuilder}.
  * </p>
  *

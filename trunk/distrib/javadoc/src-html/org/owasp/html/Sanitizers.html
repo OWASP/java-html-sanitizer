@@ -38,16 +38,16 @@
 <FONT color="green">035</FONT>     * These policies can be used to sanitize content.<a name="line.35"></a>
 <FONT color="green">036</FONT>     * &lt;/p&gt;<a name="line.36"></a>
 <FONT color="green">037</FONT>     * &lt;pre&gt;<a name="line.37"></a>
-<FONT color="green">038</FONT>     *   Sanitizers.FORMATTING.sanitize("&lt;b&gt;Hello, World!&lt;/b&gt;")<a name="line.38"></a>
+<FONT color="green">038</FONT>     *   Sanitizers.FORMATTING.sanitize("&amp;lt;b&gt;Hello, World!&amp;lt;/b&gt;")<a name="line.38"></a>
 <FONT color="green">039</FONT>     * &lt;/pre&gt;<a name="line.39"></a>
 <FONT color="green">040</FONT>     * and can be chained<a name="line.40"></a>
 <FONT color="green">041</FONT>     * &lt;pre&gt;<a name="line.41"></a>
 <FONT color="green">042</FONT>     *   PolicyFactory sanitizer = Sanitizers.FORMATTING.and(Sanitizers.BLOCKS);<a name="line.42"></a>
-<FONT color="green">043</FONT>     *   System.out.println(sanitizer.sanitze("&lt;p&gt;Hello, &lt;b&gt;World!&lt;/b&gt;"));<a name="line.43"></a>
+<FONT color="green">043</FONT>     *   System.out.println(sanitizer.sanitze("&amp;lt;p&gt;Hello, &amp;lt;b&gt;World!&amp;lt;/b&gt;"));<a name="line.43"></a>
 <FONT color="green">044</FONT>     * &lt;/pre&gt;<a name="line.44"></a>
 <FONT color="green">045</FONT>     *<a name="line.45"></a>
 <FONT color="green">046</FONT>     * &lt;p&gt;<a name="line.46"></a>
-<FONT color="green">047</FONT>     * For more fine-grained control over sanitization, see<a name="line.47"></a>
+<FONT color="green">047</FONT>     * For more fine-grained control over sanitization, use<a name="line.47"></a>
 <FONT color="green">048</FONT>     * {@link HtmlPolicyBuilder}.<a name="line.48"></a>
 <FONT color="green">049</FONT>     * &lt;/p&gt;<a name="line.49"></a>
 <FONT color="green">050</FONT>     *<a name="line.50"></a>
