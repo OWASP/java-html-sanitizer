@@ -154,24 +154,15 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title=
 
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
 <TR BGCOLOR="#CCCCFF" CLASS="TableSubHeadingColor">
-<TH ALIGN="left" COLSPAN="2">Methods in <A HREF="../../../../org/owasp/html/package-summary.html">org.owasp.html</A> that return types with arguments of type <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></FONT></TH>
+<TH ALIGN="left" COLSPAN="2">Methods in <A HREF="../../../../org/owasp/html/package-summary.html">org.owasp.html</A> with parameters of type <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></FONT></TH>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;com.google.common.base.Function&lt;<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>,<A HREF="../../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&gt;</CODE></FONT></TD>
-<TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#toFactory()">toFactory</A></B>()</CODE>
+<CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
+<TD><CODE><B>PolicyFactory.</B><B><A HREF="../../../../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver)">apply</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Like <A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver)"><CODE>HtmlPolicyBuilder.build(org.owasp.html.HtmlStreamEventReceiver)</CODE></A> but can be reused to create many different policies
- each backed by a different output channel.</TD>
-</TR>
-</TABLE>
-&nbsp;
-<P>
-
-<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
-<TR BGCOLOR="#CCCCFF" CLASS="TableSubHeadingColor">
-<TH ALIGN="left" COLSPAN="2">Methods in <A HREF="../../../../org/owasp/html/package-summary.html">org.owasp.html</A> with parameters of type <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></FONT></TH>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to out.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
