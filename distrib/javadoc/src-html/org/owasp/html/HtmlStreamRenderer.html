@@ -110,7 +110,7 @@
 <FONT color="green">107</FONT>       * @param identifier an HTML identifier associated with the message.<a name="line.107"></a>
 <FONT color="green">108</FONT>       */<a name="line.108"></a>
 <FONT color="green">109</FONT>      private final void error(String message, CharSequence identifier) {<a name="line.109"></a>
-<FONT color="green">110</FONT>        if (ioExHandler != Handler.DO_NOTHING) {   // Avoid string append.<a name="line.110"></a>
+<FONT color="green">110</FONT>        if (badHtmlHandler != Handler.DO_NOTHING) {   // Avoid string append.<a name="line.110"></a>
 <FONT color="green">111</FONT>          badHtmlHandler.handle(message + " : " + identifier);<a name="line.111"></a>
 <FONT color="green">112</FONT>        }<a name="line.112"></a>
 <FONT color="green">113</FONT>      }<a name="line.113"></a>
