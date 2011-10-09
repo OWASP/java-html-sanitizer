@@ -35,12 +35,12 @@ package org.owasp.html;
  * These policies can be used to sanitize content.
  * </p>
  * <pre>
- *   Sanitizers.FORMATTING.sanitize("&lt;b>Hello, World!&lt;/b>")
+ *   Sanitizers.FORMATTING.sanitize({@code "<b>Hello, World!</b>"})
  * </pre>
  * and can be chained
  * <pre>
  *   PolicyFactory sanitizer = Sanitizers.FORMATTING.and(Sanitizers.BLOCKS);
- *   System.out.println(sanitizer.sanitze("&lt;p>Hello, &lt;b>World!&lt;/b>"));
+ *   System.out.println(sanitizer.sanitize({@code "<p>Hello, <b>World!</b>"}));
  * </pre>
  *
  * <p>
@@ -59,13 +59,14 @@ public final class Sanitizers {
       .allowCommonInlineFormattingElements().toFactory();
 
   /**
-   * Allows common block elements including {@code <div>}, {@code <p>}.
+   * Allows common block elements including <code>&lt;p&gt;</code>,
+   * <code>&lt;h1&gt;</code>, etc.
    */
   public static final PolicyFactory BLOCKS = new HtmlPolicyBuilder()
       .allowCommonBlockElements().toFactory();
 
   /**
-   * Allows certain safe CSS properties in {@code style} attributes.
+   * Allows certain safe CSS properties in {@code style="..."} attributes.
    */
   public static final PolicyFactory STYLES = new HtmlPolicyBuilder()
       .allowStyling().toFactory();
@@ -96,7 +97,7 @@ public final class Sanitizers {
   };
 
   /**
-   * Allows {@code <img>} elements with HTTP, HTTPS, and relative images.
+   * Allows {@code <img>} elements from HTTP, HTTPS, and relative sources.
    */
   public static final PolicyFactory IMAGES = new HtmlPolicyBuilder()
       .allowUrlProtocols("http", "https").allowElements("img")

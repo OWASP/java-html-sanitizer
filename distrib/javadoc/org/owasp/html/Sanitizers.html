@@ -106,12 +106,12 @@ Pre-packaged HTML sanitizer policies.
  These policies can be used to sanitize content.
  </p>
  <pre>
-   Sanitizers.FORMATTING.sanitize("&lt;b>Hello, World!&lt;/b>")
+   Sanitizers.FORMATTING.sanitize(<code>"&lt;b&gt;Hello, World!&lt;/b&gt;"</code>)
  </pre>
  and can be chained
  <pre>
    PolicyFactory sanitizer = Sanitizers.FORMATTING.and(Sanitizers.BLOCKS);
-   System.out.println(sanitizer.sanitze("&lt;p>Hello, &lt;b>World!&lt;/b>"));
+   System.out.println(sanitizer.sanitize(<code>"&lt;p&gt;Hello, &lt;b&gt;World!&lt;/b&gt;"</code>));
  </pre>
 
  <p>
@@ -142,7 +142,8 @@ Pre-packaged HTML sanitizer policies.
 <TD><CODE><B><A HREF="../../../org/owasp/html/Sanitizers.html#BLOCKS">BLOCKS</A></B></CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows common block elements including <code>&lt;div&gt;</code>, {@code</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows common block elements including <code>&lt;p&gt;</code>,
+ <code>&lt;h1&gt;</code>, etc.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -158,7 +159,7 @@ Pre-packaged HTML sanitizer policies.
 <TD><CODE><B><A HREF="../../../org/owasp/html/Sanitizers.html#IMAGES">IMAGES</A></B></CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows <code>&lt;img&gt;</code> elements with HTTP, HTTPS, and relative images.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows <code>&lt;img&gt;</code> elements from HTTP, HTTPS, and relative sources.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -174,7 +175,7 @@ Pre-packaged HTML sanitizer policies.
 <TD><CODE><B><A HREF="../../../org/owasp/html/Sanitizers.html#STYLES">STYLES</A></B></CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows certain safe CSS properties in <code>style</code> attributes.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Allows certain safe CSS properties in <code>style="..."</code> attributes.</TD>
 </TR>
 </TABLE>
 &nbsp;
@@ -224,9 +225,10 @@ public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="
 <A NAME="BLOCKS"><!-- --></A><H3>
 BLOCKS</H3>
 <PRE>
-public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.64"><B>BLOCKS</B></A></PRE>
+public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.65"><B>BLOCKS</B></A></PRE>
 <DL>
-<DD>Allows common block elements including <code>&lt;div&gt;</code>, <code>&lt;p&gt;</code>.
+<DD>Allows common block elements including <code>&lt;p&gt;</code>,
+ <code>&lt;h1&gt;</code>, etc.
 <P>
 <DL>
 </DL>
@@ -236,9 +238,9 @@ public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="
 <A NAME="STYLES"><!-- --></A><H3>
 STYLES</H3>
 <PRE>
-public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.70"><B>STYLES</B></A></PRE>
+public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.71"><B>STYLES</B></A></PRE>
 <DL>
-<DD>Allows certain safe CSS properties in <code>style</code> attributes.
+<DD>Allows certain safe CSS properties in <code>style="..."</code> attributes.
 <P>
 <DL>
 </DL>
@@ -248,7 +250,7 @@ public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="
 <A NAME="LINKS"><!-- --></A><H3>
 LINKS</H3>
 <PRE>
-public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.76"><B>LINKS</B></A></PRE>
+public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.77"><B>LINKS</B></A></PRE>
 <DL>
 <DD>Allows HTTP, HTTPS, MAILTO, and relative links.
 <P>
@@ -260,9 +262,9 @@ public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="
 <A NAME="IMAGES"><!-- --></A><H3>
 IMAGES</H3>
 <PRE>
-public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.101"><B>IMAGES</B></A></PRE>
+public static final <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/Sanitizers.html#line.102"><B>IMAGES</B></A></PRE>
 <DL>
-<DD>Allows <code>&lt;img&gt;</code> elements with HTTP, HTTPS, and relative images.
+<DD>Allows <code>&lt;img&gt;</code> elements from HTTP, HTTPS, and relative sources.
 <P>
 <DL>
 </DL>
