@@ -107,7 +107,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * @param identifier an HTML identifier associated with the message.
    */
   private final void error(String message, CharSequence identifier) {
-    if (ioExHandler != Handler.DO_NOTHING) {   // Avoid string append.
+    if (badHtmlHandler != Handler.DO_NOTHING) {   // Avoid string append.
       badHtmlHandler.handle(message + " : " + identifier);
     }
   }
