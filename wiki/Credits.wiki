@@ -1,0 +1,7 @@
+#summary People who have helped improve this project.
+
+=Credits=
+
+ * rfamilya
+ * vytah
+ * robinhouston
