@@ -3,5 +3,6 @@
 =Credits=
 
  * rfamilya
- * vytah
  * robinhouston
+ * vytah
+ * willikins_bear
