@@ -382,6 +382,17 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("&#x2F81A; | \ud87e\udc1a | &#xd87e;&#xdc1a;"));
   }
 
+  public final void testDeeplyNestedTagsDoS() throws Exception {
+    String sanitized = sanitize(stringRepeatedTimes("<div>", 20000));
+    int n = sanitized.length() / "<div></div>".length();
+    assertTrue("" + n, 50 <= n && n <= 1000);
+    int middle = n * "<div>".length();
+    assertEquals(sanitized.substring(0, middle),
+                 stringRepeatedTimes("<div>", n));
+    assertEquals(sanitized.substring(middle),
+                 stringRepeatedTimes("</div>", n));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -423,4 +434,11 @@ public class HtmlSanitizerTest extends TestCase {
     return sb.toString();
   }
 
+  private static final String stringRepeatedTimes(String s, int n) {
+    StringBuilder sb = new StringBuilder(s.length() * n);
+    while (--n >= 0) {
+      sb.append(s);
+    }
+    return sb.toString();
+  }
 }

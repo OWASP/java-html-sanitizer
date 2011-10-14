@@ -35,7 +35,7 @@ import junit.framework.TestCase;
 public class TagBalancingHtmlStreamRendererTest extends TestCase {
 
   StringBuilder htmlOutputBuffer;
-  HtmlStreamEventReceiver balancer;
+  TagBalancingHtmlStreamEventReceiver balancer;
 
   @Override protected void setUp() throws Exception {
     super.setUp();
@@ -106,4 +106,22 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  public final void testNestingLimits() {
+    // Some browsers can be DoSed by deeply nested structures.
+    // See Issue 3, "Deeply nested elements crash FF 8, Chrome 11"
+    // @ http://code.google.com/p/owasp-java-html-sanitizer/issues/detail?id=3
+
+    balancer.setNestingLimit(10);
+    balancer.openDocument();
+    ImmutableList<String> attrs = ImmutableList.<String>of();
+    for (int i = 20000; --i >= 0;) {
+      balancer.openTag("div", attrs);
+    }
+    balancer.openTag("hr", attrs);
+    balancer.closeDocument();
+    assertEquals(
+          "<div><div><div><div><div><div><div><div><div><div>"
+        + "</div></div></div></div></div></div></div></div></div></div>",
+        htmlOutputBuffer.toString());
+  }
 }
