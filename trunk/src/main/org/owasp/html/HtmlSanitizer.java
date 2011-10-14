@@ -103,8 +103,19 @@ public final class HtmlSanitizer {
   public static void sanitize(@Nullable String html, final Policy policy) {
     if (html == null) { html = ""; }
 
-    HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(
-        policy);
+    TagBalancingHtmlStreamEventReceiver balancer
+        = new TagBalancingHtmlStreamEventReceiver(policy);
+
+    // According to Opera the maximum table nesting depth seen in the wild is
+    // 795, but 99.99% of documents have a table nesting depth of less than 22.
+    // Since each table has a nesting depth of 4 (incl. TBODY), this leads to a
+    // document depth of 90 (incl. HTML & BODY).
+    // We take this depth and add a bit to allow for slop.
+    // Obviously table nesting depth is not the same as whole document depth,
+    // but it is the best proxy I have available.
+    // See http://devfiles.myopera.com/articles/590/maxtabledepth-url.htm for
+    // the original data.
+    balancer.setNestingLimit(128);
 
     balancer.openDocument();
 

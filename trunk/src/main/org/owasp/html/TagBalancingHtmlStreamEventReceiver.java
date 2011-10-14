@@ -46,6 +46,7 @@ import com.google.common.collect.Lists;
 public class TagBalancingHtmlStreamEventReceiver
     implements HtmlStreamEventReceiver {
   private final HtmlStreamEventReceiver underlying;
+  private int nestingLimit = Integer.MAX_VALUE;
   private final List<ElementContainmentInfo> openElements
       = Lists.newArrayList();
 
@@ -54,14 +55,20 @@ public class TagBalancingHtmlStreamEventReceiver
     this.underlying = underlying;
   }
 
+  public void setNestingLimit(int limit) {
+    if (openElements.size() > limit) {
+      throw new IllegalStateException();
+    }
+    this.nestingLimit = limit;
+  }
+
   public void openDocument() {
     underlying.openDocument();
   }
 
   public void closeDocument() {
-    while (!openElements.isEmpty()) {
-      underlying.closeTag(
-          openElements.remove(openElements.size() - 1).elementName);
+    for (int i = Math.min(nestingLimit, openElements.size()); --i >= 0;) {
+      underlying.closeTag(openElements.get(i).elementName);
     }
     openElements.clear();
     underlying.closeDocument();
@@ -73,7 +80,9 @@ public class TagBalancingHtmlStreamEventReceiver
         canonElementName);
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
     if (elInfo == null) {
-      underlying.openTag(elementName, attrs);
+      if (openElements.size() < nestingLimit) {
+        underlying.openTag(elementName, attrs);
+      }
       return;
     }
 
@@ -82,7 +91,9 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = openElements.size(); --i >= 0;) {
       ElementContainmentInfo top = openElements.get(i);
       if ((top.contents & elInfo.types) != 0) { break; }
-      underlying.closeTag(top.elementName);
+      if (openElements.size() < nestingLimit) {
+        underlying.closeTag(top.elementName);
+      }
       openElements.remove(i);
       if (top.resumable) {
         if (toResumeInReverse == null) {
@@ -93,18 +104,14 @@ public class TagBalancingHtmlStreamEventReceiver
     }
 
     if (toResumeInReverse != null) {
-      for (ElementContainmentInfo toResume : toResumeInReverse) {
-        openElements.add(toResume);
-        // TODO: If resuming of things other than plain formatting tags like <b>
-        // and <i>, then we need to store the attributes for resumable tags so
-        // that we can resume with the appropriate attributes.
-        underlying.openTag(toResume.elementName, Lists.<String>newArrayList());
-      }
+      resume(toResumeInReverse);
+    }
+    if (openElements.size() < nestingLimit) {
+      underlying.openTag(elementName, attrs);
     }
     if (!elInfo.isVoid) {
       openElements.add(elInfo);
     }
-    underlying.openTag(elementName, attrs);
   }
 
   public void closeTag(String elementName) {
@@ -112,7 +119,9 @@ public class TagBalancingHtmlStreamEventReceiver
     ElementContainmentInfo elInfo = ELEMENT_CONTAINMENT_RELATIONSHIPS.get(
         canonElementName);
     if (elInfo == null) {  // Allow unrecognized end tags through.
-      underlying.closeTag(elementName);
+      if (openElements.size() < nestingLimit) {
+        underlying.closeTag(elementName);
+      }
       return;
     }
     int index = openElements.lastIndexOf(elInfo);
@@ -122,7 +131,9 @@ public class TagBalancingHtmlStreamEventReceiver
     List<ElementContainmentInfo> toResumeInReverse = null;
     while (--last > index) {
       ElementContainmentInfo unclosed = openElements.remove(last);
-      underlying.closeTag(unclosed.elementName);
+      if (last + 1 < nestingLimit) {
+        underlying.closeTag(unclosed.elementName);
+      }
       if (unclosed.resumable) {
         if (toResumeInReverse == null) {
           toResumeInReverse = Lists.newArrayList();
@@ -130,22 +141,31 @@ public class TagBalancingHtmlStreamEventReceiver
         toResumeInReverse.add(unclosed);
       }
     }
+    if (openElements.size() < nestingLimit) {
+      underlying.closeTag(elementName);
+    }
     openElements.remove(index);
-    underlying.closeTag(elementName);
-
     if (toResumeInReverse != null) {
-      for (ElementContainmentInfo toResume : toResumeInReverse) {
-        openElements.add(toResume);
-        // TODO: If resuming of things other than plain formatting tags like <b>
-        // and <i>, then we need to store the attributes for resumable tags so
-        // that we can resume with the appropriate attributes.
+      resume(toResumeInReverse);
+    }
+  }
+
+  private void resume(List<ElementContainmentInfo> toResumeInReverse) {
+    for (ElementContainmentInfo toResume : toResumeInReverse) {
+      // TODO: If resuming of things other than plain formatting tags like <b>
+      // and <i>, then we need to store the attributes for resumable tags so
+      // that we can resume with the appropriate attributes.
+      if (openElements.size() < nestingLimit) {
         underlying.openTag(toResume.elementName, Lists.<String>newArrayList());
       }
+      openElements.add(toResume);
     }
   }
 
   public void text(String text) {
-    underlying.text(text);
+    if (openElements.size() < nestingLimit) {
+      underlying.text(text);
+    }
   }
 
 
