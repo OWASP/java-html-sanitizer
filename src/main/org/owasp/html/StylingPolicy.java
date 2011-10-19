@@ -105,7 +105,7 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
   }
 
   private static final Pattern ALLOWED_CSS_SIZE = Pattern.compile(
-      "medium|(?:small|large)r|(?:xx?-)(?:small|large)|[0-9]+(pt|%)");
+      "medium|(?:small|large)r|(?:xx?-)(?:small|large)|[0-9]+(p[tx]|%)");
 
   private static final Pattern ALLOWED_CSS_WEIGHT = Pattern.compile(
       "normal|bold(?:er)?|lighter|[1-9]00");
