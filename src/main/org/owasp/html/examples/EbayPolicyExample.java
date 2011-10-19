@@ -69,7 +69,7 @@ public class EbayPolicyExample {
 
   // HTML/CSS Spec allows 3 or 6 digit hex to specify color
   private static final Pattern COLOR_CODE = Pattern.compile(
-      "(?:#(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)");
+      "(?:#(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?))");
 
   private static final Pattern NUMBER_OR_PERCENT = Pattern.compile(
       "[0-9]+%?");

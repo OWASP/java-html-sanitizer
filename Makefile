@@ -24,13 +24,15 @@ out/examples.tstamp: out/classes.tstamp src/main/org/owasp/html/examples/*.java
 	touch out/examples.tstamp
 
 # Depends on all java files under tests.
-tests: out/tests.tstamp out/org/owasp/html/alltests
-out/tests.tstamp: out out/classes.tstamp src/tests/org/owasp/html/*.java
+tests: out/tests.tstamp out/org/owasp/html/alltests out/org/owasp/html/allexamples
+out/tests.tstamp: out out/classes.tstamp out/examples.tstamp src/tests/org/owasp/html/*.java
 	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out \
 	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/tests.tstamp
 out/org/owasp/html/alltests: src/tests/org/owasp/html/*Test.java
 	echo $^ | tr ' ' '\n' | perl -pe 's#^src/tests/|\.java$$##g; s#/#.#g;' > $@
+out/org/owasp/html/allexamples: src/main/org/owasp/html/examples/*.java
+	echo $^ | tr ' ' '\n' | perl -pe 's#^src/main/|\.java$$##g; s#/#.#g;' > $@
 
 runtests: tests
 	java -classpath out:src/tests:${TEST_CLASSPATH} junit.textui.TestRunner org.owasp.html.AllTests
