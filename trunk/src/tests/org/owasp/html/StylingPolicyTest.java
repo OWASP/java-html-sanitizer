@@ -95,6 +95,13 @@ public class StylingPolicyTest extends TestCase {
         "face=\"arial\""
         + " style=\"font-weight:bold;font-size:12pt;font-style:oblique\"",
         "font: Arial 12pt bold oblique");
+    assertAttributesFromStyle(
+        "face=\"Times New Roman\" style=\"font-weight:bolder;font-size:24px\"",
+        "font: \"Times New Roman\" 24px bolder");
+    assertAttributesFromStyle("style=\"font-size:24px\"", "font: 24px");
+    // Garbage, but harmless garbage
+    assertAttributesFromStyle("face=\"\\pression\"", "font: 24ex\\pression");
+    assertAttributesFromStyle("face=\"pression\"", "font: 24ex\0pression");
   }
 
   public final void testBidiAndAlignmentAttributes() {
