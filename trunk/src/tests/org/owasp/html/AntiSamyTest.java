@@ -499,7 +499,7 @@ public class AntiSamyTest extends TestCase {
       assertEquals(expected, sanitize(s));
 
       s = "<div style=\"color: #fff\">Test 3 letter code</div>";
-      expected = "<div><font color=\"#ffffff\">Test 3 letter code</font></div>";
+      expected = "<div><font style=\"color:#fff\">Test 3 letter code</font></div>";
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 
@@ -533,7 +533,7 @@ public class AntiSamyTest extends TestCase {
       assertEquals(expected, sanitize(s));
 
       s = "<div style=\"color: #000000\">Test</div>";
-      expected = "<div><font color=\"#000000\">Test</font></div>";
+      expected = "<div><font style=\"color:#000000\">Test</font></div>";
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 

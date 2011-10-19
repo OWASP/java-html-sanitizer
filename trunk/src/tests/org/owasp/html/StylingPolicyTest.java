@@ -43,14 +43,20 @@ public class StylingPolicyTest extends TestCase {
   }
 
   public final void testColors() {
-    assertAttributesFromStyle("color=\"red\"", "color: red");
-    assertAttributesFromStyle("color=\"#ff0000\"", "color: #f00");
-    assertAttributesFromStyle("color=\"#ff0000\"", "color: #ff0000");
-    // TODO: do these work in all browsers?
+    assertAttributesFromStyle("style=\"color:#f00\"", "color: red");
     assertAttributesFromStyle(
-        "color=\"rgb( 255, 0, 0)\"", "color: rgb(255, 0, 0)");
+        "style=\"background-color:#f00\"", "background: #f00");
+    assertAttributesFromStyle("style=\"color:#f00\"", "color: #F00");
+    assertAttributesFromStyle("style=\"color:#ff0000\"", "color: #ff0000");
     assertAttributesFromStyle(
-        "color=\"rgb( 100%, 0, 0)\"", "color: rgb(100%, 0, 0)");
+        "style=\"color:#f00\"", "color: rgb(255, 0, 0)");
+    assertAttributesFromStyle(
+        "style=\"background-color:#f00\"", "background: rgb(100%, 0, 0)");
+    assertAttributesFromStyle(
+        "style=\"color:#f00\"", "color: rgba(100%, 0, 0, 100%)");
+    assertAttributesFromStyle("", "color: transparent");
+    assertAttributesFromStyle("", "color: bogus");
+    assertAttributesFromStyle("", "color: expression(alert(1337))");
   }
 
   public final void testFontWeight() {
@@ -123,6 +129,34 @@ public class StylingPolicyTest extends TestCase {
     assertAttributesFromStyle(
         "",
         "text-decoration: expression(document.location=42)");
+  }
+
+  public final void testSanitizeColor() {
+    assertEquals(null, StylingPolicy.sanitizeColor(""));
+    assertEquals(null, StylingPolicy.sanitizeColor("bogus"));
+    assertEquals(null, StylingPolicy.sanitizeColor("javascript:evil"));
+    assertEquals(null, StylingPolicy.sanitizeColor("expression(evil)"));
+    assertEquals(null, StylingPolicy.sanitizeColor("moz-binding"));
+    assertEquals(null, StylingPolicy.sanitizeColor("rgb()"));
+    assertEquals(null, StylingPolicy.sanitizeColor("rgba()"));
+    assertEquals(null, StylingPolicy.sanitizeColor("rgb(255, 255)"));
+    assertEquals(null, StylingPolicy.sanitizeColor("rgb(256, 0, 0)"));
+    assertEquals(null, StylingPolicy.sanitizeColor("rgb(0, 120%, 0)"));
+    assertEquals("#fff", StylingPolicy.sanitizeColor("white"));
+    assertEquals("#000", StylingPolicy.sanitizeColor("black"));
+    assertEquals("#f00", StylingPolicy.sanitizeColor("red"));
+    assertEquals("#f00", StylingPolicy.sanitizeColor("red"));
+    assertEquals("#fa8072", StylingPolicy.sanitizeColor("salmon"));
+    assertEquals("#ff0080", StylingPolicy.sanitizeColor("rgb(255, 0, 128)"));
+    assertEquals("#ff0080", StylingPolicy.sanitizeColor("rgb(255,0,128)"));
+    assertEquals("#ff007f", StylingPolicy.sanitizeColor("rgb(100%,0,50%)"));
+    assertEquals(
+        "#ff0080", StylingPolicy.sanitizeColor("rgba(100%,0,128,255)"));
+    assertEquals("#ff0080", StylingPolicy.sanitizeColor("RGB(255, 0, 128)"));
+    assertEquals(
+        "#550102", StylingPolicy.sanitizeColor("Rgb( 33.333% , .9 , .9% )"));
+    assertEquals(
+        "#540000", StylingPolicy.sanitizeColor("Rgb( 33.03% , .09 , .09% )"));
   }
 
   private void assertAttributesFromStyle(String expectedAttrs, String css) {
