@@ -106,117 +106,137 @@
 <FONT color="green">103</FONT>      public static void sanitize(@Nullable String html, final Policy policy) {<a name="line.103"></a>
 <FONT color="green">104</FONT>        if (html == null) { html = ""; }<a name="line.104"></a>
 <FONT color="green">105</FONT>    <a name="line.105"></a>
-<FONT color="green">106</FONT>        HtmlStreamEventReceiver balancer = new TagBalancingHtmlStreamEventReceiver(<a name="line.106"></a>
-<FONT color="green">107</FONT>            policy);<a name="line.107"></a>
+<FONT color="green">106</FONT>        TagBalancingHtmlStreamEventReceiver balancer<a name="line.106"></a>
+<FONT color="green">107</FONT>            = new TagBalancingHtmlStreamEventReceiver(policy);<a name="line.107"></a>
 <FONT color="green">108</FONT>    <a name="line.108"></a>
-<FONT color="green">109</FONT>        balancer.openDocument();<a name="line.109"></a>
-<FONT color="green">110</FONT>    <a name="line.110"></a>
-<FONT color="green">111</FONT>        HtmlLexer lexer = new HtmlLexer(html);<a name="line.111"></a>
-<FONT color="green">112</FONT>        // Use a linked list so that policies can use Iterator.remove() in an O(1)<a name="line.112"></a>
-<FONT color="green">113</FONT>        // way.<a name="line.113"></a>
-<FONT color="green">114</FONT>        LinkedList&lt;String&gt; attrs = Lists.newLinkedList();<a name="line.114"></a>
-<FONT color="green">115</FONT>        while (lexer.hasNext()) {<a name="line.115"></a>
-<FONT color="green">116</FONT>          HtmlToken token = lexer.next();<a name="line.116"></a>
-<FONT color="green">117</FONT>          switch (token.type) {<a name="line.117"></a>
-<FONT color="green">118</FONT>            case TEXT:<a name="line.118"></a>
-<FONT color="green">119</FONT>              balancer.text(decodeHtml(html.substring(token.start, token.end)));<a name="line.119"></a>
-<FONT color="green">120</FONT>              break;<a name="line.120"></a>
-<FONT color="green">121</FONT>            case UNESCAPED:<a name="line.121"></a>
-<FONT color="green">122</FONT>              balancer.text(html.substring(token.start, token.end));<a name="line.122"></a>
-<FONT color="green">123</FONT>              break;<a name="line.123"></a>
-<FONT color="green">124</FONT>            case TAGBEGIN:<a name="line.124"></a>
-<FONT color="green">125</FONT>              if (html.charAt(token.start + 1) == '/') {  // A close tag.<a name="line.125"></a>
-<FONT color="green">126</FONT>                balancer.closeTag(HtmlLexer.canonicalName(<a name="line.126"></a>
-<FONT color="green">127</FONT>                    html.substring(token.start + 2, token.end)));<a name="line.127"></a>
-<FONT color="green">128</FONT>                while (lexer.hasNext()<a name="line.128"></a>
-<FONT color="green">129</FONT>                       &amp;&amp; lexer.next().type != HtmlTokenType.TAGEND) {<a name="line.129"></a>
-<FONT color="green">130</FONT>                  // skip tokens until we see a "&gt;"<a name="line.130"></a>
-<FONT color="green">131</FONT>                }<a name="line.131"></a>
-<FONT color="green">132</FONT>              } else {<a name="line.132"></a>
-<FONT color="green">133</FONT>                attrs.clear();<a name="line.133"></a>
-<FONT color="green">134</FONT>    <a name="line.134"></a>
-<FONT color="green">135</FONT>                boolean attrsReadyForName = true;<a name="line.135"></a>
-<FONT color="green">136</FONT>                tagBody:<a name="line.136"></a>
-<FONT color="green">137</FONT>                while (lexer.hasNext()) {<a name="line.137"></a>
-<FONT color="green">138</FONT>                  HtmlToken tagBodyToken = lexer.next();<a name="line.138"></a>
-<FONT color="green">139</FONT>                  switch (tagBodyToken.type) {<a name="line.139"></a>
-<FONT color="green">140</FONT>                    case ATTRNAME:<a name="line.140"></a>
-<FONT color="green">141</FONT>                      if (!attrsReadyForName) {<a name="line.141"></a>
-<FONT color="green">142</FONT>                        // Last attribute added was valueless.<a name="line.142"></a>
-<FONT color="green">143</FONT>                        attrs.add(attrs.getLast());<a name="line.143"></a>
-<FONT color="green">144</FONT>                      } else {<a name="line.144"></a>
-<FONT color="green">145</FONT>                        attrsReadyForName = false;<a name="line.145"></a>
-<FONT color="green">146</FONT>                      }<a name="line.146"></a>
-<FONT color="green">147</FONT>                      attrs.add(HtmlLexer.canonicalName(<a name="line.147"></a>
-<FONT color="green">148</FONT>                          html.substring(tagBodyToken.start, tagBodyToken.end)));<a name="line.148"></a>
-<FONT color="green">149</FONT>                      break;<a name="line.149"></a>
-<FONT color="green">150</FONT>                    case ATTRVALUE:<a name="line.150"></a>
-<FONT color="green">151</FONT>                      attrs.add(decodeHtml(stripQuotes(<a name="line.151"></a>
-<FONT color="green">152</FONT>                          html.substring(tagBodyToken.start, tagBodyToken.end))));<a name="line.152"></a>
-<FONT color="green">153</FONT>                      attrsReadyForName = true;<a name="line.153"></a>
-<FONT color="green">154</FONT>                      break;<a name="line.154"></a>
-<FONT color="green">155</FONT>                    case TAGEND:<a name="line.155"></a>
-<FONT color="green">156</FONT>                      break tagBody;<a name="line.156"></a>
-<FONT color="green">157</FONT>                    default:<a name="line.157"></a>
-<FONT color="green">158</FONT>                      // Just drop anything not recognized<a name="line.158"></a>
-<FONT color="green">159</FONT>                  }<a name="line.159"></a>
-<FONT color="green">160</FONT>                }<a name="line.160"></a>
-<FONT color="green">161</FONT>                if (!attrsReadyForName) {<a name="line.161"></a>
-<FONT color="green">162</FONT>                  attrs.add(attrs.getLast());<a name="line.162"></a>
-<FONT color="green">163</FONT>                }<a name="line.163"></a>
-<FONT color="green">164</FONT>                balancer.openTag(<a name="line.164"></a>
-<FONT color="green">165</FONT>                    HtmlLexer.canonicalName(<a name="line.165"></a>
-<FONT color="green">166</FONT>                        html.substring(token.start + 1, token.end)),<a name="line.166"></a>
-<FONT color="green">167</FONT>                    attrs);<a name="line.167"></a>
-<FONT color="green">168</FONT>              }<a name="line.168"></a>
-<FONT color="green">169</FONT>              break;<a name="line.169"></a>
-<FONT color="green">170</FONT>            default:<a name="line.170"></a>
-<FONT color="green">171</FONT>              // Ignore comments, directives, and other stuff that shouldn't show<a name="line.171"></a>
-<FONT color="green">172</FONT>              // up in the output.<a name="line.172"></a>
-<FONT color="green">173</FONT>              break;<a name="line.173"></a>
-<FONT color="green">174</FONT>          }<a name="line.174"></a>
-<FONT color="green">175</FONT>        }<a name="line.175"></a>
-<FONT color="green">176</FONT>    <a name="line.176"></a>
-<FONT color="green">177</FONT>        balancer.closeDocument();<a name="line.177"></a>
-<FONT color="green">178</FONT>      }<a name="line.178"></a>
-<FONT color="green">179</FONT>    <a name="line.179"></a>
-<FONT color="green">180</FONT>      private static String stripQuotes(String encodedAttributeValue) {<a name="line.180"></a>
-<FONT color="green">181</FONT>        int n = encodedAttributeValue.length();<a name="line.181"></a>
-<FONT color="green">182</FONT>        if (n &gt; 0) {<a name="line.182"></a>
-<FONT color="green">183</FONT>          char last = encodedAttributeValue.charAt(n - 1);<a name="line.183"></a>
-<FONT color="green">184</FONT>          if (last == '"' || last == '\'') {<a name="line.184"></a>
-<FONT color="green">185</FONT>            int start = 0;<a name="line.185"></a>
-<FONT color="green">186</FONT>            if (n != 1 &amp;&amp; last == encodedAttributeValue.charAt(0)) {<a name="line.186"></a>
-<FONT color="green">187</FONT>              start = 1;<a name="line.187"></a>
-<FONT color="green">188</FONT>            } else {<a name="line.188"></a>
-<FONT color="green">189</FONT>              // Browsers deal with missing left quotes : &lt;img src=foo.png"&gt;<a name="line.189"></a>
-<FONT color="green">190</FONT>              // but generally do not deal with missing right : &lt;img src="foo.png&gt;<a name="line.190"></a>
-<FONT color="green">191</FONT>            }<a name="line.191"></a>
-<FONT color="green">192</FONT>            return encodedAttributeValue.substring(start, n - 1);<a name="line.192"></a>
-<FONT color="green">193</FONT>          }<a name="line.193"></a>
-<FONT color="green">194</FONT>        }<a name="line.194"></a>
-<FONT color="green">195</FONT>        return encodedAttributeValue;<a name="line.195"></a>
-<FONT color="green">196</FONT>      }<a name="line.196"></a>
-<FONT color="green">197</FONT>    <a name="line.197"></a>
-<FONT color="green">198</FONT>      @VisibleForTesting<a name="line.198"></a>
-<FONT color="green">199</FONT>      static String decodeHtml(String s) {<a name="line.199"></a>
-<FONT color="green">200</FONT>        int amp = s.indexOf('&amp;');<a name="line.200"></a>
-<FONT color="green">201</FONT>        if (amp &lt; 0) { return s; }<a name="line.201"></a>
-<FONT color="green">202</FONT>        int pos = 0;<a name="line.202"></a>
-<FONT color="green">203</FONT>        int n = s.length();<a name="line.203"></a>
-<FONT color="green">204</FONT>        StringBuilder sb = new StringBuilder(n);<a name="line.204"></a>
-<FONT color="green">205</FONT>        int end;<a name="line.205"></a>
-<FONT color="green">206</FONT>        do {<a name="line.206"></a>
-<FONT color="green">207</FONT>          long endAndCodepoint = HtmlEntities.decodeEntityAt(s, amp, n);<a name="line.207"></a>
-<FONT color="green">208</FONT>          end = (int) (endAndCodepoint &gt;&gt;&gt; 32);<a name="line.208"></a>
-<FONT color="green">209</FONT>          int codepoint = (int) endAndCodepoint;<a name="line.209"></a>
-<FONT color="green">210</FONT>          sb.append(s, pos, amp).appendCodePoint(codepoint);<a name="line.210"></a>
-<FONT color="green">211</FONT>          pos = end;<a name="line.211"></a>
-<FONT color="green">212</FONT>        } while ((amp = s.indexOf('&amp;', end)) &gt;= 0);<a name="line.212"></a>
-<FONT color="green">213</FONT>        return sb.append(s, pos, n).toString();<a name="line.213"></a>
-<FONT color="green">214</FONT>      }<a name="line.214"></a>
-<FONT color="green">215</FONT>    <a name="line.215"></a>
-<FONT color="green">216</FONT>    }<a name="line.216"></a>
+<FONT color="green">109</FONT>        // According to Opera the maximum table nesting depth seen in the wild is<a name="line.109"></a>
+<FONT color="green">110</FONT>        // 795, but 99.99% of documents have a table nesting depth of less than 22.<a name="line.110"></a>
+<FONT color="green">111</FONT>        // Since each table has a nesting depth of 4 (incl. TBODY), this leads to a<a name="line.111"></a>
+<FONT color="green">112</FONT>        // document depth of 90 (incl. HTML &amp; BODY).<a name="line.112"></a>
+<FONT color="green">113</FONT>        // Obviously table nesting depth is not the same as whole document depth,<a name="line.113"></a>
+<FONT color="green">114</FONT>        // but it is the best proxy I have available.<a name="line.114"></a>
+<FONT color="green">115</FONT>        // See http://devfiles.myopera.com/articles/590/maxtabledepth-url.htm for<a name="line.115"></a>
+<FONT color="green">116</FONT>        // the original data.<a name="line.116"></a>
+<FONT color="green">117</FONT>    <a name="line.117"></a>
+<FONT color="green">118</FONT>        // Webkit defines the maximum HTML parser tree depth as 512.<a name="line.118"></a>
+<FONT color="green">119</FONT>        // http://trac.webkit.org/browser/trunk/Source/WebCore/page/Settings.h#L408<a name="line.119"></a>
+<FONT color="green">120</FONT>        // static const unsigned defaultMaximumHTMLParserDOMTreeDepth = 512;<a name="line.120"></a>
+<FONT color="green">121</FONT>    <a name="line.121"></a>
+<FONT color="green">122</FONT>        // The first number gives us a lower bound on the nesting depth we allow,<a name="line.122"></a>
+<FONT color="green">123</FONT>        // 90, and the second gives us an upper bound: 512.<a name="line.123"></a>
+<FONT color="green">124</FONT>        // We do not want to bump right up against that limit.<a name="line.124"></a>
+<FONT color="green">125</FONT>        // 256 is substantially larger than the lower bound and well clear of the<a name="line.125"></a>
+<FONT color="green">126</FONT>        // upper bound.<a name="line.126"></a>
+<FONT color="green">127</FONT>        balancer.setNestingLimit(256);<a name="line.127"></a>
+<FONT color="green">128</FONT>    <a name="line.128"></a>
+<FONT color="green">129</FONT>        balancer.openDocument();<a name="line.129"></a>
+<FONT color="green">130</FONT>    <a name="line.130"></a>
+<FONT color="green">131</FONT>        HtmlLexer lexer = new HtmlLexer(html);<a name="line.131"></a>
+<FONT color="green">132</FONT>        // Use a linked list so that policies can use Iterator.remove() in an O(1)<a name="line.132"></a>
+<FONT color="green">133</FONT>        // way.<a name="line.133"></a>
+<FONT color="green">134</FONT>        LinkedList&lt;String&gt; attrs = Lists.newLinkedList();<a name="line.134"></a>
+<FONT color="green">135</FONT>        while (lexer.hasNext()) {<a name="line.135"></a>
+<FONT color="green">136</FONT>          HtmlToken token = lexer.next();<a name="line.136"></a>
+<FONT color="green">137</FONT>          switch (token.type) {<a name="line.137"></a>
+<FONT color="green">138</FONT>            case TEXT:<a name="line.138"></a>
+<FONT color="green">139</FONT>              balancer.text(decodeHtml(html.substring(token.start, token.end)));<a name="line.139"></a>
+<FONT color="green">140</FONT>              break;<a name="line.140"></a>
+<FONT color="green">141</FONT>            case UNESCAPED:<a name="line.141"></a>
+<FONT color="green">142</FONT>              balancer.text(html.substring(token.start, token.end));<a name="line.142"></a>
+<FONT color="green">143</FONT>              break;<a name="line.143"></a>
+<FONT color="green">144</FONT>            case TAGBEGIN:<a name="line.144"></a>
+<FONT color="green">145</FONT>              if (html.charAt(token.start + 1) == '/') {  // A close tag.<a name="line.145"></a>
+<FONT color="green">146</FONT>                balancer.closeTag(HtmlLexer.canonicalName(<a name="line.146"></a>
+<FONT color="green">147</FONT>                    html.substring(token.start + 2, token.end)));<a name="line.147"></a>
+<FONT color="green">148</FONT>                while (lexer.hasNext()<a name="line.148"></a>
+<FONT color="green">149</FONT>                       &amp;&amp; lexer.next().type != HtmlTokenType.TAGEND) {<a name="line.149"></a>
+<FONT color="green">150</FONT>                  // skip tokens until we see a "&gt;"<a name="line.150"></a>
+<FONT color="green">151</FONT>                }<a name="line.151"></a>
+<FONT color="green">152</FONT>              } else {<a name="line.152"></a>
+<FONT color="green">153</FONT>                attrs.clear();<a name="line.153"></a>
+<FONT color="green">154</FONT>    <a name="line.154"></a>
+<FONT color="green">155</FONT>                boolean attrsReadyForName = true;<a name="line.155"></a>
+<FONT color="green">156</FONT>                tagBody:<a name="line.156"></a>
+<FONT color="green">157</FONT>                while (lexer.hasNext()) {<a name="line.157"></a>
+<FONT color="green">158</FONT>                  HtmlToken tagBodyToken = lexer.next();<a name="line.158"></a>
+<FONT color="green">159</FONT>                  switch (tagBodyToken.type) {<a name="line.159"></a>
+<FONT color="green">160</FONT>                    case ATTRNAME:<a name="line.160"></a>
+<FONT color="green">161</FONT>                      if (!attrsReadyForName) {<a name="line.161"></a>
+<FONT color="green">162</FONT>                        // Last attribute added was valueless.<a name="line.162"></a>
+<FONT color="green">163</FONT>                        attrs.add(attrs.getLast());<a name="line.163"></a>
+<FONT color="green">164</FONT>                      } else {<a name="line.164"></a>
+<FONT color="green">165</FONT>                        attrsReadyForName = false;<a name="line.165"></a>
+<FONT color="green">166</FONT>                      }<a name="line.166"></a>
+<FONT color="green">167</FONT>                      attrs.add(HtmlLexer.canonicalName(<a name="line.167"></a>
+<FONT color="green">168</FONT>                          html.substring(tagBodyToken.start, tagBodyToken.end)));<a name="line.168"></a>
+<FONT color="green">169</FONT>                      break;<a name="line.169"></a>
+<FONT color="green">170</FONT>                    case ATTRVALUE:<a name="line.170"></a>
+<FONT color="green">171</FONT>                      attrs.add(decodeHtml(stripQuotes(<a name="line.171"></a>
+<FONT color="green">172</FONT>                          html.substring(tagBodyToken.start, tagBodyToken.end))));<a name="line.172"></a>
+<FONT color="green">173</FONT>                      attrsReadyForName = true;<a name="line.173"></a>
+<FONT color="green">174</FONT>                      break;<a name="line.174"></a>
+<FONT color="green">175</FONT>                    case TAGEND:<a name="line.175"></a>
+<FONT color="green">176</FONT>                      break tagBody;<a name="line.176"></a>
+<FONT color="green">177</FONT>                    default:<a name="line.177"></a>
+<FONT color="green">178</FONT>                      // Just drop anything not recognized<a name="line.178"></a>
+<FONT color="green">179</FONT>                  }<a name="line.179"></a>
+<FONT color="green">180</FONT>                }<a name="line.180"></a>
+<FONT color="green">181</FONT>                if (!attrsReadyForName) {<a name="line.181"></a>
+<FONT color="green">182</FONT>                  attrs.add(attrs.getLast());<a name="line.182"></a>
+<FONT color="green">183</FONT>                }<a name="line.183"></a>
+<FONT color="green">184</FONT>                balancer.openTag(<a name="line.184"></a>
+<FONT color="green">185</FONT>                    HtmlLexer.canonicalName(<a name="line.185"></a>
+<FONT color="green">186</FONT>                        html.substring(token.start + 1, token.end)),<a name="line.186"></a>
+<FONT color="green">187</FONT>                    attrs);<a name="line.187"></a>
+<FONT color="green">188</FONT>              }<a name="line.188"></a>
+<FONT color="green">189</FONT>              break;<a name="line.189"></a>
+<FONT color="green">190</FONT>            default:<a name="line.190"></a>
+<FONT color="green">191</FONT>              // Ignore comments, directives, and other stuff that shouldn't show<a name="line.191"></a>
+<FONT color="green">192</FONT>              // up in the output.<a name="line.192"></a>
+<FONT color="green">193</FONT>              break;<a name="line.193"></a>
+<FONT color="green">194</FONT>          }<a name="line.194"></a>
+<FONT color="green">195</FONT>        }<a name="line.195"></a>
+<FONT color="green">196</FONT>    <a name="line.196"></a>
+<FONT color="green">197</FONT>        balancer.closeDocument();<a name="line.197"></a>
+<FONT color="green">198</FONT>      }<a name="line.198"></a>
+<FONT color="green">199</FONT>    <a name="line.199"></a>
+<FONT color="green">200</FONT>      private static String stripQuotes(String encodedAttributeValue) {<a name="line.200"></a>
+<FONT color="green">201</FONT>        int n = encodedAttributeValue.length();<a name="line.201"></a>
+<FONT color="green">202</FONT>        if (n &gt; 0) {<a name="line.202"></a>
+<FONT color="green">203</FONT>          char last = encodedAttributeValue.charAt(n - 1);<a name="line.203"></a>
+<FONT color="green">204</FONT>          if (last == '"' || last == '\'') {<a name="line.204"></a>
+<FONT color="green">205</FONT>            int start = 0;<a name="line.205"></a>
+<FONT color="green">206</FONT>            if (n != 1 &amp;&amp; last == encodedAttributeValue.charAt(0)) {<a name="line.206"></a>
+<FONT color="green">207</FONT>              start = 1;<a name="line.207"></a>
+<FONT color="green">208</FONT>            } else {<a name="line.208"></a>
+<FONT color="green">209</FONT>              // Browsers deal with missing left quotes : &lt;img src=foo.png"&gt;<a name="line.209"></a>
+<FONT color="green">210</FONT>              // but generally do not deal with missing right : &lt;img src="foo.png&gt;<a name="line.210"></a>
+<FONT color="green">211</FONT>            }<a name="line.211"></a>
+<FONT color="green">212</FONT>            return encodedAttributeValue.substring(start, n - 1);<a name="line.212"></a>
+<FONT color="green">213</FONT>          }<a name="line.213"></a>
+<FONT color="green">214</FONT>        }<a name="line.214"></a>
+<FONT color="green">215</FONT>        return encodedAttributeValue;<a name="line.215"></a>
+<FONT color="green">216</FONT>      }<a name="line.216"></a>
+<FONT color="green">217</FONT>    <a name="line.217"></a>
+<FONT color="green">218</FONT>      @VisibleForTesting<a name="line.218"></a>
+<FONT color="green">219</FONT>      static String decodeHtml(String s) {<a name="line.219"></a>
+<FONT color="green">220</FONT>        int amp = s.indexOf('&amp;');<a name="line.220"></a>
+<FONT color="green">221</FONT>        if (amp &lt; 0) { return s; }<a name="line.221"></a>
+<FONT color="green">222</FONT>        int pos = 0;<a name="line.222"></a>
+<FONT color="green">223</FONT>        int n = s.length();<a name="line.223"></a>
+<FONT color="green">224</FONT>        StringBuilder sb = new StringBuilder(n);<a name="line.224"></a>
+<FONT color="green">225</FONT>        int end;<a name="line.225"></a>
+<FONT color="green">226</FONT>        do {<a name="line.226"></a>
+<FONT color="green">227</FONT>          long endAndCodepoint = HtmlEntities.decodeEntityAt(s, amp, n);<a name="line.227"></a>
+<FONT color="green">228</FONT>          end = (int) (endAndCodepoint &gt;&gt;&gt; 32);<a name="line.228"></a>
+<FONT color="green">229</FONT>          int codepoint = (int) endAndCodepoint;<a name="line.229"></a>
+<FONT color="green">230</FONT>          sb.append(s, pos, amp).appendCodePoint(codepoint);<a name="line.230"></a>
+<FONT color="green">231</FONT>          pos = end;<a name="line.231"></a>
+<FONT color="green">232</FONT>        } while ((amp = s.indexOf('&amp;', end)) &gt;= 0);<a name="line.232"></a>
+<FONT color="green">233</FONT>        return sb.append(s, pos, n).toString();<a name="line.233"></a>
+<FONT color="green">234</FONT>      }<a name="line.234"></a>
+<FONT color="green">235</FONT>    <a name="line.235"></a>
+<FONT color="green">236</FONT>    }<a name="line.236"></a>
 
 
 
