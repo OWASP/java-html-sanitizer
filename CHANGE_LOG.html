@@ -5,6 +5,10 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="83">Prevent DoS of browsers via extremely deeply nested
+  tags.  In sanitized CSS, allow CSS property
+  <code>background-color</code> and<code>font-size</code>s specified
+  in <code>px</code>.</li>
 <li value="74">Added convenient pre-packaged policies in Sanitizers.
   Fixed bug in how warnings are reported via the badHtml Handler.</li>
 <li value="50">Better handling of supplementary codepoints to avoid
