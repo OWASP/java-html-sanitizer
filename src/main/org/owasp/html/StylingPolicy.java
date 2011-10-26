@@ -43,6 +43,7 @@ import com.google.common.collect.Lists;
  * An HTML sanitizer policy that tries to preserve simple CSS by converting it
  * to {@code <font>} tags which allow fewer ways to embed JavaScript.
  */
+@TCB
 class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
   StylingPolicy(
       HtmlStreamEventReceiver out,

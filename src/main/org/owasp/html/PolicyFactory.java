@@ -31,6 +31,8 @@ package org.owasp.html;
 import java.util.Map;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.ThreadSafe;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +45,9 @@ import com.google.common.collect.ImmutableMap;
  *
  * @author Mike Samuel <mikesamuel@gmail.com>
  */
+@ThreadSafe
+@Immutable
+@TCB
 public final class PolicyFactory
     implements Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> {
 
