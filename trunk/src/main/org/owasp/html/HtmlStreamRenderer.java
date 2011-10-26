@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import javax.annotation.WillCloseWhenClosed;
+import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * Given a series of HTML tokens, writes valid, normalized HTML to the output.
@@ -46,6 +47,7 @@ import javax.annotation.WillCloseWhenClosed;
  * be interpreted as tags in the concatenated version.
  */
 @TCB
+@NotThreadSafe
 public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
 
   private final Appendable output;
@@ -112,9 +114,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
-  /**
-   *
-   */
   public final void openDocument() throws IllegalStateException {
     if (open) { throw new IllegalStateException(); }
     open = true;
@@ -183,6 +182,22 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       }
       output.append(' ').append(name).append('=').append('"');
       escapeHtmlOnto(value, output);
+      if (value.indexOf('`') != -1) {
+        // Apparently, in quirks mode, IE8 does a poor job producing innerHTML
+        // values.  Given
+        //     <div attr="``foo=bar">
+        // we encode &#96; but if JavaScript does:
+        //    nodeA.innerHTML = nodeB.innerHTML;
+        // and nodeB contains the DIV above, then IE8 will produce
+        //     <div attr=``foo=bar>
+        // as the value of nodeB.innerHTML and assign it to nodeA.
+        // IE8's HTML parser treats `` as a blank attribute value and foo=bar
+        // becomes a separate attribute.
+        // Adding a space at the end of the attribute prevents this by forcing
+        // IE8 to put double quotes around the attribute when computing
+        // nodeB.innerHTML.
+        output.append(' ');
+      }
       output.append('"');
     }
 
@@ -339,74 +354,71 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return true;
   }
 
-  @SuppressWarnings("fallthrough")
+  /**
+   * Writes the HTML equivalent of the given plain text to output.
+   * For example, {@code escapeHtmlOnto("1 < 2", w)},
+   * is equivalent to {@code w.append("1 &lt; 2")} but possibly with fewer
+   * smaller appends.
+   */
   static void escapeHtmlOnto(String plainText, Appendable output)
       throws IOException {
     int n = plainText.length();
     int pos = 0;
     for (int i = 0; i < n; ++i) {
       char ch = plainText.charAt(i);
-      switch (ch) {
-        case '<':
-          output.append(plainText, pos, i).append("&lt;");
+      if (ch < REPLACEMENTS.length) {
+        String repl = REPLACEMENTS[ch];
+        if (repl != null) {
+          output.append(plainText, pos, i).append(repl);
           pos = i + 1;
-          break;
-        case '>':
-          output.append(plainText, pos, i).append("&gt;");
-          pos = i + 1;
-          break;
-        case '&':
-          output.append(plainText, pos, i).append("&amp;");
-          pos = i + 1;
-          break;
-        case '"':
-          output.append(plainText, pos, i).append("&#34;");
-          pos = i + 1;
-          break;
-        case '\r': case '\n': break;
-        default:
-          // Emit supplemental codepoints as entity so that they cannot
-          // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
-          // and get involved in UTF-16/UCS-2 confusion.
-          if (Character.isHighSurrogate(ch) && i + 1 < n) {
-            char next = plainText.charAt(i + 1);
-            if (Character.isLowSurrogate(next)) {
-              int codepoint = Character.toCodePoint(ch, next);
-              output.append(plainText, pos, i);
-              appendNumericEntity(codepoint, output);
-              ++i;  // Consume high surrogate.
-              pos = i + 1;
-              continue;
-            }
-          }
-          if (0x20 <= ch && ch < 0xff00) {
-            // Includes surrogates, so all supplementary codepoints are
-            // rendered raw.
-            continue;
-          }
-          // Is a control character or possible full-width version of a
-          // special character.
-          // FALL-THROUGH
-        case '+':  // UTF-7
-        case '=':  // Special in attributes.
-        case '@':  // Conditional compilation
-        case '\'': case '`':  // Quoting character
+        }
+      } else if (Character.isHighSurrogate(ch) && i + 1 < n) {
+        // Emit supplemental codepoints as entity so that they cannot
+        // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
+        // and get involved in UTF-16/UCS-2 confusion.
+        char next = plainText.charAt(i + 1);
+        if (Character.isLowSurrogate(next)) {
+          int codepoint = Character.toCodePoint(ch, next);
           output.append(plainText, pos, i);
-          appendNumericEntity(ch, output);
+          appendNumericEntity(codepoint, output);
+          ++i;
           pos = i + 1;
-          break;
-        case 0:
-          output.append(plainText, pos, i);
-          pos = i + 1;
-          break;
+        }
+        // All orphaned surrogates are rendered raw.
+      } else if (ch >= 0xff00) {
+        // Is a control character or possible full-width version of a
+        // special character.
+        output.append(plainText, pos, i);
+        appendNumericEntity(ch, output);
+        pos = i + 1;
       }
     }
     output.append(plainText, pos, n);
   }
 
+  /** Maps ASCII chars that need to be encoded to an equivalent HTML entity. */
+  static final String[] REPLACEMENTS = new String[0x61];
+  static {
+    REPLACEMENTS[0] = "";                          // Elide.
+    for (int i = 1; i < ' '; ++i) {
+      if (i == '\n' || i == '\r') { continue; }
+      REPLACEMENTS[i] = "&#" + i + ";";
+    }
+    REPLACEMENTS['"'] = "&#" + ((int) '"') + ";";  // Attribute delimiter.
+    REPLACEMENTS['&'] = "&amp;";                   // HTML special.
+    REPLACEMENTS['\''] = "&#" + ((int) '\'') + ";";// Attribute delimiter.
+    REPLACEMENTS['+'] = "&#" + ((int) '+') + ";";  // UTF-7 special.
+    REPLACEMENTS['<'] = "&lt;";                    // HTML special.
+    REPLACEMENTS['='] = "&#" + ((int) '=') + ";";  // Special in attributes.
+    REPLACEMENTS['>'] = "&gt;";                    // HTML special.
+    REPLACEMENTS['@'] = "&#" + ((int) '@') + ";";  // Conditional compilation.
+    REPLACEMENTS['`'] = "&#" + ((int) '`') + ";";  // Attribute delimiter.
+  }
+
   static void appendNumericEntity(int codepoint, Appendable output)
      throws IOException {
     if (codepoint < 100) {
+      // TODO: is this dead code due to REPLACEMENTS above.
       output.append("&#");
       if (codepoint < 10) {
         output.append((char) ('0' + codepoint));

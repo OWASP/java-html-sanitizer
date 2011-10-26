@@ -393,6 +393,25 @@ public class HtmlSanitizerTest extends TestCase {
                  stringRepeatedTimes("</div>", n));
   }
 
+  public final void testInnerHTMLIE8() throws Exception {
+    // Apparently, in quirks mode, IE8 does a poor job producing innerHTML
+    // values.  Given
+    //     <div attr="``foo=bar">
+    // we encode &#96; but if JavaScript does:
+    //    nodeA.innerHTML = nodeB.innerHTML;
+    // and nodeB contains the DIV above, then IE8 will produce
+    //     <div attr=``foo=bar>
+    // as the value of nodeB.innerHTML and assign it to nodeA.
+    // IE8's HTML parser treats `` as a blank attribute value and foo=bar
+    // becomes a separate attribute.
+    // Adding a space at the end of the attribute prevents this by forcing
+    // IE8 to put double quotes around the attribute when computing
+    // nodeB.innerHTML.
+    assertEquals(
+        "<div title=\"&#96;&#96;onmouseover&#61;alert(1337) \"></div>",
+        sanitize("<div title=\"``onmouseover=alert(1337)\">"));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

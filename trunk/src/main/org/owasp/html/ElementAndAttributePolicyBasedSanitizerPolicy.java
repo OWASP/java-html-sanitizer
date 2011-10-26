@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.ListIterator;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -41,6 +42,7 @@ import com.google.common.collect.Lists;
  * A sanitizer policy that applies element and attribute policies to tags.
  */
 @TCB
+@NotThreadSafe
 class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy {
   final ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies;

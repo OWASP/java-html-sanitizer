@@ -34,12 +34,15 @@ import java.util.LinkedList;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import javax.annotation.concurrent.NotThreadSafe;
+
 /**
  * A flexible lexer for HTML.
  * This is hairy code, but it is outside the TCB for the HTML sanitizer.
  *
  * @author Mike Samuel <mikesamuel@gmail.com>
  */
+@NotThreadSafe
 final class HtmlLexer extends AbstractTokenStream {
   private final String input;
   private final HtmlInputSplitter splitter;
