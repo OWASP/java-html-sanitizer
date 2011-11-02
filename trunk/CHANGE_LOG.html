@@ -5,6 +5,11 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="88">Cleaned up raw-text tag handling. XMP, LISTING,
+  PLAINTEXT now handled by substitution in the renderer and
+  changed NOSCRIPT and friends so they are treated consistently
+  when elided as when present in output.  Added workaround for
+  IE8 innerHTML wierdness.</li>
 <li value="83">Prevent DoS of browsers via extremely deeply nested
   tags.  In sanitized CSS, allow CSS property
   <code>background-color</code> and<code>font-size</code>s specified
