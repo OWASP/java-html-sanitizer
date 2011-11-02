@@ -56,7 +56,7 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyFactory
       = new HtmlPolicyBuilder()
-      .allowElements("a", "b", "xmp")
+      .allowElements("a", "b", "xmp", "pre")
       .allowAttributes("href").onElements("a")
       .allowAttributes("title").globally()
       .allowStandardUrlProtocols()
@@ -129,7 +129,7 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
     switch (node.getNodeType()) {
       case Node.ELEMENT_NODE:
         String name = node.getNodeName();
-        if (!"a".equals(name) && !"b".equals(name) && !"xmp".equals(name)) {
+        if (!"a".equals(name) && !"b".equals(name) && !"pre".equals(name)) {
           fail("Illegal element name " + name + " : " + html);
         }
         NamedNodeMap attrs = node.getAttributes();

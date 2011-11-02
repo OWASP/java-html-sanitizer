@@ -149,7 +149,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private void writeOpenTag(String elementName, List<? extends String> attrs)
       throws IOException {
     if (!open) { throw new IllegalStateException(); }
-    elementName = HtmlLexer.canonicalName(elementName);
+    elementName = safeName(elementName);
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
@@ -160,8 +160,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
 
     switch (HtmlTextEscapingMode.getModeForTag(elementName)) {
+      case CDATA_SOMETIMES:       
       case CDATA:
-      case CDATA_SOMETIMES:
       case PLAIN_TEXT:
         lastTagOpened = elementName;
         pendingUnescaped = new StringBuilder();
@@ -206,7 +206,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
 
   public final void closeTag(String elementName) {
     try {
-      writeCloseTag(elementName);
+      writeCloseTag(safeName(elementName));
     } catch (IOException ex) {
       ioExHandler.handle(ex);
     }
@@ -446,6 +446,28 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
   };
 
+  /**
+   * Canonicalizes the element name and possibly substitutes an alternative
+   * that has more consistent semantics.
+   */ 
+  static String safeName(String elementName) {
+    elementName = HtmlLexer.canonicalName(elementName);
+
+    // Substitute a reliably non-raw-text element for raw-text and
+    // plain-text elements.
+    switch (elementName.length()) {
+      case 3:
+        if ("xmp".equals(elementName)) { return "pre"; }
+        break;
+      case 7:
+        if ("listing".equals(elementName)) { return "pre"; }
+        break;
+      case 9:
+        if ("plaintext".equals(elementName)) { return "pre"; }
+        break;
+    }
+    return elementName;
+  }
 
   static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer
       implements Closeable {

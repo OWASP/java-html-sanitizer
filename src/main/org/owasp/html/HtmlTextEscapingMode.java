@@ -85,16 +85,19 @@ enum HtmlTextEscapingMode {
   private static final ImmutableMap<String, HtmlTextEscapingMode> ESCAPING_MODES
       = ImmutableMap.<String, HtmlTextEscapingMode>builder()
       .put("iframe", CDATA)
-      // HTML5 does not treat listing as CDATA, but HTML2 does
-      // at http://www.w3.org/MarkUp/1995-archive/NonStandard.html
+      // HTML5 does not treat listing as CDATA and treats XMP as deprecated,
+      // but HTML2 does at
+      // http://www.w3.org/MarkUp/1995-archive/NonStandard.html
       // Listing is not supported by browsers.
       .put("listing", CDATA_SOMETIMES)
+      .put("xmp", CDATA)
 
-      // Technically, only if embeds, frames, and scripts, respectively, are
-      // enabled.
-      .put("noembed", CDATA_SOMETIMES)
-      .put("noframes", CDATA_SOMETIMES)
-      .put("noscript", CDATA_SOMETIMES)
+      // Technically, noembed, noscript and noframes are CDATA_SOMETIMES but
+      // we can only be hurt by allowing tag content that looks like text so
+      // we treat them as regular..
+      //.put("noembed", CDATA_SOMETIMES)
+      //.put("noframes", CDATA_SOMETIMES)
+      //.put("noscript", CDATA_SOMETIMES)
       .put("comment", CDATA_SOMETIMES)  // IE only
 
       // Runs till end of file.
@@ -106,8 +109,6 @@ enum HtmlTextEscapingMode {
       // Textarea and Title are RCDATA, not CDATA, so decode entity references.
       .put("textarea", RCDATA)
       .put("title", RCDATA)
-
-      .put("xmp", CDATA)
 
       // Nodes that can't contain content.
       // http://www.w3.org/TR/html-markup/syntax.html#void-elements
