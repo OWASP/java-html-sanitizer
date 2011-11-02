@@ -248,6 +248,52 @@ public class HtmlStreamRendererTest extends TestCase {
          sb.toString());
   }
 
+  // Test that policies that naively allow <xmp>, <listing>, or <plaintext>
+  // on XHTML don't shoot themselves in the foot.
+
+  public final void testPreSubstitutes1() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("Xmp", ImmutableList.<String>of());
+    renderer.text("<form>Hello, World</form>");
+    renderer.closeTag("Xmp");
+    renderer.closeDocument();
+
+    assertEquals("<pre>&lt;form&gt;Hello, World&lt;/form&gt;</pre>",
+                 rendered.toString());
+  }
+
+  public final void testPreSubstitutes2() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("xmp", ImmutableList.<String>of());
+    renderer.text("<form>Hello, World</form>");
+    renderer.closeTag("xmp");
+    renderer.closeDocument();
+
+    assertEquals("<pre>&lt;form&gt;Hello, World&lt;/form&gt;</pre>",
+                 rendered.toString());
+  }
+
+  public final void testPreSubstitutes3() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("LISTING", ImmutableList.<String>of());
+    renderer.text("<form>Hello, World</form>");
+    renderer.closeTag("LISTING");
+    renderer.closeDocument();
+
+    assertEquals("<pre>&lt;form&gt;Hello, World&lt;/form&gt;</pre>",
+                 rendered.toString());
+  }
+
+  public final void testPreSubstitutes4() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("plaintext", ImmutableList.<String>of());
+    renderer.text("<form>Hello, World</form>");
+    renderer.closeDocument();
+
+    assertEquals("<pre>&lt;form&gt;Hello, World&lt;/form&gt;",
+                 rendered.toString());
+  }
+
   private void assertNormalized(String golden, String htmlInput)
       throws Exception {
     assertEquals(golden, normalize(htmlInput));

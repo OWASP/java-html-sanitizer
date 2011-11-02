@@ -412,6 +412,25 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("<div title=\"``onmouseover=alert(1337)\">"));
   }
 
+  public final void testNabobsOfNegativism() throws Exception {
+    // Treating <noscript> as raw-text gains us nothing security-wise.
+    assertEquals("<noscript></noscript>",
+                 sanitize("<noscript><evil></noscript>"));
+    assertEquals("<noscript>I <b>&lt;3</b> Ponies</noscript>",
+                 sanitize("<noscript>I <b><3</b> Ponies</noscript>"));
+    assertEquals("<noscript>I <b>&lt;3</b> Ponies</noscript>",
+                 sanitize("<NOSCRIPT>I <b><3</b> Ponies</noscript><evil>"));
+    assertEquals("<noframes>I <b>&lt;3</b> Ponies</noframes>",
+                 sanitize("<noframes>I <b><3</b> Ponies</noframes><evil>"));
+    assertEquals("<noembed>I <b>&lt;3</b> Ponies</noembed>",
+                 sanitize("<noembed>I <b><3</b> Ponies</noembed><evil>"));
+    assertEquals("<noxss>I <b>&lt;3</b> Ponies</noxss>",
+                 sanitize("<noxss>I <b><3</b> Ponies</noxss><evil>"));
+    assertEquals(
+        "&lt;noscript&gt;I &lt;b&gt;&lt;3&lt;/b&gt; Ponies&lt;/noscript&gt;",
+        sanitize("<xmp><noscript>I <b><3</b> Ponies</noscript></xmp>"));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -426,7 +445,7 @@ public class HtmlSanitizerTest extends TestCase {
         // Allow these tags.
        .allowElements(
            "a", "b", "br", "div", "i", "img", "input", "li",
-           "ol", "p", "span", "ul")
+           "ol", "p", "span", "ul", "noscript", "noframes", "noembed", "noxss")
        // And these attributes.
        .allowAttributes(
            "dir", "checked", "class", "href", "id", "target", "title", "type")
