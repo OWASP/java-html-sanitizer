@@ -1,4 +1,6 @@
-#summary Collection of known & public vulnerabilities in this project.
+#summary Known & public vulnerabilities in this project.
 #labels Featured
 
-  * [CVE20114457 CVE-2011-4457] - 17 Nov. 2011
+== Known & public vulnerabilities in this project ==
+
+  * [CVE20114457 CVE-2011-4457] - 17 Nov. 2011 - Recommend upgrade to r88 or later.
