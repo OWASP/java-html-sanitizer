@@ -7,7 +7,7 @@ A vulnerability in the [http://code.google.com/p/owasp-java-html-sanitizer/ OWAS
 allows redirecting or POSTing to an arbitrary URL when the user
 interacts with sanitized content and when JavaScript is disabled.
 
-It also allows inclusion of links without [`rel=nofollow`](http://microformats.org/wiki/rel-nofollow) when JavaScript is disabled.
+It also allows inclusion of links without "[http://microformats.org/wiki/rel-nofollow rel=nofollow]" when JavaScript is disabled.
 Crawlers that respect `nofollow` and which look for links inside `<noscript>...</noscript>` could conclude a containing page has link-spam.
 
 Due to the constrained circumstances and the fact that it does not
