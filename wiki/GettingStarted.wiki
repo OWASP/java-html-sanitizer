@@ -23,6 +23,15 @@ The [http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/#tru
 
 The [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/index.html javadoc] covers more detailed topics, including [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/HtmlPolicyBuilder.html customization].
 
+Important classes are:
+
+  * [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/Sanitizers.html Sanitizers] contains combinable pre-packaged policies.
+  * [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/HtmlPolicyBuilder.html HtmlPolicyBuilder] lets you easily build custom policies.
+
+For advanced use, see:
+  * [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/AttributePolicy.html AttributePolicy] and [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/ElementPolicy.html ElementPolicy] allow complex customization.
+  * [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/HtmlStreamEventReceiver.html HtmlStreamEventReceiver] if you don't just want a `String` as output.
+
 == Asking Questions ==
 
 Feel free to post questions at the [http://groups.google.com/group/owasp-java-html-sanitizer-support discussion group] and we'll do our best to help.
