@@ -227,14 +227,47 @@ public class HtmlPolicyBuilderTest extends TestCase {
                   }, "h1")));
   }
 
+  public final void testAllowUrlProtocols() throws Exception {
+    assertEquals(
+        Joiner.on('\n').join(
+            "Header",
+            "Paragraph 1",
+            "Click me out",
+            "<img src=\"canary.png\" alt=\"local-canary\">"
+            + "<img src=\"http://canaries.org/canary.png\">",
+            "Fancy with soupy tags.",
+            "Stylish Para 1",
+            "Stylish Para 2",
+            ""),
+            apply(new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("src", "alt").onElements("img")
+            .allowUrlProtocols("http")));
+  }
+
+  public final void testPossibleFalloutFromIssue5() throws Exception {
+    assertEquals(
+        "Bad",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href").onElements("a")
+            .allowUrlProtocols("http"),
+
+            "<a href='javascript:alert(1337)//:http'>Bad</a>"));
+  }
+
   private String apply(HtmlPolicyBuilder b) throws Exception {
+    return apply(b, EXAMPLE);
+  }
+
+  private String apply(HtmlPolicyBuilder b, String src) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlSanitizer.Policy policy = b.build(HtmlStreamRenderer.create(sb,
         new Handler<String>() {
           public void handle(String x) { fail(x); }
         }));
-    HtmlSanitizer.sanitize(EXAMPLE, policy);
+    HtmlSanitizer.sanitize(src, policy);
     return sb.toString();
   }
-
 }
