@@ -431,6 +431,14 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("<xmp><noscript>I <b><3</b> Ponies</noscript></xmp>"));
   }
 
+  public final void testNULs() throws Exception {
+    assertEquals("<b>Hello, </b>", sanitize("<b>Hello, \u0000</b>"));
+    assertEquals("<b>Hello, </b>", sanitize("<b>Hello, \u0000"));
+    assertEquals("",               sanitize("\u0000"));
+    assertEquals("<b>Hello, </b>", sanitize("<b>Hello, &#0;</b>"));
+    assertEquals("",               sanitize("&#0;"));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
