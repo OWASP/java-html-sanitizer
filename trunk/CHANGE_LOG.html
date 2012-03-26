@@ -5,6 +5,8 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="99">Fixed problem with URL protocol white-listing that
+  caused legitimate URLs to be rejected.</li>
 <li value="88">Cleaned up raw-text tag handling. XMP, LISTING,
   PLAINTEXT now handled by substitution in the renderer and
   changed NOSCRIPT and friends so they are treated consistently
