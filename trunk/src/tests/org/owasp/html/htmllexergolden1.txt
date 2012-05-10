@@ -1,4 +1,4 @@
-DIRECTIVE  [<?xml version="not-even-close"?>]  :  0-32
+QMARKMETA  [<?xml version="not-even-close"?>]  :  0-32
 TEXT       [\n\n]  :  32-34
 DIRECTIVE  [<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">]  :  34-97
 TEXT       [\n\n]  :  97-99

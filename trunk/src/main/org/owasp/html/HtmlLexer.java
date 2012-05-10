@@ -345,8 +345,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     COMMENT_DASH_DASH,
     DIRECTIVE,
     DONE,
-    APP_DIRECTIVE,
-    APP_DIRECTIVE_QMARK,
+    BOGUS_COMMENT,
     SERVER_CODE,
     SERVER_CODE_PCT,
 
@@ -487,7 +486,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
               break;
             case '?':
               if (!this.inEscapeExemptBlock) {
-                state = State.APP_DIRECTIVE;
+                state = State.BOGUS_COMMENT;
               }
               ++end;
               break;
@@ -585,15 +584,10 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                     state = State.DONE;
                   }
                   break;
-                case APP_DIRECTIVE:
-                  if ('?' == ch) { state = State.APP_DIRECTIVE_QMARK; }
-                  break;
-                case APP_DIRECTIVE_QMARK:
+                case BOGUS_COMMENT:
                   if ('>' == ch) {
-                    type = HtmlTokenType.DIRECTIVE;
+                    type = HtmlTokenType.QMARKMETA;
                     state = State.DONE;
-                  } else if ('?' != ch) {
-                    state = State.APP_DIRECTIVE;
                   }
                   break;
                 case SERVER_CODE:
@@ -661,16 +655,15 @@ final class HtmlInputSplitter extends AbstractTokenStream {
               switch (state) {
                 case DONE:
                   break;
+                case BOGUS_COMMENT:
+                  type = HtmlTokenType.QMARKMETA;
+                  break;
                 case COMMENT:
                 case COMMENT_DASH:
                 case COMMENT_DASH_DASH:
                   type = HtmlTokenType.COMMENT;
                   break;
                 case DIRECTIVE:
-                case APP_DIRECTIVE:
-                case APP_DIRECTIVE_QMARK:
-                  type = HtmlTokenType.DIRECTIVE;
-                  break;
                 case SERVER_CODE:
                 case SERVER_CODE_PCT:
                   type = HtmlTokenType.SERVERCODE;

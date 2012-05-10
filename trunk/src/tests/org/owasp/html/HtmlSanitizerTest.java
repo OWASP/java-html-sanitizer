@@ -439,6 +439,25 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals("",               sanitize("&#0;"));
   }
 
+  public final void testQMarkMeta() throws Exception {
+    assertEquals(
+        "Hello, <b>World</b>!",
+        sanitize(
+            ""
+            // An XML Prologue.
+            // HTML5 treats it as ignorable content via the bogus comment state.
+            + "<?xml version=\"1\" ?>"
+            + "Hello, "
+            // An XML Processing instruction.
+            // HTML5 treats it as ignorable content via the bogus comment state.
+            + "<?processing instruction?>"
+            + "<b>World"
+            // Appears in HTML copied from outlook.
+            + "<?xml:namespace prefix = o ns = "
+            + "\"urn:schemas-microsoft-com:office:office\" />"
+            + "</b>!"));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

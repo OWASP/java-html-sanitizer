@@ -188,8 +188,8 @@ public final class HtmlSanitizer {
           }
           break;
         default:
-          // Ignore comments, directives, and other stuff that shouldn't show
-          // up in the output.
+          // Ignore comments, XML prologues, processing instructions, and other
+          // stuff that shouldn't show up in the output.
           break;
       }
     }
