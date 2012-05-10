@@ -41,6 +41,11 @@ enum HtmlTokenType {
   ATTRNAME,
   /** An HTML value, possibly a quoted string. */
   ATTRVALUE,
+  /**
+   * An HTML bogus comment, XNL Prologue, or XML processing instruction like
+   * <tt>&lt;? content &gt;</tt>.
+   */
+  QMARKMETA,
   /** An HTML or XML style comment, <tt>&lt;!-- for example --></tt>. */
   COMMENT,
   /**
