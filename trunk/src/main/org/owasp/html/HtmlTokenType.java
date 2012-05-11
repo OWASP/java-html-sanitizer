@@ -42,7 +42,7 @@ enum HtmlTokenType {
   /** An HTML value, possibly a quoted string. */
   ATTRVALUE,
   /**
-   * An HTML bogus comment, XNL Prologue, or XML processing instruction like
+   * An HTML bogus comment, XML Prologue, or XML processing instruction like
    * <tt>&lt;? content &gt;</tt>.
    */
   QMARKMETA,
