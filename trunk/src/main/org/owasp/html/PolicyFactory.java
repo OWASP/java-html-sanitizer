@@ -60,13 +60,37 @@ public final class PolicyFactory
     this.allowStyling = allowStyling;
   }
 
-  /** Produces a sanitizer that emits tokens to out. */
+  /** Produces a sanitizer that emits tokens to {@code out}. */
   public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {
     if (allowStyling) {
       return new StylingPolicy(out, policies);
     } else {
       return new ElementAndAttributePolicyBasedSanitizerPolicy(
           out, policies);
+    }
+  }
+
+  /**
+   * Produces a sanitizer that emits tokens to {@code out} and that notifies
+   * any {@code listener} of any dropped tags and attributes.
+   * @param out a renderer that receives approved tokens only.
+   * @param listener if non-null, receives notifications of tags and attributes
+   *     that were rejected by the policy.  This may tie into intrusion
+   *     detection systems.
+   * @param context if {@code (listener != null)} then the context value passed
+   *     with notifications.  This can be used to let the listener know from
+   *     which connection or request the questionable HTML was received.
+   */
+  public <CTX> HtmlSanitizer.Policy apply(
+      HtmlStreamEventReceiver out, @Nullable HtmlChangeListener<CTX> listener,
+      @Nullable CTX context) {
+    if (listener == null) {
+      return apply(out);
+    } else {
+      HtmlChangeReporter<CTX> r = new HtmlChangeReporter<CTX>(
+          out, listener, context);
+      r.setPolicy(apply(r.getWrappedRenderer()));
+      return r.getWrappedPolicy();
     }
   }
 

@@ -45,21 +45,28 @@ public class HtmlChangeReporterTest extends TestCase {
         log.append('<').append(elementName).append("> ");
       }
 
-      public void discardedAttribute(
-          Integer context, String tagName, String attributeName) {
+      public void discardedAttributes(
+          Integer context, String tagName, String... attributeNames) {
         assertSame(testContext, context);
-        log.append('<').append(tagName).append(' ').append(attributeName)
-           .append("> ");
+        log.append('<').append(tagName);
+        for (String attributeName : attributeNames) {
+          log.append(' ').append(attributeName);
+        }
+        log.append("> ");
       }
     };
     HtmlChangeReporter<Integer> hcr = new HtmlChangeReporter<Integer>(
         renderer, listener, testContext);
 
     hcr.setPolicy(Sanitizers.FORMATTING.apply(hcr.getWrappedRenderer()));
+    String html =
+        "<textarea>Hello</textarea>,<b onclick=alert(42)>World</B>!"
+        + "<Script type=text/javascript>doEvil()</script><PLAINTEXT>";
     HtmlSanitizer.sanitize(
-        "<textarea>Hello</textarea>,<b onclick=alert(42)>World</B>!<PLAINTEXT>",
-        hcr);
+        html,
+        hcr.getWrappedPolicy());
     assertEquals("Hello,<b>World</b>!", out.toString());
-    assertEquals("<textarea> <b onclick> <plaintext> ", log.toString());
+    assertEquals(
+        "<textarea> <b onclick> <script> <plaintext> ", log.toString());
   }
 }
