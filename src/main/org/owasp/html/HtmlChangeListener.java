@@ -33,14 +33,17 @@ import javax.annotation.Nullable;
 /**
  * Receives events when an HTML tag, or attribute is discarded.
  * This can be hooked into an intrusion detection system to alert code when
- * suspicious activity occurs.
+ * suspicious HTML passes through the sanitizer.
  */
 public interface HtmlChangeListener<T> {
 
   /** Called when a tag is discarded from the input. */
   public void discardedTag(@Nullable T context, String elementName);
 
-  /** Called when an attribute is discarded from the input. */
-  public void discardedAttribute(
-      @Nullable T context, String tagName, String attributeName);
+  /**
+   * Called when attributes are discarded
+   * from the input but the containing tag is not.
+   */
+  public void discardedAttributes(
+      @Nullable T context, String tagName, String... attributeNames);
 }

@@ -51,7 +51,7 @@ import com.google.common.collect.Sets;
  * <p>
  * To create a policy, first construct an instance of this class; then call
  * <code>allow&hellip;</code> methods to turn on tags, attributes, and other
- * processing modes; and finally call <code>build()</code> or
+ * processing modes; and finally call <code>build(renderer)</code> or
  * <code>toFactory()</code>.
  * </p>
  * <pre class="prettyprint lang-java">
@@ -409,6 +409,26 @@ public class HtmlPolicyBuilder {
    */
   public HtmlSanitizer.Policy build(HtmlStreamEventReceiver out) {
     return toFactory().apply(out);
+  }
+
+  /**
+   * Produces a policy based on the allow and disallow calls previously made.
+   *
+   * @param out receives calls to open only tags allowed by
+   *      previous calls to this object.
+   *      Typically a {@link HtmlStreamRenderer}.
+   * @param listener is notified of dropped tags and attributes so that
+   *      intrusion detection systems can be alerted to questionable HTML.
+   *      If {@code null} then no notifications are sent.
+   * @param context if {@code (listener != null)} then the context value passed
+   *      with alerts.  This can be used to let the listener know from which
+   *      connection or request the questionable HTML was received.
+   */
+  public <CTX> HtmlSanitizer.Policy build(
+      HtmlStreamEventReceiver out,
+      @Nullable HtmlChangeListener<? super CTX> listener,
+      @Nullable CTX context) {
+    return toFactory().apply(out, listener, context);
   }
 
   /**

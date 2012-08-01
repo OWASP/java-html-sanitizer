@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * HtmlChangeReporter&lt;T&gt; hcr = new HtmlChangeReporter&lt;T&gt;(
  *   renderer, htmlChangeListener, context);
  * hcr.setPolicy(policyFactory.apply(hcr.getWrappedRenderer()));
- * HtmlSanitizer.sanitize(html, hcr);
+ * HtmlSanitizer.sanitize(html, hcr.getWrappedPolicy());
  * </pre>
  *
  * The renderer receives events from the policy unchanged, but the reporter
@@ -51,18 +51,15 @@ import javax.annotation.Nullable;
  *
  * @param <T> The type of context value passed to the
  */
-public final class HtmlChangeReporter<T> implements HtmlSanitizer.Policy {
+public final class HtmlChangeReporter<T> {
   private final OutputChannel output;
-  private HtmlStreamEventReceiver policy;
-  private final T context;
-  private final HtmlChangeListener<? super T> listener;
+  private final InputChannel<T> input;
 
   public HtmlChangeReporter(
       HtmlStreamEventReceiver renderer,
       HtmlChangeListener<? super T> listener, @Nullable T context) {
     this.output = new OutputChannel(renderer);
-    this.context = context;
-    this.listener = listener;
+    this.input = new InputChannel<T>(output, listener, context);
   }
 
   /**
@@ -70,51 +67,72 @@ public final class HtmlChangeReporter<T> implements HtmlSanitizer.Policy {
    * them to input.
    */
   public void setPolicy(HtmlSanitizer.Policy policy) {
-    this.policy = policy;
+    this.input.policy = policy;
   }
 
   public HtmlStreamEventReceiver getWrappedRenderer() { return output; }
 
-  public void openDocument() {
-    policy.openDocument();
-  }
+  public HtmlSanitizer.Policy getWrappedPolicy() { return input; }
 
-  public void closeDocument() {
-    policy.closeDocument();
-  }
+  private static final class InputChannel<T> implements HtmlSanitizer.Policy {
+    HtmlStreamEventReceiver policy;
+    final OutputChannel output;
+    final T context;
+    final HtmlChangeListener<? super T> listener;
 
-  public void openTag(String elementName, List<String> attrs) {
-    output.expectedElementName = elementName;
-    output.expectedAttrNames.clear();
-    for (int i = 0, n = attrs.size(); i < n; i += 2) {
-      output.expectedAttrNames.add(attrs.get(i));
+    InputChannel(
+        OutputChannel output, HtmlChangeListener<? super T> listener,
+        @Nullable T context) {
+      this.output = output;
+      this.context = context;
+      this.listener = listener;
     }
-    policy.openTag(elementName, attrs);
-    {
-      String discardedElementName = output.expectedElementName;
-      output.expectedElementName = null;
-      int nExpected = output.expectedAttrNames.size();
-      String[] discardedAttrNames = nExpected != 0
-          ? output.expectedAttrNames.toArray(new String[nExpected])
-          : ZERO_STRINGS;
+
+    public void openDocument() {
+      policy.openDocument();
+    }
+
+    public void closeDocument() {
+      policy.closeDocument();
+    }
+
+    public void openTag(String elementName, List<String> attrs) {
+      output.expectedElementName = elementName;
       output.expectedAttrNames.clear();
-      if (discardedElementName != null) {
-        listener.discardedTag(context, discardedElementName);
+      for (int i = 0, n = attrs.size(); i < n; i += 2) {
+        output.expectedAttrNames.add(attrs.get(i));
       }
-      if (nExpected != 0) {
-        for (String discardedAttrName : discardedAttrNames) {
-          listener.discardedAttribute(context, elementName, discardedAttrName);
+      policy.openTag(elementName, attrs);
+      {
+        // Gather the notification details to avoid any problems with the
+        // listener re-entering the stream event receiver.  This shouldn't
+        // occur, but if it does it will be a source of subtle confusing bugs.
+        String discardedElementName = output.expectedElementName;
+        output.expectedElementName = null;
+        int nExpected = output.expectedAttrNames.size();
+        String[] discardedAttrNames =
+            nExpected != 0 && discardedElementName == null
+            ? output.expectedAttrNames.toArray(new String[nExpected])
+            : ZERO_STRINGS;
+        output.expectedAttrNames.clear();
+        // Dispatch notifications to the listener.
+        if (discardedElementName != null) {
+          listener.discardedTag(context, discardedElementName);
+        }
+        if (discardedAttrNames.length != 0) {
+          listener.discardedAttributes(
+              context, elementName, discardedAttrNames);
         }
       }
     }
-  }
 
-  public void closeTag(String elementName) {
-    policy.closeTag(elementName);
-  }
+    public void closeTag(String elementName) {
+      policy.closeTag(elementName);
+    }
 
-  public void text(String textChunk) {
-    policy.text(textChunk);
+    public void text(String textChunk) {
+      policy.text(textChunk);
+    }
   }
 
   private static final class OutputChannel implements HtmlStreamEventReceiver {

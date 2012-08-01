@@ -96,7 +96,7 @@ public final class HtmlSanitizer {
    * @param html A snippet of HTML to sanitize.  {@code null} is treated as the
    *     empty string and will not result in a {@code NullPointerException}.
    * @param policy The Policy that will receive events based on the tokens in
-   *     html.  Typically, this policy ends up routing the events to an
+   *     HTML.  Typically, this policy ends up routing the events to an
    *     {@link HtmlStreamRenderer} after filtering.
    *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
    */
