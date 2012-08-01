@@ -4,7 +4,7 @@
 <HEAD>
 <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <TITLE>
-HtmlSanitizer (OWASP Java HTML Sanitizer)
+HtmlChangeReporter (OWASP Java HTML Sanitizer)
 </TITLE>
 
 
@@ -14,7 +14,7 @@ HtmlSanitizer (OWASP Java HTML Sanitizer)
 function windowTitle()
 {
     if (location.href.indexOf('is-external=true') == -1) {
-        parent.document.title="HtmlSanitizer (OWASP Java HTML Sanitizer)";
+        parent.document.title="HtmlChangeReporter (OWASP Java HTML Sanitizer)";
     }
 }
 </SCRIPT>
@@ -39,7 +39,7 @@ function windowTitle()
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlSanitizer.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlChangeReporter.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
@@ -53,11 +53,11 @@ function windowTitle()
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-  <A HREF="../../../index.html?org/owasp/html/HtmlSanitizer.html" target="_top"><B>FRAMES</B></A>  &nbsp;
-&nbsp;<A HREF="HtmlSanitizer.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+  <A HREF="../../../index.html?org/owasp/html/HtmlChangeReporter.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlChangeReporter.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
 &nbsp;<SCRIPT type="text/javascript">
   <!--
   if(window==top) {
@@ -74,7 +74,7 @@ function windowTitle()
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;<A HREF="#nested_class_summary">NESTED</A>&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
 DETAIL:&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>
@@ -88,44 +88,39 @@ DETAIL:&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&n
 <FONT SIZE="-1">
 org.owasp.html</FONT>
 <BR>
-Class HtmlSanitizer</H2>
+Class HtmlChangeReporter&lt;T&gt;</H2>
 <PRE>
 java.lang.Object
-  <IMG SRC="../../../resources/inherit.gif" ALT="extended by "><B>org.owasp.html.HtmlSanitizer</B>
+  <IMG SRC="../../../resources/inherit.gif" ALT="extended by "><B>org.owasp.html.HtmlChangeReporter&lt;T&gt;</B>
 </PRE>
+<DL>
+<DT><DT><B>Type Parameters:</B><DD><CODE>T</CODE> - The type of context value passed to the</DL>
 <HR>
 <DL>
-<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.42"><B>HtmlSanitizer</B></A><DT>extends java.lang.Object</DL>
+<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/HtmlChangeReporter.html#line.54"><B>HtmlChangeReporter&lt;T&gt;</B></A><DT>extends java.lang.Object</DL>
 </PRE>
 
 <P>
-Consumes an HTML stream, and dispatches events to a policy object which
- decides which elements and attributes to allow.
+Sits between the HTML parser, and then policy, and the renderer so that it
+ can report dropped elements and attributes to an <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><CODE>HtmlChangeListener</CODE></A>.
+
+ <pre>
+ HtmlChangeReporter&lt;T&gt; hcr = new HtmlChangeReporter&lt;T&gt;(
+   renderer, htmlChangeListener, context);
+ hcr.setPolicy(policyFactory.apply(hcr.getWrappedRenderer()));
+ HtmlSanitizer.sanitize(html, hcr.getWrappedPolicy());
+ </pre>
+
+ The renderer receives events from the policy unchanged, but the reporter
+ notices differences between the events from the lexer and those from the
+ policy.
 <P>
 
 <P>
 <HR>
 
 <P>
-<!-- ======== NESTED CLASS SUMMARY ======== -->
 
-<A NAME="nested_class_summary"><!-- --></A>
-<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
-<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
-<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
-<B>Nested Class Summary</B></FONT></TH>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>static&nbsp;interface</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></B></CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Receives events based on the HTML stream, and applies a policy to decide
- what HTML constructs to allow.</TD>
-</TR>
-</TABLE>
-&nbsp;
 <!-- ======== CONSTRUCTOR SUMMARY ======== -->
 
 <A NAME="constructor_summary"><!-- --></A>
@@ -135,7 +130,9 @@ Consumes an HTML stream, and dispatches events to a policy object which
 <B>Constructor Summary</B></FONT></TH>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlSanitizer.html#HtmlSanitizer()">HtmlSanitizer</A></B>()</CODE>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlChangeReporter.html#HtmlChangeReporter(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, T)">HtmlChangeReporter</A></B>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;renderer,
+                                     <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super <A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="type parameter in HtmlChangeReporter">T</A>&gt;&nbsp;listener,
+                                     <A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="type parameter in HtmlChangeReporter">T</A>&nbsp;context)</CODE>
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
@@ -152,12 +149,27 @@ Consumes an HTML stream, and dispatches events to a policy object which
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>static&nbsp;void</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlSanitizer.html#sanitize(java.lang.String, org.owasp.html.HtmlSanitizer.Policy)">sanitize</A></B>(java.lang.String&nbsp;html,
-                 <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&nbsp;policy)</CODE>
+<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlChangeReporter.html#getWrappedPolicy()">getWrappedPolicy</A></B>()</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sanitizes the given HTML by applying the given policy to it.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlChangeReporter.html#getWrappedRenderer()">getWrappedRenderer</A></B>()</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;void</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlChangeReporter.html#setPolicy(org.owasp.html.HtmlSanitizer.Policy)">setPolicy</A></B>(<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&nbsp;policy)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Associates an input channel.</TD>
 </TR>
 </TABLE>
 &nbsp;<A NAME="methods_inherited_from_class_java.lang.Object"><!-- --></A>
@@ -182,10 +194,13 @@ Consumes an HTML stream, and dispatches events to a policy object which
 </TR>
 </TABLE>
 
-<A NAME="HtmlSanitizer()"><!-- --></A><H3>
-HtmlSanitizer</H3>
+<A NAME="HtmlChangeReporter(org.owasp.html.HtmlStreamEventReceiver,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="HtmlChangeReporter(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, T)"><!-- --></A><H3>
+HtmlChangeReporter</H3>
 <PRE>
-public <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.42"><B>HtmlSanitizer</B></A>()</PRE>
+public <A HREF="../../../src-html/org/owasp/html/HtmlChangeReporter.html#line.58"><B>HtmlChangeReporter</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;renderer,
+                          <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super <A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="type parameter in HtmlChangeReporter">T</A>&gt;&nbsp;listener,
+                          <FONT SIZE="-1">@Nullable</FONT>
+                          <A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="type parameter in HtmlChangeReporter">T</A>&nbsp;context)</PRE>
 <DL>
 </DL>
 
@@ -199,29 +214,38 @@ public <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.42"><B>
 </TR>
 </TABLE>
 
-<A NAME="sanitize(java.lang.String, org.owasp.html.HtmlSanitizer.Policy)"><!-- --></A><H3>
-sanitize</H3>
+<A NAME="setPolicy(org.owasp.html.HtmlSanitizer.Policy)"><!-- --></A><H3>
+setPolicy</H3>
 <PRE>
-public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.103"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
-                            java.lang.String&nbsp;html,
-                            <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&nbsp;policy)</PRE>
+public void <A HREF="../../../src-html/org/owasp/html/HtmlChangeReporter.html#line.69"><B>setPolicy</B></A>(<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&nbsp;policy)</PRE>
 <DL>
-<DD>Sanitizes the given HTML by applying the given policy to it.
-
- <p>
- This method is not in the TCB.
-
- <p>
- This method has no return value since policies are assumed to render things
- they accept and do nothing on things they reject.
- Use <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A> to render content to an output buffer.
+<DD>Associates an input channel.  <code>this</code> receives events and forwards
+ them to input.
 <P>
 <DD><DL>
-<DT><B>Parameters:</B><DD><CODE>html</CODE> - A snippet of HTML to sanitize.  <code>null</code> is treated as the
-     empty string and will not result in a <code>NullPointerException</code>.<DD><CODE>policy</CODE> - The Policy that will receive events based on the tokens in
-     HTML.  Typically, this policy ends up routing the events to an
-     <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A> after filtering.
-     <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><CODE>HtmlPolicyBuilder</CODE></A> provides an easy way to create policies.</DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="getWrappedRenderer()"><!-- --></A><H3>
+getWrappedRenderer</H3>
+<PRE>
+public <A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A> <A HREF="../../../src-html/org/owasp/html/HtmlChangeReporter.html#line.73"><B>getWrappedRenderer</B></A>()</PRE>
+<DL>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="getWrappedPolicy()"><!-- --></A><H3>
+getWrappedPolicy</H3>
+<PRE>
+public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlChangeReporter.html#line.75"><B>getWrappedPolicy</B></A>()</PRE>
+<DL>
+<DD><DL>
+</DL>
 </DD>
 </DL>
 <!-- ========= END OF CLASS DATA ========= -->
@@ -240,7 +264,7 @@ public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlSanitizer.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlChangeReporter.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
@@ -254,11 +278,11 @@ public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-  <A HREF="../../../index.html?org/owasp/html/HtmlSanitizer.html" target="_top"><B>FRAMES</B></A>  &nbsp;
-&nbsp;<A HREF="HtmlSanitizer.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+  <A HREF="../../../index.html?org/owasp/html/HtmlChangeReporter.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlChangeReporter.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
 &nbsp;<SCRIPT type="text/javascript">
   <!--
   if(window==top) {
@@ -275,7 +299,7 @@ public static void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;<A HREF="#nested_class_summary">NESTED</A>&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
 DETAIL:&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>

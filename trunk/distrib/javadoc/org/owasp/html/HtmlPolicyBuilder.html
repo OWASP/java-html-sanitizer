@@ -53,7 +53,7 @@ function windowTitle()
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
 &nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
   <A HREF="../../../index.html?org/owasp/html/HtmlPolicyBuilder.html" target="_top"><B>FRAMES</B></A>  &nbsp;
@@ -106,7 +106,7 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
  <p>
  To create a policy, first construct an instance of this class; then call
  <code>allow&hellip;</code> methods to turn on tags, attributes, and other
- processing modes; and finally call <code>build()</code> or
+ processing modes; and finally call <code>build(renderer)</code> or
  <code>toFactory()</code>.
  </p>
  <pre class="prettyprint lang-java">
@@ -354,6 +354,23 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
 <CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
 <TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver)">build</A></B>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a policy based on the allow and disallow calls previously made.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0" SUMMARY="">
+<TR ALIGN="right" VALIGN="">
+<TD NOWRAP><FONT SIZE="-1">
+<CODE>&lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
+</TR>
+</TABLE>
+</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)">build</A></B>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+           <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super CTX&gt;&nbsp;listener,
+           CTX&nbsp;context)</CODE>
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a policy based on the allow and disallow calls previously made.</TD>
@@ -698,10 +715,33 @@ public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interf
 </DL>
 <HR>
 
+<A NAME="build(org.owasp.html.HtmlStreamEventReceiver,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="build(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)"><!-- --></A><H3>
+build</H3>
+<PRE>
+public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.427"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+                                        <FONT SIZE="-1">@Nullable</FONT>
+                                        <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super CTX&gt;&nbsp;listener,
+                                        <FONT SIZE="-1">@Nullable</FONT>
+                                        CTX&nbsp;context)</PRE>
+<DL>
+<DD>Produces a policy based on the allow and disallow calls previously made.
+<P>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>out</CODE> - receives calls to open only tags allowed by
+      previous calls to this object.
+      Typically a <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A>.<DD><CODE>listener</CODE> - is notified of dropped tags and attributes so that
+      intrusion detection systems can be alerted to questionable HTML.
+      If <code>null</code> then no notifications are sent.<DD><CODE>context</CODE> - if <code>(listener != null)</code> then the context value passed
+      with alerts.  This can be used to let the listener know from which
+      connection or request the questionable HTML was received.</DL>
+</DD>
+</DL>
+<HR>
+
 <A NAME="toFactory()"><!-- --></A><H3>
 toFactory</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.418"><B>toFactory</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.438"><B>toFactory</B></A>()</PRE>
 <DL>
 <DD>Like <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver)"><CODE>build(org.owasp.html.HtmlStreamEventReceiver)</CODE></A> but can be reused to create many different policies
  each backed by a different output channel.
@@ -740,7 +780,7 @@ public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
 &nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.AttributeBuilder.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
   <A HREF="../../../index.html?org/owasp/html/HtmlPolicyBuilder.html" target="_top"><B>FRAMES</B></A>  &nbsp;

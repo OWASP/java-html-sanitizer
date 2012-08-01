@@ -153,6 +153,22 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title=
 
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
 <TR BGCOLOR="#CCCCFF" CLASS="TableSubHeadingColor">
+<TH ALIGN="left" COLSPAN="2">Methods in <A HREF="../../../../org/owasp/html/package-summary.html">org.owasp.html</A> that return <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></FONT></TD>
+<TD><CODE><B>HtmlChangeReporter.</B><B><A HREF="../../../../org/owasp/html/HtmlChangeReporter.html#getWrappedRenderer()">getWrappedRenderer</A></B>()</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+</TR>
+</TABLE>
+&nbsp;
+<P>
+
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableSubHeadingColor">
 <TH ALIGN="left" COLSPAN="2">Methods in <A HREF="../../../../org/owasp/html/package-summary.html">org.owasp.html</A> with parameters of type <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></FONT></TH>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
@@ -161,12 +177,47 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title=
 <TD><CODE><B>PolicyFactory.</B><B><A HREF="../../../../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver)">apply</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to out.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to <code>out</code>.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0" SUMMARY="">
+<TR ALIGN="right" VALIGN="">
+<TD NOWRAP><FONT SIZE="-1">
+<CODE>&lt;CTX&gt; <A HREF="../../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
+</TR>
+</TABLE>
+</CODE></FONT></TD>
+<TD><CODE><B>PolicyFactory.</B><B><A HREF="../../../../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)">apply</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+           <A HREF="../../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
+           CTX&nbsp;context)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to <code>out</code> and that notifies
+ any <code>listener</code> of any dropped tags and attributes.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
 <CODE>&nbsp;<A HREF="../../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
 <TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver)">build</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a policy based on the allow and disallow calls previously made.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0" SUMMARY="">
+<TR ALIGN="right" VALIGN="">
+<TD NOWRAP><FONT SIZE="-1">
+<CODE>&lt;CTX&gt; <A HREF="../../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
+</TR>
+</TABLE>
+</CODE></FONT></TD>
+<TD><CODE><B>HtmlPolicyBuilder.</B><B><A HREF="../../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)">build</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+           <A HREF="../../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super CTX&gt;&nbsp;listener,
+           CTX&nbsp;context)</CODE>
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a policy based on the allow and disallow calls previously made.</TD>
@@ -178,6 +229,14 @@ Uses of <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title=
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
 <TR BGCOLOR="#CCCCFF" CLASS="TableSubHeadingColor">
 <TH ALIGN="left" COLSPAN="2">Constructors in <A HREF="../../../../org/owasp/html/package-summary.html">org.owasp.html</A> with parameters of type <A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../../org/owasp/html/HtmlChangeReporter.html#HtmlChangeReporter(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, T)">HtmlChangeReporter</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;renderer,
+                                     <A HREF="../../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super <A HREF="../../../../org/owasp/html/HtmlChangeReporter.html" title="type parameter in HtmlChangeReporter">T</A>&gt;&nbsp;listener,
+                                     <A HREF="../../../../org/owasp/html/HtmlChangeReporter.html" title="type parameter in HtmlChangeReporter">T</A>&nbsp;context)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD><CODE><B><A HREF="../../../../org/owasp/html/TagBalancingHtmlStreamEventReceiver.html#TagBalancingHtmlStreamEventReceiver(org.owasp.html.HtmlStreamEventReceiver)">TagBalancingHtmlStreamEventReceiver</A></B>(<A HREF="../../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;underlying)</CODE>
