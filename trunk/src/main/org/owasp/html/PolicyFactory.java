@@ -96,10 +96,30 @@ public final class PolicyFactory
 
   /** A convenience function that sanitizes a string of HTML. */
   public String sanitize(@Nullable String html) {
+    return sanitize(html, null, null);
+  }
+
+  /**
+   * A convenience function that sanitizes a string of HTML and reports
+   * the names of rejected element and attributes to listener.
+   * @param html the string of HTML to sanitize.
+   * @param listener if non-null, receives notifications of tags and attributes
+   *     that were rejected by the policy.  This may tie into intrusion
+   *     detection systems.
+   * @param context if {@code (listener != null)} then the context value passed
+   *     with notifications.  This can be used to let the listener know from
+   *     which connection or request the questionable HTML was received.
+   * @return a string of HTML that complies with this factory's policy.
+   */
+  public <CTX> String sanitize(
+      @Nullable String html,
+      @Nullable HtmlChangeListener<CTX> listener, @Nullable CTX context) {
     if (html == null) { return ""; }
     StringBuilder out = new StringBuilder(html.length());
     HtmlSanitizer.sanitize(
-        html, apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING)));
+        html,
+        apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING),
+              listener, context));
     return out.toString();
   }
 
