@@ -171,6 +171,24 @@ A factory that can be used to link a sanitizer to an output receiver and that
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A convenience function that sanitizes a string of HTML.</TD>
 </TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0" SUMMARY="">
+<TR ALIGN="right" VALIGN="">
+<TD NOWRAP><FONT SIZE="-1">
+<CODE>&lt;CTX&gt; java.lang.String</CODE></FONT></TD>
+</TR>
+</TABLE>
+</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/PolicyFactory.html#sanitize(java.lang.String, org.owasp.html.HtmlChangeListener, CTX)">sanitize</A></B>(java.lang.String&nbsp;html,
+                 <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
+                 CTX&nbsp;context)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A convenience function that sanitizes a string of HTML and reports
+ the names of rejected element and attributes to listener.</TD>
+</TR>
 </TABLE>
 &nbsp;<A NAME="methods_inherited_from_class_java.lang.Object"><!-- --></A>
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
@@ -261,10 +279,37 @@ public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.
 </DL>
 <HR>
 
+<A NAME="sanitize(java.lang.String,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="sanitize(java.lang.String, org.owasp.html.HtmlChangeListener, CTX)"><!-- --></A><H3>
+sanitize</H3>
+<PRE>
+public &lt;CTX&gt; java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.114"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+                                       java.lang.String&nbsp;html,
+                                       <FONT SIZE="-1">@Nullable</FONT>
+                                       <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
+                                       <FONT SIZE="-1">@Nullable</FONT>
+                                       CTX&nbsp;context)</PRE>
+<DL>
+<DD>A convenience function that sanitizes a string of HTML and reports
+ the names of rejected element and attributes to listener.
+<P>
+<DD><DL>
+</DL>
+</DD>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>html</CODE> - the string of HTML to sanitize.<DD><CODE>listener</CODE> - if non-null, receives notifications of tags and attributes
+     that were rejected by the policy.  This may tie into intrusion
+     detection systems.<DD><CODE>context</CODE> - if <code>(listener != null)</code> then the context value passed
+     with notifications.  This can be used to let the listener know from
+     which connection or request the questionable HTML was received.
+<DT><B>Returns:</B><DD>a string of HTML that complies with this factory's policy.</DL>
+</DD>
+</DL>
+<HR>
+
 <A NAME="and(org.owasp.html.PolicyFactory)"><!-- --></A><H3>
 and</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.111"><B>and</B></A>(<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>&nbsp;f)</PRE>
+public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.131"><B>and</B></A>(<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>&nbsp;f)</PRE>
 <DL>
 <DD>Produces a factory that allows the union of the grants, and intersects
  policies where they overlap on a particular granted attribute or element

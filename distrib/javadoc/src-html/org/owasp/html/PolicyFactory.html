@@ -99,41 +99,61 @@
 <FONT color="green">096</FONT>    <a name="line.96"></a>
 <FONT color="green">097</FONT>      /** A convenience function that sanitizes a string of HTML. */<a name="line.97"></a>
 <FONT color="green">098</FONT>      public String sanitize(@Nullable String html) {<a name="line.98"></a>
-<FONT color="green">099</FONT>        if (html == null) { return ""; }<a name="line.99"></a>
-<FONT color="green">100</FONT>        StringBuilder out = new StringBuilder(html.length());<a name="line.100"></a>
-<FONT color="green">101</FONT>        HtmlSanitizer.sanitize(<a name="line.101"></a>
-<FONT color="green">102</FONT>            html, apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING)));<a name="line.102"></a>
-<FONT color="green">103</FONT>        return out.toString();<a name="line.103"></a>
-<FONT color="green">104</FONT>      }<a name="line.104"></a>
-<FONT color="green">105</FONT>    <a name="line.105"></a>
-<FONT color="green">106</FONT>      /**<a name="line.106"></a>
-<FONT color="green">107</FONT>       * Produces a factory that allows the union of the grants, and intersects<a name="line.107"></a>
-<FONT color="green">108</FONT>       * policies where they overlap on a particular granted attribute or element<a name="line.108"></a>
-<FONT color="green">109</FONT>       * name.<a name="line.109"></a>
-<FONT color="green">110</FONT>       */<a name="line.110"></a>
-<FONT color="green">111</FONT>      public PolicyFactory and(PolicyFactory f) {<a name="line.111"></a>
-<FONT color="green">112</FONT>        ImmutableMap.Builder&lt;String, ElementAndAttributePolicies&gt; b<a name="line.112"></a>
-<FONT color="green">113</FONT>            = ImmutableMap.builder();<a name="line.113"></a>
-<FONT color="green">114</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.114"></a>
-<FONT color="green">115</FONT>            : policies.entrySet()) {<a name="line.115"></a>
-<FONT color="green">116</FONT>          String elName = e.getKey();<a name="line.116"></a>
-<FONT color="green">117</FONT>          ElementAndAttributePolicies p = e.getValue();<a name="line.117"></a>
-<FONT color="green">118</FONT>          ElementAndAttributePolicies q = f.policies.get(elName);<a name="line.118"></a>
-<FONT color="green">119</FONT>          if (q != null) {<a name="line.119"></a>
-<FONT color="green">120</FONT>            p = p.and(q);<a name="line.120"></a>
-<FONT color="green">121</FONT>          }<a name="line.121"></a>
-<FONT color="green">122</FONT>          b.put(elName, p);<a name="line.122"></a>
-<FONT color="green">123</FONT>        }<a name="line.123"></a>
-<FONT color="green">124</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.124"></a>
-<FONT color="green">125</FONT>            : f.policies.entrySet()) {<a name="line.125"></a>
-<FONT color="green">126</FONT>          String elName = e.getKey();<a name="line.126"></a>
-<FONT color="green">127</FONT>          if (!policies.containsKey(elName)) {<a name="line.127"></a>
-<FONT color="green">128</FONT>            b.put(elName, e.getValue());<a name="line.128"></a>
-<FONT color="green">129</FONT>          }<a name="line.129"></a>
-<FONT color="green">130</FONT>        }<a name="line.130"></a>
-<FONT color="green">131</FONT>        return new PolicyFactory(b.build(), allowStyling || f.allowStyling);<a name="line.131"></a>
-<FONT color="green">132</FONT>      }<a name="line.132"></a>
-<FONT color="green">133</FONT>    }<a name="line.133"></a>
+<FONT color="green">099</FONT>        return sanitize(html, null, null);<a name="line.99"></a>
+<FONT color="green">100</FONT>      }<a name="line.100"></a>
+<FONT color="green">101</FONT>    <a name="line.101"></a>
+<FONT color="green">102</FONT>      /**<a name="line.102"></a>
+<FONT color="green">103</FONT>       * A convenience function that sanitizes a string of HTML and reports<a name="line.103"></a>
+<FONT color="green">104</FONT>       * the names of rejected element and attributes to listener.<a name="line.104"></a>
+<FONT color="green">105</FONT>       * @param html the string of HTML to sanitize.<a name="line.105"></a>
+<FONT color="green">106</FONT>       * @param listener if non-null, receives notifications of tags and attributes<a name="line.106"></a>
+<FONT color="green">107</FONT>       *     that were rejected by the policy.  This may tie into intrusion<a name="line.107"></a>
+<FONT color="green">108</FONT>       *     detection systems.<a name="line.108"></a>
+<FONT color="green">109</FONT>       * @param context if {@code (listener != null)} then the context value passed<a name="line.109"></a>
+<FONT color="green">110</FONT>       *     with notifications.  This can be used to let the listener know from<a name="line.110"></a>
+<FONT color="green">111</FONT>       *     which connection or request the questionable HTML was received.<a name="line.111"></a>
+<FONT color="green">112</FONT>       * @return a string of HTML that complies with this factory's policy.<a name="line.112"></a>
+<FONT color="green">113</FONT>       */<a name="line.113"></a>
+<FONT color="green">114</FONT>      public &lt;CTX&gt; String sanitize(<a name="line.114"></a>
+<FONT color="green">115</FONT>          @Nullable String html,<a name="line.115"></a>
+<FONT color="green">116</FONT>          @Nullable HtmlChangeListener&lt;CTX&gt; listener, @Nullable CTX context) {<a name="line.116"></a>
+<FONT color="green">117</FONT>        if (html == null) { return ""; }<a name="line.117"></a>
+<FONT color="green">118</FONT>        StringBuilder out = new StringBuilder(html.length());<a name="line.118"></a>
+<FONT color="green">119</FONT>        HtmlSanitizer.sanitize(<a name="line.119"></a>
+<FONT color="green">120</FONT>            html,<a name="line.120"></a>
+<FONT color="green">121</FONT>            apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING),<a name="line.121"></a>
+<FONT color="green">122</FONT>                  listener, context));<a name="line.122"></a>
+<FONT color="green">123</FONT>        return out.toString();<a name="line.123"></a>
+<FONT color="green">124</FONT>      }<a name="line.124"></a>
+<FONT color="green">125</FONT>    <a name="line.125"></a>
+<FONT color="green">126</FONT>      /**<a name="line.126"></a>
+<FONT color="green">127</FONT>       * Produces a factory that allows the union of the grants, and intersects<a name="line.127"></a>
+<FONT color="green">128</FONT>       * policies where they overlap on a particular granted attribute or element<a name="line.128"></a>
+<FONT color="green">129</FONT>       * name.<a name="line.129"></a>
+<FONT color="green">130</FONT>       */<a name="line.130"></a>
+<FONT color="green">131</FONT>      public PolicyFactory and(PolicyFactory f) {<a name="line.131"></a>
+<FONT color="green">132</FONT>        ImmutableMap.Builder&lt;String, ElementAndAttributePolicies&gt; b<a name="line.132"></a>
+<FONT color="green">133</FONT>            = ImmutableMap.builder();<a name="line.133"></a>
+<FONT color="green">134</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.134"></a>
+<FONT color="green">135</FONT>            : policies.entrySet()) {<a name="line.135"></a>
+<FONT color="green">136</FONT>          String elName = e.getKey();<a name="line.136"></a>
+<FONT color="green">137</FONT>          ElementAndAttributePolicies p = e.getValue();<a name="line.137"></a>
+<FONT color="green">138</FONT>          ElementAndAttributePolicies q = f.policies.get(elName);<a name="line.138"></a>
+<FONT color="green">139</FONT>          if (q != null) {<a name="line.139"></a>
+<FONT color="green">140</FONT>            p = p.and(q);<a name="line.140"></a>
+<FONT color="green">141</FONT>          }<a name="line.141"></a>
+<FONT color="green">142</FONT>          b.put(elName, p);<a name="line.142"></a>
+<FONT color="green">143</FONT>        }<a name="line.143"></a>
+<FONT color="green">144</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.144"></a>
+<FONT color="green">145</FONT>            : f.policies.entrySet()) {<a name="line.145"></a>
+<FONT color="green">146</FONT>          String elName = e.getKey();<a name="line.146"></a>
+<FONT color="green">147</FONT>          if (!policies.containsKey(elName)) {<a name="line.147"></a>
+<FONT color="green">148</FONT>            b.put(elName, e.getValue());<a name="line.148"></a>
+<FONT color="green">149</FONT>          }<a name="line.149"></a>
+<FONT color="green">150</FONT>        }<a name="line.150"></a>
+<FONT color="green">151</FONT>        return new PolicyFactory(b.build(), allowStyling || f.allowStyling);<a name="line.151"></a>
+<FONT color="green">152</FONT>      }<a name="line.152"></a>
+<FONT color="green">153</FONT>    }<a name="line.153"></a>
 
 
 
