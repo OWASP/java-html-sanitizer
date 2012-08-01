@@ -110,6 +110,10 @@ An efficient <A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class i
 <TD>Receives notification of problems.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener&lt;T&gt;</A></B></TD>
+<TD>Receives events when an HTML tag, or attribute is discarded.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
 <TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></B></TD>
 <TD>Receives events based on the HTML stream, and applies a policy to decide
  what HTML constructs to allow.</TD>
@@ -140,6 +144,11 @@ An efficient <A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class i
 <TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/FilterUrlByProtocolAttributePolicy.html" title="class in org.owasp.html">FilterUrlByProtocolAttributePolicy</A></B></TD>
 <TD>An attribute policy for attributes whose values are URLs that requires that
  the value have no protocol or have an allowed protocol.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="class in org.owasp.html">HtmlChangeReporter&lt;T&gt;</A></B></TD>
+<TD>Sits between the HTML parser, and then policy, and the renderer so that it
+ can report dropped elements and attributes to an <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><CODE>HtmlChangeListener</CODE></A>.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></B></TD>

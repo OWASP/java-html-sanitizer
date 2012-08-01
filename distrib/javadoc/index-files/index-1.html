@@ -131,7 +131,11 @@ Method in class org.owasp.html.<A HREF="../org/owasp/html/FilterUrlByProtocolAtt
 <DD>&nbsp;
 <DT><A HREF="../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver)"><B>apply(HtmlStreamEventReceiver)</B></A> - 
 Method in class org.owasp.html.<A HREF="../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>
-<DD>Produces a sanitizer that emits tokens to out.
+<DD>Produces a sanitizer that emits tokens to <code>out</code>.
+<DT><A HREF="../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)"><B>apply(HtmlStreamEventReceiver, HtmlChangeListener&lt;CTX&gt;, CTX)</B></A> - 
+Method in class org.owasp.html.<A HREF="../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>
+<DD>Produces a sanitizer that emits tokens to <code>out</code> and that notifies
+ any <code>listener</code> of any dropped tags and attributes.
 <DT><A HREF="../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html"><B>AttributePolicy</B></A> - Interface in <A HREF="../org/owasp/html/package-summary.html">org.owasp.html</A><DD>A policy that can be applied to an HTML attribute to decide whether or not to
  allow it in the output, possibly after transforming its value.<DT><A HREF="../org/owasp/html/AttributePolicy.Util.html" title="class in org.owasp.html"><B>AttributePolicy.Util</B></A> - Class in <A HREF="../org/owasp/html/package-summary.html">org.owasp.html</A><DD>Utilities for working with attribute policies.<DT><A HREF="../org/owasp/html/AttributePolicy.Util.html#AttributePolicy.Util()"><B>AttributePolicy.Util()</B></A> - 
 Constructor for class org.owasp.html.<A HREF="../org/owasp/html/AttributePolicy.Util.html" title="class in org.owasp.html">AttributePolicy.Util</A>

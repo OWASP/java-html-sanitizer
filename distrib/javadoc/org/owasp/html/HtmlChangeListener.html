@@ -4,7 +4,7 @@
 <HEAD>
 <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <TITLE>
-Handler (OWASP Java HTML Sanitizer)
+HtmlChangeListener (OWASP Java HTML Sanitizer)
 </TITLE>
 
 
@@ -14,7 +14,7 @@ Handler (OWASP Java HTML Sanitizer)
 function windowTitle()
 {
     if (location.href.indexOf('is-external=true') == -1) {
-        parent.document.title="Handler (OWASP Java HTML Sanitizer)";
+        parent.document.title="HtmlChangeListener (OWASP Java HTML Sanitizer)";
     }
 }
 </SCRIPT>
@@ -39,7 +39,7 @@ function windowTitle()
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/Handler.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlChangeListener.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
@@ -53,11 +53,11 @@ function windowTitle()
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/FilterUrlByProtocolAttributePolicy.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-  <A HREF="../../../index.html?org/owasp/html/Handler.html" target="_top"><B>FRAMES</B></A>  &nbsp;
-&nbsp;<A HREF="Handler.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+  <A HREF="../../../index.html?org/owasp/html/HtmlChangeListener.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlChangeListener.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
 &nbsp;<SCRIPT type="text/javascript">
   <!--
   if(window==top) {
@@ -74,9 +74,9 @@ function windowTitle()
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+DETAIL:&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>
 </TABLE>
 <A NAME="skip-navbar_top"></A>
@@ -88,51 +88,23 @@ DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A
 <FONT SIZE="-1">
 org.owasp.html</FONT>
 <BR>
-Interface Handler&lt;T&gt;</H2>
+Interface HtmlChangeListener&lt;T&gt;</H2>
 <HR>
 <DL>
-<DT><PRE>public interface <A HREF="../../../src-html/org/owasp/html/Handler.html#line.38"><B>Handler&lt;T&gt;</B></A></DL>
+<DT><PRE>public interface <A HREF="../../../src-html/org/owasp/html/HtmlChangeListener.html#line.38"><B>HtmlChangeListener&lt;T&gt;</B></A></DL>
 </PRE>
 
 <P>
-Receives notification of problems.
+Receives events when an HTML tag, or attribute is discarded.
+ This can be hooked into an intrusion detection system to alert code when
+ suspicious HTML passes through the sanitizer.
 <P>
 
 <P>
-<DL>
-<DT><B>Author:</B></DT>
-  <DD>Mike Samuel <mikesamuel@gmail.com></DD>
-</DL>
 <HR>
 
 <P>
-<!-- =========== FIELD SUMMARY =========== -->
 
-<A NAME="field_summary"><!-- --></A>
-<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
-<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
-<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
-<B>Field Summary</B></FONT></TH>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>static&nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;java.lang.Object&gt;</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/Handler.html#DO_NOTHING">DO_NOTHING</A></B></CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A handler that does nothing given any input.</TD>
-</TR>
-<TR BGCOLOR="white" CLASS="TableRowColor">
-<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>static&nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;java.lang.Throwable&gt;</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/Handler.html#PROPAGATE">PROPAGATE</A></B></CODE>
-
-<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A handler that re-raises an error, wrapping it in a runtime exception if
- necessary.</TD>
-</TR>
-</TABLE>
-&nbsp;
 <!-- ========== METHOD SUMMARY =========== -->
 
 <A NAME="method_summary"><!-- --></A>
@@ -144,48 +116,26 @@ Receives notification of problems.
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
 <CODE>&nbsp;void</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/Handler.html#handle(T)">handle</A></B>(<A HREF="../../../org/owasp/html/Handler.html" title="type parameter in Handler">T</A>&nbsp;x)</CODE>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlChangeListener.html#discardedAttributes(T, java.lang.String, java.lang.String...)">discardedAttributes</A></B>(<A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="type parameter in HtmlChangeListener">T</A>&nbsp;context,
+                                       java.lang.String&nbsp;tagName,
+                                       java.lang.String...&nbsp;attributeNames)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Called when attributes are discarded
+ from the input but the containing tag is not.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;void</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlChangeListener.html#discardedTag(T, java.lang.String)">discardedTag</A></B>(<A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="type parameter in HtmlChangeListener">T</A>&nbsp;context,
+                         java.lang.String&nbsp;elementName)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Called when a tag is discarded from the input.</TD>
 </TR>
 </TABLE>
 &nbsp;
 <P>
-
-<!-- ============ FIELD DETAIL =========== -->
-
-<A NAME="field_detail"><!-- --></A>
-<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
-<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
-<TH ALIGN="left" COLSPAN="1"><FONT SIZE="+2">
-<B>Field Detail</B></FONT></TH>
-</TR>
-</TABLE>
-
-<A NAME="DO_NOTHING"><!-- --></A><H3>
-DO_NOTHING</H3>
-<PRE>
-static final <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;java.lang.Object&gt; <A HREF="../../../src-html/org/owasp/html/Handler.html#line.43"><B>DO_NOTHING</B></A></PRE>
-<DL>
-<DD>A handler that does nothing given any input.
-<P>
-<DL>
-</DL>
-</DL>
-<HR>
-
-<A NAME="PROPAGATE"><!-- --></A><H3>
-PROPAGATE</H3>
-<PRE>
-static final <A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler</A>&lt;java.lang.Throwable&gt; <A HREF="../../../src-html/org/owasp/html/Handler.html#line.53"><B>PROPAGATE</B></A></PRE>
-<DL>
-<DD>A handler that re-raises an error, wrapping it in a runtime exception if
- necessary.
-<P>
-<DL>
-</DL>
-</DL>
 
 <!-- ============ METHOD DETAIL ========== -->
 
@@ -197,11 +147,32 @@ static final <A HREF="../../../org/owasp/html/Handler.html" title="interface in 
 </TR>
 </TABLE>
 
-<A NAME="handle(java.lang.Object)"><!-- --></A><A NAME="handle(T)"><!-- --></A><H3>
-handle</H3>
+<A NAME="discardedTag(java.lang.Object,java.lang.String)"><!-- --></A><A NAME="discardedTag(T, java.lang.String)"><!-- --></A><H3>
+discardedTag</H3>
 <PRE>
-void <A HREF="../../../src-html/org/owasp/html/Handler.html#line.40"><B>handle</B></A>(<A HREF="../../../org/owasp/html/Handler.html" title="type parameter in Handler">T</A>&nbsp;x)</PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlChangeListener.html#line.41"><B>discardedTag</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+                  <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="type parameter in HtmlChangeListener">T</A>&nbsp;context,
+                  java.lang.String&nbsp;elementName)</PRE>
 <DL>
+<DD>Called when a tag is discarded from the input.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="discardedAttributes(java.lang.Object,java.lang.String,java.lang.String[])"><!-- --></A><A NAME="discardedAttributes(T, java.lang.String, java.lang.String...)"><!-- --></A><H3>
+discardedAttributes</H3>
+<PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlChangeListener.html#line.47"><B>discardedAttributes</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+                         <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="type parameter in HtmlChangeListener">T</A>&nbsp;context,
+                         java.lang.String&nbsp;tagName,
+                         java.lang.String...&nbsp;attributeNames)</PRE>
+<DL>
+<DD>Called when attributes are discarded
+ from the input but the containing tag is not.
+<P>
 <DD><DL>
 </DL>
 </DD>
@@ -222,7 +193,7 @@ void <A HREF="../../../src-html/org/owasp/html/Handler.html#line.40"><B>handle</
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/Handler.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlChangeListener.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
@@ -236,11 +207,11 @@ void <A HREF="../../../src-html/org/owasp/html/Handler.html#line.40"><B>handle</
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/FilterUrlByProtocolAttributePolicy.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-  <A HREF="../../../index.html?org/owasp/html/Handler.html" target="_top"><B>FRAMES</B></A>  &nbsp;
-&nbsp;<A HREF="Handler.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+  <A HREF="../../../index.html?org/owasp/html/HtmlChangeListener.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlChangeListener.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
 &nbsp;<SCRIPT type="text/javascript">
   <!--
   if(window==top) {
@@ -257,9 +228,9 @@ void <A HREF="../../../src-html/org/owasp/html/Handler.html#line.40"><B>handle</
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+DETAIL:&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>
 </TABLE>
 <A NAME="skip-navbar_bottom"></A>

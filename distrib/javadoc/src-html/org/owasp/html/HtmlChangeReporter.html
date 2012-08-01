@@ -1,0 +1,241 @@
+<HTML>
+<BODY BGCOLOR="white">
+<PRE>
+<FONT color="green">001</FONT>    // Copyright (c) 2011, Mike Samuel<a name="line.1"></a>
+<FONT color="green">002</FONT>    // All rights reserved.<a name="line.2"></a>
+<FONT color="green">003</FONT>    //<a name="line.3"></a>
+<FONT color="green">004</FONT>    // Redistribution and use in source and binary forms, with or without<a name="line.4"></a>
+<FONT color="green">005</FONT>    // modification, are permitted provided that the following conditions<a name="line.5"></a>
+<FONT color="green">006</FONT>    // are met:<a name="line.6"></a>
+<FONT color="green">007</FONT>    //<a name="line.7"></a>
+<FONT color="green">008</FONT>    // Redistributions of source code must retain the above copyright<a name="line.8"></a>
+<FONT color="green">009</FONT>    // notice, this list of conditions and the following disclaimer.<a name="line.9"></a>
+<FONT color="green">010</FONT>    // Redistributions in binary form must reproduce the above copyright<a name="line.10"></a>
+<FONT color="green">011</FONT>    // notice, this list of conditions and the following disclaimer in the<a name="line.11"></a>
+<FONT color="green">012</FONT>    // documentation and/or other materials provided with the distribution.<a name="line.12"></a>
+<FONT color="green">013</FONT>    // Neither the name of the OWASP nor the names of its contributors may<a name="line.13"></a>
+<FONT color="green">014</FONT>    // be used to endorse or promote products derived from this software<a name="line.14"></a>
+<FONT color="green">015</FONT>    // without specific prior written permission.<a name="line.15"></a>
+<FONT color="green">016</FONT>    // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS<a name="line.16"></a>
+<FONT color="green">017</FONT>    // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT<a name="line.17"></a>
+<FONT color="green">018</FONT>    // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS<a name="line.18"></a>
+<FONT color="green">019</FONT>    // FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE<a name="line.19"></a>
+<FONT color="green">020</FONT>    // COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,<a name="line.20"></a>
+<FONT color="green">021</FONT>    // INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,<a name="line.21"></a>
+<FONT color="green">022</FONT>    // BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;<a name="line.22"></a>
+<FONT color="green">023</FONT>    // LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER<a name="line.23"></a>
+<FONT color="green">024</FONT>    // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT<a name="line.24"></a>
+<FONT color="green">025</FONT>    // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN<a name="line.25"></a>
+<FONT color="green">026</FONT>    // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE<a name="line.26"></a>
+<FONT color="green">027</FONT>    // POSSIBILITY OF SUCH DAMAGE.<a name="line.27"></a>
+<FONT color="green">028</FONT>    <a name="line.28"></a>
+<FONT color="green">029</FONT>    package org.owasp.html;<a name="line.29"></a>
+<FONT color="green">030</FONT>    <a name="line.30"></a>
+<FONT color="green">031</FONT>    import java.util.LinkedHashSet;<a name="line.31"></a>
+<FONT color="green">032</FONT>    import java.util.List;<a name="line.32"></a>
+<FONT color="green">033</FONT>    import java.util.Set;<a name="line.33"></a>
+<FONT color="green">034</FONT>    <a name="line.34"></a>
+<FONT color="green">035</FONT>    import javax.annotation.Nullable;<a name="line.35"></a>
+<FONT color="green">036</FONT>    <a name="line.36"></a>
+<FONT color="green">037</FONT>    /**<a name="line.37"></a>
+<FONT color="green">038</FONT>     * Sits between the HTML parser, and then policy, and the renderer so that it<a name="line.38"></a>
+<FONT color="green">039</FONT>     * can report dropped elements and attributes to an {@link HtmlChangeListener}.<a name="line.39"></a>
+<FONT color="green">040</FONT>     *<a name="line.40"></a>
+<FONT color="green">041</FONT>     * &lt;pre&gt;<a name="line.41"></a>
+<FONT color="green">042</FONT>     * HtmlChangeReporter&amp;lt;T&amp;gt; hcr = new HtmlChangeReporter&amp;lt;T&amp;gt;(<a name="line.42"></a>
+<FONT color="green">043</FONT>     *   renderer, htmlChangeListener, context);<a name="line.43"></a>
+<FONT color="green">044</FONT>     * hcr.setPolicy(policyFactory.apply(hcr.getWrappedRenderer()));<a name="line.44"></a>
+<FONT color="green">045</FONT>     * HtmlSanitizer.sanitize(html, hcr.getWrappedPolicy());<a name="line.45"></a>
+<FONT color="green">046</FONT>     * &lt;/pre&gt;<a name="line.46"></a>
+<FONT color="green">047</FONT>     *<a name="line.47"></a>
+<FONT color="green">048</FONT>     * The renderer receives events from the policy unchanged, but the reporter<a name="line.48"></a>
+<FONT color="green">049</FONT>     * notices differences between the events from the lexer and those from the<a name="line.49"></a>
+<FONT color="green">050</FONT>     * policy.<a name="line.50"></a>
+<FONT color="green">051</FONT>     *<a name="line.51"></a>
+<FONT color="green">052</FONT>     * @param &lt;T&gt; The type of context value passed to the<a name="line.52"></a>
+<FONT color="green">053</FONT>     */<a name="line.53"></a>
+<FONT color="green">054</FONT>    public final class HtmlChangeReporter&lt;T&gt; {<a name="line.54"></a>
+<FONT color="green">055</FONT>      private final OutputChannel output;<a name="line.55"></a>
+<FONT color="green">056</FONT>      private final InputChannel&lt;T&gt; input;<a name="line.56"></a>
+<FONT color="green">057</FONT>    <a name="line.57"></a>
+<FONT color="green">058</FONT>      public HtmlChangeReporter(<a name="line.58"></a>
+<FONT color="green">059</FONT>          HtmlStreamEventReceiver renderer,<a name="line.59"></a>
+<FONT color="green">060</FONT>          HtmlChangeListener&lt;? super T&gt; listener, @Nullable T context) {<a name="line.60"></a>
+<FONT color="green">061</FONT>        this.output = new OutputChannel(renderer);<a name="line.61"></a>
+<FONT color="green">062</FONT>        this.input = new InputChannel&lt;T&gt;(output, listener, context);<a name="line.62"></a>
+<FONT color="green">063</FONT>      }<a name="line.63"></a>
+<FONT color="green">064</FONT>    <a name="line.64"></a>
+<FONT color="green">065</FONT>      /**<a name="line.65"></a>
+<FONT color="green">066</FONT>       * Associates an input channel.  {@code this} receives events and forwards<a name="line.66"></a>
+<FONT color="green">067</FONT>       * them to input.<a name="line.67"></a>
+<FONT color="green">068</FONT>       */<a name="line.68"></a>
+<FONT color="green">069</FONT>      public void setPolicy(HtmlSanitizer.Policy policy) {<a name="line.69"></a>
+<FONT color="green">070</FONT>        this.input.policy = policy;<a name="line.70"></a>
+<FONT color="green">071</FONT>      }<a name="line.71"></a>
+<FONT color="green">072</FONT>    <a name="line.72"></a>
+<FONT color="green">073</FONT>      public HtmlStreamEventReceiver getWrappedRenderer() { return output; }<a name="line.73"></a>
+<FONT color="green">074</FONT>    <a name="line.74"></a>
+<FONT color="green">075</FONT>      public HtmlSanitizer.Policy getWrappedPolicy() { return input; }<a name="line.75"></a>
+<FONT color="green">076</FONT>    <a name="line.76"></a>
+<FONT color="green">077</FONT>      private static final class InputChannel&lt;T&gt; implements HtmlSanitizer.Policy {<a name="line.77"></a>
+<FONT color="green">078</FONT>        HtmlStreamEventReceiver policy;<a name="line.78"></a>
+<FONT color="green">079</FONT>        final OutputChannel output;<a name="line.79"></a>
+<FONT color="green">080</FONT>        final T context;<a name="line.80"></a>
+<FONT color="green">081</FONT>        final HtmlChangeListener&lt;? super T&gt; listener;<a name="line.81"></a>
+<FONT color="green">082</FONT>    <a name="line.82"></a>
+<FONT color="green">083</FONT>        InputChannel(<a name="line.83"></a>
+<FONT color="green">084</FONT>            OutputChannel output, HtmlChangeListener&lt;? super T&gt; listener,<a name="line.84"></a>
+<FONT color="green">085</FONT>            @Nullable T context) {<a name="line.85"></a>
+<FONT color="green">086</FONT>          this.output = output;<a name="line.86"></a>
+<FONT color="green">087</FONT>          this.context = context;<a name="line.87"></a>
+<FONT color="green">088</FONT>          this.listener = listener;<a name="line.88"></a>
+<FONT color="green">089</FONT>        }<a name="line.89"></a>
+<FONT color="green">090</FONT>    <a name="line.90"></a>
+<FONT color="green">091</FONT>        public void openDocument() {<a name="line.91"></a>
+<FONT color="green">092</FONT>          policy.openDocument();<a name="line.92"></a>
+<FONT color="green">093</FONT>        }<a name="line.93"></a>
+<FONT color="green">094</FONT>    <a name="line.94"></a>
+<FONT color="green">095</FONT>        public void closeDocument() {<a name="line.95"></a>
+<FONT color="green">096</FONT>          policy.closeDocument();<a name="line.96"></a>
+<FONT color="green">097</FONT>        }<a name="line.97"></a>
+<FONT color="green">098</FONT>    <a name="line.98"></a>
+<FONT color="green">099</FONT>        public void openTag(String elementName, List&lt;String&gt; attrs) {<a name="line.99"></a>
+<FONT color="green">100</FONT>          output.expectedElementName = elementName;<a name="line.100"></a>
+<FONT color="green">101</FONT>          output.expectedAttrNames.clear();<a name="line.101"></a>
+<FONT color="green">102</FONT>          for (int i = 0, n = attrs.size(); i &lt; n; i += 2) {<a name="line.102"></a>
+<FONT color="green">103</FONT>            output.expectedAttrNames.add(attrs.get(i));<a name="line.103"></a>
+<FONT color="green">104</FONT>          }<a name="line.104"></a>
+<FONT color="green">105</FONT>          policy.openTag(elementName, attrs);<a name="line.105"></a>
+<FONT color="green">106</FONT>          {<a name="line.106"></a>
+<FONT color="green">107</FONT>            // Gather the notification details to avoid any problems with the<a name="line.107"></a>
+<FONT color="green">108</FONT>            // listener re-entering the stream event receiver.  This shouldn't<a name="line.108"></a>
+<FONT color="green">109</FONT>            // occur, but if it does it will be a source of subtle confusing bugs.<a name="line.109"></a>
+<FONT color="green">110</FONT>            String discardedElementName = output.expectedElementName;<a name="line.110"></a>
+<FONT color="green">111</FONT>            output.expectedElementName = null;<a name="line.111"></a>
+<FONT color="green">112</FONT>            int nExpected = output.expectedAttrNames.size();<a name="line.112"></a>
+<FONT color="green">113</FONT>            String[] discardedAttrNames =<a name="line.113"></a>
+<FONT color="green">114</FONT>                nExpected != 0 &amp;&amp; discardedElementName == null<a name="line.114"></a>
+<FONT color="green">115</FONT>                ? output.expectedAttrNames.toArray(new String[nExpected])<a name="line.115"></a>
+<FONT color="green">116</FONT>                : ZERO_STRINGS;<a name="line.116"></a>
+<FONT color="green">117</FONT>            output.expectedAttrNames.clear();<a name="line.117"></a>
+<FONT color="green">118</FONT>            // Dispatch notifications to the listener.<a name="line.118"></a>
+<FONT color="green">119</FONT>            if (discardedElementName != null) {<a name="line.119"></a>
+<FONT color="green">120</FONT>              listener.discardedTag(context, discardedElementName);<a name="line.120"></a>
+<FONT color="green">121</FONT>            }<a name="line.121"></a>
+<FONT color="green">122</FONT>            if (discardedAttrNames.length != 0) {<a name="line.122"></a>
+<FONT color="green">123</FONT>              listener.discardedAttributes(<a name="line.123"></a>
+<FONT color="green">124</FONT>                  context, elementName, discardedAttrNames);<a name="line.124"></a>
+<FONT color="green">125</FONT>            }<a name="line.125"></a>
+<FONT color="green">126</FONT>          }<a name="line.126"></a>
+<FONT color="green">127</FONT>        }<a name="line.127"></a>
+<FONT color="green">128</FONT>    <a name="line.128"></a>
+<FONT color="green">129</FONT>        public void closeTag(String elementName) {<a name="line.129"></a>
+<FONT color="green">130</FONT>          policy.closeTag(elementName);<a name="line.130"></a>
+<FONT color="green">131</FONT>        }<a name="line.131"></a>
+<FONT color="green">132</FONT>    <a name="line.132"></a>
+<FONT color="green">133</FONT>        public void text(String textChunk) {<a name="line.133"></a>
+<FONT color="green">134</FONT>          policy.text(textChunk);<a name="line.134"></a>
+<FONT color="green">135</FONT>        }<a name="line.135"></a>
+<FONT color="green">136</FONT>      }<a name="line.136"></a>
+<FONT color="green">137</FONT>    <a name="line.137"></a>
+<FONT color="green">138</FONT>      private static final class OutputChannel implements HtmlStreamEventReceiver {<a name="line.138"></a>
+<FONT color="green">139</FONT>        private final HtmlStreamEventReceiver renderer;<a name="line.139"></a>
+<FONT color="green">140</FONT>        String expectedElementName;<a name="line.140"></a>
+<FONT color="green">141</FONT>        Set&lt;String&gt; expectedAttrNames = new LinkedHashSet&lt;String&gt;();<a name="line.141"></a>
+<FONT color="green">142</FONT>    <a name="line.142"></a>
+<FONT color="green">143</FONT>        OutputChannel(HtmlStreamEventReceiver renderer) {<a name="line.143"></a>
+<FONT color="green">144</FONT>          this.renderer = renderer;<a name="line.144"></a>
+<FONT color="green">145</FONT>        }<a name="line.145"></a>
+<FONT color="green">146</FONT>    <a name="line.146"></a>
+<FONT color="green">147</FONT>        public void openDocument() {<a name="line.147"></a>
+<FONT color="green">148</FONT>          renderer.openDocument();<a name="line.148"></a>
+<FONT color="green">149</FONT>        }<a name="line.149"></a>
+<FONT color="green">150</FONT>    <a name="line.150"></a>
+<FONT color="green">151</FONT>        public void closeDocument() {<a name="line.151"></a>
+<FONT color="green">152</FONT>          renderer.closeDocument();<a name="line.152"></a>
+<FONT color="green">153</FONT>        }<a name="line.153"></a>
+<FONT color="green">154</FONT>    <a name="line.154"></a>
+<FONT color="green">155</FONT>        public void openTag(String elementName, List&lt;String&gt; attrs) {<a name="line.155"></a>
+<FONT color="green">156</FONT>          if (elementName.equals(expectedElementName)) {<a name="line.156"></a>
+<FONT color="green">157</FONT>            expectedElementName = null;<a name="line.157"></a>
+<FONT color="green">158</FONT>          }<a name="line.158"></a>
+<FONT color="green">159</FONT>          for (int i = 0, n = attrs.size(); i &lt; n; i += 2) {<a name="line.159"></a>
+<FONT color="green">160</FONT>            expectedAttrNames.remove(attrs.get(i));<a name="line.160"></a>
+<FONT color="green">161</FONT>          }<a name="line.161"></a>
+<FONT color="green">162</FONT>          renderer.openTag(elementName, attrs);<a name="line.162"></a>
+<FONT color="green">163</FONT>        }<a name="line.163"></a>
+<FONT color="green">164</FONT>    <a name="line.164"></a>
+<FONT color="green">165</FONT>        public void closeTag(String elementName) {<a name="line.165"></a>
+<FONT color="green">166</FONT>          renderer.closeTag(elementName);<a name="line.166"></a>
+<FONT color="green">167</FONT>        }<a name="line.167"></a>
+<FONT color="green">168</FONT>    <a name="line.168"></a>
+<FONT color="green">169</FONT>        public void text(String text) {<a name="line.169"></a>
+<FONT color="green">170</FONT>          renderer.text(text);<a name="line.170"></a>
+<FONT color="green">171</FONT>        }<a name="line.171"></a>
+<FONT color="green">172</FONT>      }<a name="line.172"></a>
+<FONT color="green">173</FONT>    <a name="line.173"></a>
+<FONT color="green">174</FONT>      private static final String[] ZERO_STRINGS = new String[0];<a name="line.174"></a>
+<FONT color="green">175</FONT>    }<a name="line.175"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</PRE>
+</BODY>
+</HTML>

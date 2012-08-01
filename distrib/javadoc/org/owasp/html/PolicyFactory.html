@@ -143,7 +143,25 @@ A factory that can be used to link a sanitizer to an output receiver and that
 <TD><CODE><B><A HREF="../../../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver)">apply</A></B>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to out.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to <code>out</code>.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0" SUMMARY="">
+<TR ALIGN="right" VALIGN="">
+<TD NOWRAP><FONT SIZE="-1">
+<CODE>&lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></CODE></FONT></TD>
+</TR>
+</TABLE>
+</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/PolicyFactory.html#apply(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)">apply</A></B>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+           <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
+           CTX&nbsp;context)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Produces a sanitizer that emits tokens to <code>out</code> and that notifies
+ any <code>listener</code> of any dropped tags and attributes.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -190,7 +208,7 @@ apply</H3>
 <PRE>
 public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.64"><B>apply</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
 <DL>
-<DD>Produces a sanitizer that emits tokens to out.
+<DD>Produces a sanitizer that emits tokens to <code>out</code>.
 <P>
 <DD><DL>
 <DT><B>Specified by:</B><DD><CODE>apply</CODE> in interface <CODE>com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>,<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&gt;</CODE></DL>
@@ -201,10 +219,35 @@ public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interf
 </DL>
 <HR>
 
+<A NAME="apply(org.owasp.html.HtmlStreamEventReceiver,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="apply(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)"><!-- --></A><H3>
+apply</H3>
+<PRE>
+public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.84"><B>apply</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+                                        <FONT SIZE="-1">@Nullable</FONT>
+                                        <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
+                                        <FONT SIZE="-1">@Nullable</FONT>
+                                        CTX&nbsp;context)</PRE>
+<DL>
+<DD>Produces a sanitizer that emits tokens to <code>out</code> and that notifies
+ any <code>listener</code> of any dropped tags and attributes.
+<P>
+<DD><DL>
+</DL>
+</DD>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>out</CODE> - a renderer that receives approved tokens only.<DD><CODE>listener</CODE> - if non-null, receives notifications of tags and attributes
+     that were rejected by the policy.  This may tie into intrusion
+     detection systems.<DD><CODE>context</CODE> - if <code>(listener != null)</code> then the context value passed
+     with notifications.  This can be used to let the listener know from
+     which connection or request the questionable HTML was received.</DL>
+</DD>
+</DL>
+<HR>
+
 <A NAME="sanitize(java.lang.String)"><!-- --></A><H3>
 sanitize</H3>
 <PRE>
-public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.74"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.98"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
                                  java.lang.String&nbsp;html)</PRE>
 <DL>
 <DD>A convenience function that sanitizes a string of HTML.
@@ -221,7 +264,7 @@ public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.
 <A NAME="and(org.owasp.html.PolicyFactory)"><!-- --></A><H3>
 and</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.87"><B>and</B></A>(<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>&nbsp;f)</PRE>
+public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.111"><B>and</B></A>(<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>&nbsp;f)</PRE>
 <DL>
 <DD>Produces a factory that allows the union of the grants, and intersects
  policies where they overlap on a particular granted attribute or element
