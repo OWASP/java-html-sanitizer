@@ -54,7 +54,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.openTag("head", ImmutableList.<String>of());
     balancer.openTag("title", ImmutableList.<String>of());
     balancer.text("Hello, <<World>>!");
-    // TITLE closed with case-insensitive differnet name.
+    // TITLE closed with case-sensitively different name.
     balancer.closeTag("TITLE");
     balancer.closeTag("head");
     balancer.openTag("body", ImmutableList.<String>of());
@@ -68,7 +68,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     assertEquals(
         "<html><head><title>Hello, &lt;&lt;World&gt;&gt;!</title></head>"
         + "<body><p id=\"p&#39;0\">Hello,"
-        + "<br>&lt;&lt;World&gt;&gt;!</p></body></html>",
+        + "<br />&lt;&lt;World&gt;&gt;!</p></body></html>",
         htmlOutputBuffer.toString());
   }
 

@@ -170,7 +170,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Header",
             "Paragraph 1",
             "Click me out",
-            "<img src=\"canary.png\" alt=\"local-canary\">",
+            "<img src=\"canary.png\" alt=\"local-canary\" />",
             // HTTP img not output because only HTTPS allowed.
             "Fancy with soupy tags.",
             "Stylish Para 1",
@@ -233,8 +233,8 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Header",
             "Paragraph 1",
             "Click me out",
-            "<img src=\"canary.png\" alt=\"local-canary\">"
-            + "<img src=\"http://canaries.org/canary.png\">",
+            "<img src=\"canary.png\" alt=\"local-canary\" />"
+            + "<img src=\"http://canaries.org/canary.png\" />",
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",

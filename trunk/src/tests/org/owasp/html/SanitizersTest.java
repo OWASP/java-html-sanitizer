@@ -76,15 +76,16 @@ public class SanitizersTest extends TestCase {
     assertEquals(
         "foo", s.sanitize("<a href=\"javascript:alert(1337)\">foo</a>"));
     assertEquals(
-        "<img src=\"foo.gif\">", s.sanitize("<img src=\"foo.gif\">"));
+        "<img src=\"foo.gif\" />", s.sanitize("<img src=\"foo.gif\">"));
     assertEquals(
         "", s.sanitize("<img src=\"javascript://alert(1337)\">"));
     assertEquals(
-        "<img src=\"x.gif\" alt=\"y\" width=\"96\" height=\"64\" border=\"0\">",
+        "<img src=\"x.gif\" alt=\"y\""
+        + " width=\"96\" height=\"64\" border=\"0\" />",
         s.sanitize(
             "<img src=\"x.gif\" alt=\"y\" width=96 height=64 border=0>"));
     assertEquals(
-        "<img src=\"x.png\" alt=\"y\" height=\"64\" border=\"0\">",
+        "<img src=\"x.png\" alt=\"y\" height=\"64\" border=\"0\" />",
         s.sanitize(
             "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=64 border=0>")
         );

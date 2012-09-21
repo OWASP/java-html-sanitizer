@@ -65,18 +65,18 @@ public class HtmlStreamRendererTest extends TestCase {
   }
 
   public final void testElementNamesNormalized() throws Exception {
-    assertNormalized("<br>", "<br>");
-    assertNormalized("<br>", "<BR>");
-    assertNormalized("<br>", "<Br />");
-    assertNormalized("<br>", "<br\n>");
+    assertNormalized("<br />", "<br>");
+    assertNormalized("<br />", "<BR>");
+    assertNormalized("<br />", "<Br />");
+    assertNormalized("<br />", "<br\n>");
   }
 
   public final void testAttributeNamesNormalized() throws Exception {
-    assertNormalized("<input id=\"foo\">", "<input  id=foo>");
-    assertNormalized("<input id=\"foo\">", "<input id=\"foo\">");
-    assertNormalized("<input id=\"foo\">", "<input  ID='foo'>");
-    assertNormalized("<input id=\"foo\">", "<input\nid='foo'>");
-    assertNormalized("<input id=\"foo\">", "<input\nid=foo'>");
+    assertNormalized("<input id=\"foo\" />", "<input  id=foo>");
+    assertNormalized("<input id=\"foo\" />", "<input id=\"foo\">");
+    assertNormalized("<input id=\"foo\" />", "<input  ID='foo'>");
+    assertNormalized("<input id=\"foo\" />", "<input\nid='foo'>");
+    assertNormalized("<input id=\"foo\" />", "<input\nid=foo'>");
   }
 
   public final void testAttributeValuesEscaped() throws Exception {
@@ -232,20 +232,6 @@ public class HtmlStreamRendererTest extends TestCase {
     renderer.closeDocument();
 
     assertEquals("&#x2f81a;", rendered.toString());
-  }
-
-  public final void testAppendNumericEntity() throws Exception {
-    StringBuilder sb = new StringBuilder();
-    for (int codepoint : new int[] {
-        0, 9, '\n', '@', 0x80, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xffff,
-        0x10000, Character.MAX_CODE_POINT }) {
-      HtmlStreamRenderer.appendNumericEntity(codepoint, sb);
-      sb.append(" ");
-    }
-    assertEquals(
-         "&#0; &#9; &#10; &#64; &#x80; &#xff; &#x100; &#xfff; &#x1000; "
-         + "&#x123a; &#xffff; &#x10000; &#x10ffff; ",
-         sb.toString());
   }
 
   // Test that policies that naively allow <xmp>, <listing>, or <plaintext>

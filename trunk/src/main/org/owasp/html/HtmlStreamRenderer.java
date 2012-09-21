@@ -160,7 +160,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
 
     switch (HtmlTextEscapingMode.getModeForTag(elementName)) {
-      case CDATA_SOMETIMES:       
+      case CDATA_SOMETIMES:
       case CDATA:
       case PLAIN_TEXT:
         lastTagOpened = elementName;
@@ -181,7 +181,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         continue;
       }
       output.append(' ').append(name).append('=').append('"');
-      escapeHtmlOnto(value, output);
+      Encoding.encodeHtmlOnto(value, output);
       if (value.indexOf('`') != -1) {
         // Apparently, in quirks mode, IE8 does a poor job producing innerHTML
         // values.  Given
@@ -199,6 +199,13 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         output.append(' ');
       }
       output.append('"');
+    }
+
+    // Limit our output to the intersection of valid XML and valid HTML5 when
+    // the output contains no special HTML5 elements like <title>, <script>, or
+    // <textarea>.
+    if (HtmlTextEscapingMode.isVoidElement(elementName)) {
+      output.append(" /");
     }
 
     output.append('>');
@@ -228,6 +235,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       } else {
         StringBuilder cdataContent = pendingUnescaped;
         pendingUnescaped = null;
+        Encoding.stripBannedCodeunits(cdataContent);
         int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
         if (problemIndex == -1) {
           output.append(cdataContent);
@@ -256,9 +264,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final void writeText(String text) throws IOException {
     if (!open) { throw new IllegalStateException(); }
     if (pendingUnescaped != null) {
-      pendingUnescaped.append(text.replaceAll("\0", ""));
+      pendingUnescaped.append(text);
     } else {
-      escapeHtmlOnto(text, output);  // Works for RCDATA.
+      Encoding.encodeHtmlOnto(text, output);  // Works for RCDATA.
     }
   }
 
@@ -355,101 +363,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   }
 
   /**
-   * Writes the HTML equivalent of the given plain text to output.
-   * For example, {@code escapeHtmlOnto("1 < 2", w)},
-   * is equivalent to {@code w.append("1 &lt; 2")} but possibly with fewer
-   * smaller appends.
-   */
-  static void escapeHtmlOnto(String plainText, Appendable output)
-      throws IOException {
-    int n = plainText.length();
-    int pos = 0;
-    for (int i = 0; i < n; ++i) {
-      char ch = plainText.charAt(i);
-      if (ch < REPLACEMENTS.length) {
-        String repl = REPLACEMENTS[ch];
-        if (repl != null) {
-          output.append(plainText, pos, i).append(repl);
-          pos = i + 1;
-        }
-      } else if (Character.isHighSurrogate(ch) && i + 1 < n) {
-        // Emit supplemental codepoints as entity so that they cannot
-        // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
-        // and get involved in UTF-16/UCS-2 confusion.
-        char next = plainText.charAt(i + 1);
-        if (Character.isLowSurrogate(next)) {
-          int codepoint = Character.toCodePoint(ch, next);
-          output.append(plainText, pos, i);
-          appendNumericEntity(codepoint, output);
-          ++i;
-          pos = i + 1;
-        }
-        // All orphaned surrogates are rendered raw.
-      } else if (ch >= 0xff00) {
-        // Is a control character or possible full-width version of a
-        // special character.
-        output.append(plainText, pos, i);
-        appendNumericEntity(ch, output);
-        pos = i + 1;
-      }
-    }
-    output.append(plainText, pos, n);
-  }
-
-  /** Maps ASCII chars that need to be encoded to an equivalent HTML entity. */
-  static final String[] REPLACEMENTS = new String[0x61];
-  static {
-    REPLACEMENTS[0] = "";                          // Elide.
-    for (int i = 1; i < ' '; ++i) {
-      if (i == '\n' || i == '\r') { continue; }
-      REPLACEMENTS[i] = "&#" + i + ";";
-    }
-    REPLACEMENTS['"'] = "&#" + ((int) '"') + ";";  // Attribute delimiter.
-    REPLACEMENTS['&'] = "&amp;";                   // HTML special.
-    REPLACEMENTS['\''] = "&#" + ((int) '\'') + ";";// Attribute delimiter.
-    REPLACEMENTS['+'] = "&#" + ((int) '+') + ";";  // UTF-7 special.
-    REPLACEMENTS['<'] = "&lt;";                    // HTML special.
-    REPLACEMENTS['='] = "&#" + ((int) '=') + ";";  // Special in attributes.
-    REPLACEMENTS['>'] = "&gt;";                    // HTML special.
-    REPLACEMENTS['@'] = "&#" + ((int) '@') + ";";  // Conditional compilation.
-    REPLACEMENTS['`'] = "&#" + ((int) '`') + ";";  // Attribute delimiter.
-  }
-
-  static void appendNumericEntity(int codepoint, Appendable output)
-     throws IOException {
-    if (codepoint < 100) {
-      // TODO: is this dead code due to REPLACEMENTS above.
-      output.append("&#");
-      if (codepoint < 10) {
-        output.append((char) ('0' + codepoint));
-      } else {
-        output.append((char) ('0' + (codepoint / 10)));
-        output.append((char) ('0' + (codepoint % 10)));
-      }
-      output.append(";");
-    } else {
-      int nDigits = (codepoint < 0x1000
-                     ? codepoint < 0x100 ? 2 : 3
-                     : (codepoint < 0x10000 ? 4
-                        : codepoint < 0x100000 ? 5 : 6));
-      output.append("&#x");
-      for (int digit = nDigits; --digit >= 0;) {
-        int hexDigit = (codepoint >>> (digit << 2)) & 0xf;
-        output.append(HEX_NUMERAL[hexDigit]);
-      }
-      output.append(";");
-    }
-  }
-
-  private static final char[] HEX_NUMERAL = {
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-  };
-
-  /**
    * Canonicalizes the element name and possibly substitutes an alternative
    * that has more consistent semantics.
-   */ 
+   */
   static String safeName(String elementName) {
     elementName = HtmlLexer.canonicalName(elementName);
 
