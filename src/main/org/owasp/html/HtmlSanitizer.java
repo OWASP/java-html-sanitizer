@@ -32,7 +32,6 @@ import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nullable;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 
 /**
@@ -136,10 +135,12 @@ public final class HtmlSanitizer {
       HtmlToken token = lexer.next();
       switch (token.type) {
         case TEXT:
-          balancer.text(decodeHtml(html.substring(token.start, token.end)));
+          balancer.text(
+              Encoding.decodeHtml(html.substring(token.start, token.end)));
           break;
         case UNESCAPED:
-          balancer.text(html.substring(token.start, token.end));
+          balancer.text(Encoding.stripBannedCodeunits(
+              html.substring(token.start, token.end)));
           break;
         case TAGBEGIN:
           if (html.charAt(token.start + 1) == '/') {  // A close tag.
@@ -168,7 +169,7 @@ public final class HtmlSanitizer {
                       html.substring(tagBodyToken.start, tagBodyToken.end)));
                   break;
                 case ATTRVALUE:
-                  attrs.add(decodeHtml(stripQuotes(
+                  attrs.add(Encoding.decodeHtml(stripQuotes(
                       html.substring(tagBodyToken.start, tagBodyToken.end))));
                   attrsReadyForName = true;
                   break;
@@ -213,24 +214,6 @@ public final class HtmlSanitizer {
       }
     }
     return encodedAttributeValue;
-  }
-
-  @VisibleForTesting
-  static String decodeHtml(String s) {
-    int amp = s.indexOf('&');
-    if (amp < 0) { return s; }
-    int pos = 0;
-    int n = s.length();
-    StringBuilder sb = new StringBuilder(n);
-    int end;
-    do {
-      long endAndCodepoint = HtmlEntities.decodeEntityAt(s, amp, n);
-      end = (int) (endAndCodepoint >>> 32);
-      int codepoint = (int) endAndCodepoint;
-      sb.append(s, pos, amp).appendCodePoint(codepoint);
-      pos = end;
-    } while ((amp = s.indexOf('&', end)) >= 0);
-    return sb.append(s, pos, n).toString();
   }
 
 }

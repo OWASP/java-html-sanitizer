@@ -35,166 +35,6 @@ import javax.annotation.Nullable;
 
 public class HtmlSanitizerTest extends TestCase {
 
-  public final void testDecodeHtml() {
-    String html =
-      "The quick&nbsp;brown fox&#xa;jumps over&#xd;&#10;the lazy dog&#x000a;";
-    //          1         2         3         4         5         6
-    // 123456789012345678901234567890123456789012345678901234567890123456789
-    String golden =
-      "The quick\u00a0brown fox\njumps over\r\nthe lazy dog\n";
-    assertEquals(golden, HtmlSanitizer.decodeHtml(html));
-
-    // Don't allocate a new string when no entities.
-    assertSame(golden, HtmlSanitizer.decodeHtml(golden));
-
-    // test interrupted escapes and escapes at end of file handled gracefully
-    assertEquals(
-        "\\\\u000a",
-        HtmlSanitizer.decodeHtml("\\\\u000a"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#x000a;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#x00a;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#x0a;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#xa;"));
-    assertEquals(
-        HtmlSanitizer.decodeHtml("&#x10000;"),
-        String.valueOf(Character.toChars(0x10000)));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#xa"));
-    assertEquals(
-        "&#x00ziggy",
-        HtmlSanitizer.decodeHtml("&#x00ziggy"));
-    assertEquals(
-        "&#xa00z;",
-        HtmlSanitizer.decodeHtml("&#xa00z;"));
-    assertEquals(
-        "&#\n",
-        HtmlSanitizer.decodeHtml("&#&#x000a;"));
-    assertEquals(
-        "&#x\n",
-        HtmlSanitizer.decodeHtml("&#x&#x000a;"));
-    assertEquals(
-        "\n\n",
-        HtmlSanitizer.decodeHtml("&#xa&#x000a;"));
-    assertEquals(
-        "&#\n",
-        HtmlSanitizer.decodeHtml("&#&#xa;"));
-    assertEquals(
-        "&#x",
-        HtmlSanitizer.decodeHtml("&#x"));
-    assertEquals(
-        "\u0000",
-        HtmlSanitizer.decodeHtml("&#x0"));
-    assertEquals(
-        "&#",
-        HtmlSanitizer.decodeHtml("&#"));
-
-    assertEquals(
-        "\\",
-        HtmlSanitizer.decodeHtml("\\"));
-    assertEquals(
-        "&",
-        HtmlSanitizer.decodeHtml("&"));
-
-    assertEquals(
-        "&#000a;",
-        HtmlSanitizer.decodeHtml("&#000a;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#10;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#010;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#0010;"));
-    assertEquals(
-        "\t",
-        HtmlSanitizer.decodeHtml("&#9;"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#10"));
-    assertEquals(
-        "&#00ziggy",
-        HtmlSanitizer.decodeHtml("&#00ziggy"));
-    assertEquals(
-        "&#\n",
-        HtmlSanitizer.decodeHtml("&#&#010;"));
-    assertEquals(
-        "\u0000\n",
-        HtmlSanitizer.decodeHtml("&#0&#010;"));
-    assertEquals(
-        "\u0001\n",
-        HtmlSanitizer.decodeHtml("&#01&#10;"));
-    assertEquals(
-        "&#\n",
-        HtmlSanitizer.decodeHtml("&#&#10;"));
-    assertEquals(
-        "\u0001",
-        HtmlSanitizer.decodeHtml("&#1"));
-    assertEquals(
-        "\n",
-        HtmlSanitizer.decodeHtml("&#10"));
-
-    // test the named escapes
-    assertEquals(
-        "<",
-        HtmlSanitizer.decodeHtml("&lt;"));
-    assertEquals(
-        ">",
-        HtmlSanitizer.decodeHtml("&gt;"));
-    assertEquals(
-        "\"",
-        HtmlSanitizer.decodeHtml("&quot;"));
-    assertEquals(
-        "'",
-        HtmlSanitizer.decodeHtml("&apos;"));
-    assertEquals(
-        "'",
-        HtmlSanitizer.decodeHtml("&#39;"));
-    assertEquals(
-        "'",
-        HtmlSanitizer.decodeHtml("&#x27;"));
-    assertEquals(
-        "&",
-        HtmlSanitizer.decodeHtml("&amp;"));
-    assertEquals(
-        "&lt;",
-        HtmlSanitizer.decodeHtml("&amp;lt;"));
-    assertEquals(
-        "&",
-        HtmlSanitizer.decodeHtml("&AMP;"));
-    assertEquals(
-        "&",
-        HtmlSanitizer.decodeHtml("&AMP"));
-    assertEquals(
-        "&",
-        HtmlSanitizer.decodeHtml("&AmP;"));
-    assertEquals(
-        "\u0391",
-        HtmlSanitizer.decodeHtml("&Alpha;"));
-    assertEquals(
-        "\u03b1",
-        HtmlSanitizer.decodeHtml("&alpha;"));
-
-
-    assertEquals(
-        "&;",
-        HtmlSanitizer.decodeHtml("&;"));
-    assertEquals(
-        "&bogus;",
-        HtmlSanitizer.decodeHtml("&bogus;"));
-  }
-
-
   public final void testEmpty() throws Exception {
     assertEquals("", sanitize(""));
     assertEquals("", sanitize(null));
@@ -256,7 +96,7 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   public final void testUnclosedTags() throws Exception {
-    assertEquals("<div id=\"p-foo\">Bar<br>Baz</div>",
+    assertEquals("<div id=\"p-foo\">Bar<br />Baz</div>",
                  sanitize("<div id=\"foo\">Bar<br>Baz"));
   }
 
@@ -274,12 +114,12 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   public final void testEmptyEndTags() throws Exception {
-    assertEquals("<input>", sanitize("<input></input>"));
+    assertEquals("<input />", sanitize("<input></input>"));
   }
 
   public final void testOnLoadStripped() throws Exception {
     assertEquals(
-        "<img>",
+        "<img />",
         sanitize("<img src=http://foo.com/bar ONLOAD=alert(1)>"));
   }
 
@@ -326,7 +166,7 @@ public class HtmlSanitizerTest extends TestCase {
 
   public final void testEmptyAndValuelessAttributes() throws Exception {
     assertEquals(
-        "<input checked=\"checked\" type=\"checkbox\" id=\"\" class=\"\">",
+        "<input checked=\"checked\" type=\"checkbox\" id=\"\" class=\"\" />",
         sanitize("<input checked type=checkbox id=\"\" class=>"));
   }
 

@@ -5,6 +5,10 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="114">Changed rendering to ensure that the output HTML is
+  valid XML when the policy prohibits
+  <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/syntax.html#raw-text-elements">HTML raw text &amp; RCDATA</a>
+  elements as is almost always the case.</li>
 <li value="104">Changed lexer to treat <code>&lt;?&hellip;&gt;</code>
   using the HTML5 bogus comment state grammar which agrees with XML's
   processing instruction production.  Previously, the token ended at
