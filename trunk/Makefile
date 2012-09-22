@@ -16,6 +16,8 @@ help:
 	@echo "  distrib  - Build everything and package it into JARs."
 	@echo "             Requires an svn executable on PATH."
 	@echo "  release  - Additionally, cut a new Maven version."
+	@echo "             Should be run from client that has sibling"
+	@echo "             directories of trunk checked out."
 
 
 CLASSPATH=lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar
