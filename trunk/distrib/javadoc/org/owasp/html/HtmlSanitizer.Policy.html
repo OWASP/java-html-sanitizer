@@ -97,7 +97,7 @@ Interface HtmlSanitizer.Policy</H2>
 </DL>
 <HR>
 <DL>
-<DT><PRE>public static interface <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.54"><B>HtmlSanitizer.Policy</B></A><DT>extends <A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></DL>
+<DT><PRE>public static interface <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.53"><B>HtmlSanitizer.Policy</B></A><DT>extends <A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></DL>
 </PRE>
 
 <P>
@@ -174,7 +174,7 @@ Receives events based on the HTML stream, and applies a policy to decide
 <A NAME="openTag(java.lang.String, java.util.List)"><!-- --></A><H3>
 openTag</H3>
 <PRE>
-void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.68"><B>openTag</B></A>(java.lang.String&nbsp;elementName,
+void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.67"><B>openTag</B></A>(java.lang.String&nbsp;elementName,
              java.util.List&lt;java.lang.String&gt;&nbsp;attrs)</PRE>
 <DL>
 <DD>Called when an HTML tag like <code>&lt;foo bar=baz&gt;</code> is seen in the input.
@@ -198,7 +198,7 @@ void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.68
 <A NAME="closeTag(java.lang.String)"><!-- --></A><H3>
 closeTag</H3>
 <PRE>
-void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.76"><B>closeTag</B></A>(java.lang.String&nbsp;elementName)</PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.75"><B>closeTag</B></A>(java.lang.String&nbsp;elementName)</PRE>
 <DL>
 <DD>Called when an HTML tag like <code>&lt;/foo&gt;</code> is seen in the input.
 <P>
@@ -215,7 +215,7 @@ void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.76
 <A NAME="text(java.lang.String)"><!-- --></A><H3>
 text</H3>
 <PRE>
-void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.82"><B>text</B></A>(java.lang.String&nbsp;textChunk)</PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.81"><B>text</B></A>(java.lang.String&nbsp;textChunk)</PRE>
 <DL>
 <DD>Called when textual content is seen.
 <P>
