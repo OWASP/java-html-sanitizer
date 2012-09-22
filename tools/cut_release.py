@@ -48,12 +48,13 @@ if "__main__" == __name__:
     "owasp-java-html-sanitizer-src.jar")
 
   # Make sure the directory_structures we expect exist.
-  assert os.path.isdir(maven_directory_path)
-  assert os.path.isdir(trunk_directory_path)
-  assert os.path.isfile(maven_metadata_path)
-  assert os.path.isdir(version_template_directory_path)
-  assert os.path.isfile(jar_path)
-  assert os.path.isfile(src_jar_path)
+  assert os.path.isdir(maven_directory_path), maven_directory_path
+  assert os.path.isdir(trunk_directory_path), trunk_directory_path
+  assert os.path.isfile(maven_metadata_path), maven_metadata_path
+  assert os.path.isdir(version_template_directory_path), (
+         version_template_directory_path)
+  assert os.path.isfile(jar_path), jar_path
+  assert os.path.isfile(src_jar_path), src_jar_path
 
   # Get svn info of the trunk directory.
   svn_info_xml = (
