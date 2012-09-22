@@ -1,3 +1,23 @@
+help:
+	@echo "Usage: make [<target> ...]"
+	@echo ""
+	@echo "Targets include:"
+	@echo "  help     - Displays this message."
+	@echo "  ----------"
+	@echo "  clean    - Delete all built files."
+	@echo "  default  - Build documentation&classes, and run checks."
+	@echo "             The output will be available under out/."
+	@echo "  ----------"
+	@echo "  classes  - Put Java .class files under out/."
+	@echo "  tests    - Compile tests."
+	@echo "  runtests - Runs tests.  Some require a network connection."
+	@echo "  findbugs - Runs a code quality tool.  Slow."
+	@echo "  ----------"
+	@echo "  distrib  - Build everything and package it into JARs."
+	@echo "             Requires an svn executable on PATH."
+	@echo "  release  - Additionally, cut a new Maven version."
+
+
 CLASSPATH=lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar
 TEST_CLASSPATH=$(CLASSPATH):lib/htmlparser-1.3/htmlparser-1.3.jar:lib/junit/junit.jar:lib/commons-codec-1.4/commons-codec-1.4.jar:benchmark-data
 JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint -encoding UTF-8
