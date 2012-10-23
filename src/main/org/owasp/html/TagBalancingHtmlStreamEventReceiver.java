@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import com.google.common.collect.ImmutableMap;
@@ -86,26 +87,45 @@ public class TagBalancingHtmlStreamEventReceiver
       return;
     }
 
-    // Close all the elements that cannot contain the element to open.
-    List<ElementContainmentInfo> toResumeInReverse = null;
-    for (int i = openElements.size(); --i >= 0;) {
-      ElementContainmentInfo top = openElements.get(i);
-      if ((top.contents & elInfo.types) != 0) { break; }
-      if (openElements.size() < nestingLimit) {
-        underlying.closeTag(top.elementName);
-      }
-      openElements.remove(i);
-      if (top.resumable) {
-        if (toResumeInReverse == null) {
-          toResumeInReverse = Lists.newArrayList();
+    int nOpen = openElements.size();
+    if (nOpen != 0) {
+      ElementContainmentInfo top = openElements.get(nOpen - 1);
+      if ((top.contents & elInfo.types) == 0) {
+        ElementContainmentInfo blockContainerChild = top.blockContainerChild;
+        // Open implied elements, such as list-items and table cells & rows.
+        if (blockContainerChild != null
+            && (blockContainerChild.contents & elInfo.types) != 0) {
+          underlying.openTag(
+              blockContainerChild.elementName, Lists.<String>newArrayList());
+          openElements.add(blockContainerChild);
+          top = blockContainerChild;
+          ++nOpen;
         }
-        toResumeInReverse.add(top);
+      }
+
+      // Close all the elements that cannot contain the element to open.
+      List<ElementContainmentInfo> toResumeInReverse = null;
+      while (true) {
+        if ((top.contents & elInfo.types) != 0) { break; }
+        if (openElements.size() < nestingLimit) {
+          underlying.closeTag(top.elementName);
+        }
+        openElements.remove(--nOpen);
+        if (top.resumable) {
+          if (toResumeInReverse == null) {
+            toResumeInReverse = Lists.newArrayList();
+          }
+          toResumeInReverse.add(top);
+        }
+        if (nOpen == 0) { break; }
+        top = openElements.get(nOpen - 1);
+      }
+
+      if (toResumeInReverse != null) {
+        resume(toResumeInReverse);
       }
     }
 
-    if (toResumeInReverse != null) {
-      resume(toResumeInReverse);
-    }
     if (openElements.size() < nestingLimit) {
       underlying.openTag(elementName, attrs);
     }
@@ -170,7 +190,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
 
   @Immutable
-  static final class ElementContainmentInfo {
+  private static final class ElementContainmentInfo {
     final String elementName;
     /**
      * True if the adoption agency algorithm allows an element to be resumed
@@ -185,15 +205,19 @@ public class TagBalancingHtmlStreamEventReceiver
     final int contents;
     /** True if the element has no content -- not even text content. */
     final boolean isVoid;
+    /** A legal child of this node that can contain block content. */
+    final @Nullable ElementContainmentInfo blockContainerChild;
 
     ElementContainmentInfo(
-        String elementName, boolean resumable, int types, int contents) {
+        String elementName, boolean resumable, int types, int contents,
+        @Nullable ElementContainmentInfo blockContainerChild) {
       this.elementName = elementName;
       this.resumable = resumable;
       this.types = types;
       this.contents = contents;
       this.isVoid = contents == 0
           && HtmlTextEscapingMode.isVoidElement(elementName);
+      this.blockContainerChild = blockContainerChild;
     }
 
     @Override public String toString() {
@@ -255,10 +279,18 @@ public class TagBalancingHtmlStreamEventReceiver
     private ImmutableMap.Builder<String, ElementContainmentInfo> definitions
         = ImmutableMap.builder();
 
-    private void defineElement(
+    private ElementContainmentInfo defineElement(
         String elementName, boolean resumable, int types, int contentTypes) {
-      definitions.put(elementName, new ElementContainmentInfo(
-          elementName, resumable, types, contentTypes));
+      return defineElement(elementName, resumable, types, contentTypes, null);
+    }
+
+    private ElementContainmentInfo defineElement(
+        String elementName, boolean resumable, int types, int contentTypes,
+        @Nullable ElementContainmentInfo blockContainer) {
+      ElementContainmentInfo info = new ElementContainmentInfo(
+          elementName, resumable, types, contentTypes, blockContainer);
+      definitions.put(elementName, info);
+      return info;
     }
 
     private ImmutableMap<String, ElementContainmentInfo> toMap() {
@@ -401,7 +433,7 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.COL_ELEMENT
           ));
-      defineElement(
+      ElementContainmentInfo DD = defineElement(
           "dd", false, elementGroupBits(
               ElementGroup.DL_PART
           ), elementGroupBits(
@@ -437,7 +469,8 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.BLOCK
           ), elementGroupBits(
               ElementGroup.DL_PART
-          ));
+          ),
+          DD);
       defineElement(
           "dt", false, elementGroupBits(
               ElementGroup.DL_PART
@@ -563,7 +596,7 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.INLINE
           ));
-      defineElement(
+      ElementContainmentInfo LI = defineElement(
           "li", false, elementGroupBits(
               ElementGroup.LI_ELEMENT
           ), elementGroupBits(
@@ -619,7 +652,8 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.BLOCK
           ), elementGroupBits(
               ElementGroup.LI_ELEMENT
-          ));
+          ),
+          LI);
       defineElement(
           "optgroup", false, elementGroupBits(
               ElementGroup.OPTIONS_ELEMENT
@@ -733,7 +767,7 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.TR_ELEMENT
           ));
-      defineElement(
+      ElementContainmentInfo TD = defineElement(
           "td", false, elementGroupBits(
               ElementGroup.TD_ELEMENT
           ), elementGroupBits(
@@ -770,7 +804,8 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.TABLE_CONTENT, ElementGroup.TR_ELEMENT
           ), elementGroupBits(
               ElementGroup.FORM_ELEMENT, ElementGroup.TD_ELEMENT
-          ));
+          ),
+          TD);
       defineElement(
           "tt", true, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
@@ -788,7 +823,8 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.BLOCK
           ), elementGroupBits(
               ElementGroup.LI_ELEMENT
-          ));
+          ),
+          LI);
       defineElement(
           "var", false, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
