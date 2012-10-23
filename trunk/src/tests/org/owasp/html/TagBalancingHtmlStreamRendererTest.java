@@ -87,6 +87,25 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  public final void testListInListDirectly() {
+    balancer.openDocument();
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.openTag("li", ImmutableList.<String>of());
+    balancer.text("foo");
+    balancer.closeTag("li");
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.openTag("li", ImmutableList.<String>of());
+    balancer.text("bar");
+    balancer.closeTag("li");
+    balancer.closeTag("ul");
+    balancer.closeTag("ul");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<ul><li>foo</li><li><ul><li>bar</li></ul></li></ul>",
+        htmlOutputBuffer.toString());
+  }
+
   public final void testListNesting() {
     balancer.openDocument();
     balancer.openTag("ul", ImmutableList.<String>of());
@@ -95,14 +114,40 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.openTag("li", ImmutableList.<String>of());
     balancer.text("foo");
     balancer.closeTag("li");
-    balancer.closeTag("li");
+    balancer.closeTag("li");  // Closes the second <ul> as well.
+    // This now appeads inside a list, not an item.  Insert an <li>.
     balancer.openTag("ul", ImmutableList.<String>of());
     balancer.openTag("li", ImmutableList.<String>of());
     balancer.text("bar");
     balancer.closeDocument();
 
     assertEquals(
-        "<ul><li><ul><li>foo</li></ul></li></ul><ul><li>bar</li></ul>",
+        "<ul><li><ul><li>foo</li></ul></li><li><ul><li>bar</li></ul></li></ul>",
+        htmlOutputBuffer.toString());
+  }
+
+  public final void testTableNesting() {
+    balancer.openDocument();
+    balancer.openTag("table", ImmutableList.<String>of());
+    balancer.openTag("tbody", ImmutableList.<String>of());
+    balancer.openTag("tr", ImmutableList.<String>of());
+    balancer.openTag("td", ImmutableList.<String>of());
+    balancer.text("foo");
+    balancer.closeTag("td");
+    // Insert a td to contain this mis-nested table.
+    balancer.openTag("table", ImmutableList.<String>of());
+    balancer.openTag("tbody", ImmutableList.<String>of());
+    balancer.openTag("tr", ImmutableList.<String>of());
+    balancer.openTag("th", ImmutableList.<String>of());
+    balancer.text("bar");
+    balancer.closeTag("table");
+    balancer.closeTag("table");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<table><tbody><tr><td>foo</td><td>"
+        + "<table><tbody><tr><th>bar</th></tr></tbody></table>"
+        + "</td></tr></tbody></table>",
         htmlOutputBuffer.toString());
   }
 
