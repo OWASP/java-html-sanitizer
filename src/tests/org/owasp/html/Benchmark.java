@@ -104,6 +104,11 @@ public class Benchmark {
       t5 = System.nanoTime();
     }
 
+    // Defeat optimization by using n.
+    if (n < 0) {
+      throw new AssertionError("Oh noes underflow");
+    }
+
     if (timeLibhtmlparser) {
       System.err.println(String.format(
           "Tree parse           : %12d", (t1 - t0)));
