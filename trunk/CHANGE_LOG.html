@@ -5,6 +5,9 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="122">Restrict where text-nodes can validly appear in output
+  per HTML5 rules and changed the tag balancer to do better error
+  recovery on misplaced phrasing content.</li>
 <li value="114">Changed rendering to ensure that the output HTML is
   valid XML when the policy prohibits
   <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/syntax.html#raw-text-elements">HTML raw text &amp; RCDATA</a>
