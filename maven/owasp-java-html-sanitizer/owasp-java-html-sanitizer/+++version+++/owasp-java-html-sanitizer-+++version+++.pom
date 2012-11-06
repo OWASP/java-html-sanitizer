@@ -31,7 +31,7 @@
       <!-- http://repo2.maven.org/maven2/com/google/guava/guava/ -->
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>r09</version>
+      <version>11.0</version>
     </dependency>
     <dependency>
       <!-- http://findbugs.googlecode.com/svn/trunk/ -->
