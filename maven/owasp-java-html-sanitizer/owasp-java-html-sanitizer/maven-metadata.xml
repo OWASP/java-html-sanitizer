@@ -9,7 +9,7 @@
   <!-- Version numbers are based on revision control labels -->
   <versioning>
     <!-- Disabled until we cut first release. -->
-    <release>r123</release> <!--##REPLACE##<release>+++version+++</release>##END##-->
+    <release>r129</release> <!--##REPLACE##<release>+++version+++</release>##END##-->
     <versions>
       <version>r30</version>
       <version>r42</version>
@@ -21,11 +21,12 @@
       <version>r106</version>
       <version>r117</version>
       <version>r123</version>
+      <version>r129</version>
       <!--##DUPE##<version>+++version+++</version>##END##-->
       <!-- The line above is a template for generating a new version by the
         - script that cuts a maven release. -->
     </versions>
-    <lastUpdated>20121106162042</lastUpdated> <!--##REPLACE##<lastUpdated>+++timestamp+++</lastUpdated>##END##-->
+    <lastUpdated>20121106172453</lastUpdated> <!--##REPLACE##<lastUpdated>+++timestamp+++</lastUpdated>##END##-->
     <!-- The line above is replaced with the time the last release was cut in
       - YYYYMMDDhhmmss format -->
   </versioning>
