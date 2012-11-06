@@ -106,6 +106,81 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  public final void testTextContent() {
+    balancer.openDocument();
+    balancer.openTag("title", ImmutableList.<String>of());
+    balancer.text("Hello, World!");
+    balancer.closeTag("title");
+    balancer.text("Hello, ");
+    balancer.openTag("b", ImmutableList.<String>of());
+    balancer.text("World!");
+    balancer.closeTag("b");
+    balancer.openTag("p", ImmutableList.<String>of());
+    balancer.text("Hello, ");
+    balancer.openTag("textarea", ImmutableList.<String>of());
+    balancer.text("World!");
+    balancer.closeTag("textarea");
+    balancer.closeTag("p");
+    balancer.openTag("h1", ImmutableList.<String>of());
+    balancer.text("Hello");
+    balancer.openTag("style", ImmutableList.<String>of("type", "text/css"));
+    balancer.text("\n.World {\n  color: blue\n}\n");
+    balancer.closeTag("style");
+    balancer.closeTag("h1");
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.text("\n  ");
+    balancer.openTag("li", ImmutableList.<String>of());
+    balancer.text("Hello,");
+    balancer.closeTag("li");
+    balancer.text("\n  ");
+    balancer.text("World!");
+    balancer.closeDocument();
+
+    assertEquals(
+        // Text and only text allowed in title
+        "<title>Hello, World!</title>"
+        // Text allowed at top level and in phrasing content
+        + "Hello, <b>World!</b>"
+        // Text allowed in block elements and in text areas.
+        + "<p>Hello, <textarea>World!</textarea></p>"
+        + "<h1>Hello"
+        // Text allowed in special style tag.
+        + "<style type=\"text/css\">\n.World {\n  color: blue\n}\n</style></h1>"
+        // Whitespace allowed inside <ul> but non-whitespace text nodes are
+        // moved inside <li>.
+        + "<ul>\n  <li>Hello,</li>\n  <li>World!</li></ul>",
+        htmlOutputBuffer.toString());
+  }
+
+  public final void testMismatchedHeaders() {
+    balancer.openDocument();
+    balancer.openTag("H1", ImmutableList.<String>of());
+    balancer.text("header");
+    balancer.closeTag("h1");
+    balancer.text("body");
+    balancer.openTag("H2", ImmutableList.<String>of());
+    balancer.text("sub-header");
+    balancer.closeTag("h3");
+    balancer.text("sub-body");
+    balancer.openTag("h3", ImmutableList.<String>of());
+    balancer.text("sub-sub-");
+    balancer.closeTag("hr"); // hr is not a header tag so does not close an h3.
+    balancer.text("header");
+    // <h3> is not allowed in h3.
+    balancer.openTag("hr", ImmutableList.<String>of());
+    balancer.closeTag("hr");
+    balancer.text("sub-sub-body");
+    balancer.closeTag("H4");
+    balancer.closeTag("h2");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<h1>header</h1>body"
+        + "<h2>sub-header</h2>sub-body"
+        + "<h3>sub-sub-header</h3><hr />sub-sub-body",
+        htmlOutputBuffer.toString());
+  }
+
   public final void testListNesting() {
     balancer.openDocument();
     balancer.openTag("ul", ImmutableList.<String>of());
@@ -115,7 +190,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.text("foo");
     balancer.closeTag("li");
     balancer.closeTag("li");  // Closes the second <ul> as well.
-    // This now appeads inside a list, not an item.  Insert an <li>.
+    // This now appends inside a list, not an item.  Insert an <li>.
     balancer.openTag("ul", ImmutableList.<String>of());
     balancer.openTag("li", ImmutableList.<String>of());
     balancer.text("bar");
