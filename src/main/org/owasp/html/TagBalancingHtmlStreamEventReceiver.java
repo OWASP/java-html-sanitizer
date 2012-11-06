@@ -87,6 +87,17 @@ public class TagBalancingHtmlStreamEventReceiver
       return;
     }
 
+    prepareForContent(elInfo);
+
+    if (openElements.size() < nestingLimit) {
+      underlying.openTag(elInfo.elementName, attrs);
+    }
+    if (!elInfo.isVoid) {
+      openElements.add(elInfo);
+    }
+  }
+
+  private void prepareForContent(ElementContainmentInfo elInfo) {
     int nOpen = openElements.size();
     if (nOpen != 0) {
       ElementContainmentInfo top = openElements.get(nOpen - 1);
@@ -125,13 +136,6 @@ public class TagBalancingHtmlStreamEventReceiver
         resume(toResumeInReverse);
       }
     }
-
-    if (openElements.size() < nestingLimit) {
-      underlying.openTag(elementName, attrs);
-    }
-    if (!elInfo.isVoid) {
-      openElements.add(elInfo);
-    }
   }
 
   public void closeTag(String elementName) {
@@ -145,7 +149,23 @@ public class TagBalancingHtmlStreamEventReceiver
       return;
     }
     int index = openElements.lastIndexOf(elInfo);
-    if (index < 0) { return; }  // Don't close unopened tags.
+    if (index < 0) {
+      // Let any of </h1>, </h2>, ... close other header tags.
+      if (isHeaderElementName(canonElementName)) {
+        for (int i = openElements.size(); -- i >= 0;) {
+          ElementContainmentInfo openEl = openElements.get(i);
+          if (isHeaderElementName(openEl.elementName)) {
+            elInfo = openEl;
+            index = i;
+            canonElementName = openEl.elementName;
+            break;
+          }
+        }
+      }
+      if (index < 0) {
+        return;  // Don't close unopened tags.
+      }
+    }
     int last = openElements.size();
     // Close all the elements that cannot contain the element to open.
     List<ElementContainmentInfo> toResumeInReverse = null;
@@ -162,7 +182,7 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     if (openElements.size() < nestingLimit) {
-      underlying.closeTag(elementName);
+      underlying.closeTag(elInfo.elementName);
     }
     openElements.remove(index);
     if (toResumeInReverse != null) {
@@ -182,10 +202,27 @@ public class TagBalancingHtmlStreamEventReceiver
     }
   }
 
+  private static final int HTML_SPACE_CHAR_BITMASK =
+      (1 << ' ') | (1 << '\t') | (1 << '\n') | (1 << '\u000c') | (1 << '\r');
+
   public void text(String text) {
+    int n = text.length();
+    for (int i = 0; i < n; ++i) {
+      int ch = text.charAt(i);
+      if (ch > 0x20 || (HTML_SPACE_CHAR_BITMASK & (1 << ch)) == 0) {
+        prepareForContent(ElementContainmentRelationships.CHARACTER_DATA);
+        break;
+      }
+    }
+
     if (openElements.size() < nestingLimit) {
       underlying.text(text);
     }
+  }
+
+  private static boolean isHeaderElementName(String canonElementName) {
+    return canonElementName.length() == 2 && canonElementName.charAt(0) == 'h'
+        && canonElementName.charAt(1) <= '9';
   }
 
 
@@ -250,6 +287,7 @@ public class TagBalancingHtmlStreamEventReceiver
       TR_ELEMENT,
       TD_ELEMENT,
       COL_ELEMENT,
+      CHARACTER_DATA,
       ;
     }
 
@@ -708,7 +746,8 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.OPTION_ELEMENT, ElementGroup.PARAM_ELEMENT,
               ElementGroup.TABLE_ELEMENT, ElementGroup.TR_ELEMENT,
               ElementGroup.TD_ELEMENT, ElementGroup.COL_ELEMENT
-          ), 0);
+          ), elementGroupBits(
+              ElementGroup.CHARACTER_DATA));
       defineElement(
           "select", false, elementGroupBits(
               ElementGroup.INLINE
@@ -742,7 +781,9 @@ public class TagBalancingHtmlStreamEventReceiver
       defineElement(
           "style", false, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.HEAD_CONTENT
-          ), 0);
+          ), elementGroupBits(
+              ElementGroup.CHARACTER_DATA
+          ));
       defineElement(
           "sub", true, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
@@ -776,7 +817,8 @@ public class TagBalancingHtmlStreamEventReceiver
       defineElement(
           "textarea", false,
           // No, a textarea cannot be inside a link.
-          elementGroupBits(ElementGroup.INLINE), 0);
+          elementGroupBits(ElementGroup.INLINE),
+          elementGroupBits(ElementGroup.CHARACTER_DATA));
       defineElement(
           "tfoot", false, elementGroupBits(
               ElementGroup.TABLE_CONTENT
@@ -798,7 +840,8 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.TD_ELEMENT
           ));
       defineElement(
-          "title", false, elementGroupBits(ElementGroup.HEAD_CONTENT), 0);
+          "title", false, elementGroupBits(ElementGroup.HEAD_CONTENT),
+          elementGroupBits(ElementGroup.CHARACTER_DATA));
       defineElement(
           "tr", false, elementGroupBits(
               ElementGroup.TABLE_CONTENT, ElementGroup.TR_ELEMENT
@@ -847,5 +890,13 @@ public class TagBalancingHtmlStreamEventReceiver
           ));
 
     }
+
+    private static final ElementContainmentInfo CHARACTER_DATA
+        = new ElementContainmentInfo(
+            "#text", false,
+            elementGroupBits(
+                ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,
+                ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),
+            0, null);
   }
 }
