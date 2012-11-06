@@ -118,12 +118,13 @@ out/staging.tstamp: out/javadoc.tstamp out/classes.tstamp
 	done
 	echo Bundling compiled classes
 	jar cf out/staging/lib/owasp-java-html-sanitizer.jar -C out org
-	echo Bundling sources
+	echo Bundling sources and docs
 	for f in $$(find src/main -name \*.java); do \
 	  mkdir -p out/staging/"$$(dirname $$f)"; \
 	  cp "$$f" out/staging/"$$f"; \
 	done
-	jar cf out/staging/lib/owasp-java-html-sanitizer-src.jar -C out/staging/src/main org
+	jar cf out/staging/lib/owasp-java-html-sanitizer-sources.jar -C out/staging/src/main org
+	jar cf out/staging/lib/owasp-java-html-sanitizer-javadoc.jar -C out javadoc
 	rm -rf out/staging/src
 	cp COPYING out/staging/lib/owasp-java-html-sanitizer-COPYING
 	touch $@

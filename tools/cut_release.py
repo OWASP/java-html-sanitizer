@@ -45,7 +45,12 @@ if "__main__" == __name__:
     trunk_directory_path,
     "distrib",
     "lib",
-    "owasp-java-html-sanitizer-src.jar")
+    "owasp-java-html-sanitizer-sources.jar")
+  doc_jar_path = os.path.join(
+    trunk_directory_path,
+    "distrib",
+    "lib",
+    "owasp-java-html-sanitizer-javadoc.jar")
 
   # Make sure the directory_structures we expect exist.
   assert os.path.isdir(maven_directory_path), maven_directory_path
@@ -55,6 +60,7 @@ if "__main__" == __name__:
          version_template_directory_path)
   assert os.path.isfile(jar_path), jar_path
   assert os.path.isfile(src_jar_path), src_jar_path
+  assert os.path.isfile(doc_jar_path), doc_jar_path
 
   # Get svn info of the trunk directory.
   svn_info_xml = (
@@ -136,10 +142,14 @@ if "__main__" == __name__:
     "owasp-java-html-sanitizer-+++version+++.jar")
   versioned_src_jar_path = os.path.join(
     version_template_directory_path,
-    "owasp-java-html-sanitizer-+++version+++-src.jar")
+    "owasp-java-html-sanitizer-+++version+++-sources.jar")
+  versioned_doc_jar_path = os.path.join(
+    version_template_directory_path,
+    "owasp-java-html-sanitizer-+++version+++-javadoc.jar")
 
   shutil.copyfile(jar_path, versioned_jar_path)
   shutil.copyfile(src_jar_path, versioned_src_jar_path)
+  shutil.copyfile(doc_jar_path, versioned_doc_jar_path)
   ok = False
   version_directory_path = None
   try:
@@ -151,6 +161,7 @@ if "__main__" == __name__:
   finally:
     os.unlink(versioned_jar_path)
     os.unlink(versioned_src_jar_path)
+    os.unlink(versioned_doc_jar_path)
     if not ok and version_directory_path is not None:
       shutil.rmtree(version_directory_path)
 
