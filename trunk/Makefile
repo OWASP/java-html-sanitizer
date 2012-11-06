@@ -20,6 +20,9 @@ help:
 	@echo "  release  - Additionally, cut a new Maven version."
 	@echo "             Should be run from client that has sibling"
 	@echo "             directories of trunk checked out."
+	@echo "  download - Bundle docs, externally required jars, and"
+	@echo "             license files into a zip file suitable for"
+	@echo "             the code.google site downloads."
 
 
 CLASSPATH=lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar
@@ -131,3 +134,14 @@ release: out/run_me_before_committing_maven.sh
 out/run_me_before_committing_maven.sh: distrib
 	tools/cut_release.py > $@
 	chmod +x $@
+
+download: out/owasp-java-html-sanitizer.zip
+out/zip.tstamp: out/staging.tstamp
+	rm -f out/zip/owasp-java-html-sanitizer
+	mkdir -p out/zip/owasp-java-html-sanitizer
+	cp -r out/staging/lib out/staging/javadoc \
+	    out/zip/owasp-java-html-sanitizer/
+	touch $@
+out/owasp-java-html-sanitizer.zip: out/zip.tstamp
+	jar cMf out/owasp-java-html-sanitizer.zip \
+	    -C out/zip owasp-java-html-sanitizer
