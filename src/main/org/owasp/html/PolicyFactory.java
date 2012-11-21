@@ -36,6 +36,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * A factory that can be used to link a sanitizer to an output receiver and that
@@ -52,21 +53,23 @@ public final class PolicyFactory
     implements Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> {
 
   private final ImmutableMap<String, ElementAndAttributePolicies> policies;
+  private final ImmutableSet<String> textContainers;
   private final boolean allowStyling;
 
   PolicyFactory(ImmutableMap<String, ElementAndAttributePolicies> policies,
-          boolean allowStyling) {
+                ImmutableSet<String> textContainers, boolean allowStyling) {
     this.policies = policies;
+    this.textContainers = textContainers;
     this.allowStyling = allowStyling;
   }
 
   /** Produces a sanitizer that emits tokens to {@code out}. */
   public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {
     if (allowStyling) {
-      return new StylingPolicy(out, policies);
+      return new StylingPolicy(out, policies, textContainers);
     } else {
       return new ElementAndAttributePolicyBasedSanitizerPolicy(
-          out, policies);
+          out, policies, textContainers);
     }
   }
 
@@ -148,6 +151,18 @@ public final class PolicyFactory
         b.put(elName, e.getValue());
       }
     }
-    return new PolicyFactory(b.build(), allowStyling || f.allowStyling);
+    ImmutableSet<String> textContainers;
+    if (this.textContainers.containsAll(f.textContainers)) {
+      textContainers = this.textContainers;
+    } else if (f.textContainers.containsAll(this.textContainers)) {
+      textContainers = f.textContainers;
+    } else {
+      textContainers = ImmutableSet.<String>builder()
+        .addAll(this.textContainers)
+        .addAll(f.textContainers)
+        .build();
+    }
+    return new PolicyFactory(
+        b.build(), textContainers, allowStyling || f.allowStyling);
   }
 }

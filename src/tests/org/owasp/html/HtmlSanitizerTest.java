@@ -135,7 +135,7 @@ public class HtmlSanitizerTest extends TestCase {
     // The difference is significant because in the first, the item contains no
     // space after 'A", but in the third, the item contains 'C' and a space.
     assertEquals(
-        "<ol> <li>A</li> <li>B</li><li>C </li></ol>",
+        "<ol><li>A</li><li>B</li><li>C </li></ol>",
         sanitize("<ol> <li>A</li> <li>B<li>C </ol>"));
   }
 
@@ -298,6 +298,15 @@ public class HtmlSanitizerTest extends TestCase {
             + "</b>!"));
   }
 
+  public final void testScriptInIframe() throws Exception {
+    assertEquals(
+        "<iframe></iframe>",
+        sanitize(
+            "<iframe>\n"
+            + "  <script>alert(Hi)</script>\n"
+            + "</iframe>"));
+  }
+
   private static String sanitize(@Nullable String html) throws Exception {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -311,7 +320,7 @@ public class HtmlSanitizerTest extends TestCase {
     HtmlSanitizer.Policy policy = new HtmlPolicyBuilder()
         // Allow these tags.
        .allowElements(
-           "a", "b", "br", "div", "i", "img", "input", "li",
+           "a", "b", "br", "div", "i", "iframe", "img", "input", "li",
            "ol", "p", "span", "ul", "noscript", "noframes", "noembed", "noxss")
        // And these attributes.
        .allowAttributes(

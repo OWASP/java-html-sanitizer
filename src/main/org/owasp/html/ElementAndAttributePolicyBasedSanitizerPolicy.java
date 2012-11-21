@@ -46,6 +46,7 @@ import com.google.common.collect.Lists;
 class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy {
   final ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies;
+  final ImmutableSet<String> allowedTextContainers;
   private final HtmlStreamEventReceiver out;
   /**
    * True to skip textual content.  Used to ignore the content of embedded CDATA
@@ -60,9 +61,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
-      ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies) {
+      ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies,
+      ImmutableSet<String> allowedTextContainers) {
     this.out = out;
     this.elAndAttrPolicies = elAndAttrPolicies;
+    this.allowedTextContainers = allowedTextContainers;
   }
 
   static final ImmutableSet<String> SKIPPABLE_ELEMENT_CONTENT
@@ -102,7 +105,6 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     if (adjustedElementName != null
         && !(attrs.isEmpty() && policies.skipIfEmpty)) {
-      skipText = false;
       writeOpenTag(policies, adjustedElementName, attrs);
       return;
     }
@@ -143,7 +145,6 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void closeTag(String elementName) {
-    skipText = false;
     int n = openElementStack.size();
     for (int i = n; i > 0;) {
       i -= 2;
@@ -156,7 +157,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           }
         }
         openElementStack.subList(i, n).clear();
-        return;
+        break;
+      }
+    }
+    skipText = false;
+    for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
+      String adjustedName = openElementStack.get(i);
+      if (adjustedName != null) {
+        skipText = !(allowedTextContainers.contains(adjustedName));
+        break;
       }
     }
   }
@@ -167,6 +176,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     if (!policies.isVoid) {
       openElementStack.add(policies.elementName);
       openElementStack.add(adjustedElementName);
+      skipText = !allowedTextContainers.contains(adjustedElementName);
     }
     out.openTag(adjustedElementName, attrs);
   }

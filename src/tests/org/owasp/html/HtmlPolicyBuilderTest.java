@@ -215,7 +215,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<p>Stylish Para 2</p>",
             ""),
         apply(new HtmlPolicyBuilder()
-              .allowElements("h1", "p")
+              .allowElements("h1", "p", "div")
               .allowElements(
                   new ElementPolicy() {
                     public String apply(

@@ -171,6 +171,7 @@ public class HtmlPolicyBuilder {
   private final Set<String> allowedProtocols = Sets.newLinkedHashSet();
   private final Set<String> skipIfEmpty = Sets.newLinkedHashSet(
       DEFAULT_SKIP_IF_EMPTY);
+  private final Map<String, Boolean> textContainers = Maps.newLinkedHashMap();
   private boolean requireRelNofollowOnLinks, allowStyling;
 
   /**
@@ -206,6 +207,11 @@ public class HtmlPolicyBuilder {
       // that to infect later allowElement calls for this particular element
       // name.  rejects should have higher priority than allows.
       elPolicies.put(elementName, newPolicy);
+      if (!textContainers.containsKey(elementName)
+          && TagBalancingHtmlStreamEventReceiver
+              .allowsPlainTextualContent(elementName)) {
+        textContainers.put(elementName, true);
+      }
     }
     return this;
   }
@@ -226,6 +232,35 @@ public class HtmlPolicyBuilder {
     return allowElements(
         "p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li",
         "blockquote");
+  }
+
+  /**
+   * Allows text content in the named elements.
+   * By default, text content is allowed in any
+   * {@link #allowElements allowed elements} that can contain character data per
+   * the HTML5 spec, but text content is not allowed by default in elements that
+   * contain content of other kinds (like JavaScript in {@code <script>}
+   * elements.
+   * <p>
+   * To write a policy that whitelists {@code <script>} or {@code <style>}
+   * elements, first {@code allowTextIn("script")}.
+   */
+  public HtmlPolicyBuilder allowTextIn(String... elementNames) {
+    invalidateCompiledState();
+    for (String elementName : elementNames) {
+      elementName = HtmlLexer.canonicalName(elementName);
+      textContainers.put(elementName, true);
+    }
+    return this;
+  }
+
+  public HtmlPolicyBuilder disallowTextIn(String... elementNames) {
+    invalidateCompiledState();
+    for (String elementName : elementNames) {
+      elementName = HtmlLexer.canonicalName(elementName);
+      textContainers.put(elementName, false);
+    }
+    return this;
   }
 
   /**
@@ -436,7 +471,15 @@ public class HtmlPolicyBuilder {
    * each backed by a different output channel.
    */
   public PolicyFactory toFactory() {
-    return new PolicyFactory(compilePolicies(), allowStyling);
+    ImmutableSet.Builder<String> textContainers = ImmutableSet.builder();
+    for (Map.Entry<String, Boolean> textContainer
+         : this.textContainers.entrySet()) {
+      if (Boolean.TRUE.equals(textContainer.getValue())) {
+        textContainers.add(textContainer.getKey());
+  }
+    }
+    return new PolicyFactory(
+        compilePolicies(), textContainers.build(), allowStyling);
   }
 
   // Speed up subsequent builds by caching the compiled policies.

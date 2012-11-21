@@ -262,7 +262,8 @@ public class TagBalancingHtmlStreamEventReceiver
     }
   }
 
-  ImmutableMap<String, ElementContainmentInfo> ELEMENT_CONTAINMENT_RELATIONSHIPS
+  static final ImmutableMap<String, ElementContainmentInfo>
+      ELEMENT_CONTAINMENT_RELATIONSHIPS
       = new ElementContainmentRelationships().toMap();
 
   private static class ElementContainmentRelationships {
@@ -898,5 +899,23 @@ public class TagBalancingHtmlStreamEventReceiver
                 ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,
                 ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),
             0, null);
+  }
+
+  static boolean allowsPlainTextualContent(String canonElementName) {
+    ElementContainmentInfo info =
+       ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);
+    if (info == null || (info.contents & ElementContainmentRelationships.CHARACTER_DATA.types) != 0) {
+      switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {
+        case PCDATA:     return true;
+        case RCDATA:     return true;
+        case PLAIN_TEXT: return true;
+        case VOID:       return false;
+        case CDATA:
+        case CDATA_SOMETIMES:
+          return "xmp".equals(canonElementName)
+              || "listing".equals(canonElementName);
+      }
+    }
+    return false;
   }
 }
