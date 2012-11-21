@@ -47,8 +47,9 @@ import com.google.common.collect.Lists;
 class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
   StylingPolicy(
       HtmlStreamEventReceiver out,
-      ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies) {
-    super(out, elAndAttrPolicies);
+      ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies,
+      ImmutableSet<String> allowedTextContainers) {
+    super(out, elAndAttrPolicies, allowedTextContainers);
   }
 
   @Override public void openTag(String elementName, List<String> attrs) {
@@ -77,7 +78,6 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       // If we have something to output, emit it.
       if (!(attrs.isEmpty() && policies.skipIfEmpty
             && fontAttributes == null)) {
-        skipText = false;
         writeOpenTag(policies, adjustedElementName, attrs);
         if (fontAttributes != null) {
           synthesizeOpenTag("font", fontAttributes);
