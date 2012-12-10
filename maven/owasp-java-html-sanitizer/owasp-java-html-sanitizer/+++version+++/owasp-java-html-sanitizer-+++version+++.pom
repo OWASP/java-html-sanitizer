@@ -38,6 +38,16 @@
       <timezone>-5</timezone>
     </developer>
   </developers>
+  <mailingLists>
+    <mailingList>
+      <name>User Support</name>
+      <archive>http://groups.google.com/group/owasp-java-html-sanitizer-support</archive>
+    </mailingList>
+    <mailingList>
+      <name>Announcements</name>
+      <archive>http://groups.google.com/group/owasp-java-html-sanitizer-announce</archive>
+    </mailingList>
+  </mailingLists>
   <dependencies>
     <dependency>
       <!-- http://repo2.maven.org/maven2/com/google/guava/guava/ -->
