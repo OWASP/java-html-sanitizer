@@ -6,7 +6,7 @@
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>owasp-java-html-sanitizer</artifactId>
-  <groupId>owasp-java-html-sanitizer</groupId>
+  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <!--##REPLACE##<version>+++version+++</version>##END##-->
   <packaging>jar</packaging>
   <name>OWASP Java HTML Sanitizer</name>
@@ -24,6 +24,7 @@
     <license>
       <name>New BSD License</name>
       <url>http://www.opensource.org/licenses/bsd-license.php</url>
+      <distribution>repo</distribution>
     </license>
   </licenses>
   <scm>
