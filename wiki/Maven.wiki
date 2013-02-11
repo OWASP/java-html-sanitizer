@@ -1,32 +1,22 @@
-#summary Specifying a maven dependency on this project.
+#summary Using with Maven.
 #labels Phase-Deploy
 
-= Specifying a maven dependency on the HTML Sanitizer =
+= Using with Maven =
 
-First, you need to tell `maven` where to look for the metadata.
-Add the below to the `<project>` element in your `pom.xml`, or if it already has a `<repositories>` element, just add the `<repository>` to the existing one.
-{{{
-  <repositories>
-    <repository>
-      <id>owasp-java-html-sanitizer</id>
-      <url>http://owasp-java-html-sanitizer.googlecode.com/svn/maven</url>
-    </repository>
-  </repositories>
-}}}
+The HTML Sanitizer is available from [http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22owasp-java-html-sanitizer%22 Maven Central]
 
-Second, you need to add a dependency.  Copy the `<dependency>` element below into the `<dependencies>` element in your `pom.xml` file.
+Including among your POMs `<dependencies>` this snippet of XML
 
-{{{
     <dependency>
-      <groupId>owasp-java-html-sanitizer</groupId>
-      <artifactId>owasp-java-html-sanitizer</artifactId>
-      <version>r123</version>
-      <scope>compile</scope>
+        <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+        <artifactId>owasp-java-html-sanitizer</artifactId>
+        <version>r136</version>
     </dependency>
-}}}
 
-Third, you should choose a recent version.  Release `r123` was recent in late 2012 but look at the [http://owasp-java-html-sanitizer.googlecode.com/svn/maven/owasp-java-html-sanitizer/owasp-java-html-sanitizer/maven-metadata.xml maven metadata] and pick the most recent version which should be inside `<release>...</release>`.  There are no unstable releases in maven.  Bigger numbers are more recent and the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/CHANGE_LOG.html change log] can shed light on the salient differences.
+will make the sanitizer available.
 
-Fourth, there is no fourth.  You should be able to build with the HTML sanitizer.  You can peruse the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/index.html javadoc], and if you have questions that aren't answered by these wiki pages, you can ask on the [http://groups.google.com/group/owasp-java-html-sanitizer-support mailing list].
+Be sure to change the [ http://docs.codehaus.org/display/MAVEN/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges `<version>`] contents to a range suitable to your project.  There are no unstable releases in maven.  Bigger numbers are more recent and the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/CHANGE_LOG.html change log] can shed light on the salient differences.
+
+You should be able to build with the HTML sanitizer.  You can peruse the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/index.html javadoc], and if you have questions that aren't answered by these wiki pages, you can ask on the [http://groups.google.com/group/owasp-java-html-sanitizer-support mailing list].
 
 Happy sanitizing...
