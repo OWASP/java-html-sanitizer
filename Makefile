@@ -31,31 +31,44 @@ TEST_CLASSPATH=$(CLASSPATH):lib/htmlparser-1.3/htmlparser-1.3.jar:lib/junit/juni
 JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint -encoding UTF-8
 
 
+out:
+	mkdir out
+
+out/classes: out
+	mkdir out/classes
+
+out/genfiles: out
+	mkdir out/genfiles
+
 clean:
 	rm -rf out
 
-out:
-	mkdir -p out
-
 classes: out/classes.tstamp
-out/classes.tstamp: out src/main/org/owasp/html/*.java
-	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH} -d out \
+out/classes.tstamp: out/classes src/main/org/owasp/html/*.java
+	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH} -d out/classes \
 	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/classes.tstamp
 
 examples: out/examples.tstamp
 out/examples.tstamp: out/classes.tstamp src/main/org/owasp/html/examples/*.java
-	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH}:out -d out \
+	javac -g ${JAVAC_FLAGS} -classpath ${CLASSPATH}:out/classes \
+	  -d out/classes \
 	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/examples.tstamp
 
 # Depends on all java files under tests.
 tests: out/tests.tstamp
-out/tests.tstamp: out out/classes.tstamp out/examples.tstamp src/tests/org/owasp/html/*.java out/org/owasp/html/AllExamples.java out/org/owasp/html/AllTests.java
-	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out \
+out/tests.tstamp: out/classes.tstamp out/genfiles.tstamp out/examples.tstamp src/tests/org/owasp/html/*.java
+	javac -g ${JAVAC_FLAGS} \
+          -classpath out/classes:out/genfiles:${TEST_CLASSPATH} \
+	  -d out/classes \
 	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/tests.tstamp
-out/org/owasp/html/AllTests.java: src/tests/org/owasp/html/*Test.java
+
+out/genfiles.tstamp: out/genfiles/org/owasp/html/AllExamples.java out/genfiles/org/owasp/html/AllTests.java
+	touch out/genfiles.tstamp
+out/genfiles/org/owasp/html/AllTests.java: src/tests/org/owasp/html/*Test.java
+	mkdir -p "$$(dirname $@)"
 	(echo 'package org.owasp.html;'; \
          echo 'import junit.framework.Test;'; \
          echo 'import junit.framework.TestSuite;'; \
@@ -70,7 +83,8 @@ out/org/owasp/html/AllTests.java: src/tests/org/owasp/html/*Test.java
 	 echo '}'; \
 	) > $@
 
-out/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*.java
+out/genfiles/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*.java
+	mkdir -p "$$(dirname $@)"
 	(echo 'package org.owasp.html;'; \
 	 echo 'final class AllExamples {'; \
 	 echo '  static final Class<?>[] CLASSES = {'; \
@@ -82,7 +96,7 @@ out/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*.java
 	) > $@
 
 runtests: tests
-	java -classpath out:src/tests:${TEST_CLASSPATH} \
+	java -classpath out/classes:src/tests:${TEST_CLASSPATH} \
 	    junit.textui.TestRunner org.owasp.html.AllTests
 
 coverage: tests
@@ -91,8 +105,8 @@ coverage: tests
 	  -Demma.report.out.encoding=UTF-8 \
 	  emmarun \
 	  -r html \
-	  -cp out:src/tests:lib/junit/junit.jar \
-	  -sp src/main:src/tests:out \
+	  -cp out/classes:src/tests:lib/junit/junit.jar \
+	  -sp src/main:src/tests:out/genfiles \
 	  -f \
 	  -ix '-junit.*' \
 	  -ix '-org.junit.*' \
@@ -104,18 +118,19 @@ coverage: tests
 findbugs: out/findbugs.txt
 	cat $^
 out/findbugs.txt: out/tests.tstamp
-	find out/org -type d | \
+	find out/classes/org -type d | \
 	  xargs tools/findbugs-1.3.9/bin/findbugs -textui -effort:max \
 	  -auxclasspath ${TEST_CLASSPATH} > $@
 
 # Runs a benchmark that compares performance.
 benchmark: out/tests.tstamp
-	java -cp ${TEST_CLASSPATH}:out org.owasp.html.Benchmark benchmark-data/Yahoo\!.html
+	java -cp ${TEST_CLASSPATH}:out/classes \
+	  org.owasp.html.Benchmark benchmark-data/Yahoo\!.html
 
 # Profiles the benchmark.
 profile: out/java.hprof.txt
 out/java.hprof.txt: out/tests.tstamp
-	java -cp ${TEST_CLASSPATH}:out -agentlib:hprof=cpu=times,format=a,file=out/java.hprof.txt,lineno=y,doe=y org.owasp.html.Benchmark benchmark-data/Yahoo\!.html s
+	java -cp ${TEST_CLASSPATH}:out/classes -agentlib:hprof=cpu=times,format=a,file=out/java.hprof.txt,lineno=y,doe=y org.owasp.html.Benchmark benchmark-data/Yahoo\!.html s
 
 # Builds the documentation.
 javadoc: out/javadoc.tstamp
@@ -155,7 +170,7 @@ out/staging.tstamp: out/javadoc.tstamp out/classes.tstamp
 	  cp "$$(dirname $$jar)"/COPYING out/staging/lib/"$$(basename $$jar .jar)"-COPYING; \
 	done
 	echo Bundling compiled classes
-	jar cf out/staging/lib/owasp-java-html-sanitizer.jar -C out org
+	jar cf out/staging/lib/owasp-java-html-sanitizer.jar -C out/classes org
 	echo Bundling sources and docs
 	for f in $$(find src/main -name \*.java); do \
 	  mkdir -p out/staging/"$$(dirname $$f)"; \
