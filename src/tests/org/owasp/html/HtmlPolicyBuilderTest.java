@@ -190,11 +190,10 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<p>Click me out</p>",
             "<p></p>",
             "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
-            ("</p><p><font align=\"center\""
-             + " style=\"font-weight:bold\">"
-             + "Stylish Para 1</font></p>"),
-            ("<p><font style=\"font-weight:bold;direction:rtl;color:#f00\">"
-             + "Stylish Para 2</font></p>"),
+            ("</p><p style=\"text-align:center;font-weight:bold\">"
+             + "Stylish Para 1</p>"),
+            ("<p style=\"font-weight:bold;direction:rtl;color:#f00\">"
+             + "Stylish Para 2</p>"),
             ""),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()

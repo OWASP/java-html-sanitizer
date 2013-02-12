@@ -28,10 +28,11 @@
 
 package org.owasp.html;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import javax.annotation.Nullable;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -40,53 +41,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 /**
- * An HTML sanitizer policy that tries to preserve simple CSS by converting it
- * to {@code <font>} tags which allow fewer ways to embed JavaScript.
+ * An HTML sanitizer policy that tries to preserve simple CSS by whitelisting
+ * property values and splitting combo properties into multiple more specific
+ * ones to reduce the attack-surface.
  */
 @TCB
-class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
-  StylingPolicy(
-      HtmlStreamEventReceiver out,
-      ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies,
-      ImmutableSet<String> allowedTextContainers) {
-    super(out, elAndAttrPolicies, allowedTextContainers);
-  }
+class StylingPolicy implements AttributePolicy {
 
-  @Override public void openTag(String elementName, List<String> attrs) {
-    // Parts of the superclass method are repeated here, so if you change this,
-    // be sure to check the super-class.
-    String style = null;
-    for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
-      String name = it.next();
-      if ("style".equals(name)) {
-        style = it.next();
-        break;
-      } else {
-        it.next();
-      }
-    }
-    ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
-    String adjustedElementName = applyPolicies(elementName, attrs, policies);
-    if (adjustedElementName != null) {
-      List<String> fontAttributes = null;
-      if (style != null) {
-        fontAttributes = cssPropertiesToFontAttributes(style);
-        if (fontAttributes.isEmpty()) {
-          fontAttributes = null;
-        }
-      }
-      // If we have something to output, emit it.
-      if (!(attrs.isEmpty() && policies.skipIfEmpty
-            && fontAttributes == null)) {
-        writeOpenTag(policies, adjustedElementName, attrs);
-        if (fontAttributes != null) {
-          synthesizeOpenTag("font", fontAttributes);
-          // Rely on the tag balancer to close it.
-        }
-        return;
-      }
-    }
-    deferOpenTag(elementName);
+  public @Nullable String apply(
+      String elementName, String attributeName, String value) {
+    return value != null ? sanitizeCssProperties(value) : null;
   }
 
   /** Used to track CSS property names while processing CSS. */
@@ -107,13 +71,16 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
   }
 
   private static final Pattern ALLOWED_CSS_SIZE = Pattern.compile(
-      "medium|(?:small|large)r|(?:xx?-)(?:small|large)|[0-9]+(p[tx]|%)");
+      "medium|smaller|larger|(?:xx?-)(?:small|large)|[0-9]+(p[tx]|%)");
 
   private static final Pattern ALLOWED_CSS_WEIGHT = Pattern.compile(
       "normal|bold(?:er)?|lighter|[1-9]00");
 
-  private static final Set<String> ALLOWED_CSS_STYLE = ImmutableSet.of(
+  private static final Set<String> ALLOWED_FONT_STYLE = ImmutableSet.of(
       "italic", "oblique", "normal");
+
+  private static final Set<String> ALLOWED_TEXT_ALIGN = ImmutableSet.of(
+      "start", "end", "left", "right", "center", "justify");
 
   private static final Set<String> ALLOWED_TEXT_DECORATION = ImmutableSet.of(
       "underline", "overline", "line-through");
@@ -141,15 +108,14 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       .build();
 
   /**
-   * Lossy conversion from CSS properties into the attributes of a
-   * <code>&lt;font&gt;</code> tag that allows textual styling that affects
+   * Lossy filtering of CSS properties that allows textual styling that affects
    * layout, but does not allow breaking out of a clipping region, absolute
    * positioning, image loading, tab index changes, or code execution.
    *
-   * @return A list of alternating attribute names and values.
+   * @return A sanitized version of the input.
    */
   @VisibleForTesting
-  static List<String> cssPropertiesToFontAttributes(String style) {
+  static String sanitizeCssProperties(String style) {
 
     // We walk over CSS tokens to extract salient bits.
     class StyleExtractor implements CssGrammar.PropertyHandler {
@@ -157,7 +123,8 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
 
       // Values that are not-whitelisted are put into font attributes to render
       // the innocuous.
-      StringBuilder face, color, backgroundColor;
+      List<String> faces;
+      StringBuilder color, backgroundColor;
       String align;
       // These values are white-listed so we know they can't affect anything
       // other than font-face appearance, and layout.
@@ -175,8 +142,8 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       public void quotedString(String token) {
         switch (type) {
           case FONT: case FACE:
-            if (face == null) { face = new StringBuilder(); }
-            face.append(' ').append(CssGrammar.cssContent(token));
+            if (faces == null) { faces = Lists.newArrayList(); }
+            faces.add(token);
             break;
           default: break;
         }
@@ -192,8 +159,8 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
             }
             break;
           case FACE:
-            if (face == null) { face = new StringBuilder(); }
-            face.append(' ').append(token);
+            if (faces == null) { faces = Lists.newArrayList(); }
+            faces.add(token);
             break;
           case BACKGROUND_COLOR:
             if (backgroundColor == null) {
@@ -235,8 +202,8 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
             }
             break;
           case FACE:
-            if (face == null) { face = new StringBuilder(); }
-            face.append(' ').append(token);
+            if (faces == null) { faces = Lists.newArrayList(); }
+            faces.add(token);
             break;
           case FONT:
             token = Strings.toLowerCase(token);
@@ -244,11 +211,11 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
               cssWeight = token;
             } else if (ALLOWED_CSS_SIZE.matcher(token).matches()) {
               cssSize = token;
-            } else if (ALLOWED_CSS_STYLE.contains(token)) {
+            } else if (ALLOWED_FONT_STYLE.contains(token)) {
               cssFontStyle = token;
             } else {
-              if (face == null) { face = new StringBuilder(); }
-              face.append(' ').append(token);
+              if (faces == null) { faces = Lists.newArrayList(); }
+              faces.add(token);
             }
             break;
           case BACKGROUND_COLOR:
@@ -265,12 +232,15 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
             break;
           case STYLE:
             token = Strings.toLowerCase(token);
-            if (ALLOWED_CSS_STYLE.contains(token)) {
+            if (ALLOWED_FONT_STYLE.contains(token)) {
               cssFontStyle = token;
             }
             break;
           case ALIGN:
-            align = token;
+            token = Strings.toLowerCase(token);
+            if (ALLOWED_TEXT_ALIGN.contains(token)) {
+              align = token;
+            }
             break;
           case DIRECTION:
             token = Strings.toLowerCase(token);
@@ -299,7 +269,7 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           case FACE: case FONT:
             // Commas separate font-families since HTML fonts fall-back to
             // simpler forms based on the installed font-set.
-            if (",".equals(token) && face != null) { face.append(','); }
+            if (",".equals(token) && faces != null) { faces.add(","); }
             break;
           case BACKGROUND_COLOR:
             // Parentheses and commas in the rgb(...) color form.
@@ -318,19 +288,17 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       }
 
       @TCB
-      List<String> toFontAttributes() {
-        List<String> fontAttributes = Lists.newArrayList();
-        if (face != null) {
-          fontAttributes.add("face");
-          fontAttributes.add(face.toString().trim());
-        }
-        if (align != null) {
-          fontAttributes.add("align");
-          fontAttributes.add(align);
-        }
+      String toCssProperties() {
         ImmutableList<String> styleParts;
         {
           ImmutableList.Builder<String> b = ImmutableList.builder();
+          String face = sanitizeFontFamilies(faces);
+          if (face != null) {
+            b.add("font-family").add(face);
+          }
+          if (align != null) {
+            b.add("text-align").add(align);
+          }
           if (cssWeight != null) {
             b.add("font-weight").add(cssWeight);
           }
@@ -374,18 +342,17 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
           if (len != 0 && cssProperties.charAt(len - 1) == ';') {
             cssProperties.setLength(len - 1);
           }
-          fontAttributes.add("style");
-          fontAttributes.add(cssProperties.toString());
+          return cssProperties.toString();
+        } else {
+          return null;
         }
-
-        return fontAttributes;
       }
     }
 
 
     StyleExtractor extractor = new StyleExtractor();
     CssGrammar.asPropertyGroup(style, extractor);
-    return extractor.toFontAttributes();
+    return extractor.toCssProperties();
   }
 
   /**
@@ -644,4 +611,104 @@ class StylingPolicy extends ElementAndAttributePolicyBasedSanitizerPolicy {
       .put("yellow", "#ff0")
       .put("yellowgreen", "#9acd32")
       .build();
+
+  static @Nullable String sanitizeFontFamilies(
+      @Nullable List<String> families) {
+    if (families == null) { return null; }
+    StringBuilder css = new StringBuilder();
+    int nFamilies = families.size();
+    for (int i = 0; i < nFamilies; ++i) {
+      String token = families.get(i);
+      if (",".equals(token)) { continue; }
+      int familyEnd = i + 1;
+      while (familyEnd < nFamilies && !",".equals(families.get(familyEnd))) {
+        ++familyEnd;
+      }
+      int cssFamilyStart = css.length();
+      if (!sanitizeFontFamilyOnto(families.subList(i, familyEnd), css)) {
+        css.setLength(cssFamilyStart);
+      }
+      i = familyEnd;
+    }
+    return css.length() == 0 ? null : css.toString();
+  }
+
+  private static boolean sanitizeFontFamilyOnto(
+      List<String> tokens, StringBuilder out) {
+    int n = tokens.size();
+    if (n == 0) { return false; }
+    if (out.length() != 0) { out.append(','); }
+    if (n == 1) {
+      String token = tokens.get(0);
+      if (token.length() != 0
+          && (token.charAt(0) == '"' || token.charAt(0) == '\'')) {
+        token = CssGrammar.cssContent(token).trim();
+        if (!isNonEmptyAsciiAlnumSpaceSeparated(token)) { return false; }
+        out.append('"').append(token).append('"');
+        return true;
+      }
+      token = Strings.toLowerCase(token);
+      if (GENERIC_FONT_FAMILIES.contains(token)) {
+        out.append(token);
+        return true;
+      }
+    }
+    // Quote space separated words so that they are not confused with user-agent
+    // extensions like expression(...) or -webkit-small-control.
+    out.append('"');
+    for (int i = 0; i < n; ++i) {
+      String token = tokens.get(i);
+      if (!isNonEmptyAsciiAlnum(token)) { return false; }
+      if (i != 0) { out.append(' '); }
+      out.append(token);
+    }
+    out.append('"');
+    return true;
+  }
+
+  // Intentionally excludes -webkit-small-control an similar user-agent
+  // extensions since allowing skinning oF OS controls is a potential trusted
+  // path violation.
+  private static Set<String> GENERIC_FONT_FAMILIES = ImmutableSet.of(
+      "serif", "sans-serif", "cursive", "fantasy", "monospace");
+
+  static boolean isNonEmptyAsciiAlnumSpaceSeparated(String s) {
+    int i = 0;
+    int n = s.length();
+    while (i < n && s.charAt(i) == ' ') { ++i; }
+    while (n > i && s.charAt(n - 1) == ' ') { --n; }
+    if (i == n) { return false; }
+    while (i < n) {
+      int e = i + 1;
+      while (e < n && s.charAt(e) != ' ') {
+        ++e;
+      }
+      if (!isNonEmptyAsciiAlnum(s.substring(i, e))) {
+        return false;
+      }
+      i = e;
+      while (i < n && s.charAt(i) == ' ') { ++i; }
+    }
+    return true;
+  }
+
+  private static final boolean[] ASCII_ALNUM = new boolean['z' + 1];
+  static {
+    for (int i = '0'; i <= '9'; ++i) { ASCII_ALNUM[i] = true; }
+    for (int i = 'A'; i <= 'Z'; ++i) { ASCII_ALNUM[i] = true; }
+    for (int i = 'a'; i <= 'z'; ++i) { ASCII_ALNUM[i] = true; }
+  }
+
+  private static boolean isNonEmptyAsciiAlnum(String s) {
+    int n = s.length();
+    for (int i = 0; i < n; ++i) {
+      char ch = s.charAt(i);
+      if (ch < ASCII_ALNUM.length && ASCII_ALNUM[ch]) {
+        continue;
+      } else {
+        return false;
+      }
+    }
+    return n != 0;
+  }
 }

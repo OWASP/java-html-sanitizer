@@ -56,14 +56,14 @@ import com.google.common.collect.Sets;
  * </p>
  * <pre class="prettyprint lang-java">
  * // Define the policy.
- * Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyDefinition
+ * Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt; policy
  *     = new HtmlPolicyBuilder()
  *         .allowElements("a", "p")
  *         .allowAttributes("href").onElements("a")
  *         .toFactory();
  *
  * // Sanitize your output.
- * HtmlSanitizer.sanitize(myHtml. policyDefinition.apply(myHtmlStreamRenderer));
+ * HtmlSanitizer.sanitize(myHtml. policy.apply(myHtmlStreamRenderer));
  * </pre>
  *
  * <h3>Embedded Content</h3>
@@ -100,17 +100,17 @@ import com.google.common.collect.Sets;
  * E.g. to convert headers into {@code <div>}s, you could use an element policy
  * </p>
  * <pre class="prettyprint lang-java">
- *     new HtmlPolicyBuilder
- *         .allowElement(
- *         new ElementPolicy() {
- *           public String apply(String elementName, List<String> attributes) {
- *             attributes.add("class");
- *             attributes.add("header-" + elementName);
- *             return "div";
- *           }
- *         },
- *         "h1", "h2", "h3", "h4", "h5", "h6")
- *         .build(outputChannel)
+ * new HtmlPolicyBuilder()
+ *   .allowElement(
+ *     new ElementPolicy() {
+ *       public String apply(String elementName, List&lt;String> attributes) {
+ *         attributes.add("class");
+ *         attributes.add("header-" + elementName);
+ *         return "div";
+ *       }
+ *     },
+ *     "h1", "h2", "h3", "h4", "h5", "h6")
+ *   .build(outputChannel)
  * </pre>
  *
  * <h3>Rules of Thumb</h3>
@@ -172,7 +172,7 @@ public class HtmlPolicyBuilder {
   private final Set<String> skipIfEmpty = Sets.newLinkedHashSet(
       DEFAULT_SKIP_IF_EMPTY);
   private final Map<String, Boolean> textContainers = Maps.newLinkedHashMap();
-  private boolean requireRelNofollowOnLinks, allowStyling;
+  private boolean requireRelNofollowOnLinks;
 
   /**
    * Allows the named elements.
@@ -421,7 +421,7 @@ public class HtmlPolicyBuilder {
    */
   public HtmlPolicyBuilder allowStyling() {
     invalidateCompiledState();
-    allowStyling = true;
+    allowAttributesGlobally(new StylingPolicy(), ImmutableList.of("style"));
     return this;
   }
 
@@ -478,8 +478,7 @@ public class HtmlPolicyBuilder {
         textContainers.add(textContainer.getKey());
   }
     }
-    return new PolicyFactory(
-        compilePolicies(), textContainers.build(), allowStyling);
+    return new PolicyFactory(compilePolicies(), textContainers.build());
   }
 
   // Speed up subsequent builds by caching the compiled policies.
