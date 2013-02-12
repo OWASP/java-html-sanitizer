@@ -48,6 +48,7 @@ import junit.framework.TestSuite;
 public class AntiSamyTest extends TestCase {
 
   static final boolean RUN_KNOWN_FAILURES = false;
+  static final boolean DISABLE_INTERNETS = false;
 
   private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -115,10 +116,6 @@ public class AntiSamyTest extends TestCase {
     "C3c+d5Q9lyTafPLdelG1TKaLFinw1TOjyI6KkrQyHKkttfnO58WFvScl1TiRcB/iHxKahskoE2+VRLUIhctuDU4sUvQh/g9Arw0LAA4QTxuLFt01XYdigurz4FT15ox2oDGGGrRb3VGjDTXK1OWVJoLMW95EVqyMc9F+Fdej85LHE+8WesIfacjUQtTG1tzYVQTfubZq0+qxXws8QrxMLFtVE38tbeXo+Ok1/U5TUa6FjWflEfvKY3XVcl8RKkXua7fVz/Blj8Gh+dWe2cOxa0lpM75ZHyz9adQrB2Pb4571E4u2xI5un0R0MFJZBQuPDc1G5rPhyk+Hb4LRG3dS0m8IASQUOskv93z978L1+Abu9CLP6d6s5p+BzWxhMUqwQXC/CCpTywrkJ0RG",
   };
 
-  public AntiSamyTest(String s) {
-    super(s);
-  }
-
   @Override
   protected void setUp() throws Exception {
     super.setUp();
@@ -135,6 +132,8 @@ public class AntiSamyTest extends TestCase {
   }
 
   public void testCompareSpeeds() throws Exception {
+    if (DISABLE_INTERNETS) { return; }  // HACK: DO NOT SUBMIT
+
     long totalTime = 0;
     long averageTime = 0;
 
@@ -442,7 +441,7 @@ public class AntiSamyTest extends TestCase {
     /* issue #28 */
     assertSanitizedDoesContain(
         "<div style=\"font-family: Geneva, Arial, courier new, sans-serif\">Test</div>",
-        "face=\"Geneva, Arial, courier new, sans-serif\"");
+        "font-family:&#34;Geneva&#34;,&#34;Arial&#34;,&#34;courier new&#34;,sans-serif");
 
     /* issue #29 - missing quotes around properties with spaces */
     if (RUN_KNOWN_FAILURES) {
@@ -499,7 +498,7 @@ public class AntiSamyTest extends TestCase {
       assertEquals(expected, sanitize(s));
 
       s = "<div style=\"color: #fff\">Test 3 letter code</div>";
-      expected = "<div><font style=\"color:#fff\">Test 3 letter code</font></div>";
+      expected = "<div style=\"color:#fff\">Test 3 letter code</div>";
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 
@@ -533,7 +532,7 @@ public class AntiSamyTest extends TestCase {
       assertEquals(expected, sanitize(s));
 
       s = "<div style=\"color: #000000\">Test</div>";
-      expected = "<div><font style=\"color:#000000\">Test</font></div>";
+      expected = "<div style=\"color:#000000\">Test</div>";
       assertEquals(expected, sanitize(s));
       assertEquals(expected, sanitize(s));
 
@@ -624,7 +623,7 @@ public class AntiSamyTest extends TestCase {
     {
       String s = "<SPAN style='font-weight: bold;'>Hello World!</SPAN>";
       assertEquals(
-          "<span><font style=\"font-weight:bold\">Hello World!</font></span>",
+          "<span style=\"font-weight:bold\">Hello World!</span>",
           sanitize(s));
     }
 

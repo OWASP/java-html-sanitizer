@@ -188,10 +188,4 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
     skipText = SKIPPABLE_ELEMENT_CONTENT.contains(elementName);
   }
-
-  void synthesizeOpenTag(String adjustedElementName, List<String> attrs) {
-    openElementStack.add(null);
-    openElementStack.add(adjustedElementName);
-    out.openTag(adjustedElementName, attrs);
-  }
 }

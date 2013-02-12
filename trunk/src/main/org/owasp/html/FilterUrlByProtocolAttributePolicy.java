@@ -112,14 +112,31 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
                 sb.append(s, pos, i).append("%29");
                 pos = i + 1;
                 break;
-              case '\uff1a':  // Full-width colon.
-                if (!colonsIrrelevant) {
+              default:
+                if (ch > 0x100 && !colonsIrrelevant) {
+                  // Other colon like characters.
                   // TODO: do we need to encode non-colon characters if we're
                   // not dealing with URLs that haven't been copy/pasted into
                   // the URL bar?
                   // Is it safe to assume UTF-8 here?
-                  sb.append(s, pos, i).append("%ef%bc%9a");
-                  pos = i + 1;
+                  switch (ch) {
+                    case '\u0589':
+                      sb.append(s, pos, i).append("%d6%89");
+                      pos = i + 1;
+                      break;
+                    case '\u05c3':
+                      sb.append(s, pos, i).append("%d7%83");
+                      pos = i + 1;
+                      break;
+                    case '\u2236':
+                      sb.append(s, pos, i).append("%e2%88%b6");
+                      pos = i + 1;
+                      break;
+                    case '\uff1a':
+                      sb.append(s, pos, i).append("%ef%bc%9a");
+                      pos = i + 1;
+                      break;
+                  }
                 }
                 break;
             }

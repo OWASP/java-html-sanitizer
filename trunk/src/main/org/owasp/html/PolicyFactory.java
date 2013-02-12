@@ -54,23 +54,17 @@ public final class PolicyFactory
 
   private final ImmutableMap<String, ElementAndAttributePolicies> policies;
   private final ImmutableSet<String> textContainers;
-  private final boolean allowStyling;
 
   PolicyFactory(ImmutableMap<String, ElementAndAttributePolicies> policies,
-                ImmutableSet<String> textContainers, boolean allowStyling) {
+                ImmutableSet<String> textContainers) {
     this.policies = policies;
     this.textContainers = textContainers;
-    this.allowStyling = allowStyling;
   }
 
   /** Produces a sanitizer that emits tokens to {@code out}. */
   public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {
-    if (allowStyling) {
-      return new StylingPolicy(out, policies, textContainers);
-    } else {
-      return new ElementAndAttributePolicyBasedSanitizerPolicy(
-          out, policies, textContainers);
-    }
+    return new ElementAndAttributePolicyBasedSanitizerPolicy(
+        out, policies, textContainers);
   }
 
   /**
@@ -162,7 +156,6 @@ public final class PolicyFactory
         .addAll(f.textContainers)
         .build();
     }
-    return new PolicyFactory(
-        b.build(), textContainers, allowStyling || f.allowStyling);
+    return new PolicyFactory(b.build(), textContainers);
   }
 }
