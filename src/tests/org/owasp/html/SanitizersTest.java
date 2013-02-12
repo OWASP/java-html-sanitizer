@@ -63,12 +63,51 @@ public class SanitizersTest extends TestCase {
 
   public final void testBlockAndFormattingElements() {
     PolicyFactory s = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
-    assertEquals("", s.sanitize(null));
-    assertEquals("Hello, World!", s.sanitize("Hello, World!"));
-    assertEquals("Hello, <b>World</b>!", s.sanitize("Hello, <b>World</b>!"));
+    PolicyFactory r1 = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.BLOCKS);
+    PolicyFactory r2 = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.FORMATTING);
+    for (PolicyFactory f : new PolicyFactory[] { s, r1, r2 }) {
+      assertEquals("", f.sanitize(null));
+      assertEquals("Hello, World!", f.sanitize("Hello, World!"));
+      assertEquals("Hello, <b>World</b>!", f.sanitize("Hello, <b>World</b>!"));
+      assertEquals(
+          "<p>Hello, <b>World</b>!</p>",
+          f.sanitize("<p onclick=alert(1337)>Hello, <b>World</b>!</p>"));
+    }
+  }
+
+  public final void testAndIntersects() {
+    PolicyFactory restrictedLink = new HtmlPolicyBuilder()
+       .allowElements("a")
+       .allowUrlProtocols("https")
+       .allowAttributes("href", "title").onElements("a")
+       .toFactory();
+    PolicyFactory inline = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
+    String inputHtml =
+        "<a href='http://foo.com/'>Hello, <b>World</b></a>"
+        + "<a title='!' href='https://foo.com/#!'>!</a>";
+    PolicyFactory and1 = restrictedLink.and(inline);
+    PolicyFactory and2 = inline.and(restrictedLink);
     assertEquals(
-        "<p>Hello, <b>World</b>!</p>",
-        s.sanitize("<p onclick=alert(1337)>Hello, <b>World</b>!</p>"));
+        "https-only links",
+        "Hello, World<a title=\"!\" href=\"https://foo.com/#!\">!</a>",
+        restrictedLink.sanitize(inputHtml));
+    assertEquals(
+        "inline els",
+        "<a href=\"http://foo.com/\" rel=\"nofollow\">Hello, <b>World</b></a>"
+        + "<a href=\"https://foo.com/#!\" rel=\"nofollow\">!</a>",
+        inline.sanitize(inputHtml));
+    assertEquals(
+        "https-only links and inline els",
+        "Hello, <b>World</b>"
+        + "<a title=\"!\" href=\"https://foo.com/#!\" rel=\"nofollow\">!</a>",
+        and1.sanitize(inputHtml));
+    assertEquals(
+        "inline els and https-only links",
+        "Hello, <b>World</b>"
+        + "<a title=\"!\" href=\"https://foo.com/#!\" rel=\"nofollow\">!</a>",
+        and2.sanitize(inputHtml));
   }
 
   public final void testImages() {
