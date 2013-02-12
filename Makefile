@@ -4,26 +4,28 @@ help:
 	@echo "Usage: make [<target> ...]"
 	@echo ""
 	@echo "Targets include:"
-	@echo "  help     - Displays this message."
-	@echo "  ----------"
-	@echo "  clean    - Delete all built files."
-	@echo "  default  - Build documentation&classes, and run checks."
-	@echo "             The output will be available under out/."
-	@echo "  ----------"
-	@echo "  classes  - Put Java .class files under out/."
-	@echo "  tests    - Compile tests."
-	@echo "  runtests - Runs tests.  Some require a network connection."
-	@echo "  coverage - Runs tests and generates a code coverage report."
-	@echo "  findbugs - Runs a code quality tool.  Slow."
-	@echo "  ----------"
-	@echo "  distrib  - Build everything and package it into JARs."
-	@echo "             Requires an svn executable on PATH."
-	@echo "  release  - Additionally, cut a new Maven version."
-	@echo "             Should be run from client that has sibling"
-	@echo "             directories of trunk checked out."
-	@echo "  download - Bundle docs, externally required jars, and"
-	@echo "             license files into a zip file suitable for"
-	@echo "             the code.google site downloads."
+	@echo "  help      - Displays this message."
+	@echo "  ----------- QUICK"
+	@echo "  clean     - Delete all built files."
+	@echo "  default   - Build documentation&classes, and run checks."
+	@echo "              The output will be available under out/."
+	@echo "  ----------- DIAGNOSTIC"
+	@echo "  classes   - Put Java .class files under out/."
+	@echo "  tests     - Compile tests."
+	@echo "  runtests  - Runs tests.  Some require a network connection."
+	@echo "  coverage  - Runs tests and generates a code coverage report."
+	@echo "  findbugs  - Runs a code quality tool.  Slow."
+	@echo "  benchmark - Times the sanitizer against a tree builder."
+	@echo "  profile   - Profiles the benchmark."
+	@echo "  ----------- ARTIFACTS"
+	@echo "  distrib   - Build everything and package it into JARs."
+	@echo "              Requires an svn executable on PATH."
+	@echo "  release   - Additionally, cut a new Maven version."
+	@echo "              Should be run from client that has sibling"
+	@echo "              directories of trunk checked out."
+	@echo "  download  - Bundle docs, externally required jars, and"
+	@echo "              license files into a zip file suitable for"
+	@echo "              the code.google site downloads."
 
 
 CLASSPATH=lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar
@@ -32,13 +34,13 @@ JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint -encoding UTF-8
 
 
 out:
-	mkdir out
+	mkdir -p out
 
 out/classes: out
-	mkdir out/classes
+	mkdir -p out/classes
 
 out/genfiles: out
-	mkdir out/genfiles
+	mkdir -p out/genfiles
 
 clean:
 	rm -rf out
@@ -62,7 +64,8 @@ out/tests.tstamp: out/classes.tstamp out/genfiles.tstamp out/examples.tstamp src
 	javac -g ${JAVAC_FLAGS} \
           -classpath out/classes:out/genfiles:${TEST_CLASSPATH} \
 	  -d out/classes \
-	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
+	  $$((echo $^; find out/genfiles -type f) | tr ' ' '\n' | \
+	     egrep '\.java$$')
 	touch out/tests.tstamp
 
 out/genfiles.tstamp: out/genfiles/org/owasp/html/AllExamples.java out/genfiles/org/owasp/html/AllTests.java
