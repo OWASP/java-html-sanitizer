@@ -13,6 +13,7 @@ help:
 	@echo "  classes  - Put Java .class files under out/."
 	@echo "  tests    - Compile tests."
 	@echo "  runtests - Runs tests.  Some require a network connection."
+	@echo "  coverage - Runs tests and generates a code coverage report."
 	@echo "  findbugs - Runs a code quality tool.  Slow."
 	@echo "  ----------"
 	@echo "  distrib  - Build everything and package it into JARs."
@@ -49,18 +50,55 @@ out/examples.tstamp: out/classes.tstamp src/main/org/owasp/html/examples/*.java
 	touch out/examples.tstamp
 
 # Depends on all java files under tests.
-tests: out/tests.tstamp out/org/owasp/html/alltests out/org/owasp/html/allexamples
-out/tests.tstamp: out out/classes.tstamp out/examples.tstamp src/tests/org/owasp/html/*.java
+tests: out/tests.tstamp
+out/tests.tstamp: out out/classes.tstamp out/examples.tstamp src/tests/org/owasp/html/*.java out/org/owasp/html/AllExamples.java out/org/owasp/html/AllTests.java
 	javac -g ${JAVAC_FLAGS} -classpath out:${TEST_CLASSPATH} -d out \
 	  $$(echo $^ | tr ' ' '\n' | egrep '\.java$$')
 	touch out/tests.tstamp
-out/org/owasp/html/alltests: src/tests/org/owasp/html/*Test.java
-	echo $^ | tr ' ' '\n' | perl -pe 's#^src/tests/|\.java$$##g; s#/#.#g;' > $@
-out/org/owasp/html/allexamples: src/main/org/owasp/html/examples/*.java
-	echo $^ | tr ' ' '\n' | perl -pe 's#^src/main/|\.java$$##g; s#/#.#g;' > $@
+out/org/owasp/html/AllTests.java: src/tests/org/owasp/html/*Test.java
+	(echo 'package org.owasp.html;'; \
+         echo 'import junit.framework.Test;'; \
+         echo 'import junit.framework.TestSuite;'; \
+	 echo 'public class AllTests {'; \
+	 echo '  public static Test suite() {'; \
+	 echo '    TestSuite suite = new TestSuite();'; \
+	 echo $^ | tr ' ' '\n' | perl -pe \
+	   's#^src/tests/#      suite.addTestSuite(#; s#\.java$$#.class);#g; \
+	    s#/#.#g;'; \
+	 echo '    return suite;'; \
+	 echo '  }'; \
+	 echo '}'; \
+	) > $@
+
+out/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*.java
+	(echo 'package org.owasp.html;'; \
+	 echo 'final class AllExamples {'; \
+	 echo '  static final Class<?>[] CLASSES = {'; \
+	 echo $^ | tr ' ' '\n' | perl -pe \
+	   's#^src/main/#      #; s#\.java$$#.class,#g; \
+	    s#/#.#g;'; \
+	 echo '  };'; \
+	 echo '}'; \
+	) > $@
 
 runtests: tests
-	java -classpath out:src/tests:${TEST_CLASSPATH} junit.textui.TestRunner org.owasp.html.AllTests
+	java -classpath out:src/tests:${TEST_CLASSPATH} \
+	    junit.textui.TestRunner org.owasp.html.AllTests
+
+coverage: tests
+	java -cp tools/emma/lib/emma.jar:lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar:lib/htmlparser-1.3/htmlparser-1.3.jar:lib/commons-codec-1.4/commons-codec-1.4.jar:benchmark-data \
+	  -Demma.report.out.file=out/coverage/index.html \
+	  -Demma.report.out.encoding=UTF-8 \
+	  emmarun \
+	  -r html \
+	  -cp out:src/tests:lib/junit/junit.jar \
+	  -sp src/main:src/tests:out \
+	  -f \
+	  -ix '-junit.*' \
+	  -ix '-org.junit.*' \
+	  -ix '-org.hamcrest.*' \
+	  junit.textui.TestRunner \
+	  org.owasp.html.AllTests
 
 # Runs findbugs to identify problems.
 findbugs: out/findbugs.txt
