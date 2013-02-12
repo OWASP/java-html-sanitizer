@@ -30,15 +30,11 @@ package org.owasp.html;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
-import com.google.common.io.CharStreams;
 
 import junit.framework.TestCase;
 
