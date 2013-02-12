@@ -192,29 +192,29 @@ class HtmlEntities {
     }
   }
 
-  /** A possible entity name like "amp" or "gt". */
-  public static boolean isEntityName(String name) {
-    Trie t = ENTITY_TRIE;
-    int n = name.length();
-
-    // Treat AMP the same amp, but not Amp.
-    boolean isUcase = true;
-    for (int i = 0; i < n; ++i) {
-      char ch = name.charAt(i);
-      if (!('A' <= ch && ch <= 'Z')) {
-        isUcase = false;
-        break;
-      }
-    }
-
-    if (isUcase) { name = Strings.toLowerCase(name); }
-
-    for (int i = 0; i < n; ++i) {
-      t = t.lookup(name.charAt(i));
-      if (t == null) { return false; }
-    }
-    return t.isTerminal();
-  }
+//  /** A possible entity name like "amp" or "gt". */
+//  public static boolean isEntityName(String name) {
+//    Trie t = ENTITY_TRIE;
+//    int n = name.length();
+//
+//    // Treat AMP the same amp, but not Amp.
+//    boolean isUcase = true;
+//    for (int i = 0; i < n; ++i) {
+//      char ch = name.charAt(i);
+//      if (!('A' <= ch && ch <= 'Z')) {
+//        isUcase = false;
+//        break;
+//      }
+//    }
+//
+//    if (isUcase) { name = Strings.toLowerCase(name); }
+//
+//    for (int i = 0; i < n; ++i) {
+//      t = t.lookup(name.charAt(i));
+//      if (t == null) { return false; }
+//    }
+//    return t.isTerminal();
+//  }
 
   /** A trie that maps entity names to codepoints. */
   public static final Trie ENTITY_TRIE = new Trie(
