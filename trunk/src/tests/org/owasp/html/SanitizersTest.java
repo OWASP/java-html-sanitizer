@@ -165,4 +165,49 @@ public class SanitizersTest extends TestCase {
         "Header text",
         s.sanitize("<a name=\"header\" id=\"header\">Header text</a>"));
   }
+
+  public final void testIssue9StylesInTables() {
+    String input = ""
+        + "<table style=\"color: rgb(0, 0, 0);"
+        + " font-family: Arial, Geneva, sans-serif;\">"
+        + "<tbody>"
+        + "<tr>"
+        + "<th>Column One</th><th>Column Two</th>"
+        + "</tr>"
+        + "<tr>"
+        + "<td align=\"center\""
+        + " style=\"background-color: rgb(255, 255, 254);\">"
+        + "<font size=\"2\">Size 2</font></td>"
+        + "<td align=\"center\""
+        + " style=\"background-color: rgb(255, 255, 254);\">"
+        + "<font size=\"7\">Size 7</font></td>"
+        + "</tr>"
+        + "</tbody>"
+        + "</table>";
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "thead", "tr", "td", "th")
+        .allowCommonBlockElements()
+        .allowCommonInlineFormattingElements()
+        .allowStyling()
+        .allowAttributes("align").matching(true, "left", "center", "right")
+          .onElements("table", "tr", "td", "th")
+        .allowAttributes("size").onElements("font", "img")
+        .toFactory();
+    String sanitized = ""
+        + "<table style=\"font-family:&#34;Arial&#34;,&#34;Geneva&#34;,"
+        + "sans-serif;color:#000\">"
+        + "<tbody>"
+        + "<tr>"
+        + "<th>Column One</th><th>Column Two</th>"
+        + "</tr>"
+        + "<tr>"
+        + "<td align=\"center\" style=\"background-color:#fffffe\">"
+        + "<font size=\"2\">Size 2</font></td>"
+        + "<td align=\"center\" style=\"background-color:#fffffe\">"
+        + "<font size=\"7\">Size 7</font></td>"
+        + "</tr>"
+        + "</tbody>"
+        + "</table>";
+    assertEquals(sanitized, s.sanitize(input));
+  }
 }
