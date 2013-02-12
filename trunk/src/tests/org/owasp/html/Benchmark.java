@@ -126,7 +126,7 @@ public class Benchmark {
   private static int parseUsingLibhtmlparser(String html) throws Exception {
     HtmlDocumentBuilder parser = new HtmlDocumentBuilder();
     Node node = parser.parse(new InputSource(new StringReader(html)));
-    return System.identityHashCode(node);
+    return System.identityHashCode(node) >> 24;
   }
 
   private static String sanitize(String html) throws Exception {
