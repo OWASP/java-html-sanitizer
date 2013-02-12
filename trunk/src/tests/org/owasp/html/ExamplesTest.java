@@ -44,29 +44,10 @@ import junit.framework.TestCase;
 
 public class ExamplesTest extends TestCase {
   public final void testExamplesRun() throws Exception {
-    String[] allExamples;
-    InputStream in = AllTests.class.getResourceAsStream("allexamples");
-    if (in == null) {
-      throw new AssertionError("Failed to load list of examples");
-    }
-    try {
-      try {
-        allExamples = CharStreams.toString(
-            new InputStreamReader(in, Charsets.UTF_8)).split("\r\n?|\n");
-      } finally {
-        in.close();
-      }
-    } catch (IOException ex) {
-      Throwables.propagate(ex);
-      return;
-    }
-
-    ClassLoader loader = AllTests.class.getClass().getClassLoader();
-    if (loader == null) { loader = ClassLoader.getSystemClassLoader(); }
     InputStream stdin = System.in;
     PrintStream stdout = System.out;
     PrintStream stderr = System.err;
-    for (String example : allExamples) {
+    for (Class<?> exampleClass : AllExamples.CLASSES) {
       InputStream emptyIn = new ByteArrayInputStream(new byte[0]);
       ByteArrayOutputStream captured = new ByteArrayOutputStream();
       PrintStream capturingOut = new PrintStream(captured, true, "UTF-8");
@@ -76,14 +57,14 @@ public class ExamplesTest extends TestCase {
 
       Method main;
       try {
-        Class<?> exampleClass = loader.loadClass(example);
         main = exampleClass.getDeclaredMethod("main", String[].class);
         // Invoke with no arguments to sanitize empty input stream to output.
         main.invoke(null, new Object[] { new String[0] });
       } catch (Exception ex) {
         capturingOut.flush();
         System.err.println(
-            "Example " + example + "\n" + captured.toString("UTF-8"));
+            "Example " + exampleClass.getSimpleName() + "\n"
+            + captured.toString("UTF-8"));
         Throwables.propagate(ex);
       } finally {
         System.setIn(stdin);
