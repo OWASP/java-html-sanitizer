@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
@@ -146,8 +147,7 @@ public class AntiSamyTest extends TestCase {
             "http://deadspin.com/",
         }) {
       URLConnection conn = new URL(url).openConnection();
-      String ct = conn.getContentType();
-      if (ct == null) { ct = "UTF-8"; }
+      String ct = guessCharsetFromContentType(conn.getContentType());
       InputStreamReader in = new InputStreamReader(conn.getInputStream(), ct);
       StringBuilder out = new StringBuilder();
       char[] buffer = new char[5000];
@@ -794,5 +794,18 @@ public class AntiSamyTest extends TestCase {
 
   private void assertSanitized(String html, String sanitized) {
     assertEquals(sanitized, sanitize(html));
+  }
+
+  private static String guessCharsetFromContentType(String contentType) {
+    Matcher m = Pattern.compile(";\\s*charset=(?:\"([^\"]*)\"|([^\\s;]*))")
+      .matcher(contentType);
+    if (m.find()) {
+      String ct;
+      ct = m.group(1);
+      if (ct != null) { return ct; }
+      ct = m.group(2);
+      if (ct != null) { return ct; }
+    }
+    return "UTF-8";
   }
 }
