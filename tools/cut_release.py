@@ -88,7 +88,13 @@ if "__main__" == __name__:
     return re.sub(r"\+\+\+(\w+)\+\+\+", lambda m: fields[m.group(1)], s)
 
   # List of files that need to have ##DUPE## and ##REPLACE## sections expanded
-  files_to_rewrite = [maven_metadata_path]
+  # NOTE(12 February 2013): We no longer rewrite maven_metadata_path since this
+  # project is now hosted in Maven Central, and maven_metadata used a
+  # groupId/artifactId pair that is incompatible with the convention used by
+  # Maven Central.
+  # All maven versions after 12 February are undiscoverable by looking at
+  # maven_metadata.
+  files_to_rewrite = []
   new_file_paths = []
 
   def copy_directory_structure_template(src_path, container_path):
