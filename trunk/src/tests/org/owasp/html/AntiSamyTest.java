@@ -146,7 +146,9 @@ public class AntiSamyTest extends TestCase {
             "http://deadspin.com/",
         }) {
       URLConnection conn = new URL(url).openConnection();
-      InputStreamReader in = new InputStreamReader(conn.getInputStream());
+      String ct = conn.getContentType();
+      if (ct == null) { ct = "UTF-8"; }
+      InputStreamReader in = new InputStreamReader(conn.getInputStream(), ct);
       StringBuilder out = new StringBuilder();
       char[] buffer = new char[5000];
       int read = 0;
@@ -384,7 +386,9 @@ public class AntiSamyTest extends TestCase {
    */
   public void testIllegalXML() throws Exception {
     for (int i = 0; i < BASE64_BAD_XML_STRINGS.length; i++) {
-      String testStr = new String(Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i].getBytes()));
+      String testStr = new String(
+          Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i]),
+          "UTF-8");
       sanitize(testStr);
       sanitize(testStr);
     }

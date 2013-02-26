@@ -32,21 +32,25 @@ import junit.framework.TestCase;
 
 public class HtmlChangeReporterTest extends TestCase {
 
+  static class Context {
+    // Opaque test value compared via equality.
+  }
+
   public final void testChangeReporting() {
-    final Integer testContext = 123;
+    final Context testContext = new Context();
 
     StringBuilder out = new StringBuilder();
     final StringBuilder log = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         out, Handler.DO_NOTHING);
-    HtmlChangeListener<Integer> listener = new HtmlChangeListener<Integer>() {
-      public void discardedTag(Integer context, String elementName) {
+    HtmlChangeListener<Context> listener = new HtmlChangeListener<Context>() {
+      public void discardedTag(Context context, String elementName) {
         assertSame(testContext, context);
         log.append('<').append(elementName).append("> ");
       }
 
       public void discardedAttributes(
-          Integer context, String tagName, String... attributeNames) {
+          Context context, String tagName, String... attributeNames) {
         assertSame(testContext, context);
         log.append('<').append(tagName);
         for (String attributeName : attributeNames) {
@@ -55,7 +59,7 @@ public class HtmlChangeReporterTest extends TestCase {
         log.append("> ");
       }
     };
-    HtmlChangeReporter<Integer> hcr = new HtmlChangeReporter<Integer>(
+    HtmlChangeReporter<Context> hcr = new HtmlChangeReporter<Context>(
         renderer, listener, testContext);
 
     hcr.setPolicy(Sanitizers.FORMATTING.apply(hcr.getWrappedRenderer()));

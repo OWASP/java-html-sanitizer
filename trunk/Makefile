@@ -122,7 +122,7 @@ findbugs: out/findbugs.txt
 	cat $^
 out/findbugs.txt: out/tests.tstamp
 	find out/classes/org -type d | \
-	  xargs tools/findbugs-1.3.9/bin/findbugs -textui -effort:max \
+	  xargs tools/findbugs/bin/findbugs -textui -effort:max \
 	  -auxclasspath ${TEST_CLASSPATH} > $@
 
 # Runs a benchmark that compares performance.

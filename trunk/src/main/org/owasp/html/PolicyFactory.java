@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.Map;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -62,7 +63,7 @@ public final class PolicyFactory
   }
 
   /** Produces a sanitizer that emits tokens to {@code out}. */
-  public HtmlSanitizer.Policy apply(HtmlStreamEventReceiver out) {
+  public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {
     return new ElementAndAttributePolicyBasedSanitizerPolicy(
         out, policies, textContainers);
   }

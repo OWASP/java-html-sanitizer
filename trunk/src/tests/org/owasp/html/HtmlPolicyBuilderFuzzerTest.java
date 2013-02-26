@@ -32,6 +32,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Random;
@@ -40,6 +41,7 @@ import org.w3c.dom.Attr;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 
@@ -83,7 +85,8 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
     "href", "id", "class", "onclick", "checked", "style",
   };
 
-  public final void testFuzzedOutput() {
+  public final void testFuzzedOutput() throws IOException, SAXException {
+    boolean passed = false;
     try {
       for (int i = 1000; --i >= 0;) {
         StringBuilder sb = new StringBuilder();
@@ -92,7 +95,8 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
         policy.openDocument();
         List<String> attributes = Lists.newArrayList();
         for (int j = 50; --j >= 0;) {
-          switch (rnd.nextInt(3)) {
+          int r = rnd.nextInt(3);
+          switch (r) {
             case 0:
               attributes.clear();
               if (rnd.nextBoolean()) {
@@ -109,6 +113,9 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
             case 2:
               policy.text(pickChunk(rnd));
               break;
+            default:
+              throw new AssertionError(
+                  "Randomly chosen number in [0-3) was " + r);
           }
         }
         policy.closeDocument();
@@ -119,9 +126,11 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
             new InputSource(new StringReader(html)), "body");
         checkSafe(node, html);
       }
-    } catch (Exception ex) {
-      System.err.println("Using seed " + seed + "L");
-      Throwables.propagate(ex);
+      passed = true;
+    } finally {
+      if (!passed) {
+        System.err.println("Using seed " + seed + "L");
+      }
     }
   }
 
