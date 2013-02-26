@@ -29,7 +29,6 @@
 package org.owasp.html;
 
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 
 import java.io.IOException;
