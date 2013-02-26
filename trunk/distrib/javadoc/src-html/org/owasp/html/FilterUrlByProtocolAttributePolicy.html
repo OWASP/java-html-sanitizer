@@ -115,25 +115,42 @@
 <FONT color="green">112</FONT>                    sb.append(s, pos, i).append("%29");<a name="line.112"></a>
 <FONT color="green">113</FONT>                    pos = i + 1;<a name="line.113"></a>
 <FONT color="green">114</FONT>                    break;<a name="line.114"></a>
-<FONT color="green">115</FONT>                  case '\uff1a':  // Full-width colon.<a name="line.115"></a>
-<FONT color="green">116</FONT>                    if (!colonsIrrelevant) {<a name="line.116"></a>
-<FONT color="green">117</FONT>                      // TODO: do we need to encode non-colon characters if we're<a name="line.117"></a>
-<FONT color="green">118</FONT>                      // not dealing with URLs that haven't been copy/pasted into<a name="line.118"></a>
-<FONT color="green">119</FONT>                      // the URL bar?<a name="line.119"></a>
-<FONT color="green">120</FONT>                      // Is it safe to assume UTF-8 here?<a name="line.120"></a>
-<FONT color="green">121</FONT>                      sb.append(s, pos, i).append("%ef%bc%9a");<a name="line.121"></a>
-<FONT color="green">122</FONT>                      pos = i + 1;<a name="line.122"></a>
-<FONT color="green">123</FONT>                    }<a name="line.123"></a>
-<FONT color="green">124</FONT>                    break;<a name="line.124"></a>
-<FONT color="green">125</FONT>                }<a name="line.125"></a>
-<FONT color="green">126</FONT>              }<a name="line.126"></a>
-<FONT color="green">127</FONT>              return sb.append(s, pos, n).toString();<a name="line.127"></a>
-<FONT color="green">128</FONT>          }<a name="line.128"></a>
-<FONT color="green">129</FONT>        }<a name="line.129"></a>
-<FONT color="green">130</FONT>        return s;<a name="line.130"></a>
-<FONT color="green">131</FONT>      }<a name="line.131"></a>
-<FONT color="green">132</FONT>    <a name="line.132"></a>
-<FONT color="green">133</FONT>    }<a name="line.133"></a>
+<FONT color="green">115</FONT>                  default:<a name="line.115"></a>
+<FONT color="green">116</FONT>                    if (ch &gt; 0x100 &amp;&amp; !colonsIrrelevant) {<a name="line.116"></a>
+<FONT color="green">117</FONT>                      // Other colon like characters.<a name="line.117"></a>
+<FONT color="green">118</FONT>                      // TODO: do we need to encode non-colon characters if we're<a name="line.118"></a>
+<FONT color="green">119</FONT>                      // not dealing with URLs that haven't been copy/pasted into<a name="line.119"></a>
+<FONT color="green">120</FONT>                      // the URL bar?<a name="line.120"></a>
+<FONT color="green">121</FONT>                      // Is it safe to assume UTF-8 here?<a name="line.121"></a>
+<FONT color="green">122</FONT>                      switch (ch) {<a name="line.122"></a>
+<FONT color="green">123</FONT>                        case '\u0589':<a name="line.123"></a>
+<FONT color="green">124</FONT>                          sb.append(s, pos, i).append("%d6%89");<a name="line.124"></a>
+<FONT color="green">125</FONT>                          pos = i + 1;<a name="line.125"></a>
+<FONT color="green">126</FONT>                          break;<a name="line.126"></a>
+<FONT color="green">127</FONT>                        case '\u05c3':<a name="line.127"></a>
+<FONT color="green">128</FONT>                          sb.append(s, pos, i).append("%d7%83");<a name="line.128"></a>
+<FONT color="green">129</FONT>                          pos = i + 1;<a name="line.129"></a>
+<FONT color="green">130</FONT>                          break;<a name="line.130"></a>
+<FONT color="green">131</FONT>                        case '\u2236':<a name="line.131"></a>
+<FONT color="green">132</FONT>                          sb.append(s, pos, i).append("%e2%88%b6");<a name="line.132"></a>
+<FONT color="green">133</FONT>                          pos = i + 1;<a name="line.133"></a>
+<FONT color="green">134</FONT>                          break;<a name="line.134"></a>
+<FONT color="green">135</FONT>                        case '\uff1a':<a name="line.135"></a>
+<FONT color="green">136</FONT>                          sb.append(s, pos, i).append("%ef%bc%9a");<a name="line.136"></a>
+<FONT color="green">137</FONT>                          pos = i + 1;<a name="line.137"></a>
+<FONT color="green">138</FONT>                          break;<a name="line.138"></a>
+<FONT color="green">139</FONT>                      }<a name="line.139"></a>
+<FONT color="green">140</FONT>                    }<a name="line.140"></a>
+<FONT color="green">141</FONT>                    break;<a name="line.141"></a>
+<FONT color="green">142</FONT>                }<a name="line.142"></a>
+<FONT color="green">143</FONT>              }<a name="line.143"></a>
+<FONT color="green">144</FONT>              return sb.append(s, pos, n).toString();<a name="line.144"></a>
+<FONT color="green">145</FONT>          }<a name="line.145"></a>
+<FONT color="green">146</FONT>        }<a name="line.146"></a>
+<FONT color="green">147</FONT>        return s;<a name="line.147"></a>
+<FONT color="green">148</FONT>      }<a name="line.148"></a>
+<FONT color="green">149</FONT>    <a name="line.149"></a>
+<FONT color="green">150</FONT>    }<a name="line.150"></a>
 
 
 
