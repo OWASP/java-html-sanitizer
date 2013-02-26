@@ -100,7 +100,7 @@ java.lang.Object
 <DL>
 <DT><PRE><FONT SIZE="-1">@ThreadSafe
 @Immutable
-</FONT>public final class <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.52"><B>PolicyFactory</B></A><DT>extends java.lang.Object<DT>implements com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>,<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&gt;</DL>
+</FONT>public final class <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.53"><B>PolicyFactory</B></A><DT>extends java.lang.Object<DT>implements com.google.common.base.Function&lt;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>,<A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A>&gt;</DL>
 </PRE>
 
 <P>
@@ -224,7 +224,8 @@ A factory that can be used to link a sanitizer to an output receiver and that
 <A NAME="apply(org.owasp.html.HtmlStreamEventReceiver)"><!-- --></A><H3>
 apply</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.67"><B>apply</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.66"><B>apply</B></A>(<FONT SIZE="-1">@Nonnull</FONT>
+                                  <A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
 <DL>
 <DD>Produces a sanitizer that emits tokens to <code>out</code>.
 <P>
@@ -240,7 +241,7 @@ public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interf
 <A NAME="apply(org.owasp.html.HtmlStreamEventReceiver,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="apply(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)"><!-- --></A><H3>
 apply</H3>
 <PRE>
-public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.87"><B>apply</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.82"><B>apply</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
                                         <FONT SIZE="-1">@Nullable</FONT>
                                         <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
                                         <FONT SIZE="-1">@Nullable</FONT>
@@ -265,7 +266,7 @@ public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" t
 <A NAME="sanitize(java.lang.String)"><!-- --></A><H3>
 sanitize</H3>
 <PRE>
-public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.101"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.96"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
                                  java.lang.String&nbsp;html)</PRE>
 <DL>
 <DD>A convenience function that sanitizes a string of HTML.
@@ -282,7 +283,7 @@ public java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.
 <A NAME="sanitize(java.lang.String,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="sanitize(java.lang.String, org.owasp.html.HtmlChangeListener, CTX)"><!-- --></A><H3>
 sanitize</H3>
 <PRE>
-public &lt;CTX&gt; java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.117"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
+public &lt;CTX&gt; java.lang.String <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.112"><B>sanitize</B></A>(<FONT SIZE="-1">@Nullable</FONT>
                                        java.lang.String&nbsp;html,
                                        <FONT SIZE="-1">@Nullable</FONT>
                                        <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;CTX&gt;&nbsp;listener,
@@ -309,7 +310,7 @@ public &lt;CTX&gt; java.lang.String <A HREF="../../../src-html/org/owasp/html/Po
 <A NAME="and(org.owasp.html.PolicyFactory)"><!-- --></A><H3>
 and</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.134"><B>and</B></A>(<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>&nbsp;f)</PRE>
+public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/PolicyFactory.html#line.129"><B>and</B></A>(<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A>&nbsp;f)</PRE>
 <DL>
 <DD>Produces a factory that allows the union of the grants, and intersects
  policies where they overlap on a particular granted attribute or element

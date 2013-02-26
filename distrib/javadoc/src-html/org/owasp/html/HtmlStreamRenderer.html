@@ -323,89 +323,91 @@
 <FONT color="green">320</FONT>                escapingTextSpanStart = -1;<a name="line.320"></a>
 <FONT color="green">321</FONT>              }<a name="line.321"></a>
 <FONT color="green">322</FONT>              break;<a name="line.322"></a>
-<FONT color="green">323</FONT>          }<a name="line.323"></a>
-<FONT color="green">324</FONT>        }<a name="line.324"></a>
-<FONT color="green">325</FONT>        if (escapingTextSpanStart &gt;= 0) {<a name="line.325"></a>
-<FONT color="green">326</FONT>          // We could try recovery strategies here.<a name="line.326"></a>
-<FONT color="green">327</FONT>          // E.g. appending "//--&gt;" to the buffer if "script".equals(localName)<a name="line.327"></a>
-<FONT color="green">328</FONT>          return escapingTextSpanStart;<a name="line.328"></a>
-<FONT color="green">329</FONT>        }<a name="line.329"></a>
-<FONT color="green">330</FONT>        return -1;<a name="line.330"></a>
-<FONT color="green">331</FONT>      }<a name="line.331"></a>
-<FONT color="green">332</FONT>    <a name="line.332"></a>
-<FONT color="green">333</FONT>    <a name="line.333"></a>
-<FONT color="green">334</FONT>      @VisibleForTesting<a name="line.334"></a>
-<FONT color="green">335</FONT>      static boolean isValidHtmlName(String name) {<a name="line.335"></a>
-<FONT color="green">336</FONT>        int n = name.length();<a name="line.336"></a>
-<FONT color="green">337</FONT>        if (n == 0) { return false; }<a name="line.337"></a>
-<FONT color="green">338</FONT>        if (n &gt; 128) { return false; }<a name="line.338"></a>
-<FONT color="green">339</FONT>        boolean isNamespaced = false;<a name="line.339"></a>
-<FONT color="green">340</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.340"></a>
-<FONT color="green">341</FONT>          char ch = name.charAt(i);<a name="line.341"></a>
-<FONT color="green">342</FONT>          switch (ch) {<a name="line.342"></a>
-<FONT color="green">343</FONT>            case ':':<a name="line.343"></a>
-<FONT color="green">344</FONT>              if (isNamespaced) { return false; }<a name="line.344"></a>
-<FONT color="green">345</FONT>              isNamespaced = true;<a name="line.345"></a>
-<FONT color="green">346</FONT>              if (i == 0 || i + 1 == n) { return false; }<a name="line.346"></a>
-<FONT color="green">347</FONT>              break;<a name="line.347"></a>
-<FONT color="green">348</FONT>            case '-':<a name="line.348"></a>
-<FONT color="green">349</FONT>              if (i == 0 || i + 1 == n) { return false; }<a name="line.349"></a>
-<FONT color="green">350</FONT>              break;<a name="line.350"></a>
-<FONT color="green">351</FONT>            default:<a name="line.351"></a>
-<FONT color="green">352</FONT>              if (ch &lt;= '9') {<a name="line.352"></a>
-<FONT color="green">353</FONT>                if (i == 0 || ch &lt; '0') { return false; }<a name="line.353"></a>
-<FONT color="green">354</FONT>              } else if ('A' &lt;= ch &amp;&amp; ch &lt;= 'z') {<a name="line.354"></a>
-<FONT color="green">355</FONT>                if ('Z' &lt; ch &amp;&amp; ch &lt; 'a') { return false; }<a name="line.355"></a>
-<FONT color="green">356</FONT>              } else {<a name="line.356"></a>
-<FONT color="green">357</FONT>                return false;<a name="line.357"></a>
-<FONT color="green">358</FONT>              }<a name="line.358"></a>
-<FONT color="green">359</FONT>              break;<a name="line.359"></a>
-<FONT color="green">360</FONT>          }<a name="line.360"></a>
-<FONT color="green">361</FONT>        }<a name="line.361"></a>
-<FONT color="green">362</FONT>        return true;<a name="line.362"></a>
-<FONT color="green">363</FONT>      }<a name="line.363"></a>
-<FONT color="green">364</FONT>    <a name="line.364"></a>
-<FONT color="green">365</FONT>      /**<a name="line.365"></a>
-<FONT color="green">366</FONT>       * Canonicalizes the element name and possibly substitutes an alternative<a name="line.366"></a>
-<FONT color="green">367</FONT>       * that has more consistent semantics.<a name="line.367"></a>
-<FONT color="green">368</FONT>       */<a name="line.368"></a>
-<FONT color="green">369</FONT>      static String safeName(String elementName) {<a name="line.369"></a>
-<FONT color="green">370</FONT>        elementName = HtmlLexer.canonicalName(elementName);<a name="line.370"></a>
-<FONT color="green">371</FONT>    <a name="line.371"></a>
-<FONT color="green">372</FONT>        // Substitute a reliably non-raw-text element for raw-text and<a name="line.372"></a>
-<FONT color="green">373</FONT>        // plain-text elements.<a name="line.373"></a>
-<FONT color="green">374</FONT>        switch (elementName.length()) {<a name="line.374"></a>
-<FONT color="green">375</FONT>          case 3:<a name="line.375"></a>
-<FONT color="green">376</FONT>            if ("xmp".equals(elementName)) { return "pre"; }<a name="line.376"></a>
-<FONT color="green">377</FONT>            break;<a name="line.377"></a>
-<FONT color="green">378</FONT>          case 7:<a name="line.378"></a>
-<FONT color="green">379</FONT>            if ("listing".equals(elementName)) { return "pre"; }<a name="line.379"></a>
-<FONT color="green">380</FONT>            break;<a name="line.380"></a>
-<FONT color="green">381</FONT>          case 9:<a name="line.381"></a>
-<FONT color="green">382</FONT>            if ("plaintext".equals(elementName)) { return "pre"; }<a name="line.382"></a>
-<FONT color="green">383</FONT>            break;<a name="line.383"></a>
-<FONT color="green">384</FONT>        }<a name="line.384"></a>
-<FONT color="green">385</FONT>        return elementName;<a name="line.385"></a>
-<FONT color="green">386</FONT>      }<a name="line.386"></a>
-<FONT color="green">387</FONT>    <a name="line.387"></a>
-<FONT color="green">388</FONT>      static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer<a name="line.388"></a>
-<FONT color="green">389</FONT>          implements Closeable {<a name="line.389"></a>
-<FONT color="green">390</FONT>        private final Closeable closeable;<a name="line.390"></a>
-<FONT color="green">391</FONT>    <a name="line.391"></a>
-<FONT color="green">392</FONT>        CloseableHtmlStreamRenderer(<a name="line.392"></a>
-<FONT color="green">393</FONT>            @WillCloseWhenClosed<a name="line.393"></a>
-<FONT color="green">394</FONT>            Appendable output, Handler&lt;? super IOException&gt; errorHandler,<a name="line.394"></a>
-<FONT color="green">395</FONT>            Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.395"></a>
-<FONT color="green">396</FONT>          super(output, errorHandler, badHtmlHandler);<a name="line.396"></a>
-<FONT color="green">397</FONT>          this.closeable = (Closeable) output;<a name="line.397"></a>
-<FONT color="green">398</FONT>        }<a name="line.398"></a>
-<FONT color="green">399</FONT>    <a name="line.399"></a>
-<FONT color="green">400</FONT>        public void close() throws IOException {<a name="line.400"></a>
-<FONT color="green">401</FONT>          if (isDocumentOpen()) { closeDocument(); }<a name="line.401"></a>
-<FONT color="green">402</FONT>          closeable.close();<a name="line.402"></a>
-<FONT color="green">403</FONT>        }<a name="line.403"></a>
-<FONT color="green">404</FONT>      }<a name="line.404"></a>
-<FONT color="green">405</FONT>    }<a name="line.405"></a>
+<FONT color="green">323</FONT>            default:<a name="line.323"></a>
+<FONT color="green">324</FONT>              break;<a name="line.324"></a>
+<FONT color="green">325</FONT>          }<a name="line.325"></a>
+<FONT color="green">326</FONT>        }<a name="line.326"></a>
+<FONT color="green">327</FONT>        if (escapingTextSpanStart &gt;= 0) {<a name="line.327"></a>
+<FONT color="green">328</FONT>          // We could try recovery strategies here.<a name="line.328"></a>
+<FONT color="green">329</FONT>          // E.g. appending "//--&gt;" to the buffer if "script".equals(localName)<a name="line.329"></a>
+<FONT color="green">330</FONT>          return escapingTextSpanStart;<a name="line.330"></a>
+<FONT color="green">331</FONT>        }<a name="line.331"></a>
+<FONT color="green">332</FONT>        return -1;<a name="line.332"></a>
+<FONT color="green">333</FONT>      }<a name="line.333"></a>
+<FONT color="green">334</FONT>    <a name="line.334"></a>
+<FONT color="green">335</FONT>    <a name="line.335"></a>
+<FONT color="green">336</FONT>      @VisibleForTesting<a name="line.336"></a>
+<FONT color="green">337</FONT>      static boolean isValidHtmlName(String name) {<a name="line.337"></a>
+<FONT color="green">338</FONT>        int n = name.length();<a name="line.338"></a>
+<FONT color="green">339</FONT>        if (n == 0) { return false; }<a name="line.339"></a>
+<FONT color="green">340</FONT>        if (n &gt; 128) { return false; }<a name="line.340"></a>
+<FONT color="green">341</FONT>        boolean isNamespaced = false;<a name="line.341"></a>
+<FONT color="green">342</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.342"></a>
+<FONT color="green">343</FONT>          char ch = name.charAt(i);<a name="line.343"></a>
+<FONT color="green">344</FONT>          switch (ch) {<a name="line.344"></a>
+<FONT color="green">345</FONT>            case ':':<a name="line.345"></a>
+<FONT color="green">346</FONT>              if (isNamespaced) { return false; }<a name="line.346"></a>
+<FONT color="green">347</FONT>              isNamespaced = true;<a name="line.347"></a>
+<FONT color="green">348</FONT>              if (i == 0 || i + 1 == n) { return false; }<a name="line.348"></a>
+<FONT color="green">349</FONT>              break;<a name="line.349"></a>
+<FONT color="green">350</FONT>            case '-':<a name="line.350"></a>
+<FONT color="green">351</FONT>              if (i == 0 || i + 1 == n) { return false; }<a name="line.351"></a>
+<FONT color="green">352</FONT>              break;<a name="line.352"></a>
+<FONT color="green">353</FONT>            default:<a name="line.353"></a>
+<FONT color="green">354</FONT>              if (ch &lt;= '9') {<a name="line.354"></a>
+<FONT color="green">355</FONT>                if (i == 0 || ch &lt; '0') { return false; }<a name="line.355"></a>
+<FONT color="green">356</FONT>              } else if ('A' &lt;= ch &amp;&amp; ch &lt;= 'z') {<a name="line.356"></a>
+<FONT color="green">357</FONT>                if ('Z' &lt; ch &amp;&amp; ch &lt; 'a') { return false; }<a name="line.357"></a>
+<FONT color="green">358</FONT>              } else {<a name="line.358"></a>
+<FONT color="green">359</FONT>                return false;<a name="line.359"></a>
+<FONT color="green">360</FONT>              }<a name="line.360"></a>
+<FONT color="green">361</FONT>              break;<a name="line.361"></a>
+<FONT color="green">362</FONT>          }<a name="line.362"></a>
+<FONT color="green">363</FONT>        }<a name="line.363"></a>
+<FONT color="green">364</FONT>        return true;<a name="line.364"></a>
+<FONT color="green">365</FONT>      }<a name="line.365"></a>
+<FONT color="green">366</FONT>    <a name="line.366"></a>
+<FONT color="green">367</FONT>      /**<a name="line.367"></a>
+<FONT color="green">368</FONT>       * Canonicalizes the element name and possibly substitutes an alternative<a name="line.368"></a>
+<FONT color="green">369</FONT>       * that has more consistent semantics.<a name="line.369"></a>
+<FONT color="green">370</FONT>       */<a name="line.370"></a>
+<FONT color="green">371</FONT>      static String safeName(String elementName) {<a name="line.371"></a>
+<FONT color="green">372</FONT>        elementName = HtmlLexer.canonicalName(elementName);<a name="line.372"></a>
+<FONT color="green">373</FONT>    <a name="line.373"></a>
+<FONT color="green">374</FONT>        // Substitute a reliably non-raw-text element for raw-text and<a name="line.374"></a>
+<FONT color="green">375</FONT>        // plain-text elements.<a name="line.375"></a>
+<FONT color="green">376</FONT>        switch (elementName.length()) {<a name="line.376"></a>
+<FONT color="green">377</FONT>          case 3:<a name="line.377"></a>
+<FONT color="green">378</FONT>            if ("xmp".equals(elementName)) { return "pre"; }<a name="line.378"></a>
+<FONT color="green">379</FONT>            break;<a name="line.379"></a>
+<FONT color="green">380</FONT>          case 7:<a name="line.380"></a>
+<FONT color="green">381</FONT>            if ("listing".equals(elementName)) { return "pre"; }<a name="line.381"></a>
+<FONT color="green">382</FONT>            break;<a name="line.382"></a>
+<FONT color="green">383</FONT>          case 9:<a name="line.383"></a>
+<FONT color="green">384</FONT>            if ("plaintext".equals(elementName)) { return "pre"; }<a name="line.384"></a>
+<FONT color="green">385</FONT>            break;<a name="line.385"></a>
+<FONT color="green">386</FONT>        }<a name="line.386"></a>
+<FONT color="green">387</FONT>        return elementName;<a name="line.387"></a>
+<FONT color="green">388</FONT>      }<a name="line.388"></a>
+<FONT color="green">389</FONT>    <a name="line.389"></a>
+<FONT color="green">390</FONT>      static class CloseableHtmlStreamRenderer extends HtmlStreamRenderer<a name="line.390"></a>
+<FONT color="green">391</FONT>          implements Closeable {<a name="line.391"></a>
+<FONT color="green">392</FONT>        private final Closeable closeable;<a name="line.392"></a>
+<FONT color="green">393</FONT>    <a name="line.393"></a>
+<FONT color="green">394</FONT>        CloseableHtmlStreamRenderer(<a name="line.394"></a>
+<FONT color="green">395</FONT>            @WillCloseWhenClosed<a name="line.395"></a>
+<FONT color="green">396</FONT>            Appendable output, Handler&lt;? super IOException&gt; errorHandler,<a name="line.396"></a>
+<FONT color="green">397</FONT>            Handler&lt;? super String&gt; badHtmlHandler) {<a name="line.397"></a>
+<FONT color="green">398</FONT>          super(output, errorHandler, badHtmlHandler);<a name="line.398"></a>
+<FONT color="green">399</FONT>          this.closeable = (Closeable) output;<a name="line.399"></a>
+<FONT color="green">400</FONT>        }<a name="line.400"></a>
+<FONT color="green">401</FONT>    <a name="line.401"></a>
+<FONT color="green">402</FONT>        public void close() throws IOException {<a name="line.402"></a>
+<FONT color="green">403</FONT>          if (isDocumentOpen()) { closeDocument(); }<a name="line.403"></a>
+<FONT color="green">404</FONT>          closeable.close();<a name="line.404"></a>
+<FONT color="green">405</FONT>        }<a name="line.405"></a>
+<FONT color="green">406</FONT>      }<a name="line.406"></a>
+<FONT color="green">407</FONT>    }<a name="line.407"></a>
 
 
 

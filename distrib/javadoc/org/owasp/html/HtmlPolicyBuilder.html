@@ -111,14 +111,14 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
  </p>
  <pre class="prettyprint lang-java">
  // Define the policy.
- Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyDefinition
+ Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt; policy
      = new HtmlPolicyBuilder()
          .allowElements("a", "p")
          .allowAttributes("href").onElements("a")
          .toFactory();
 
  // Sanitize your output.
- HtmlSanitizer.sanitize(myHtml. policyDefinition.apply(myHtmlStreamRenderer));
+ HtmlSanitizer.sanitize(myHtml. policy.apply(myHtmlStreamRenderer));
  </pre>
 
  <h3>Embedded Content</h3>
@@ -155,17 +155,17 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
  E.g. to convert headers into <code>&lt;div&gt;</code>s, you could use an element policy
  </p>
  <pre class="prettyprint lang-java">
-     new HtmlPolicyBuilder
-         .allowElement(
-         new ElementPolicy() {
-           public String apply(String elementName, List<String> attributes) {
-             attributes.add("class");
-             attributes.add("header-" + elementName);
-             return "div";
-           }
-         },
-         "h1", "h2", "h3", "h4", "h5", "h6")
-         .build(outputChannel)
+ new HtmlPolicyBuilder()
+   .allowElement(
+     new ElementPolicy() {
+       public String apply(String elementName, List&lt;String> attributes) {
+         attributes.add("class");
+         attributes.add("header-" + elementName);
+         return "div";
+       }
+     },
+     "h1", "h2", "h3", "h4", "h5", "h6")
+   .build(outputChannel)
  </pre>
 
  <h3>Rules of Thumb</h3>
