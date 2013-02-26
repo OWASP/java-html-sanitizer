@@ -320,6 +320,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             escapingTextSpanStart = -1;
           }
           break;
+        default:
+          break;
       }
     }
     if (escapingTextSpanStart >= 0) {
