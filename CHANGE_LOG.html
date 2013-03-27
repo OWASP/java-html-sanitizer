@@ -5,6 +5,10 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="161">Fixed bug: <code>requireRelNoFollowOnLinks()</code> was
+  implicitly allowing the <code>a</code> element.  Changed this to be
+  consistent with document: no elements are allowed that do not appear
+  in a call to <code>allowElements</code>.</li>
 <li value="132">Add methods to policy builder to specify which
   elements are allowed to contain text and change default to disallow
   text in CDATA elements whose content is often not plain text.
