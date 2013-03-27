@@ -36,6 +36,8 @@ import java.lang.reflect.Method;
 
 import com.google.common.base.Throwables;
 
+import org.owasp.html.examples.EbayPolicyExample;
+
 import junit.framework.TestCase;
 
 public class ExamplesTest extends TestCase {
@@ -68,5 +70,26 @@ public class ExamplesTest extends TestCase {
         System.setErr(stderr);
       }
     }
+  }
+
+  public final void testSanitizeRemovesScripts() {
+    String input =
+      "<p>Hello World</p>"
+      + "<script language=\"text/javascript\">alert(\"bad\");</script>";
+    String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
+    assertEquals("<p>Hello World</p>", sanitized);
+  }
+  
+  public final void testSanitizeRemovesOnclick() {
+    String input = "<p onclick=\"alert(\"bad\");\">Hello World</p>";
+    String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
+    assertEquals("<p>Hello World</p>", sanitized);
+  }
+
+  public final void testTextAllowedInLinks() {
+    String input = "<a href=\"../good.html\">click here</a>";
+    String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
+    assertEquals("<a href=\"../good.html\" rel=\"nofollow\">click here</a>",
+                 sanitized);
   }
 }
