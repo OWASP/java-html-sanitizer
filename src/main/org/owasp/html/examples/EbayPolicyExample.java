@@ -37,9 +37,9 @@ import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamEventReceiver;
 import org.owasp.html.HtmlStreamRenderer;
+import org.owasp.html.PolicyFactory;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.io.CharStreams;
@@ -124,8 +124,7 @@ public class EbayPolicyExample {
 
 
 
-  public static final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy>
-      POLICY_DEFINITION = new HtmlPolicyBuilder()
+  public static final PolicyFactory POLICY_DEFINITION = new HtmlPolicyBuilder()
           .allowAttributes("id").matching(HTML_ID).globally()
           .allowAttributes("class").matching(HTML_CLASS).globally()
           .allowAttributes("lang").matching(Pattern.compile("[a-zA-Z]{2,20}"))
@@ -199,7 +198,7 @@ public class EbayPolicyExample {
           .allowAttributes("span", "width").matching(NUMBER_OR_PERCENT)
               .onElements("colgroup", "col")
           .allowElements(
-              "label", "noscript", "h1", "h2", "h3", "h4", "h5", "h6",
+              "a", "label", "noscript", "h1", "h2", "h3", "h4", "h5", "h6",
               "p", "i", "b", "u", "strong", "em", "small", "big", "pre", "code",
               "cite", "samp", "sub", "sup", "strike", "center", "blockquote",
               "hr", "br", "col", "font", "map", "span", "div", "img",

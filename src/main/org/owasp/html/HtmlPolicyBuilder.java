@@ -508,10 +508,14 @@ public class HtmlPolicyBuilder {
 
     // Implement requireRelNofollowOnLinks
     if (requireRelNofollowOnLinks) {
+      ElementPolicy linkPolicy = elPolicies.get("a");
+      if (linkPolicy == null) {
+        linkPolicy = ElementPolicy.REJECT_ALL_ELEMENT_POLICY;
+      }
       elPolicies.put(
           "a",
           ElementPolicy.Util.join(
-              elPolicies.get("a"),
+              linkPolicy,
               new ElementPolicy() {
                 public String apply(String elementName, List<String> attrs) {
                   for (int i = 0, n = attrs.size(); i < n; i += 2) {
