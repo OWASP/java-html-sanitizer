@@ -705,223 +705,225 @@
 <FONT color="green">702</FONT>          defineElement(<a name="line.702"></a>
 <FONT color="green">703</FONT>              "option", false, elementGroupBits(<a name="line.703"></a>
 <FONT color="green">704</FONT>                  ElementGroup.OPTIONS_ELEMENT, ElementGroup.OPTION_ELEMENT<a name="line.704"></a>
-<FONT color="green">705</FONT>              ), 0);<a name="line.705"></a>
-<FONT color="green">706</FONT>          defineElement(<a name="line.706"></a>
-<FONT color="green">707</FONT>              "p", false, elementGroupBits(<a name="line.707"></a>
-<FONT color="green">708</FONT>                  ElementGroup.BLOCK, ElementGroup.P_ELEMENT<a name="line.708"></a>
-<FONT color="green">709</FONT>              ), elementGroupBits(<a name="line.709"></a>
-<FONT color="green">710</FONT>                  ElementGroup.INLINE, ElementGroup.TABLE_ELEMENT<a name="line.710"></a>
-<FONT color="green">711</FONT>              ));<a name="line.711"></a>
-<FONT color="green">712</FONT>          defineElement(<a name="line.712"></a>
-<FONT color="green">713</FONT>              "param", false, elementGroupBits(ElementGroup.PARAM_ELEMENT), 0);<a name="line.713"></a>
+<FONT color="green">705</FONT>              ), elementGroupBits(<a name="line.705"></a>
+<FONT color="green">706</FONT>                  ElementGroup.CHARACTER_DATA<a name="line.706"></a>
+<FONT color="green">707</FONT>              ));<a name="line.707"></a>
+<FONT color="green">708</FONT>          defineElement(<a name="line.708"></a>
+<FONT color="green">709</FONT>              "p", false, elementGroupBits(<a name="line.709"></a>
+<FONT color="green">710</FONT>                  ElementGroup.BLOCK, ElementGroup.P_ELEMENT<a name="line.710"></a>
+<FONT color="green">711</FONT>              ), elementGroupBits(<a name="line.711"></a>
+<FONT color="green">712</FONT>                  ElementGroup.INLINE, ElementGroup.TABLE_ELEMENT<a name="line.712"></a>
+<FONT color="green">713</FONT>              ));<a name="line.713"></a>
 <FONT color="green">714</FONT>          defineElement(<a name="line.714"></a>
-<FONT color="green">715</FONT>              "pre", false, elementGroupBits(<a name="line.715"></a>
-<FONT color="green">716</FONT>                  ElementGroup.BLOCK<a name="line.716"></a>
-<FONT color="green">717</FONT>              ), elementGroupBits(<a name="line.717"></a>
-<FONT color="green">718</FONT>                  ElementGroup.INLINE<a name="line.718"></a>
-<FONT color="green">719</FONT>              ));<a name="line.719"></a>
-<FONT color="green">720</FONT>          defineElement(<a name="line.720"></a>
-<FONT color="green">721</FONT>              "q", true, elementGroupBits(<a name="line.721"></a>
-<FONT color="green">722</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.722"></a>
-<FONT color="green">723</FONT>              ), elementGroupBits(<a name="line.723"></a>
-<FONT color="green">724</FONT>                  ElementGroup.INLINE<a name="line.724"></a>
-<FONT color="green">725</FONT>              ));<a name="line.725"></a>
-<FONT color="green">726</FONT>          defineElement(<a name="line.726"></a>
-<FONT color="green">727</FONT>              "s", true, elementGroupBits(<a name="line.727"></a>
-<FONT color="green">728</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.728"></a>
-<FONT color="green">729</FONT>              ), elementGroupBits(<a name="line.729"></a>
-<FONT color="green">730</FONT>                  ElementGroup.INLINE<a name="line.730"></a>
-<FONT color="green">731</FONT>              ));<a name="line.731"></a>
-<FONT color="green">732</FONT>          defineElement(<a name="line.732"></a>
-<FONT color="green">733</FONT>              "samp", true, elementGroupBits(<a name="line.733"></a>
-<FONT color="green">734</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.734"></a>
-<FONT color="green">735</FONT>              ), elementGroupBits(<a name="line.735"></a>
-<FONT color="green">736</FONT>                  ElementGroup.INLINE<a name="line.736"></a>
-<FONT color="green">737</FONT>              ));<a name="line.737"></a>
-<FONT color="green">738</FONT>          defineElement(<a name="line.738"></a>
-<FONT color="green">739</FONT>              "script", false, elementGroupBits(<a name="line.739"></a>
-<FONT color="green">740</FONT>                  ElementGroup.BLOCK, ElementGroup.INLINE,<a name="line.740"></a>
-<FONT color="green">741</FONT>                  ElementGroup.INLINE_MINUS_A, ElementGroup.MIXED,<a name="line.741"></a>
-<FONT color="green">742</FONT>                  ElementGroup.TABLE_CONTENT, ElementGroup.HEAD_CONTENT,<a name="line.742"></a>
-<FONT color="green">743</FONT>                  ElementGroup.TOP_CONTENT, ElementGroup.AREA_ELEMENT,<a name="line.743"></a>
-<FONT color="green">744</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.LEGEND_ELEMENT,<a name="line.744"></a>
-<FONT color="green">745</FONT>                  ElementGroup.LI_ELEMENT, ElementGroup.DL_PART,<a name="line.745"></a>
-<FONT color="green">746</FONT>                  ElementGroup.P_ELEMENT, ElementGroup.OPTIONS_ELEMENT,<a name="line.746"></a>
-<FONT color="green">747</FONT>                  ElementGroup.OPTION_ELEMENT, ElementGroup.PARAM_ELEMENT,<a name="line.747"></a>
-<FONT color="green">748</FONT>                  ElementGroup.TABLE_ELEMENT, ElementGroup.TR_ELEMENT,<a name="line.748"></a>
-<FONT color="green">749</FONT>                  ElementGroup.TD_ELEMENT, ElementGroup.COL_ELEMENT<a name="line.749"></a>
-<FONT color="green">750</FONT>              ), elementGroupBits(<a name="line.750"></a>
-<FONT color="green">751</FONT>                  ElementGroup.CHARACTER_DATA));<a name="line.751"></a>
-<FONT color="green">752</FONT>          defineElement(<a name="line.752"></a>
-<FONT color="green">753</FONT>              "select", false, elementGroupBits(<a name="line.753"></a>
-<FONT color="green">754</FONT>                  ElementGroup.INLINE<a name="line.754"></a>
-<FONT color="green">755</FONT>              ), elementGroupBits(<a name="line.755"></a>
-<FONT color="green">756</FONT>                  ElementGroup.OPTIONS_ELEMENT<a name="line.756"></a>
-<FONT color="green">757</FONT>              ));<a name="line.757"></a>
-<FONT color="green">758</FONT>          defineElement(<a name="line.758"></a>
-<FONT color="green">759</FONT>              "small", true, elementGroupBits(<a name="line.759"></a>
-<FONT color="green">760</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.760"></a>
-<FONT color="green">761</FONT>              ), elementGroupBits(<a name="line.761"></a>
-<FONT color="green">762</FONT>                  ElementGroup.INLINE<a name="line.762"></a>
-<FONT color="green">763</FONT>              ));<a name="line.763"></a>
-<FONT color="green">764</FONT>          defineElement(<a name="line.764"></a>
-<FONT color="green">765</FONT>              "span", false, elementGroupBits(<a name="line.765"></a>
-<FONT color="green">766</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.766"></a>
-<FONT color="green">767</FONT>              ), elementGroupBits(<a name="line.767"></a>
-<FONT color="green">768</FONT>                  ElementGroup.INLINE<a name="line.768"></a>
-<FONT color="green">769</FONT>              ));<a name="line.769"></a>
-<FONT color="green">770</FONT>          defineElement(<a name="line.770"></a>
-<FONT color="green">771</FONT>              "strike", true, elementGroupBits(<a name="line.771"></a>
-<FONT color="green">772</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.772"></a>
-<FONT color="green">773</FONT>              ), elementGroupBits(<a name="line.773"></a>
-<FONT color="green">774</FONT>                  ElementGroup.INLINE<a name="line.774"></a>
-<FONT color="green">775</FONT>              ));<a name="line.775"></a>
-<FONT color="green">776</FONT>          defineElement(<a name="line.776"></a>
-<FONT color="green">777</FONT>              "strong", true, elementGroupBits(<a name="line.777"></a>
-<FONT color="green">778</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.778"></a>
-<FONT color="green">779</FONT>              ), elementGroupBits(<a name="line.779"></a>
-<FONT color="green">780</FONT>                  ElementGroup.INLINE<a name="line.780"></a>
-<FONT color="green">781</FONT>              ));<a name="line.781"></a>
-<FONT color="green">782</FONT>          defineElement(<a name="line.782"></a>
-<FONT color="green">783</FONT>              "style", false, elementGroupBits(<a name="line.783"></a>
-<FONT color="green">784</FONT>                  ElementGroup.INLINE, ElementGroup.HEAD_CONTENT<a name="line.784"></a>
-<FONT color="green">785</FONT>              ), elementGroupBits(<a name="line.785"></a>
-<FONT color="green">786</FONT>                  ElementGroup.CHARACTER_DATA<a name="line.786"></a>
-<FONT color="green">787</FONT>              ));<a name="line.787"></a>
-<FONT color="green">788</FONT>          defineElement(<a name="line.788"></a>
-<FONT color="green">789</FONT>              "sub", true, elementGroupBits(<a name="line.789"></a>
-<FONT color="green">790</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.790"></a>
-<FONT color="green">791</FONT>              ), elementGroupBits(<a name="line.791"></a>
-<FONT color="green">792</FONT>                  ElementGroup.INLINE<a name="line.792"></a>
-<FONT color="green">793</FONT>              ));<a name="line.793"></a>
-<FONT color="green">794</FONT>          defineElement(<a name="line.794"></a>
-<FONT color="green">795</FONT>              "sup", true, elementGroupBits(<a name="line.795"></a>
-<FONT color="green">796</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.796"></a>
-<FONT color="green">797</FONT>              ), elementGroupBits(<a name="line.797"></a>
-<FONT color="green">798</FONT>                  ElementGroup.INLINE<a name="line.798"></a>
-<FONT color="green">799</FONT>              ));<a name="line.799"></a>
-<FONT color="green">800</FONT>          defineElement(<a name="line.800"></a>
-<FONT color="green">801</FONT>              "table", false, elementGroupBits(<a name="line.801"></a>
-<FONT color="green">802</FONT>                  ElementGroup.BLOCK, ElementGroup.TABLE_ELEMENT<a name="line.802"></a>
-<FONT color="green">803</FONT>              ), elementGroupBits(<a name="line.803"></a>
-<FONT color="green">804</FONT>                  ElementGroup.TABLE_CONTENT, ElementGroup.FORM_ELEMENT<a name="line.804"></a>
-<FONT color="green">805</FONT>              ));<a name="line.805"></a>
-<FONT color="green">806</FONT>          defineElement(<a name="line.806"></a>
-<FONT color="green">807</FONT>              "tbody", false, elementGroupBits(<a name="line.807"></a>
-<FONT color="green">808</FONT>                  ElementGroup.TABLE_CONTENT<a name="line.808"></a>
-<FONT color="green">809</FONT>              ), elementGroupBits(<a name="line.809"></a>
-<FONT color="green">810</FONT>                  ElementGroup.TR_ELEMENT<a name="line.810"></a>
-<FONT color="green">811</FONT>              ));<a name="line.811"></a>
-<FONT color="green">812</FONT>          ElementContainmentInfo TD = defineElement(<a name="line.812"></a>
-<FONT color="green">813</FONT>              "td", false, elementGroupBits(<a name="line.813"></a>
-<FONT color="green">814</FONT>                  ElementGroup.TD_ELEMENT<a name="line.814"></a>
-<FONT color="green">815</FONT>              ), elementGroupBits(<a name="line.815"></a>
-<FONT color="green">816</FONT>                  ElementGroup.BLOCK, ElementGroup.INLINE<a name="line.816"></a>
-<FONT color="green">817</FONT>              ));<a name="line.817"></a>
-<FONT color="green">818</FONT>          defineElement(<a name="line.818"></a>
-<FONT color="green">819</FONT>              "textarea", false,<a name="line.819"></a>
-<FONT color="green">820</FONT>              // No, a textarea cannot be inside a link.<a name="line.820"></a>
-<FONT color="green">821</FONT>              elementGroupBits(ElementGroup.INLINE),<a name="line.821"></a>
-<FONT color="green">822</FONT>              elementGroupBits(ElementGroup.CHARACTER_DATA));<a name="line.822"></a>
-<FONT color="green">823</FONT>          defineElement(<a name="line.823"></a>
-<FONT color="green">824</FONT>              "tfoot", false, elementGroupBits(<a name="line.824"></a>
-<FONT color="green">825</FONT>                  ElementGroup.TABLE_CONTENT<a name="line.825"></a>
-<FONT color="green">826</FONT>              ), elementGroupBits(<a name="line.826"></a>
-<FONT color="green">827</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,<a name="line.827"></a>
-<FONT color="green">828</FONT>                  ElementGroup.TD_ELEMENT<a name="line.828"></a>
-<FONT color="green">829</FONT>              ));<a name="line.829"></a>
-<FONT color="green">830</FONT>          defineElement(<a name="line.830"></a>
-<FONT color="green">831</FONT>              "th", false, elementGroupBits(<a name="line.831"></a>
-<FONT color="green">832</FONT>                  ElementGroup.TD_ELEMENT<a name="line.832"></a>
-<FONT color="green">833</FONT>              ), elementGroupBits(<a name="line.833"></a>
-<FONT color="green">834</FONT>                  ElementGroup.BLOCK, ElementGroup.INLINE<a name="line.834"></a>
-<FONT color="green">835</FONT>              ));<a name="line.835"></a>
-<FONT color="green">836</FONT>          defineElement(<a name="line.836"></a>
-<FONT color="green">837</FONT>              "thead", false, elementGroupBits(<a name="line.837"></a>
-<FONT color="green">838</FONT>                  ElementGroup.TABLE_CONTENT<a name="line.838"></a>
-<FONT color="green">839</FONT>              ), elementGroupBits(<a name="line.839"></a>
-<FONT color="green">840</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,<a name="line.840"></a>
-<FONT color="green">841</FONT>                  ElementGroup.TD_ELEMENT<a name="line.841"></a>
-<FONT color="green">842</FONT>              ));<a name="line.842"></a>
-<FONT color="green">843</FONT>          defineElement(<a name="line.843"></a>
-<FONT color="green">844</FONT>              "title", false, elementGroupBits(ElementGroup.HEAD_CONTENT),<a name="line.844"></a>
-<FONT color="green">845</FONT>              elementGroupBits(ElementGroup.CHARACTER_DATA));<a name="line.845"></a>
-<FONT color="green">846</FONT>          defineElement(<a name="line.846"></a>
-<FONT color="green">847</FONT>              "tr", false, elementGroupBits(<a name="line.847"></a>
-<FONT color="green">848</FONT>                  ElementGroup.TABLE_CONTENT, ElementGroup.TR_ELEMENT<a name="line.848"></a>
-<FONT color="green">849</FONT>              ), elementGroupBits(<a name="line.849"></a>
-<FONT color="green">850</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.TD_ELEMENT<a name="line.850"></a>
-<FONT color="green">851</FONT>              ),<a name="line.851"></a>
-<FONT color="green">852</FONT>              TD);<a name="line.852"></a>
-<FONT color="green">853</FONT>          defineElement(<a name="line.853"></a>
-<FONT color="green">854</FONT>              "tt", true, elementGroupBits(<a name="line.854"></a>
-<FONT color="green">855</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.855"></a>
-<FONT color="green">856</FONT>              ), elementGroupBits(<a name="line.856"></a>
-<FONT color="green">857</FONT>                  ElementGroup.INLINE<a name="line.857"></a>
-<FONT color="green">858</FONT>              ));<a name="line.858"></a>
-<FONT color="green">859</FONT>          defineElement(<a name="line.859"></a>
-<FONT color="green">860</FONT>              "u", true, elementGroupBits(<a name="line.860"></a>
-<FONT color="green">861</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.861"></a>
-<FONT color="green">862</FONT>              ), elementGroupBits(<a name="line.862"></a>
-<FONT color="green">863</FONT>                  ElementGroup.INLINE<a name="line.863"></a>
-<FONT color="green">864</FONT>              ));<a name="line.864"></a>
-<FONT color="green">865</FONT>          defineElement(<a name="line.865"></a>
-<FONT color="green">866</FONT>              "ul", false, elementGroupBits(<a name="line.866"></a>
-<FONT color="green">867</FONT>                  ElementGroup.BLOCK<a name="line.867"></a>
-<FONT color="green">868</FONT>              ), elementGroupBits(<a name="line.868"></a>
-<FONT color="green">869</FONT>                  ElementGroup.LI_ELEMENT<a name="line.869"></a>
-<FONT color="green">870</FONT>              ),<a name="line.870"></a>
-<FONT color="green">871</FONT>              LI);<a name="line.871"></a>
-<FONT color="green">872</FONT>          defineElement(<a name="line.872"></a>
-<FONT color="green">873</FONT>              "var", false, elementGroupBits(<a name="line.873"></a>
-<FONT color="green">874</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.874"></a>
-<FONT color="green">875</FONT>              ), elementGroupBits(<a name="line.875"></a>
-<FONT color="green">876</FONT>                  ElementGroup.INLINE<a name="line.876"></a>
-<FONT color="green">877</FONT>              ));<a name="line.877"></a>
-<FONT color="green">878</FONT>          defineElement(<a name="line.878"></a>
-<FONT color="green">879</FONT>              "video", false, elementGroupBits(<a name="line.879"></a>
-<FONT color="green">880</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.880"></a>
-<FONT color="green">881</FONT>              ), 0);<a name="line.881"></a>
-<FONT color="green">882</FONT>          defineElement(<a name="line.882"></a>
-<FONT color="green">883</FONT>              "wbr", false, elementGroupBits(<a name="line.883"></a>
-<FONT color="green">884</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.884"></a>
-<FONT color="green">885</FONT>              ), 0);<a name="line.885"></a>
-<FONT color="green">886</FONT>          defineElement(<a name="line.886"></a>
-<FONT color="green">887</FONT>              "xmp", false, elementGroupBits(<a name="line.887"></a>
-<FONT color="green">888</FONT>                  ElementGroup.BLOCK<a name="line.888"></a>
-<FONT color="green">889</FONT>              ), elementGroupBits(<a name="line.889"></a>
-<FONT color="green">890</FONT>                  ElementGroup.INLINE<a name="line.890"></a>
-<FONT color="green">891</FONT>              ));<a name="line.891"></a>
-<FONT color="green">892</FONT>    <a name="line.892"></a>
-<FONT color="green">893</FONT>        }<a name="line.893"></a>
+<FONT color="green">715</FONT>              "param", false, elementGroupBits(ElementGroup.PARAM_ELEMENT), 0);<a name="line.715"></a>
+<FONT color="green">716</FONT>          defineElement(<a name="line.716"></a>
+<FONT color="green">717</FONT>              "pre", false, elementGroupBits(<a name="line.717"></a>
+<FONT color="green">718</FONT>                  ElementGroup.BLOCK<a name="line.718"></a>
+<FONT color="green">719</FONT>              ), elementGroupBits(<a name="line.719"></a>
+<FONT color="green">720</FONT>                  ElementGroup.INLINE<a name="line.720"></a>
+<FONT color="green">721</FONT>              ));<a name="line.721"></a>
+<FONT color="green">722</FONT>          defineElement(<a name="line.722"></a>
+<FONT color="green">723</FONT>              "q", true, elementGroupBits(<a name="line.723"></a>
+<FONT color="green">724</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.724"></a>
+<FONT color="green">725</FONT>              ), elementGroupBits(<a name="line.725"></a>
+<FONT color="green">726</FONT>                  ElementGroup.INLINE<a name="line.726"></a>
+<FONT color="green">727</FONT>              ));<a name="line.727"></a>
+<FONT color="green">728</FONT>          defineElement(<a name="line.728"></a>
+<FONT color="green">729</FONT>              "s", true, elementGroupBits(<a name="line.729"></a>
+<FONT color="green">730</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.730"></a>
+<FONT color="green">731</FONT>              ), elementGroupBits(<a name="line.731"></a>
+<FONT color="green">732</FONT>                  ElementGroup.INLINE<a name="line.732"></a>
+<FONT color="green">733</FONT>              ));<a name="line.733"></a>
+<FONT color="green">734</FONT>          defineElement(<a name="line.734"></a>
+<FONT color="green">735</FONT>              "samp", true, elementGroupBits(<a name="line.735"></a>
+<FONT color="green">736</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.736"></a>
+<FONT color="green">737</FONT>              ), elementGroupBits(<a name="line.737"></a>
+<FONT color="green">738</FONT>                  ElementGroup.INLINE<a name="line.738"></a>
+<FONT color="green">739</FONT>              ));<a name="line.739"></a>
+<FONT color="green">740</FONT>          defineElement(<a name="line.740"></a>
+<FONT color="green">741</FONT>              "script", false, elementGroupBits(<a name="line.741"></a>
+<FONT color="green">742</FONT>                  ElementGroup.BLOCK, ElementGroup.INLINE,<a name="line.742"></a>
+<FONT color="green">743</FONT>                  ElementGroup.INLINE_MINUS_A, ElementGroup.MIXED,<a name="line.743"></a>
+<FONT color="green">744</FONT>                  ElementGroup.TABLE_CONTENT, ElementGroup.HEAD_CONTENT,<a name="line.744"></a>
+<FONT color="green">745</FONT>                  ElementGroup.TOP_CONTENT, ElementGroup.AREA_ELEMENT,<a name="line.745"></a>
+<FONT color="green">746</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.LEGEND_ELEMENT,<a name="line.746"></a>
+<FONT color="green">747</FONT>                  ElementGroup.LI_ELEMENT, ElementGroup.DL_PART,<a name="line.747"></a>
+<FONT color="green">748</FONT>                  ElementGroup.P_ELEMENT, ElementGroup.OPTIONS_ELEMENT,<a name="line.748"></a>
+<FONT color="green">749</FONT>                  ElementGroup.OPTION_ELEMENT, ElementGroup.PARAM_ELEMENT,<a name="line.749"></a>
+<FONT color="green">750</FONT>                  ElementGroup.TABLE_ELEMENT, ElementGroup.TR_ELEMENT,<a name="line.750"></a>
+<FONT color="green">751</FONT>                  ElementGroup.TD_ELEMENT, ElementGroup.COL_ELEMENT<a name="line.751"></a>
+<FONT color="green">752</FONT>              ), elementGroupBits(<a name="line.752"></a>
+<FONT color="green">753</FONT>                  ElementGroup.CHARACTER_DATA));<a name="line.753"></a>
+<FONT color="green">754</FONT>          defineElement(<a name="line.754"></a>
+<FONT color="green">755</FONT>              "select", false, elementGroupBits(<a name="line.755"></a>
+<FONT color="green">756</FONT>                  ElementGroup.INLINE<a name="line.756"></a>
+<FONT color="green">757</FONT>              ), elementGroupBits(<a name="line.757"></a>
+<FONT color="green">758</FONT>                  ElementGroup.OPTIONS_ELEMENT<a name="line.758"></a>
+<FONT color="green">759</FONT>              ));<a name="line.759"></a>
+<FONT color="green">760</FONT>          defineElement(<a name="line.760"></a>
+<FONT color="green">761</FONT>              "small", true, elementGroupBits(<a name="line.761"></a>
+<FONT color="green">762</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.762"></a>
+<FONT color="green">763</FONT>              ), elementGroupBits(<a name="line.763"></a>
+<FONT color="green">764</FONT>                  ElementGroup.INLINE<a name="line.764"></a>
+<FONT color="green">765</FONT>              ));<a name="line.765"></a>
+<FONT color="green">766</FONT>          defineElement(<a name="line.766"></a>
+<FONT color="green">767</FONT>              "span", false, elementGroupBits(<a name="line.767"></a>
+<FONT color="green">768</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.768"></a>
+<FONT color="green">769</FONT>              ), elementGroupBits(<a name="line.769"></a>
+<FONT color="green">770</FONT>                  ElementGroup.INLINE<a name="line.770"></a>
+<FONT color="green">771</FONT>              ));<a name="line.771"></a>
+<FONT color="green">772</FONT>          defineElement(<a name="line.772"></a>
+<FONT color="green">773</FONT>              "strike", true, elementGroupBits(<a name="line.773"></a>
+<FONT color="green">774</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.774"></a>
+<FONT color="green">775</FONT>              ), elementGroupBits(<a name="line.775"></a>
+<FONT color="green">776</FONT>                  ElementGroup.INLINE<a name="line.776"></a>
+<FONT color="green">777</FONT>              ));<a name="line.777"></a>
+<FONT color="green">778</FONT>          defineElement(<a name="line.778"></a>
+<FONT color="green">779</FONT>              "strong", true, elementGroupBits(<a name="line.779"></a>
+<FONT color="green">780</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.780"></a>
+<FONT color="green">781</FONT>              ), elementGroupBits(<a name="line.781"></a>
+<FONT color="green">782</FONT>                  ElementGroup.INLINE<a name="line.782"></a>
+<FONT color="green">783</FONT>              ));<a name="line.783"></a>
+<FONT color="green">784</FONT>          defineElement(<a name="line.784"></a>
+<FONT color="green">785</FONT>              "style", false, elementGroupBits(<a name="line.785"></a>
+<FONT color="green">786</FONT>                  ElementGroup.INLINE, ElementGroup.HEAD_CONTENT<a name="line.786"></a>
+<FONT color="green">787</FONT>              ), elementGroupBits(<a name="line.787"></a>
+<FONT color="green">788</FONT>                  ElementGroup.CHARACTER_DATA<a name="line.788"></a>
+<FONT color="green">789</FONT>              ));<a name="line.789"></a>
+<FONT color="green">790</FONT>          defineElement(<a name="line.790"></a>
+<FONT color="green">791</FONT>              "sub", true, elementGroupBits(<a name="line.791"></a>
+<FONT color="green">792</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.792"></a>
+<FONT color="green">793</FONT>              ), elementGroupBits(<a name="line.793"></a>
+<FONT color="green">794</FONT>                  ElementGroup.INLINE<a name="line.794"></a>
+<FONT color="green">795</FONT>              ));<a name="line.795"></a>
+<FONT color="green">796</FONT>          defineElement(<a name="line.796"></a>
+<FONT color="green">797</FONT>              "sup", true, elementGroupBits(<a name="line.797"></a>
+<FONT color="green">798</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.798"></a>
+<FONT color="green">799</FONT>              ), elementGroupBits(<a name="line.799"></a>
+<FONT color="green">800</FONT>                  ElementGroup.INLINE<a name="line.800"></a>
+<FONT color="green">801</FONT>              ));<a name="line.801"></a>
+<FONT color="green">802</FONT>          defineElement(<a name="line.802"></a>
+<FONT color="green">803</FONT>              "table", false, elementGroupBits(<a name="line.803"></a>
+<FONT color="green">804</FONT>                  ElementGroup.BLOCK, ElementGroup.TABLE_ELEMENT<a name="line.804"></a>
+<FONT color="green">805</FONT>              ), elementGroupBits(<a name="line.805"></a>
+<FONT color="green">806</FONT>                  ElementGroup.TABLE_CONTENT, ElementGroup.FORM_ELEMENT<a name="line.806"></a>
+<FONT color="green">807</FONT>              ));<a name="line.807"></a>
+<FONT color="green">808</FONT>          defineElement(<a name="line.808"></a>
+<FONT color="green">809</FONT>              "tbody", false, elementGroupBits(<a name="line.809"></a>
+<FONT color="green">810</FONT>                  ElementGroup.TABLE_CONTENT<a name="line.810"></a>
+<FONT color="green">811</FONT>              ), elementGroupBits(<a name="line.811"></a>
+<FONT color="green">812</FONT>                  ElementGroup.TR_ELEMENT<a name="line.812"></a>
+<FONT color="green">813</FONT>              ));<a name="line.813"></a>
+<FONT color="green">814</FONT>          ElementContainmentInfo TD = defineElement(<a name="line.814"></a>
+<FONT color="green">815</FONT>              "td", false, elementGroupBits(<a name="line.815"></a>
+<FONT color="green">816</FONT>                  ElementGroup.TD_ELEMENT<a name="line.816"></a>
+<FONT color="green">817</FONT>              ), elementGroupBits(<a name="line.817"></a>
+<FONT color="green">818</FONT>                  ElementGroup.BLOCK, ElementGroup.INLINE<a name="line.818"></a>
+<FONT color="green">819</FONT>              ));<a name="line.819"></a>
+<FONT color="green">820</FONT>          defineElement(<a name="line.820"></a>
+<FONT color="green">821</FONT>              "textarea", false,<a name="line.821"></a>
+<FONT color="green">822</FONT>              // No, a textarea cannot be inside a link.<a name="line.822"></a>
+<FONT color="green">823</FONT>              elementGroupBits(ElementGroup.INLINE),<a name="line.823"></a>
+<FONT color="green">824</FONT>              elementGroupBits(ElementGroup.CHARACTER_DATA));<a name="line.824"></a>
+<FONT color="green">825</FONT>          defineElement(<a name="line.825"></a>
+<FONT color="green">826</FONT>              "tfoot", false, elementGroupBits(<a name="line.826"></a>
+<FONT color="green">827</FONT>                  ElementGroup.TABLE_CONTENT<a name="line.827"></a>
+<FONT color="green">828</FONT>              ), elementGroupBits(<a name="line.828"></a>
+<FONT color="green">829</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,<a name="line.829"></a>
+<FONT color="green">830</FONT>                  ElementGroup.TD_ELEMENT<a name="line.830"></a>
+<FONT color="green">831</FONT>              ));<a name="line.831"></a>
+<FONT color="green">832</FONT>          defineElement(<a name="line.832"></a>
+<FONT color="green">833</FONT>              "th", false, elementGroupBits(<a name="line.833"></a>
+<FONT color="green">834</FONT>                  ElementGroup.TD_ELEMENT<a name="line.834"></a>
+<FONT color="green">835</FONT>              ), elementGroupBits(<a name="line.835"></a>
+<FONT color="green">836</FONT>                  ElementGroup.BLOCK, ElementGroup.INLINE<a name="line.836"></a>
+<FONT color="green">837</FONT>              ));<a name="line.837"></a>
+<FONT color="green">838</FONT>          defineElement(<a name="line.838"></a>
+<FONT color="green">839</FONT>              "thead", false, elementGroupBits(<a name="line.839"></a>
+<FONT color="green">840</FONT>                  ElementGroup.TABLE_CONTENT<a name="line.840"></a>
+<FONT color="green">841</FONT>              ), elementGroupBits(<a name="line.841"></a>
+<FONT color="green">842</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,<a name="line.842"></a>
+<FONT color="green">843</FONT>                  ElementGroup.TD_ELEMENT<a name="line.843"></a>
+<FONT color="green">844</FONT>              ));<a name="line.844"></a>
+<FONT color="green">845</FONT>          defineElement(<a name="line.845"></a>
+<FONT color="green">846</FONT>              "title", false, elementGroupBits(ElementGroup.HEAD_CONTENT),<a name="line.846"></a>
+<FONT color="green">847</FONT>              elementGroupBits(ElementGroup.CHARACTER_DATA));<a name="line.847"></a>
+<FONT color="green">848</FONT>          defineElement(<a name="line.848"></a>
+<FONT color="green">849</FONT>              "tr", false, elementGroupBits(<a name="line.849"></a>
+<FONT color="green">850</FONT>                  ElementGroup.TABLE_CONTENT, ElementGroup.TR_ELEMENT<a name="line.850"></a>
+<FONT color="green">851</FONT>              ), elementGroupBits(<a name="line.851"></a>
+<FONT color="green">852</FONT>                  ElementGroup.FORM_ELEMENT, ElementGroup.TD_ELEMENT<a name="line.852"></a>
+<FONT color="green">853</FONT>              ),<a name="line.853"></a>
+<FONT color="green">854</FONT>              TD);<a name="line.854"></a>
+<FONT color="green">855</FONT>          defineElement(<a name="line.855"></a>
+<FONT color="green">856</FONT>              "tt", true, elementGroupBits(<a name="line.856"></a>
+<FONT color="green">857</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.857"></a>
+<FONT color="green">858</FONT>              ), elementGroupBits(<a name="line.858"></a>
+<FONT color="green">859</FONT>                  ElementGroup.INLINE<a name="line.859"></a>
+<FONT color="green">860</FONT>              ));<a name="line.860"></a>
+<FONT color="green">861</FONT>          defineElement(<a name="line.861"></a>
+<FONT color="green">862</FONT>              "u", true, elementGroupBits(<a name="line.862"></a>
+<FONT color="green">863</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.863"></a>
+<FONT color="green">864</FONT>              ), elementGroupBits(<a name="line.864"></a>
+<FONT color="green">865</FONT>                  ElementGroup.INLINE<a name="line.865"></a>
+<FONT color="green">866</FONT>              ));<a name="line.866"></a>
+<FONT color="green">867</FONT>          defineElement(<a name="line.867"></a>
+<FONT color="green">868</FONT>              "ul", false, elementGroupBits(<a name="line.868"></a>
+<FONT color="green">869</FONT>                  ElementGroup.BLOCK<a name="line.869"></a>
+<FONT color="green">870</FONT>              ), elementGroupBits(<a name="line.870"></a>
+<FONT color="green">871</FONT>                  ElementGroup.LI_ELEMENT<a name="line.871"></a>
+<FONT color="green">872</FONT>              ),<a name="line.872"></a>
+<FONT color="green">873</FONT>              LI);<a name="line.873"></a>
+<FONT color="green">874</FONT>          defineElement(<a name="line.874"></a>
+<FONT color="green">875</FONT>              "var", false, elementGroupBits(<a name="line.875"></a>
+<FONT color="green">876</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.876"></a>
+<FONT color="green">877</FONT>              ), elementGroupBits(<a name="line.877"></a>
+<FONT color="green">878</FONT>                  ElementGroup.INLINE<a name="line.878"></a>
+<FONT color="green">879</FONT>              ));<a name="line.879"></a>
+<FONT color="green">880</FONT>          defineElement(<a name="line.880"></a>
+<FONT color="green">881</FONT>              "video", false, elementGroupBits(<a name="line.881"></a>
+<FONT color="green">882</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.882"></a>
+<FONT color="green">883</FONT>              ), 0);<a name="line.883"></a>
+<FONT color="green">884</FONT>          defineElement(<a name="line.884"></a>
+<FONT color="green">885</FONT>              "wbr", false, elementGroupBits(<a name="line.885"></a>
+<FONT color="green">886</FONT>                  ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A<a name="line.886"></a>
+<FONT color="green">887</FONT>              ), 0);<a name="line.887"></a>
+<FONT color="green">888</FONT>          defineElement(<a name="line.888"></a>
+<FONT color="green">889</FONT>              "xmp", false, elementGroupBits(<a name="line.889"></a>
+<FONT color="green">890</FONT>                  ElementGroup.BLOCK<a name="line.890"></a>
+<FONT color="green">891</FONT>              ), elementGroupBits(<a name="line.891"></a>
+<FONT color="green">892</FONT>                  ElementGroup.INLINE<a name="line.892"></a>
+<FONT color="green">893</FONT>              ));<a name="line.893"></a>
 <FONT color="green">894</FONT>    <a name="line.894"></a>
-<FONT color="green">895</FONT>        private static final ElementContainmentInfo CHARACTER_DATA<a name="line.895"></a>
-<FONT color="green">896</FONT>            = new ElementContainmentInfo(<a name="line.896"></a>
-<FONT color="green">897</FONT>                "#text", false,<a name="line.897"></a>
-<FONT color="green">898</FONT>                elementGroupBits(<a name="line.898"></a>
-<FONT color="green">899</FONT>                    ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,<a name="line.899"></a>
-<FONT color="green">900</FONT>                    ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),<a name="line.900"></a>
-<FONT color="green">901</FONT>                0, null);<a name="line.901"></a>
-<FONT color="green">902</FONT>      }<a name="line.902"></a>
-<FONT color="green">903</FONT>    <a name="line.903"></a>
-<FONT color="green">904</FONT>      static boolean allowsPlainTextualContent(String canonElementName) {<a name="line.904"></a>
-<FONT color="green">905</FONT>        ElementContainmentInfo info =<a name="line.905"></a>
-<FONT color="green">906</FONT>           ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);<a name="line.906"></a>
-<FONT color="green">907</FONT>        if (info == null || (info.contents &amp; ElementContainmentRelationships.CHARACTER_DATA.types) != 0) {<a name="line.907"></a>
-<FONT color="green">908</FONT>          switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {<a name="line.908"></a>
-<FONT color="green">909</FONT>            case PCDATA:     return true;<a name="line.909"></a>
-<FONT color="green">910</FONT>            case RCDATA:     return true;<a name="line.910"></a>
-<FONT color="green">911</FONT>            case PLAIN_TEXT: return true;<a name="line.911"></a>
-<FONT color="green">912</FONT>            case VOID:       return false;<a name="line.912"></a>
-<FONT color="green">913</FONT>            case CDATA:<a name="line.913"></a>
-<FONT color="green">914</FONT>            case CDATA_SOMETIMES:<a name="line.914"></a>
-<FONT color="green">915</FONT>              return "xmp".equals(canonElementName)<a name="line.915"></a>
-<FONT color="green">916</FONT>                  || "listing".equals(canonElementName);<a name="line.916"></a>
-<FONT color="green">917</FONT>          }<a name="line.917"></a>
-<FONT color="green">918</FONT>        }<a name="line.918"></a>
-<FONT color="green">919</FONT>        return false;<a name="line.919"></a>
-<FONT color="green">920</FONT>      }<a name="line.920"></a>
-<FONT color="green">921</FONT>    }<a name="line.921"></a>
+<FONT color="green">895</FONT>        }<a name="line.895"></a>
+<FONT color="green">896</FONT>    <a name="line.896"></a>
+<FONT color="green">897</FONT>        private static final ElementContainmentInfo CHARACTER_DATA<a name="line.897"></a>
+<FONT color="green">898</FONT>            = new ElementContainmentInfo(<a name="line.898"></a>
+<FONT color="green">899</FONT>                "#text", false,<a name="line.899"></a>
+<FONT color="green">900</FONT>                elementGroupBits(<a name="line.900"></a>
+<FONT color="green">901</FONT>                    ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,<a name="line.901"></a>
+<FONT color="green">902</FONT>                    ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),<a name="line.902"></a>
+<FONT color="green">903</FONT>                0, null);<a name="line.903"></a>
+<FONT color="green">904</FONT>      }<a name="line.904"></a>
+<FONT color="green">905</FONT>    <a name="line.905"></a>
+<FONT color="green">906</FONT>      static boolean allowsPlainTextualContent(String canonElementName) {<a name="line.906"></a>
+<FONT color="green">907</FONT>        ElementContainmentInfo info =<a name="line.907"></a>
+<FONT color="green">908</FONT>           ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);<a name="line.908"></a>
+<FONT color="green">909</FONT>        if (info == null || (info.contents &amp; ElementContainmentRelationships.CHARACTER_DATA.types) != 0) {<a name="line.909"></a>
+<FONT color="green">910</FONT>          switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {<a name="line.910"></a>
+<FONT color="green">911</FONT>            case PCDATA:     return true;<a name="line.911"></a>
+<FONT color="green">912</FONT>            case RCDATA:     return true;<a name="line.912"></a>
+<FONT color="green">913</FONT>            case PLAIN_TEXT: return true;<a name="line.913"></a>
+<FONT color="green">914</FONT>            case VOID:       return false;<a name="line.914"></a>
+<FONT color="green">915</FONT>            case CDATA:<a name="line.915"></a>
+<FONT color="green">916</FONT>            case CDATA_SOMETIMES:<a name="line.916"></a>
+<FONT color="green">917</FONT>              return "xmp".equals(canonElementName)<a name="line.917"></a>
+<FONT color="green">918</FONT>                  || "listing".equals(canonElementName);<a name="line.918"></a>
+<FONT color="green">919</FONT>          }<a name="line.919"></a>
+<FONT color="green">920</FONT>        }<a name="line.920"></a>
+<FONT color="green">921</FONT>        return false;<a name="line.921"></a>
+<FONT color="green">922</FONT>      }<a name="line.922"></a>
+<FONT color="green">923</FONT>    }<a name="line.923"></a>
 
 
 
