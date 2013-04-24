@@ -256,6 +256,16 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<a href='javascript:alert(1337)//:http'>Bad</a>"));
   }
 
+  public final void testTextInOption() throws Exception {
+    assertEquals(
+        "<select><option>1</option><option>2</option></select>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("select", "option"),
+
+            "<select>\n  <option>1</option>\n  <option>2</option>\n</select>"));
+  }
+
   private String apply(HtmlPolicyBuilder b) throws Exception {
     return apply(b, EXAMPLE);
   }
