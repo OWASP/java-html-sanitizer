@@ -702,7 +702,9 @@ public class TagBalancingHtmlStreamEventReceiver
       defineElement(
           "option", false, elementGroupBits(
               ElementGroup.OPTIONS_ELEMENT, ElementGroup.OPTION_ELEMENT
-          ), 0);
+          ), elementGroupBits(
+              ElementGroup.CHARACTER_DATA
+          ));
       defineElement(
           "p", false, elementGroupBits(
               ElementGroup.BLOCK, ElementGroup.P_ELEMENT
