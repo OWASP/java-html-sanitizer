@@ -5,6 +5,9 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="164">Fixed bug: missing bit in HTML schema led to text in
+  <code>&lt;option&gt;</code> elements being elided even when
+  the elements themselves were white-listed.</li>
 <li value="161">Fixed bug: <code>requireRelNoFollowOnLinks()</code> was
   implicitly allowing the <code>a</code> element.  Changed this to be
   consistent with document: no elements are allowed that do not appear
