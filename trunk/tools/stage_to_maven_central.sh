@@ -1,5 +1,22 @@
 #!/bin/bash
 
+function requireLocalRepoUpToDate() {
+  local LOCAL_CHANGES="$(svn status -u | egrep -v '^Status against revision:')"
+  # -u causes status differences from head to be reported.
+  if [[ -n "$LOCAL_CHANGES" ]]; then
+      echo "Repo is not up-to-date or not committed."
+      echo ========================================
+      echo "$LOCAL_CHANGES"
+      echo ========================================
+
+      echo "Aborting."
+      echo
+      exit -1
+  fi
+}
+
+requireLocalRepoUpToDate
+
 PROJECT_DIR="$(pushd "$(dirname "$0")/../.." >& /dev/null; pwd -P; popd >& /dev/null)"
 
 VERSION="$1"
