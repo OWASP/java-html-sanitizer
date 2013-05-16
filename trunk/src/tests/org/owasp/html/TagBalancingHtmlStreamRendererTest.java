@@ -189,15 +189,18 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.openTag("li", ImmutableList.<String>of());
     balancer.text("foo");
     balancer.closeTag("li");
-    balancer.closeTag("li");  // Closes the second <ul> as well.
-    // This now appends inside a list, not an item.  Insert an <li>.
+    // Does not closes the second <ul> since only </ol> and </ul> can close a
+    // <ul> based on the "has an element in list scope test" used by the HTML5
+    // tree building algo.
+    balancer.closeTag("li");
+    // This would append inside a list, not an item.  We insert an <li>.
     balancer.openTag("ul", ImmutableList.<String>of());
     balancer.openTag("li", ImmutableList.<String>of());
     balancer.text("bar");
     balancer.closeDocument();
 
     assertEquals(
-        "<ul><li><ul><li>foo</li></ul></li><li><ul><li>bar</li></ul></li></ul>",
+        "<ul><li><ul><li>foo</li><li><ul><li>bar</li></ul></li></ul></li></ul>",
         htmlOutputBuffer.toString());
   }
 
@@ -244,4 +247,61 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         + "</div></div></div></div></div></div></div></div></div></div>",
         htmlOutputBuffer.toString());
   }
+
+  public final void testTablesGuarded() {
+    // Derived from issue 12.
+    balancer.openDocument();
+    balancer.openTag("html", ImmutableList.<String>of());
+    balancer.openTag("head", ImmutableList.<String>of());
+    balancer.openTag("meta", ImmutableList.<String>of());
+    balancer.closeTag("head");
+    balancer.openTag("body", ImmutableList.<String>of());
+    balancer.openTag("p", ImmutableList.<String>of());
+    balancer.text("Hi");
+    balancer.closeTag("p");
+    balancer.openTag("p", ImmutableList.<String>of());
+    balancer.text("How are you");
+    balancer.closeTag("p");
+    balancer.text("\n");
+    balancer.openTag("p", ImmutableList.<String>of());
+    balancer.openTag("table", ImmutableList.<String>of());
+    balancer.openTag("tbody", ImmutableList.<String>of());
+    balancer.openTag("tr", ImmutableList.<String>of());
+    for (int i = 2; --i >= 0;) {
+      balancer.openTag("td", ImmutableList.<String>of());
+      balancer.openTag("b", ImmutableList.<String>of());
+      balancer.openTag("font", ImmutableList.<String>of());
+      balancer.openTag("font", ImmutableList.<String>of());
+      balancer.openTag("p", ImmutableList.<String>of());
+      balancer.text("Cell");
+      balancer.closeTag("b");
+      balancer.closeTag("font");
+      balancer.closeTag("font");
+      balancer.closeTag("p");
+      balancer.text("\n");
+      balancer.closeTag("td");
+    }
+    balancer.closeTag("tr");
+    balancer.closeTag("tbody");
+    balancer.closeTag("table");
+    balancer.closeTag("p");
+    balancer.text("\n");
+    balancer.openTag("p", ImmutableList.<String>of());
+    balancer.text("x");
+    balancer.closeTag("p");
+    balancer.closeTag("body");
+    balancer.closeTag("html");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>\n"
+        + "<p><table><tbody><tr>"
+        + "<td><b><font><font></font></font></b><b><p>Cell</p></b>\n</td>"
+        // The close </p> tag does not close the whole table.
+        + "<td><b><font><font></font></font></b><b><p>Cell</p></b>\n</td>"
+        + "</tr></tbody></table></p>\n"
+        + "<p>x</p></body></html>",
+        htmlOutputBuffer.toString());
+  }
+
 }

@@ -149,23 +149,33 @@ public class TagBalancingHtmlStreamEventReceiver
       return;
     }
     int index = openElements.lastIndexOf(elInfo);
-    if (index < 0) {
-      // Let any of </h1>, </h2>, ... close other header tags.
-      if (isHeaderElementName(canonElementName)) {
-        for (int i = openElements.size(); -- i >= 0;) {
-          ElementContainmentInfo openEl = openElements.get(i);
-          if (isHeaderElementName(openEl.elementName)) {
-            elInfo = openEl;
-            index = i;
-            canonElementName = openEl.elementName;
-            break;
-          }
+    // Let any of </h1>, </h2>, ... close other header tags.
+    if (isHeaderElementName(canonElementName)) {
+      for (int i = openElements.size(), limit = index + 1; -- i >= limit;) {
+        ElementContainmentInfo openEl = openElements.get(i);
+        if (isHeaderElementName(openEl.elementName)) {
+          elInfo = openEl;
+          index = i;
+          canonElementName = openEl.elementName;
+          break;
         }
       }
-      if (index < 0) {
-        return;  // Don't close unopened tags.
+    }
+    if (index < 0) {
+      return;  // Don't close unopened tags.
+    }
+
+    // Ensure that index is in the scope of closeable elements.
+    // This approximates the "has an element in *** scope" predicates defined at
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html
+    // #has-an-element-in-the-specific-scope
+    int blockingScopes = elInfo.blockedByScopes;
+    for (int i = openElements.size(); --i > index;) {
+      if ((openElements.get(i).inScopes & blockingScopes) != 0) {
+        return;
       }
     }
+
     int last = openElements.size();
     // Close all the elements that cannot contain the element to open.
     List<ElementContainmentInfo> toResumeInReverse = null;
@@ -244,10 +254,15 @@ public class TagBalancingHtmlStreamEventReceiver
     final boolean isVoid;
     /** A legal child of this node that can contain block content. */
     final @Nullable ElementContainmentInfo blockContainerChild;
+    /** A bit set of close tag scopes that block this element's close tags. */
+    final int blockedByScopes;
+    /** A bit set of scopes groups into which this element falls. */
+    final int inScopes;
 
     ElementContainmentInfo(
         String elementName, boolean resumable, int types, int contents,
-        @Nullable ElementContainmentInfo blockContainerChild) {
+        @Nullable ElementContainmentInfo blockContainerChild,
+        int inScopes) {
       this.elementName = elementName;
       this.resumable = resumable;
       this.types = types;
@@ -255,6 +270,9 @@ public class TagBalancingHtmlStreamEventReceiver
       this.isVoid = contents == 0
           && HtmlTextEscapingMode.isVoidElement(elementName);
       this.blockContainerChild = blockContainerChild;
+      this.blockedByScopes =
+          ElementContainmentRelationships.CloseTagScope.ALL & ~inScopes;
+      this.inScopes = inScopes;
     }
 
     @Override public String toString() {
@@ -292,6 +310,21 @@ public class TagBalancingHtmlStreamEventReceiver
       ;
     }
 
+    /**
+     * An identifier for one of the "has a *** element in scope" predicates
+     * used by HTML5 to decide when a close tag implicitly closes tags above
+     * the target element on the open element stack.
+     */
+    private enum CloseTagScope {
+      COMMON,
+      BUTTON,
+      LIST_ITEM,
+      TABLE,
+      ;
+
+      static final int ALL = (1 << values().length) - 1;
+    }
+
     private static int elementGroupBits(ElementGroup a) {
       return 1 << a.ordinal();
     }
@@ -315,6 +348,15 @@ public class TagBalancingHtmlStreamEventReceiver
       return bitField;
     }
 
+    private static int scopeBits(CloseTagScope a) {
+      return 1 << a.ordinal();
+    }
+
+    private static int scopeBits(
+        CloseTagScope a, CloseTagScope b, CloseTagScope c) {
+      return (1 << a.ordinal()) | (1 << b.ordinal()) | (1 << c.ordinal());
+    }
+
     private ImmutableMap.Builder<String, ElementContainmentInfo> definitions
         = ImmutableMap.builder();
 
@@ -325,9 +367,24 @@ public class TagBalancingHtmlStreamEventReceiver
 
     private ElementContainmentInfo defineElement(
         String elementName, boolean resumable, int types, int contentTypes,
+        int inScopes) {
+      return defineElement(
+          elementName, resumable, types, contentTypes, null, inScopes);
+    }
+
+    private ElementContainmentInfo defineElement(
+        String elementName, boolean resumable, int types, int contentTypes,
         @Nullable ElementContainmentInfo blockContainer) {
+      return defineElement(
+          elementName, resumable, types, contentTypes, blockContainer, 0);
+    }
+
+    private ElementContainmentInfo defineElement(
+        String elementName, boolean resumable, int types, int contentTypes,
+        @Nullable ElementContainmentInfo blockContainer, int inScopes) {
       ElementContainmentInfo info = new ElementContainmentInfo(
-          elementName, resumable, types, contentTypes, blockContainer);
+          elementName, resumable, types, contentTypes, blockContainer,
+          inScopes);
       definitions.put(elementName, info);
       return info;
     }
@@ -367,6 +424,9 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.BLOCK, ElementGroup.INLINE,
               ElementGroup.PARAM_ELEMENT
+          ), scopeBits(
+              CloseTagScope.COMMON, CloseTagScope.BUTTON,
+              CloseTagScope.LIST_ITEM
           ));
       defineElement(
           "area", false, elementGroupBits(ElementGroup.AREA_ELEMENT), 0);
@@ -431,7 +491,7 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
           ), elementGroupBits(
               ElementGroup.BLOCK, ElementGroup.INLINE
-          ));
+          ), scopeBits(CloseTagScope.BUTTON));
       defineElement(
           "canvas", false, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
@@ -443,6 +503,9 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.TABLE_CONTENT
           ), elementGroupBits(
               ElementGroup.INLINE
+          ), scopeBits(
+              CloseTagScope.COMMON, CloseTagScope.BUTTON,
+              CloseTagScope.LIST_ITEM
           ));
       defineElement(
           "center", false, elementGroupBits(
@@ -588,7 +651,8 @@ public class TagBalancingHtmlStreamEventReceiver
       defineElement(
           "hr", false, elementGroupBits(ElementGroup.BLOCK), 0);
       defineElement(
-          "html", false, 0, elementGroupBits(ElementGroup.TOP_CONTENT));
+          "html", false, 0, elementGroupBits(ElementGroup.TOP_CONTENT),
+          CloseTagScope.ALL);
       defineElement(
           "i", true, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
@@ -685,6 +749,9 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.BLOCK, ElementGroup.INLINE,
               ElementGroup.PARAM_ELEMENT
+          ), scopeBits(
+              CloseTagScope.COMMON, CloseTagScope.BUTTON,
+              CloseTagScope.LIST_ITEM
           ));
       defineElement(
           "ol", false, elementGroupBits(
@@ -692,7 +759,8 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.LI_ELEMENT
           ),
-          LI);
+          LI,
+          scopeBits(CloseTagScope.LIST_ITEM));
       defineElement(
           "optgroup", false, elementGroupBits(
               ElementGroup.OPTIONS_ELEMENT
@@ -804,7 +872,7 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.BLOCK, ElementGroup.TABLE_ELEMENT
           ), elementGroupBits(
               ElementGroup.TABLE_CONTENT, ElementGroup.FORM_ELEMENT
-          ));
+          ), CloseTagScope.ALL);
       defineElement(
           "tbody", false, elementGroupBits(
               ElementGroup.TABLE_CONTENT
@@ -816,6 +884,9 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.TD_ELEMENT
           ), elementGroupBits(
               ElementGroup.BLOCK, ElementGroup.INLINE
+          ), scopeBits(
+              CloseTagScope.COMMON, CloseTagScope.BUTTON,
+              CloseTagScope.LIST_ITEM
           ));
       defineElement(
           "textarea", false,
@@ -834,6 +905,9 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.TD_ELEMENT
           ), elementGroupBits(
               ElementGroup.BLOCK, ElementGroup.INLINE
+          ), scopeBits(
+              CloseTagScope.COMMON, CloseTagScope.BUTTON,
+              CloseTagScope.LIST_ITEM
           ));
       defineElement(
           "thead", false, elementGroupBits(
@@ -870,7 +944,8 @@ public class TagBalancingHtmlStreamEventReceiver
           ), elementGroupBits(
               ElementGroup.LI_ELEMENT
           ),
-          LI);
+          LI,
+          scopeBits(CloseTagScope.LIST_ITEM));
       defineElement(
           "var", false, elementGroupBits(
               ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A
@@ -900,7 +975,7 @@ public class TagBalancingHtmlStreamEventReceiver
             elementGroupBits(
                 ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,
                 ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),
-            0, null);
+            0, null, 0);
   }
 
   static boolean allowsPlainTextualContent(String canonElementName) {
