@@ -5,6 +5,9 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="173">Fixed bug: tag balancer allowed
+  <code>&lt;/p&gt;</code> to close a table, so rewrote tag balancer
+  to recognize scoping elements per HTML5.</li>
 <li value="164">Fixed bug: missing bit in HTML schema led to text in
   <code>&lt;option&gt;</code> elements being elided even when
   the elements themselves were white-listed.</li>
