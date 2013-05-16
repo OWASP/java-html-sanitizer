@@ -35,7 +35,6 @@ import java.util.regex.Pattern;
 import org.owasp.html.Handler;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
-import org.owasp.html.HtmlStreamEventReceiver;
 import org.owasp.html.HtmlStreamRenderer;
 import org.owasp.html.PolicyFactory;
 
