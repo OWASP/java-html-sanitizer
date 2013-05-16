@@ -133,7 +133,7 @@ public class AntiSamyTest extends TestCase {
   }
 
   public void testCompareSpeeds() throws Exception {
-    if (DISABLE_INTERNETS) { return; }  // HACK: DO NOT SUBMIT
+    if (DISABLE_INTERNETS) { return; }
 
     long totalTime = 0;
     long averageTime = 0;
