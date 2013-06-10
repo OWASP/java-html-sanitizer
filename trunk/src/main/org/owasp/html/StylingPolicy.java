@@ -66,6 +66,19 @@ class StylingPolicy implements AttributePolicy {
     WEIGHT,
     STYLE,
     TEXT_DECORATION,
+    HEIGHT,
+    WIDTH,
+    MARGIN,
+    MARGIN_BOTTOM,
+    MARGIN_LEFT,
+    MARGIN_RIGHT,
+    MARGIN_TOP,
+    PADDING,
+    PADDING_BOTTOM,
+    PADDING_LEFT,
+    PADDING_RIGHT,
+    PADDING_TOP,
+    DIMS,
     NONE,
     ;
   }
@@ -91,6 +104,9 @@ class StylingPolicy implements AttributePolicy {
   private static final Set<String> ALLOWED_DIRECTION = ImmutableSet.of(
       "inherit", "ltr", "rtl");
 
+  private static final Pattern NON_NEGATIVE_LENGTH = Pattern.compile(
+      "(?:0|[1-9][0-9]*)([.][0-9]+)?(ex|[ecm]m|v[hw]|p[xct]|in|%)?");
+
   private static final ImmutableMap<String, CssPropertyType>
       BY_CSS_PROPERTY_NAME = ImmutableMap.<String, CssPropertyType>builder()
       .put("font", CssPropertyType.FONT)
@@ -105,7 +121,179 @@ class StylingPolicy implements AttributePolicy {
       .put("unicode-bidi", CssPropertyType.UNICODE_BIDI)
       .put("background", CssPropertyType.BACKGROUND_COLOR)
       .put("background-color", CssPropertyType.BACKGROUND_COLOR)
+      .put("height", CssPropertyType.HEIGHT)
+      .put("width", CssPropertyType.WIDTH)
+      .put("margin", CssPropertyType.MARGIN)
+      .put("margin-top", CssPropertyType.MARGIN_TOP)
+      .put("margin-left", CssPropertyType.MARGIN_LEFT)
+      .put("margin-bottom", CssPropertyType.MARGIN_BOTTOM)
+      .put("margin-right", CssPropertyType.MARGIN_RIGHT)
+      .put("padding", CssPropertyType.PADDING)
+      .put("padding-top", CssPropertyType.PADDING_TOP)
+      .put("padding-left", CssPropertyType.PADDING_LEFT)
+      .put("padding-bottom", CssPropertyType.PADDING_BOTTOM)
+      .put("padding-right", CssPropertyType.PADDING_RIGHT)
       .build();
+
+  /**
+   * Serializes a CSS property group based on a series of name and value calls.
+   */
+  private static final class PropertyGroup {
+    private final StringBuilder buf = new StringBuilder();
+    private boolean inPropertyName = true;
+
+    PropertyGroup name(String s) {
+      assert inPropertyName;
+      if (buf.length() != 0) { buf.append(';'); }
+      buf.append(s);
+      inPropertyName = false;
+      return this;
+    }
+
+    PropertyGroup name(String s, String suffix) {
+      assert inPropertyName;
+      if (buf.length() != 0) { buf.append(';'); }
+      buf.append(s).append(suffix);
+      inPropertyName = false;
+      return this;
+    }
+
+    PropertyGroup value(String s) {
+      assert !inPropertyName;
+      buf.append(':').append(s);
+      inPropertyName = true;
+      return this;
+    }
+
+    PropertyGroup value(String s0, String s1) {
+      assert !inPropertyName;
+      buf.append(':').append(s0).append(' ').append(s1);
+      inPropertyName = true;
+      return this;
+    }
+
+    PropertyGroup value(String s0, String s1, String s2) {
+      assert !inPropertyName;
+      buf.append(':').append(s0).append(' ').append(s1).append(' ').append(s2);
+      inPropertyName = true;
+      return this;
+    }
+
+    PropertyGroup value(String s0, String s1, String s2, String s3) {
+      assert !inPropertyName;
+      buf.append(':').append(s0).append(' ').append(s1)
+         .append(' ').append(s2).append(' ').append(s3);
+      inPropertyName = true;
+      return this;
+    }
+
+    boolean isEmpty() { return buf.length() == 0; }
+
+    @Override
+    public String toString() {
+      return buf.toString();
+    }
+  }
+
+  /**
+   * A group of CSS Length properties that define the boundaries of a
+   * rectangular area.  The rectangle may be defined in terms of a delta to
+   * an inner rectangle as in padding, margin, and border.
+   * <p>
+   * TODO: handle the keyword "auto" as a valid length.
+   */
+  private static final class Box {
+    /** Safe CSS length quantities. */
+    String bottom, left, right, top;
+    /** Aggregates positional parameters as in {@code padding: 4px 2cm}. */
+    private List<String> positional = null;
+
+    /**
+     * Another positional parameter whose meaning cannot be completely
+     * determined until we see how many follow it.
+     */
+    void positional(String s) {
+      if (positional == null) {
+        positional = Lists.newArrayListWithCapacity(4);
+      }
+      positional.add(s);
+    }
+
+    /**
+     * Called after all positional quantities have been seen to figure out
+     * how they relate to the edges of a rectangle.
+     */
+    void contextualizePositionalQuantities() {
+      if (positional != null) {
+        String explicitTop = top,
+          explicitRight = right,
+          explicitLeft = left,
+          explicitBottom = bottom;
+        switch (positional.size()) {
+          case 0:
+            break;
+          case 1:
+            top = right = left = bottom = positional.get(0);
+            break;
+          case 2:
+            top = bottom = positional.get(0);
+            right = left = positional.get(1);
+            break;
+          case 3:
+            top = positional.get(0);
+            right = left = positional.get(1);
+            bottom = positional.get(2);
+            break;
+          default:
+            top = positional.get(0);
+            right = positional.get(1);
+            bottom = positional.get(2);
+            left = positional.get(3);
+            break;
+        }
+        positional = null;
+        if (explicitTop != null) { top = explicitTop; }
+        if (explicitRight != null) { top = explicitRight; }
+        if (explicitBottom != null) { top = explicitBottom; }
+        if (explicitLeft != null) { top = explicitLeft; }
+      }
+    }
+
+    /**
+     * Given a CSS property name, generates a box definition with as few
+     * CSS properties as possible.
+     */
+    void toPropertyGroup(String basePropertyName, PropertyGroup out) {
+      if (bottom != null && left != null && right != null && top != null) {
+        if (left.equals(right)) {
+          if (bottom.equals(top)) {
+            if (bottom.equals(left)) {
+              out.name(basePropertyName).value(bottom);
+            } else {
+              out.name(basePropertyName).value(bottom, left);
+            }
+          } else {
+            out.name(basePropertyName).value(top, left, bottom);
+          }
+        } else {
+          out.name(basePropertyName).value(top, right, bottom, left);
+        }
+      } else {
+        if (top != null) {
+          out.name(basePropertyName, "-top").value(top);
+        }
+        if (right != null) {
+          out.name(basePropertyName, "-right").value(right);
+        }
+        if (bottom!= null) {
+          out.name(basePropertyName, "-bottom").value(bottom);
+        }
+        if (left != null) {
+          out.name(basePropertyName, "-left").value(left);
+        }
+      }
+    }
+  }
 
   /**
    * Lossy filtering of CSS properties that allows textual styling that affects
@@ -131,6 +319,10 @@ class StylingPolicy implements AttributePolicy {
       String cssSize, cssWeight, cssFontStyle, cssTextDecoration;
       // Bidi support styles.
       String cssDir, cssUnicodeBidi;
+      // Bounding box styles.
+      String height, width;
+      Box paddings;
+      Box margins;
 
       public void url(String token) {
         // Ignore.
@@ -181,6 +373,76 @@ class StylingPolicy implements AttributePolicy {
           case WEIGHT:
             if (ALLOWED_CSS_WEIGHT.matcher(token).matches()) {
               cssWeight = token;
+            }
+            break;
+          case WIDTH:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              width = token;
+            }
+            break;
+          case HEIGHT:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              height = token;
+            }
+            break;
+          case MARGIN:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (margins == null) { margins = new Box(); }
+              margins.positional(token);
+            }
+            break;
+          case MARGIN_LEFT:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (margins == null) { margins = new Box(); }
+              margins.left = token;
+            }
+            break;
+          case MARGIN_RIGHT:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (margins == null) { margins = new Box(); }
+              margins.right = token;
+            }
+            break;
+          case MARGIN_TOP:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (margins == null) { margins = new Box(); }
+              margins.top = token;
+            }
+            break;
+          case MARGIN_BOTTOM:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (margins == null) { margins = new Box(); }
+              margins.bottom = token;
+            }
+            break;
+          case PADDING:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (paddings == null) { paddings = new Box(); }
+              paddings.positional(token);
+            }
+            break;
+          case PADDING_LEFT:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (paddings == null) { paddings = new Box(); }
+              paddings.left = token;
+            }
+            break;
+          case PADDING_RIGHT:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (paddings == null) { paddings = new Box(); }
+              paddings.right = token;
+            }
+            break;
+          case PADDING_TOP:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (paddings == null) { paddings = new Box(); }
+              paddings.top = token;
+            }
+            break;
+          case PADDING_BOTTOM:
+            if (NON_NEGATIVE_LENGTH.matcher(token).matches()) {
+              if (paddings == null) { paddings = new Box(); }
+              paddings.bottom = token;
             }
             break;
           default: break;
@@ -289,63 +551,59 @@ class StylingPolicy implements AttributePolicy {
 
       @TCB
       String toCssProperties() {
-        ImmutableList<String> styleParts;
-        {
-          ImmutableList.Builder<String> b = ImmutableList.builder();
-          String face = sanitizeFontFamilies(faces);
-          if (face != null) {
-            b.add("font-family").add(face);
-          }
-          if (align != null) {
-            b.add("text-align").add(align);
-          }
-          if (cssWeight != null) {
-            b.add("font-weight").add(cssWeight);
-          }
-          if (cssSize != null) {
-            b.add("font-size").add(cssSize);
-          }
-          if (cssFontStyle != null) {
-            b.add("font-style").add(cssFontStyle);
-          }
-          if (cssTextDecoration != null) {
-            b.add("text-decoration").add(cssTextDecoration);
-          }
-          if (cssDir != null) {
-            b.add("direction").add(cssDir);
-          }
-          if (cssUnicodeBidi != null) {
-            b.add("unicode-bidi").add(cssUnicodeBidi);
-          }
-          if (backgroundColor != null) {
-            String safeColor = sanitizeColor(backgroundColor.toString());
-            if (safeColor != null) {
-              b.add("background-color").add(safeColor);
-            }
-          }
-          if (color != null) {
-            String safeColor = sanitizeColor(color.toString());
-            if (safeColor != null) {
-              b.add("color").add(safeColor);
-            }
-          }
-          styleParts = b.build();
+        PropertyGroup pg = new PropertyGroup();
+        String face = sanitizeFontFamilies(faces);
+        if (face != null) {
+          pg.name("font-family").value(face);
         }
-        if (!styleParts.isEmpty()) {
-          StringBuilder cssProperties = new StringBuilder();
-          boolean isPropertyName = true;
-          for (String stylePart : styleParts) {
-            cssProperties.append(stylePart).append(isPropertyName ? ':' : ';');
-            isPropertyName = !isPropertyName;
-          }
-          int len = cssProperties.length();
-          if (len != 0 && cssProperties.charAt(len - 1) == ';') {
-            cssProperties.setLength(len - 1);
-          }
-          return cssProperties.toString();
-        } else {
-          return null;
+        if (align != null) {
+          pg.name("text-align").value(align);
         }
+        if (cssWeight != null) {
+          pg.name("font-weight").value(cssWeight);
+        }
+        if (cssSize != null) {
+          pg.name("font-size").value(cssSize);
+        }
+        if (cssFontStyle != null) {
+          pg.name("font-style").value(cssFontStyle);
+        }
+        if (cssTextDecoration != null) {
+          pg.name("text-decoration").value(cssTextDecoration);
+        }
+        if (cssDir != null) {
+          pg.name("direction").value(cssDir);
+        }
+        if (cssUnicodeBidi != null) {
+          pg.name("unicode-bidi").value(cssUnicodeBidi);
+        }
+        if (backgroundColor != null) {
+          String safeColor = sanitizeColor(backgroundColor.toString());
+          if (safeColor != null) {
+            pg.name("background-color").value(safeColor);
+          }
+        }
+        if (color != null) {
+          String safeColor = sanitizeColor(color.toString());
+          if (safeColor != null) {
+            pg.name("color").value(safeColor);
+          }
+        }
+        if (height != null) {
+          pg.name("height").value(height);
+        }
+        if (width != null) {
+          pg.name("width").value(width);
+        }
+        if (margins != null) {
+          margins.contextualizePositionalQuantities();
+          margins.toPropertyGroup("margin", pg);
+        }
+        if (paddings != null) {
+          paddings.contextualizePositionalQuantities();
+          paddings.toPropertyGroup("padding", pg);
+        }
+        return pg.isEmpty() ? null : pg.toString();
       }
     }
 

@@ -79,7 +79,7 @@ class CssGrammar {
     String string = "(?:" + string1 + "|" + string2 + ")";
 
     // num                     [0-9]+|[0-9]*"."[0-9]+
-    String num = "(?:[0-9]*\\.[0-9]+|[0-9]+)";
+    String num = "(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)";
 
     // s                       [ \t\r\n\f]
     String s = "[ \t\r\n\f]";
@@ -118,10 +118,16 @@ class CssGrammar {
     // {H}{Z}             {return FREQ;}
     // {K}{H}{Z}          {return FREQ;}
     // %                  {return PERCENTAGE;}
-    String unit = "(?:em|ex|px|cm|mm|in|pt|pc|deg|rad|grad|ms|s|hz|khz|%)";
+    String unit =
+      "(?:em|ex|px|cm|mm|in|pt|pc|deg|rad|grad|ms|s|hz|khz|%"
+      + "|rem|vh|vw|vmin|vmax)";
 
     // {num}{UNIT|IDENT}                   {return NUMBER;}
-    String quantity = num + w + "(?:" + unit + "|" + ident + ")?";
+    // Many parsers allow white-space between the numeric portion and the
+    // unit, but we don't want to allow that for arbitrary idents (which
+    // allow forward-compatibility with new units) since we don't want to
+    // capture keywords like "auto" which can follow lengths.
+    String quantity = num + "(?:(?:" + w + unit + ")|" + ident + ")?";
 
     // "<!--"                  {return CDO;}
     // "-->"                   {return CDC;}
@@ -194,7 +200,7 @@ class CssGrammar {
         if (m.start(1) >= 0) {
           handler.identifierOrHash(m.group());
         } else if (m.start(2) >= 0) {
-          handler.quantity(m.group());
+          handler.quantity(normalizeNum(m.group()));
         } else if (m.start(3) >= 0) {
           String token = m.group(0);
           switch (token.charAt(0)) {
@@ -268,6 +274,120 @@ class CssGrammar {
     return ('0' <= codepoint && codepoint <= '9')
         || ('A' <= codepoint && codepoint <= 'F')
         || ('a' <= codepoint && codepoint <= 'f');
+  }
+
+  /**
+   * Denormalized numbers complicate filters and confuse parsers.
+   * Make sure that only negative quantities have a sign;
+   * the integer portion is non-empty: ".5" -> "0.5";
+   * the fraction if present is non-zero: "1.0" -> "1";
+   * there are no extraneous, leading or trailing zeroes: "01" -> "1";
+   * any spaces between the number and unit are elided: ".5 ex" -> ".5ex";
+   * and any unit is lower-cased: "1EM" -> "1em".
+   */
+  private static String normalizeNum(String s) {
+    int n = s.length();
+    int numStart = 0;
+    if (numStart < n) {
+      char ch = s.charAt(0);
+      if (ch == '+' || ch == '-') {
+        ++numStart;
+      }
+    }
+    int numEnd = numStart;
+    for (; numEnd < n; ++numEnd) {
+      char ch = s.charAt(numEnd);
+      if (!('0' <= ch && ch <= '9')) { break; }
+    }
+    int fractionStart = numEnd;
+    if (numEnd < n && '.' == s.charAt(numEnd)) {
+      ++numEnd;
+      for (; numEnd < n; ++numEnd) {
+        char ch = s.charAt(numEnd);
+        if (!('0' <= ch && ch <= '9')) { break; }
+      }
+    }
+    int fractionEnd = numEnd;
+    int unitStart = fractionEnd;
+    while (unitStart < n && s.charAt(unitStart) <= 0x20) {
+      ++unitStart;
+    }
+
+    StringBuilder sb = null;
+    if (numStart != 0 && s.charAt(0) != '-') {  // "+5" -> "5"
+      sb = new StringBuilder(n);
+    }
+    // s[0:numStart] is normal and on sb
+
+    if (numStart == fractionStart) {  // ".5" -> "0.5"
+      if (sb == null) { sb = new StringBuilder(n).append(s, 0, numStart); }
+      sb.append('0');
+    } else {
+      int zeroes = numStart;
+      while (zeroes < fractionStart && s.charAt(zeroes) == '0') {
+        ++zeroes;
+      }
+      if (zeroes != fractionStart) {  // "01" -> "1"
+        if (sb == null) { sb = new StringBuilder(n).append(s, 0, numStart); }
+        sb.append(s, zeroes, fractionStart);
+      } else if (zeroes > numStart + 1) {  // "000" -> "0"
+        if (sb == null) { sb = new StringBuilder(n).append(s, 0, numStart); }
+        sb.append('0');
+      } else if (sb != null) {
+        sb.append(s, 0, fractionStart);
+      }
+    }
+    // s[0:fractionStart] is normal and on sb.
+
+    if (fractionStart != fractionEnd) {
+      int zeroes = fractionEnd;
+      while (zeroes > fractionStart + 1 && s.charAt(zeroes - 1) == '0') {
+        --zeroes;
+      }
+      if (zeroes == fractionStart + 1) {  // "5." -> "5"
+        if (sb == null) {
+          sb = new StringBuilder(n).append(s, 0, fractionStart);
+        }
+        // Done
+      } else {
+        // Elide trailing zeroes
+        if (zeroes != fractionEnd && sb == null) {  // "1.50" -> "1.5"
+          sb = new StringBuilder(n).append(s, 0, fractionStart);
+        }
+        if (sb != null) {
+          sb.append(s, fractionStart, zeroes);
+        }
+      }
+    }
+    // s[0:fractionEnd] is normal and on sb.
+
+    if (fractionEnd != unitStart) {
+      if (sb == null) {
+        sb = new StringBuilder(n).append(s, 0, fractionEnd);
+      }
+      // "5 ex" -> "5ex"
+    }
+    // s[0:unitStart] is normal and on sb
+
+    {
+      int pos = unitStart;
+      for (int i = unitStart; i < n; ++i) {
+        char ch = s.charAt(i);
+        if ('A' <= ch && ch <= 'Z') {
+          if (sb == null) {
+            sb = new StringBuilder(n).append(s, 0, pos);
+          }
+          sb.append(s, pos, i).append((char) (ch | 32));
+          pos = i + 1;
+        }
+      }
+      if (sb != null) {
+        sb.append(s, pos, n);
+      }
+    }
+    // s[0:n] is normal and on sb
+
+    return sb == null ? s : sb.toString();
   }
 
   interface PropertyHandler {

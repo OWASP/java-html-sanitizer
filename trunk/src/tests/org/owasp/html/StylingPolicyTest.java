@@ -240,6 +240,36 @@ public class StylingPolicyTest extends TestCase {
     assertIsNonEmptyAsciiAlnumSpaceSeparated("Arial Helvetica");
   }
 
+  public final void testBoxProperties() {
+    // http://www.w3.org/TR/CSS2/box.html
+    assertSanitizedCss("height:0", "height:0");
+    assertSanitizedCss("width:0", "width:0");
+    assertSanitizedCss("width:20px", "width:20px");
+    assertSanitizedCss("width:20", "width:20");
+    assertSanitizedCss("width:100%", "width:100%");
+    assertSanitizedCss("height:6in", "height:6in");
+    assertSanitizedCss(null, "width:-20");
+    assertSanitizedCss(null, "width:url('foo')");
+    assertSanitizedCss(null, "height:6fixed");
+    assertSanitizedCss("margin:2", "margin:2 2 2 2");
+    assertSanitizedCss("margin:2", "margin:2 2 2");
+    assertSanitizedCss("padding:2", "padding:2 2");
+    assertSanitizedCss("margin:2", "margin:2");
+    assertSanitizedCss("margin:2px 4px 6px 8px", "margin:2px 4px 6px 8px");
+    assertSanitizedCss("padding:0 4px 6px", "padding:0 4px 6px");
+    assertSanitizedCss("margin:2px 4px 6px", "margin:2px 4px 6px 4px");
+    assertSanitizedCss("margin:0 4px", "margin:0 4px");
+    assertSanitizedCss("margin:0 4px", "margin:0 4 px");
+    assertSanitizedCss("padding-left:4px", "padding-left:4px");
+    assertSanitizedCss("margin-bottom:3px;padding-top:2px;padding-left:0.4em",
+                       "padding-left:0.4em;padding-top:2px;margin-bottom:3px");
+    assertSanitizedCss("padding:0 1em 0.5in 1.5cm",
+                       "padding:00. 1EM +00.5 In 1.50cm");
+    // Mixed.
+    assertSanitizedCss("margin:0.25em 1em 1em",  // in [top horizontal btm]
+                       "margin:1em; margin-top:.25em");
+  }
+
   private void assertSanitizedCss(@Nullable String expectedCss, String css) {
     assertEquals(expectedCss, StylingPolicy.sanitizeCssProperties(css));
   }
