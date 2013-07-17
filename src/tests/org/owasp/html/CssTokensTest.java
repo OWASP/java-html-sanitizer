@@ -170,9 +170,9 @@ public class CssTokensTest extends TestCase {
         "\\5c66oo-bar",              "\u5c66" + "oo-bar",
         "\\22foo-bar",               "\u022f" + "oo-bar",
         // \\5c is not a valid identifier
-        "\\5c",                      "5c:DIMENSION",
-        "\\22oo-bar",                "22oo-bar:DIMENSION",
-        "\\27oo-bar",                "27oo-bar:DIMENSION",
+        "\\5c",                      "5c:BAD_DIMENSION",
+        "\\22oo-bar",                "22oo-bar:BAD_DIMENSION",
+        "\\27oo-bar",                "27oo-bar:BAD_DIMENSION",
         // \\34 encodes a digit so slash is dropped.
         "\\34mm",                    "34mm:DIMENSION",
         // Number ambiguity can arise when - is escaped.
@@ -206,9 +206,9 @@ public class CssTokensTest extends TestCase {
       }
     }
     // More number ambiguity.
-    assertTokens("\\2d 42", "2d:DIMENSION", " ", "42:NUMBER");
-    assertTokens("\\2d\t42", "2d:DIMENSION", " ", "42:NUMBER");
-    assertTokens("\\2d\n42", "2d:DIMENSION", " ", "42:NUMBER");
+    assertTokens("\\2d 42", "2d:BAD_DIMENSION", " ", "42:NUMBER");
+    assertTokens("\\2d\t42", "2d:BAD_DIMENSION", " ", "42:NUMBER");
+    assertTokens("\\2d\n42", "2d:BAD_DIMENSION", " ", "42:NUMBER");
   }
 
   @Test

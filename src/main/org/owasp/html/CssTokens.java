@@ -208,6 +208,8 @@ static final boolean DEBUG = false;
     PERCENTAGE,
     /** A numeric value with a unit suffix. */
     DIMENSION,
+    /** A numeric value with an unknown unit suffix. */
+    BAD_DIMENSION,
     /** {@code U+<hex-or-qmark>} */
     UNICODE_RANGE,
     /**
@@ -632,6 +634,15 @@ if (DEBUG) System.err.println("found `" + css.substring(startOfToken, pos) + "` 
             emitMergedTokens(startOfOutputToken, endOfOutputToken);
           } else {
             emitToken(type, startOfOutputToken);
+            // Token emitters can emit a space after a token to avoid possible
+            // merges with following tokens
+            if (type != TokenType.WHITESPACE) {
+              int sbLen = sb.length();
+              if (startOfOutputToken + 1 < sbLen
+                  && sb.charAt(sbLen - 1) == ' ') {
+                emitToken(TokenType.WHITESPACE, sbLen - 1);
+              }
+            }
           }
         }
       }
@@ -1049,8 +1060,10 @@ if (DEBUG) System.err.println("\tCP3 : " + sb.substring(sbStart));
         pos = unitStart;
         consumeIdent(false);
         int bufferAfterUnit = sb.length();
+        boolean knownUnit = isWellKnownUnit(
+            sb, bufferBeforeUnit, bufferAfterUnit);
         if (unitStart == exponentEnd  // No intervening space
-            || isWellKnownUnit(sb, bufferBeforeUnit, bufferAfterUnit)) {
+            || knownUnit) {
           unitEnd = pos;
           // 3IN -> 3in
           for (int i = bufferBeforeUnit; i < bufferAfterUnit; ++i) {
@@ -1061,7 +1074,11 @@ if (DEBUG) System.err.println("\tCP3 : " + sb.substring(sbStart));
           unitEnd = unitStart = exponentEnd;
           sb.setLength(bufferBeforeUnit);
         }
-        type = unitStart == unitEnd ? TokenType.NUMBER : TokenType.DIMENSION;
+        type = unitStart == unitEnd
+            ? TokenType.NUMBER
+            : knownUnit
+            ? TokenType.DIMENSION
+            : TokenType.BAD_DIMENSION;
       }
       pos = unitEnd;
 if (DEBUG) System.err.println("\tunitStart=" + unitStart);
@@ -1169,22 +1186,31 @@ if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
         if (numStartDigits == 0) {
           break parse;
         }
-        if (!hasQmark && pos < cssLimit && css.charAt(pos) == '-') {
-          ++pos;
-          sb.append('-');
-          int numEndDigits = 0;
-          while (pos < cssLimit && numEndDigits < 6) {
-            char chLower = (char) (css.charAt(pos) | 32);
-            if (('0' <= chLower && chLower <= '9')
-                || ('a' <= chLower && chLower <= 'f')) {
-              ++numEndDigits;
-              ++pos;
-              sb.append(chLower);
-            } else {
-              break;
+        if (pos < cssLimit && css.charAt(pos) == '-') {
+          if (!hasQmark) {
+            // Look for end of range.
+            ++pos;
+            sb.append('-');
+            int numEndDigits = 0;
+            while (pos < cssLimit && numEndDigits < 6) {
+              char chLower = (char) (css.charAt(pos) | 32);
+              if (('0' <= chLower && chLower <= '9')
+                  || ('a' <= chLower && chLower <= 'f')) {
+                ++numEndDigits;
+                ++pos;
+                sb.append(chLower);
+              } else {
+                break;
+              }
             }
+            if (numEndDigits == 0) {
+              // Back up over '-'
+              --pos;
+              sb.append(' ');
+            }
+          } else {
+            sb.append(' ');
           }
-          if (numEndDigits == 0) { --pos; }  // Back up over '-'
         }
         ok = true;
       } finally {
