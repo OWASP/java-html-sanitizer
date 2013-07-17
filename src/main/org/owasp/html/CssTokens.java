@@ -263,12 +263,15 @@ if (DEBUG) System.err.println("\tbracketIndex=" + bracketIndex);
     }
 
     int bracketIndexForToken(int target) {
+int tries = 100;
       // Binary search by leftmost element of pair.
       int left = 0;
       int right = brackets.length >> 1;
       while (left < right) {
-        int mid = (left + (right - left) >> 1);
+if (DEBUG && --tries <= 0) { throw new Error(); }
+        int mid = left + ((right - left) >> 1);
         int value = brackets[mid << 1];
+if (DEBUG) System.err.println("\tleft=" + left + ", right=" + right + ", mid=" + mid + ", value=" + value + ", target=" + target);
         if (value == target) { return mid; }
         if (value < target) {
           left = mid + 1;
@@ -344,6 +347,7 @@ if (DEBUG) System.err.println("\tbracketIndex=" + bracketIndex);
         default:
           throw new AssertionError("Invalid open bracket " + bracketChar);
       }
+if (DEBUG) System.err.println("openBracket " + bracketChar + ", tokenBreaksLimit=" + tokenBreaksLimit);
       brackets = expandIfNecessary(brackets, bracketsLimit, 2);
       open = expandIfNecessary(open, openLimit, 2);
       open[openLimit++] = bracketsLimit;
@@ -355,6 +359,16 @@ if (DEBUG) System.err.println("\tbracketIndex=" + bracketIndex);
     }
 
     void closeBracket(char bracketChar) {
+if (DEBUG) {
+  StringBuilder sb = new StringBuilder();
+  for (int i = 0; i < openLimit; i += 2) {
+    if (i != 0) { sb.append(';'); }
+    sb.append(open[i]);
+    sb.append(',');
+    sb.append((char) open[i+1]);
+  }
+  System.err.println("Closing " + bracketChar + ", openLimit=" + openLimit + ", open=" + sb);
+}
       int openLimitAfterClose = openLimit;
       do {
         if (openLimitAfterClose == 0) {
@@ -365,26 +379,30 @@ if (DEBUG) System.err.println("\tbracketIndex=" + bracketIndex);
         openLimitAfterClose -= 2;
       } while (bracketChar != open[openLimitAfterClose + 1]);
 
-      // Make sure we've got space on brackets.
-      int spaceNeeded = openLimit - openLimitAfterClose;
-      brackets = expandIfNecessary(brackets, bracketsLimit, spaceNeeded);
-
+if (DEBUG) System.err.println("\tafter close, openLimit=" + openLimitAfterClose);
       closeBrackets(openLimitAfterClose);
     }
 
     private void closeBrackets(int openLimitAfterClose) {
+      // Make sure we've got space on brackets.
+      int spaceNeeded = openLimit - openLimitAfterClose;
+      brackets = expandIfNecessary(brackets, bracketsLimit, spaceNeeded);
+
       int closeTokenIndex = tokenBreaksLimit;
       while (openLimit > openLimitAfterClose) {
         // Pop the stack.
         int closeBracket = open[--openLimit];
         int openBracketIndex = open[--openLimit];
+        int openTokenIndex = brackets[openBracketIndex];
+if (DEBUG) System.err.println("\tclosingBracket " + ((char) closeBracket) + ", openBracketIndex=" + openBracketIndex);
         // Update open bracket to point to its partner.
         brackets[openBracketIndex + 1] = closeTokenIndex;
         // Emit the close bracket.
         brackets[bracketsLimit++] = closeTokenIndex;
-        brackets[bracketsLimit++] = openBracketIndex;
+        brackets[bracketsLimit++] = openTokenIndex;
         sb.appendCodePoint(closeBracket);
         closeTokenIndex++;
+if (DEBUG) System.err.println("\tbrackets=" + Arrays.toString(brackets));
       }
     }
 
