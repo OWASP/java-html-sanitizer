@@ -99,7 +99,7 @@ public class Benchmark {
     if (timePolicyBuilder) {
       t4 = System.nanoTime();
       for (int i = 100; --i >= 0;) {
-        n += sanitize(html).length();
+        n += sanitizeUsingPolicyBuilder(html).length();
       }
       t5 = System.nanoTime();
     }
