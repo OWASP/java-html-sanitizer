@@ -68,7 +68,8 @@ import com.google.common.collect.ImmutableMap;
  *   </li>
  *   <li>All <code>url(&hellip;)</code> tokens are quoted.
  *   <li>All keywords, identifiers, and hex literals are lower-case and have
- *       embedded escape sequences decoded.</li>
+ *       embedded escape sequences decoded, except that double dash sequences
+ *       are encoded as {@code -\-}.</li>
  *   <li>All brackets nest properly.</li>
  *   <li>Does not contain the sequence {@code <!--} or {@code -->}.</li>
  *   <li>All delimiters that can start longer tokens are followed by a space.
@@ -460,7 +461,7 @@ if (DEBUG) System.err.println("tokenTypes =" + Arrays.toString(tokenTypesArr));
         assert pos > lastPos
             : "pos=" + pos + ", lastPos=" + lastPos + ", ch=" + css.charAt(pos);
         lastPos = pos;
-if (DEBUG) System.err.println("Starting at " + pos);
+if (DEBUG) System.err.println("Starting at " + pos + " / " + cssLimit);
         // SPEC: 4. Tokenization
         // The output of the tokenization step is a stream of zero
         // or more of the following tokens: <ident>, <function>,
@@ -522,10 +523,9 @@ if (DEBUG) System.err.println("Starting at " + pos);
           }
           case '"':
           case '\'':
-            consumeString();
-            type = TokenType.STRING;
+            type = consumeString();
             break;
-          case 'U':
+          case 'U': case 'u':
             // SPEC handle URL under "ident like token".
             if (consumeUnicodeRange()) {
               type = TokenType.UNICODE_RANGE;
@@ -557,7 +557,7 @@ if (DEBUG) System.err.println("ch=" + ch + ", lookahead=" + lookahead);
               // treat ".<IDENT>" as one token.
               sb.append('.');
               ++pos;
-              consumeIdent();
+              consumeIdent(false);
               type = TokenType.DOT_IDENT;
             } else {
               consumeDelim('.');
@@ -625,7 +625,7 @@ if (DEBUG) System.err.println("ch=" + ch + ", lookahead=" + lookahead);
         }
         assert pos > startOfToken
             : "empty token at " + pos + ", ch0=" + css.charAt(startOfToken);
-if (DEBUG) System.err.println("found `" + css.substring(startOfToken, pos) + "` -> `" + sb.substring(startOfOutputToken) + "`");
+if (DEBUG) System.err.println("found `" + css.substring(startOfToken, pos) + "` -> `" + sb.substring(startOfOutputToken) + "` : " + type);
         int endOfOutputToken = sb.length();
         if (endOfOutputToken > startOfOutputToken) {
           if (type == TokenType.DELIM) {
@@ -750,7 +750,7 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
 
     private void breakOutput() {
       int last = sb.length() - 1;
-      if (last < 0 || sb.charAt(last) != ' ') { sb.append(' '); }
+      if (last >= 0 && sb.charAt(last) != ' ') { sb.append(' '); }
     }
 
     private void consumeColumn() {
@@ -763,10 +763,12 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
       sb.append(ch).append('=');
     }
 
-    private void consumeIdent() {
+    private void consumeIdent(boolean allowFirstDigit) {
       String css = this.css;
       int cssLimit = this.cssLimit;
-      int last = -1;
+      int last = -1, nCodepoints = 0;
+      int sbAtStart = sb.length();
+      int posAtStart = pos;
       while (pos < cssLimit) {
         int posBefore = pos;
 
@@ -777,16 +779,32 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
           ++pos;
         }
 
-        if (isIdentPart(decoded)) {
-          if (decoded >= 0x80) {
-            encodeCharOntoOutput(decoded, last);
-          } else {
-            sb.append((char) decoded);
+        if (decoded >= 0 && isIdentPart(decoded)) {
+          if (!allowFirstDigit && nCodepoints < 2
+              && '0' <= decoded && decoded <= '9') {
+            // Don't allow encoded identifiers that look like numeric tokens
+            // like \-1 or ones that start with an encoded decimal digit.
+            if (last == '-' || last == -1) {
+              pos = posAtStart;
+              sb.setLength(sbAtStart);
+              return;
+            }
           }
+          if (decoded == '-' && last == '-') {
+            // Disallow -- sequences in identifiers so that the three token
+            // sequence
+            //   "<" "!" "--"
+            // and the two token sequence
+            //   "--" ">"
+            // cannot merge into the ignorable tokens "<!--" or "-->"
+            sb.append('\\');
+          }
+          sb.appendCodePoint(decoded);
           last = decoded;
+          ++nCodepoints;
         } else {
           pos = posBefore;
-          break;
+          return;
         }
       }
     }
@@ -796,7 +814,7 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
       int bufferLengthBeforeWrite = sb.length();
       sb.append('@');
       int posBeforeKeyword = ++pos;
-      consumeIdent();
+      consumeIdent(false);
       if (pos == posBeforeKeyword) {
         --pos;  // back up over '@'
         sb.setLength(bufferLengthBeforeWrite);  // Unwrite the '@'
@@ -831,15 +849,15 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
         } while (('0' <= esc && esc <= '9')
                  || ('a' <= escLower && escLower <= 'f'));
         if (hexValue > Character.MAX_CODE_POINT) {
-          return -1;
+          hexValue = 0xfffd;
         }
         pos = hexEnd;
-        if (pos + 1 < cssLimit) {
+        if (pos < cssLimit) {
           // A sequence of hex digits can be followed by a space that allows
           // so that code-point U+A followed by the letter 'b' can be rendered
           // as "\a b" since "\ab" specifies the single code-point U+AB.
-          char next = css.charAt(pos + 1);
-          if (next == ' ' || isLineTerminator(next)) {
+          char next = css.charAt(pos);
+          if (next == ' ' || next == '\t' || isLineTerminator(next)) {
             ++pos;
           }
         }
@@ -853,8 +871,8 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
         (1L << 0) | LINE_TERMINATOR_BITMASK
         | (1L << '"') | (1L << '\'') | (1L << '&') | (1L << '<') | (1L << '>');
     private static boolean isHexEncoded(int codepoint) {
-      return 0 <= codepoint && codepoint < 63
-          && 0 != ((1L << codepoint) & HEX_ENCODED_BITMASK);
+      return (0 <= codepoint && codepoint < 63
+              && 0 != ((1L << codepoint) & HEX_ENCODED_BITMASK));
     }
 
     private void encodeCharOntoOutput(int codepoint, int last) {
@@ -878,20 +896,20 @@ if (DEBUG) System.err.println("codepoint=" + Integer.toString(codepoint, 16) + "
           }
           sb.append('-');
           break;
-        // TODO: maybe encode a decimal digit after a '-'.
         default:
           if (isHexEncoded(last)
               // We need to put a space after a trailing hex digit if the
               // next encoded character on the output would be another hex
               // digit or a space character.  The other space characters
               // are handled above.
-              && (codepoint == ' '
+              && (codepoint == ' ' || codepoint == '\t'
                   || ('0' <= codepoint && codepoint <= '9')
                   || ('a' <= (codepoint | 32) && (codepoint | 32) <= 'f'))) {
 if (DEBUG) System.err.println("last '" + new StringBuilder().appendCodePoint(last) + "' is hex-encoded");
             sb.append(' ');
           }
           sb.appendCodePoint(codepoint);
+          break;
       }
     }
 
@@ -1029,7 +1047,7 @@ if (DEBUG) System.err.println("\tCP3 : " + sb.substring(sbStart));
         // The grammar says that any identifier following a number is a unit.
         int bufferBeforeUnit = sb.length();
         pos = unitStart;
-        consumeIdent();
+        consumeIdent(false);
         int bufferAfterUnit = sb.length();
         if (unitStart == exponentEnd  // No intervening space
             || isWellKnownUnit(sb, bufferBeforeUnit, bufferAfterUnit)) {
@@ -1052,38 +1070,52 @@ if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
       return type;
     }
 
-    private void consumeString() {
+    private TokenType consumeString() {
       String css = this.css;
       int cssLimit = this.cssLimit;
 
       char delim = css.charAt(pos);
+      assert delim == '"' || delim == '\'';
       ++pos;
+      int startOfStringOnOutput = sb.length();
       sb.append('\'');
       int last = -1;
+      boolean closed = false;
       while (pos < cssLimit) {
         char ch = css.charAt(pos);
         if (ch == delim) {
           ++pos;
+          closed = true;
           break;
         }
-        if (isLineTerminator(ch)) { break; } // bad-string
+        if (isLineTerminator(ch)) { break; }
         int decoded = ch;
         if (ch == '\\') {
           decoded = consumeAndDecodeEscapeSequence();
+          if (decoded < 0) {
+            break;
+          }
         } else {
           ++pos;
         }
         encodeCharOntoOutput(decoded, last);
         last = decoded;
       }
-      sb.append('\'');
+      if (closed) {
+        sb.append('\'');
+        return TokenType.STRING;
+      } else {  // Drop <bad-string>s
+        sb.setLength(startOfStringOnOutput);
+        breakOutput();
+        return TokenType.WHITESPACE;
+      }
     }
 
     private @Nullable TokenType consumeHash() {
       assert css.charAt(pos) == '#';
       ++pos;
       int beforeIdent = pos;
-      consumeIdent();
+      consumeIdent(true);
       if (pos == beforeIdent) {
         pos = beforeIdent - 1;
         return null;
@@ -1099,58 +1131,76 @@ if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
     }
 
     private boolean consumeUnicodeRange() {
-      String css = this.css;
-      int cssLimit = this.cssLimit;
+      final String css = this.css;
+      final int cssLimit = this.cssLimit;
 
-      int start = pos;
-      assert (css.charAt(pos) | 32) == 'u';
+      assert pos < cssLimit && (css.charAt(pos) | 32) == 'u';
+
+      final int start = pos;
+      final int startOfOutput = sb.length();
       ++pos;
-      if (pos == cssLimit && css.charAt(pos) != '+') {
-        pos = start;
-        return false;
-      }
-      int numStartDigits = 0;
-      while (pos < cssLimit && numStartDigits < 6) {
-        char chLower = css.charAt(pos);
-        if (('0' <= chLower && chLower <= '9')
-            || ('a' <= chLower && chLower <= 'f')) {
-          ++numStartDigits;
-          ++pos;
-        } else {
-          break;
+      boolean ok = false;
+      parse:
+      try {
+        if (pos == cssLimit || css.charAt(pos) != '+') {
+          break parse;
         }
-      }
-      boolean hasQmark = false;
-      while (pos < cssLimit && numStartDigits < 6 && css.charAt(pos) == '?') {
-        hasQmark = true;
-        ++numStartDigits;
         ++pos;
-      }
-      if (numStartDigits == 0) {
-        pos = start;
-        return false;
-      }
-      if (!hasQmark && pos < cssLimit && css.charAt(pos) == '-') {
-        ++pos;
-        int numEndDigits = 0;
-        while (pos < cssLimit && numEndDigits < 6) {
-          char chLower = css.charAt(pos);
+        sb.append("U+");
+        int numStartDigits = 0;
+        while (pos < cssLimit && numStartDigits < 6) {
+          char chLower = (char) (css.charAt(pos) | 32);
           if (('0' <= chLower && chLower <= '9')
               || ('a' <= chLower && chLower <= 'f')) {
-            ++numEndDigits;
+            sb.append(chLower);
+            ++numStartDigits;
             ++pos;
           } else {
             break;
           }
         }
-        if (numEndDigits == 0) { --pos; }  // Back up over '-'
+        boolean hasQmark = false;
+        while (pos < cssLimit && numStartDigits < 6 && css.charAt(pos) == '?') {
+          hasQmark = true;
+          sb.append('?');
+          ++numStartDigits;
+          ++pos;
+        }
+        if (numStartDigits == 0) {
+          break parse;
+        }
+        if (!hasQmark && pos < cssLimit && css.charAt(pos) == '-') {
+          ++pos;
+          sb.append('-');
+          int numEndDigits = 0;
+          while (pos < cssLimit && numEndDigits < 6) {
+            char chLower = (char) (css.charAt(pos) | 32);
+            if (('0' <= chLower && chLower <= '9')
+                || ('a' <= chLower && chLower <= 'f')) {
+              ++numEndDigits;
+              ++pos;
+              sb.append(chLower);
+            } else {
+              break;
+            }
+          }
+          if (numEndDigits == 0) { --pos; }  // Back up over '-'
+        }
+        ok = true;
+      } finally {
+        if (!ok) {
+          pos = start;
+          sb.setLength(startOfOutput);
+        }
       }
-      return true;
+      return ok;
     }
 
     private @Nullable TokenType consumeIdentOrUrlOrFunction() {
       int bufferStart = sb.length();
-      consumeIdent();
+      int posBefore = pos;
+      consumeIdent(false);
+      if (pos == posBefore) { return null; }
       boolean parenAfter = pos < cssLimit && css.charAt(pos) == '(';
       if (sb.length() - bufferStart == 3
           && 'u' == (sb.charAt(bufferStart) | 32)
@@ -1201,23 +1251,76 @@ if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
       sb.append("('");
       while (pos < cssLimit) {
         int decoded = css.charAt(pos);
+        if (Character.isHighSurrogate((char) decoded)
+            && pos + 1 < cssLimit) {
+          char next = css.charAt(pos + 1);
+          if (Character.isLowSurrogate(next)) {
+            decoded = 0x10000 + (((decoded - 0xd800) << 10) | (next - 0xdc00));
+            ++pos;
+          }
+        }
         if (delim != 0) {
-          if (decoded == delim) { break; }
+          if (decoded == delim) {
+            ++pos;
+            break;
+          }
         } else if (decoded <= ' ' || decoded == ')') {
           break;
         }
         if (decoded == '\\') {
           decoded = consumeAndDecodeEscapeSequence();
+          if (decoded < 0) {
+            return false;
+          }
         } else {
           ++pos;
         }
         // Any character not in the RFC 3986 safe set is %-encoded.
-        if (decoded > 0x80 || URL_SAFE[decoded]) {
+        if (decoded < URL_SAFE.length && URL_SAFE[decoded]) {
           sb.appendCodePoint(decoded);
-        } else {
+        } else if (decoded < 0x80) {
           sb.append('%')
             .append(HEX_DIGITS[(decoded >>> 4) & 0xf])
             .append(HEX_DIGITS[(decoded >>> 0) & 0xf]);
+        } else if (decoded < 0x800) {
+          int octet0 = 0xc0 | ((decoded >>> 6) & 0x1f),
+              octet1 = 0x80 | (decoded         & 0x3f);
+          sb.append('%')
+            .append(HEX_DIGITS[(octet0 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet0 >>> 0) & 0xf])
+            .append('%')
+            .append(HEX_DIGITS[(octet1 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet1 >>> 0) & 0xf]);
+        } else if (decoded < 0x10000) {
+          int octet0 = 0xe0 | ((decoded >>> 12) & 0xf),
+              octet1 = 0x80 | ((decoded >>> 6)  & 0x3f),
+              octet2 = 0x80 | (decoded          & 0x3f);
+          sb.append('%')
+            .append(HEX_DIGITS[(octet0 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet0 >>> 0) & 0xf])
+            .append('%')
+            .append(HEX_DIGITS[(octet1 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet1 >>> 0) & 0xf])
+            .append('%')
+            .append(HEX_DIGITS[(octet2 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet2 >>> 0) & 0xf]);
+        } else {
+          int octet0 = 0xf0 | ((decoded >>> 18) & 0x7),
+              octet1 = 0x80 | ((decoded >>> 12) & 0x3f),
+              octet2 = 0x80 | ((decoded >>> 6)  & 0x3f),
+              octet3 = 0x80 | (decoded          & 0x3f);
+          sb.append('%')
+            .append(HEX_DIGITS[(octet0 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet0 >>> 0) & 0xf])
+            .append('%')
+            .append(HEX_DIGITS[(octet1 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet1 >>> 0) & 0xf])
+            .append('%')
+            .append(HEX_DIGITS[(octet2 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet2 >>> 0) & 0xf])
+            .append('%')
+            .append(HEX_DIGITS[(octet3 >>> 4) & 0xf])
+            .append(HEX_DIGITS[(octet3 >>> 0) & 0xf]);
         }
       }
 
