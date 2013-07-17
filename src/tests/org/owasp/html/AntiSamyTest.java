@@ -770,7 +770,7 @@ public class AntiSamyTest extends TestCase {
   }
 
 
-  private void assertSanitizedDoesNotContain(
+  private static void assertSanitizedDoesNotContain(
       String html, String dangerousContent) {
     String sanitized = sanitize(html);
     int index = Strings.toLowerCase(sanitized).indexOf(
@@ -781,7 +781,7 @@ public class AntiSamyTest extends TestCase {
         -1, index);
   }
 
-  private void assertSanitizedDoesContain(
+  private static void assertSanitizedDoesContain(
       String html, String dangerousContent) {
     String sanitized = sanitize(html);
     int index = Strings.toLowerCase(sanitized).indexOf(
@@ -792,7 +792,7 @@ public class AntiSamyTest extends TestCase {
         index >= 0);
   }
 
-  private void assertSanitized(String html, String sanitized) {
+  private static void assertSanitized(String html, String sanitized) {
     assertEquals(sanitized, sanitize(html));
   }
 

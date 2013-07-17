@@ -5,6 +5,8 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 
 import com.google.common.collect.ImmutableList;
@@ -35,7 +37,7 @@ public final class ElementPolicyTest extends TestCase {
     }
   }
 
-  private void assertPassed(ElementPolicy p, String... expected) {
+  private static void assertPassed(ElementPolicy p, String... expected) {
     List<String> attrs = Lists.newArrayList();
     ImmutableList.Builder<String> actual = ImmutableList.builder();
     for (String elName : TEST_EL_NAMES) {
@@ -49,7 +51,8 @@ public final class ElementPolicyTest extends TestCase {
   private static List<String> TEST_EL_NAMES = ImmutableList.of(
       "abacus", "abracadabra", "bar", "foo", "far", "cadr", "cdr");
 
-  public final void testJoin() {
+  @Test
+  public static final void testJoin() {
     ElementPolicy a = new HasCharElementPolicy('a');
     ElementPolicy b = new HasCharElementPolicy('b');
     ElementPolicy c = new HasCharElementPolicy('c');

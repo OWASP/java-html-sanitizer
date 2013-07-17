@@ -28,11 +28,14 @@
 
 package org.owasp.html;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 
 public class EncodingTest extends TestCase {
 
-  public final void testDecodeHtml() {
+  @Test
+  public static final void testDecodeHtml() {
     String html =
       "The quick&nbsp;brown fox&#xa;jumps over&#xd;&#10;the lazy dog&#x000a;";
     //          1         2         3         4         5         6
@@ -193,7 +196,8 @@ public class EncodingTest extends TestCase {
         Encoding.decodeHtml("&bogus;"));
   }
 
-  public final void testAppendNumericEntityAndEncodeOnto() throws Exception {
+  @Test
+  public static final void testAppendNumericEntityAndEncodeOnto() throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
     for (int codepoint : new int[] {
@@ -230,7 +234,8 @@ public class EncodingTest extends TestCase {
     assertEquals(orig, stripped, sb.toString());
   }
 
-  public final void testStripBannedCodeunits() {
+  @Test
+  public static final void testStripBannedCodeunits() {
     assertStripped("", "");
     assertStripped("foo", "foo");
     assertStripped("foobar", "foo\u0000bar");

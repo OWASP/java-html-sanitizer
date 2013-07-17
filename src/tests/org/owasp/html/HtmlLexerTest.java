@@ -33,6 +33,8 @@ import junit.framework.TestCase;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.Test;
+
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
@@ -56,7 +58,8 @@ public class HtmlLexerTest extends TestCase {
     assertEquals(golden, actual.toString());
   }
 
-  public final void testEofInTag() throws Exception {
+  @Test
+  public static final void testEofInTag() throws Exception {
     assertTokens("<div", "TAGBEGIN: <div");
     assertTokens("</div", "TAGBEGIN: </div");
     assertTokens("<div\n", "TAGBEGIN: <div");
@@ -67,7 +70,8 @@ public class HtmlLexerTest extends TestCase {
     assertTokens("</div\n", "TAGBEGIN: </div");
   }
 
-  public final void testPartialTagInCData() throws Exception {
+  @Test
+  public static final void testPartialTagInCData() throws Exception {
     assertTokens(
         "<script>w('</b')</script>",
         "TAGBEGIN: <script",
@@ -77,7 +81,9 @@ public class HtmlLexerTest extends TestCase {
         "TAGEND: >");
   }
 
-  public final void testUrlEndingInSlashOutsideQuotes() throws Exception {
+  @Test
+  public static final void testUrlEndingInSlashOutsideQuotes()
+      throws Exception {
     assertTokens(
         "<a href=http://foo.com/>Clicky</a>",
         "TAGBEGIN: <a",
@@ -89,7 +95,8 @@ public class HtmlLexerTest extends TestCase {
         "TAGEND: >");
   }
 
-  public final void testShortTags() throws Exception {
+  @Test
+  public static final void testShortTags() throws Exception {
     // See comments in html-sanitizer-test.js as to why we don't bother with
     // short tags.  In short, they are not in HTML5 and not implemented properly
     // in existing HTML4 clients.
@@ -113,7 +120,7 @@ public class HtmlLexerTest extends TestCase {
         "TAGEND: >");
   }
 
-  private void lex(String input, Appendable out) throws Exception {
+  private static void lex(String input, Appendable out) throws Exception {
     HtmlLexer lexer = new HtmlLexer(input);
     int maxTypeLength = 0;
     for (HtmlTokenType t : HtmlTokenType.values()) {
@@ -137,7 +144,7 @@ public class HtmlLexerTest extends TestCase {
     }
   }
 
-  private void assertTokens(String markup, String... golden) {
+  private static void assertTokens(String markup, String... golden) {
     HtmlLexer lexer = new HtmlLexer(markup);
     List<String> actual = Lists.newArrayList();
     while (lexer.hasNext()) {

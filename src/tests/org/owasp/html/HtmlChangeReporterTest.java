@@ -28,6 +28,8 @@
 
 package org.owasp.html;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 
 public class HtmlChangeReporterTest extends TestCase {
@@ -36,7 +38,8 @@ public class HtmlChangeReporterTest extends TestCase {
     // Opaque test value compared via equality.
   }
 
-  public final void testChangeReporting() {
+  @Test
+  public static final void testChangeReporting() {
     final Context testContext = new Context();
 
     StringBuilder out = new StringBuilder();

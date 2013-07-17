@@ -111,7 +111,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     deferOpenTag(elementName);
   }
 
-  final @Nullable String applyPolicies(
+  static final @Nullable String applyPolicies(
       String elementName, List<String> attrs,
       ElementAndAttributePolicies policies) {
     String adjustedElementName;
