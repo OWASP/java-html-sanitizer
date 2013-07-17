@@ -33,6 +33,7 @@ help:
 	@echo "To run tests with assertions on, do"
 	@echo "  make NOASSERTS=1 runtests"
 
+SHELL=/bin/bash
 CLASSPATH=lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar
 TEST_CLASSPATH=$(CLASSPATH):lib/htmlparser-1.3/htmlparser-1.3.jar:lib/junit/junit.jar:lib/commons-codec-1.4/commons-codec-1.4.jar:benchmark-data
 JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint -encoding UTF-8
