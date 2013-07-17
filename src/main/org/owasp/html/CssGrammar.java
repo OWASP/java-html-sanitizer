@@ -34,11 +34,9 @@ final class CssGrammar {
       CssTokens.TokenIterator it) {
     int bracketDepth = 0;
     for (; it.hasNext(); it.advance()) {
-if (CssTokens.DEBUG) System.err.println("token=`" + it.token() + "` : " + it.type());
       switch (it.type()) {
         case SEMICOLON:
           it.advance();
-if (CssTokens.DEBUG) System.err.println("DONE");
           return;
         case LEFT_CURLY:
         case LEFT_PAREN:
@@ -51,7 +49,6 @@ if (CssTokens.DEBUG) System.err.println("DONE");
           --bracketDepth;
           if (bracketDepth <= 0) {
             if (bracketDepth != 0) { it.advance(); }
-if (CssTokens.DEBUG) System.err.println("exhausted");
             return;
           }
           break;
@@ -59,7 +56,6 @@ if (CssTokens.DEBUG) System.err.println("exhausted");
           break;
       }
     }
-if (CssTokens.DEBUG) System.err.println("exhausted");
   }
 
   static void parsePropertyGroup(String css, PropertyHandler handler) {
@@ -78,7 +74,6 @@ if (CssTokens.DEBUG) System.err.println("exhausted");
       }
 
       String name = it.next();
-if (CssTokens.DEBUG) System.err.println("name=" + name);
 
       // Look for a colon.
       if (!(it.hasTokenAfterSpace() && ":".equals(it.token()))) {
@@ -87,7 +82,6 @@ if (CssTokens.DEBUG) System.err.println("name=" + name);
         continue propertyNameLoop;
       }
       it.advance();
-if (CssTokens.DEBUG) System.err.println("colon");
 
       handler.startProperty(Strings.toLowerCase(name));
       parsePropertyValue(it, handler);
@@ -116,7 +110,9 @@ if (CssTokens.DEBUG) System.err.println("type=" + type + ", token=" + token);
           handler.identifier(token);
           break;
         case HASH_UNRESTRICTED:
-          handler.hash(token);
+          if (token.length() == 4 || token.length() == 7) {
+            handler.hash(token);
+          }
           break;
         case STRING:
           handler.quotedString(token);
