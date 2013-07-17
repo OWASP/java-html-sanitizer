@@ -47,18 +47,17 @@ public class StylingPolicyTest extends TestCase {
 
   @Test
   public static final void testColors() {
-    assertSanitizedCss("color:#f00", "color: red");
-    assertSanitizedCss(
-        "background-color:#f00", "background: #f00");
+    assertSanitizedCss("color:red", "color: red");
+    assertSanitizedCss("background-color:#f00", "background-color: #f00");
+    assertSanitizedCss("background:#f00", "background: #f00");
     assertSanitizedCss("color:#f00", "color: #F00");
     assertSanitizedCss(null, "color: #F000");
     assertSanitizedCss("color:#ff0000", "color: #ff0000");
+    assertSanitizedCss("color:rgb( 255 , 0 , 0 )", "color: rgb(255, 0, 0)");
+    assertSanitizedCss("background:rgb( 100% , 0 , 0 )",
+                       "background: rgb(100%, 0, 0)");
     assertSanitizedCss(
-        "color:#f00", "color: rgb(255, 0, 0)");
-    assertSanitizedCss(
-        "background-color:#f00", "background: rgb(100%, 0, 0)");
-    assertSanitizedCss(
-        "color:#f00", "color: rgba(100%, 0, 0, 100%)");
+        "color:rgba( 100% , 0 , 0 , 100% )", "color: RGBA(100%, 0, 0, 100%)");
     assertSanitizedCss(null, "color: transparent");
     assertSanitizedCss(null, "color: bogus");
     assertSanitizedCss(null, "color: expression(alert(1337))");
@@ -76,15 +75,15 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss(
         "font-weight:bold", "font-weight: bold");
     assertSanitizedCss(
-        "font-weight:bold", "font: bold");
+        "font:bold", "font: bold");
     assertSanitizedCss(
-        "font-weight:bolder", "font: Bolder");
+        "font:bolder", "font: Bolder");
     assertSanitizedCss(
         "font-weight:800", "font-weight: 800");
     assertSanitizedCss(
         null, "font-weight: expression(alert(1337))");
     assertSanitizedCss(
-        "font-family:\"evil\"",
+        "font:'evil'",
         "font: 3execute evil");
   }
 
@@ -93,9 +92,9 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss(
         "font-style:italic", "font-style: Italic");
     assertSanitizedCss(
-        "font-style:italic", "font: italic");
+        "font:italic", "font: italic");
     assertSanitizedCss(
-        "font-style:oblique", "font: Oblique");
+        "font:oblique", "font: Oblique");
     assertSanitizedCss(
         null, "font-style: expression(alert(1337))");
   }
@@ -103,57 +102,56 @@ public class StylingPolicyTest extends TestCase {
   @Test
   public static final void testFontFace() {
     assertSanitizedCss(
-        "font-family:\"arial\",\"helvetica\"", "font: Arial, Helvetica");
+        "font:'arial' , 'helvetica'", "font: Arial, Helvetica");
     assertSanitizedCss(
-        "font-family:\"Arial\",\"Helvetica\",sans-serif",
+        "font-family:'arial' , 'helvetica' , sans-serif",
         "Font-family: Arial, Helvetica, sans-serif");
     assertSanitizedCss(
-        "font-family:\"Monospace\",sans-serif",
+        "font-family:'monospace' , sans-serif",
         "Font-family: \"Monospace\", Sans-serif");
     assertSanitizedCss(
-        "font-family:\"Arial Bold\",\"helvetica\",monospace",
+        "font:'arial bold' , 'helvetica' , monospace",
         "FONT: \"Arial Bold\", Helvetica, monospace");
     assertSanitizedCss(
-        "font-family:\"Arial Bold\",\"Helvetica\"",
+        "font-family:'arial bold' , 'helvetica'",
         "font-family: \"Arial Bold\", Helvetica");
     assertSanitizedCss(
-        "font-family:\"Arial Bold\",\"Helvetica\"",
+        "font-family:'arial bold' , 'helvetica'",
         "font-family: 'Arial Bold', Helvetica");
     assertSanitizedCss(
-        "font-family:\"3execute evil\"",
+        "font-family:'evil'",
         "font-family: 3execute evil");
     assertSanitizedCss(
-        "font-family:\"Arial Bold\",\"Helvetica\",sans-serif",
+        "font-family:'arial bold' , , , 'helvetica' , sans-serif",
         "font-family: 'Arial Bold',,\"\",Helvetica,sans-serif");
   }
 
   @Test
   public static final void testFont() {
     assertSanitizedCss(
-        "font-family:\"arial\";"
-        + "font-weight:bold;font-size:12pt;font-style:oblique",
+        "font:'arial' 12pt bold oblique",
         "font: Arial 12pt bold oblique");
     assertSanitizedCss(
-        "font-family:\"Times New Roman\";font-weight:bolder;font-size:24px",
+        "font:'times new roman' 24px bolder",
         "font: \"Times New Roman\" 24px bolder");
-    assertSanitizedCss("font-size:24px", "font: 24px");
+    assertSanitizedCss("font:24px", "font: 24px");
     // Non-ascii characters discarded.
     assertSanitizedCss(null, "font: 24ex\\pression");
     // Harmless garbage.
     assertSanitizedCss(
-        "font-family:\"pression\"", "font: 24ex\0pression");
+        "font:24ex 'pression'", "font: 24ex\0pression");
     assertSanitizedCss(
         null, "font: expression(arial)");
     assertSanitizedCss(
         null, "font: rgb(\"expression(alert(1337))//\")");
     assertSanitizedCss("font-size:smaller", "font-size: smaller");
-    assertSanitizedCss("font-size:smaller", "font: smaller");
+    assertSanitizedCss("font:smaller", "font: smaller");
   }
 
   @Test
   public static final void testBidiAndAlignmentAttributes() {
     assertSanitizedCss(
-        "text-align:left;direction:ltr;unicode-bidi:embed",
+        "text-align:left;unicode-bidi:embed;direction:ltr",
         "Text-align: left; Unicode-bidi: Embed; Direction: LTR;");
     assertSanitizedCss(
         null, "text-align:expression(left())");
@@ -181,78 +179,6 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testSanitizeColor() {
-    assertEquals(null, StylingPolicy.sanitizeColor(""));
-    assertEquals(null, StylingPolicy.sanitizeColor("bogus"));
-    assertEquals(null, StylingPolicy.sanitizeColor("javascript:evil"));
-    assertEquals(null, StylingPolicy.sanitizeColor("expression(evil)"));
-    assertEquals(null, StylingPolicy.sanitizeColor("moz-binding"));
-    assertEquals(null, StylingPolicy.sanitizeColor("rgb()"));
-    assertEquals(null, StylingPolicy.sanitizeColor("rgba()"));
-    assertEquals(null, StylingPolicy.sanitizeColor("rgb(255, 255)"));
-    assertEquals(null, StylingPolicy.sanitizeColor("rgb(256, 0, 0)"));
-    assertEquals(null, StylingPolicy.sanitizeColor("rgb(0, 120%, 0)"));
-    assertEquals("#fff", StylingPolicy.sanitizeColor("white"));
-    assertEquals("#000", StylingPolicy.sanitizeColor("black"));
-    assertEquals("#f00", StylingPolicy.sanitizeColor("red"));
-    assertEquals("#f00", StylingPolicy.sanitizeColor("red"));
-    assertEquals("#fa8072", StylingPolicy.sanitizeColor("salmon"));
-    assertEquals("#ff0080", StylingPolicy.sanitizeColor("rgb(255, 0, 128)"));
-    assertEquals("#ff0080", StylingPolicy.sanitizeColor("rgb(255,0,128)"));
-    assertEquals("#ff007f", StylingPolicy.sanitizeColor("rgb(100%,0,50%)"));
-    assertEquals(
-        "#ff0080", StylingPolicy.sanitizeColor("rgba(100%,0,128,255)"));
-    assertEquals("#ff0080", StylingPolicy.sanitizeColor("RGB(255, 0, 128)"));
-    assertEquals(
-        "#550102", StylingPolicy.sanitizeColor("Rgb( 33.333% , .9 , .9% )"));
-    assertEquals(
-        "#540000", StylingPolicy.sanitizeColor("Rgb( 33.03% , .09 , .09% )"));
-  }
-
-  private static void assertIsNotNonEmptyAsciiAlnumSpaceSeparated(String s) {
-    assertFalse(s, StylingPolicy.isNonEmptyAsciiAlnumSpaceSeparated(s));
-  }
-  private static void assertIsNonEmptyAsciiAlnumSpaceSeparated(String s) {
-    assertTrue(s, StylingPolicy.isNonEmptyAsciiAlnumSpaceSeparated(s));
-  }
-
-  @Test
-  public static final void testIsNonEmptyAsciiAlnumSpaceSeparated() {
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated(" ");
-
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("\u002f");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("0");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("9");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("\u003a");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("\u0040");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("A");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("Z");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("\u005b");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("\u0060");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("a");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("z");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("\u007b");
-
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("Arial/Helvetica");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("Arial#Helvetica");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("!Arial Helvetica");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("Arial Helvetica!");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("Arial Helve!tica");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("Arial\u0000Helvetica");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("<script>evil()</script>");
-    assertIsNotNonEmptyAsciiAlnumSpaceSeparated("Arial\uFF26elvetica");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("x y");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated(" x y ");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("foo");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated(" foo ");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("foo bar");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated(" foo 92 ");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("Foo  Bar");
-    assertIsNonEmptyAsciiAlnumSpaceSeparated("Arial Helvetica");
-  }
-
-  @Test
   public static final void testBoxProperties() {
     // http://www.w3.org/TR/CSS2/box.html
     assertSanitizedCss("height:0", "height:0");
@@ -264,22 +190,22 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss(null, "width:-20");
     assertSanitizedCss(null, "width:url('foo')");
     assertSanitizedCss(null, "height:6fixed");
-    assertSanitizedCss("margin:2", "margin:2 2 2 2");
-    assertSanitizedCss("margin:2", "margin:2 2 2");
-    assertSanitizedCss("padding:2", "padding:2 2");
+    assertSanitizedCss("margin:2 2 2 2", "margin:2 2 2 2");
+    assertSanitizedCss("margin:2 2 2", "margin:2 2 2");
+    assertSanitizedCss("padding:2 2", "padding:2 2");
     assertSanitizedCss("margin:2", "margin:2");
     assertSanitizedCss("margin:2px 4px 6px 8px", "margin:2px 4px 6px 8px");
     assertSanitizedCss("padding:0 4px 6px", "padding:0 4px 6px");
-    assertSanitizedCss("margin:2px 4px 6px", "margin:2px 4px 6px 4px");
+    assertSanitizedCss("margin:2px 4px 6px 4px", "margin:2px 4px 6px 4px");
     assertSanitizedCss("margin:0 4px", "margin:0 4px");
     assertSanitizedCss("margin:0 4px", "margin:0 4 px");
     assertSanitizedCss("padding-left:4px", "padding-left:4px");
-    assertSanitizedCss("margin-bottom:3px;padding-top:2px;padding-left:0.4em",
+    assertSanitizedCss("padding-left:0.4em;padding-top:2px;margin-bottom:3px",
                        "padding-left:0.4em;padding-top:2px;margin-bottom:3px");
     assertSanitizedCss("padding:0 1em 0.5in 1.5cm",
                        "padding:00. 1EM +00.5 In 1.50cm");
     // Mixed.
-    assertSanitizedCss("margin:0.25em 1em 1em",  // in [top horizontal btm]
+    assertSanitizedCss("margin:1em;margin-top:0.25em",
                        "margin:1em; margin-top:.25em");
   }
 

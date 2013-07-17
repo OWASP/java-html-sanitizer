@@ -49,7 +49,7 @@ import junit.framework.TestSuite;
 public class AntiSamyTest extends TestCase {
 
   static final boolean RUN_KNOWN_FAILURES = false;
-  static final boolean DISABLE_INTERNETS = false;
+  static final boolean DISABLE_INTERNETS = true;
 
   private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -445,7 +445,7 @@ public class AntiSamyTest extends TestCase {
     /* issue #28 */
     assertSanitizedDoesContain(
         "<div style=\"font-family: Geneva, Arial, courier new, sans-serif\">Test</div>",
-        "font-family:&#34;Geneva&#34;,&#34;Arial&#34;,&#34;courier new&#34;,sans-serif");
+        "font-family:&#39;geneva&#39; , &#39;arial&#39; , &#39;courier new&#39; , sans-serif");
 
     /* issue #29 - missing quotes around properties with spaces */
     if (RUN_KNOWN_FAILURES) {
