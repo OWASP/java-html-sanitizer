@@ -26,12 +26,26 @@ help:
 	@echo "  download  - Bundle docs, externally required jars, and"
 	@echo "              license files into a zip file suitable for"
 	@echo "              the code.google site downloads."
-
+	@echo ""
+	@echo "For more verbose test runner output, do"
+	@echo "  make VERBOSE=1 runtests"
+	@echo ""
+	@echo "To run tests with assertions on, do"
+	@echo "  make ASSERTS=1 runtests"
 
 CLASSPATH=lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar
 TEST_CLASSPATH=$(CLASSPATH):lib/htmlparser-1.3/htmlparser-1.3.jar:lib/junit/junit.jar:lib/commons-codec-1.4/commons-codec-1.4.jar:benchmark-data
 JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint -encoding UTF-8
+TEST_RUNNER=junit.textui.TestRunner
+JASSERTS=
 
+ifdef VERBOSE
+override TEST_RUNNER=org.owasp.html.VerboseTestRunner
+endif
+
+ifdef ASSERTS
+override JASSERTS=-ea
+endif
 
 out:
 	mkdir -p out
@@ -99,8 +113,8 @@ out/genfiles/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*
 	) > $@
 
 runtests: tests
-	java -classpath out/classes:src/tests:${TEST_CLASSPATH} \
-	    junit.textui.TestRunner org.owasp.html.AllTests
+	java ${JASSERTS} -classpath out/classes:src/tests:${TEST_CLASSPATH} \
+	    ${TEST_RUNNER} org.owasp.html.AllTests
 
 coverage: tests
 	java -cp tools/emma/lib/emma.jar:lib/guava-libraries/guava.jar:lib/jsr305/jsr305.jar:lib/htmlparser-1.3/htmlparser-1.3.jar:lib/commons-codec-1.4/commons-codec-1.4.jar:benchmark-data \
