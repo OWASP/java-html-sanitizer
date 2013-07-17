@@ -51,7 +51,7 @@ if (CssTokens.DEBUG) System.err.println("DONE");
           --bracketDepth;
           if (bracketDepth <= 0) {
             if (bracketDepth != 0) { it.advance(); }
-            if (CssTokens.DEBUG) System.err.println("exhausted");
+if (CssTokens.DEBUG) System.err.println("exhausted");
             return;
           }
           break;

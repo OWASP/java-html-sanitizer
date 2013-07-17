@@ -49,7 +49,7 @@ import junit.framework.TestSuite;
 public class AntiSamyTest extends TestCase {
 
   static final boolean RUN_KNOWN_FAILURES = false;
-  static final boolean DISABLE_INTERNETS = false;
+  static final boolean DISABLE_INTERNETS = true;
 
   private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
