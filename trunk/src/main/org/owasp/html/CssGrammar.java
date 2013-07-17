@@ -28,197 +28,128 @@
 
 package org.owasp.html;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+final class CssGrammar {
 
-class CssGrammar {
-
-  /**
-   * Lexical grammar for CSS tokens converted from
-   * http://www.w3.org/TR/CSS2/grammar.html
-   */
-  private static final Pattern CSS_TOKEN;
-  static {
-    // nl                      \n|\r\n|\r|\f ; a newline
-    //String nl = "\n|\r\n|\r|\f";
-
-    // h                       [0-9a-f]      ; a hexadecimal digit
-    String h = "[0-9a-f]";
-
-    // nonascii                [\200-\377]
-    String nonascii = "[" + ((char) 0200) + "-" + ((char) 0377) + "]";
-
-    // unicode                 \\{h}{1,6}(\r\n|[ \t\r\n\f])?
-    String unicode = "(?:(?:\\\\" + h + "{1,6})(?:\r\n|[ \t\r\n\f])?)";
-
-    // escape                  {unicode}|\\[^\r\n\f0-9a-f]
-    String escape = "(?:" + unicode + "|\\\\[^\r\n\f0-9a-f])";
-
-    // nmstart                 [_a-z]|{nonascii}|{escape}
-    String nmstart = "(?:[_a-z]|" + nonascii + "|" + escape + ")";
-
-    // nmchar                  [_a-z0-9-]|{nonascii}|{escape}
-    String nmchar = "(?:[_a-z0-9-]|" + nonascii + "|" + escape + ")";
-
-    // ident                   -?{nmstart}{nmchar}*
-    String ident = "-?" + nmstart + nmchar + "*";
-
-    // name                    {nmchar}+
-    String name = nmchar + "+";
-
-    // hash
-    String hash = "#" + name;
-
-    // string1                 \"([^\n\r\f\\"]|\\{nl}|{escape})*\"  ; "string"
-    String string1 = "\"(?:[^\n\r\f\"\\\\]|\\\\.)*\"";
-
-    // string2                 \'([^\n\r\f\\']|\\{nl}|{escape})*\'  ; 'string'
-    String string2 = "'(?:[^\n\r\f\'\\\\]|\\\\.)*'";
-
-    // string                  {string1}|{string2}
-    String string = "(?:" + string1 + "|" + string2 + ")";
-
-    // num                     [0-9]+|[0-9]*"."[0-9]+
-    String num = "(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)";
-
-    // s                       [ \t\r\n\f]
-    String s = "[ \t\r\n\f]";
-
-    // w                       {s}*
-    String w = "(?:" + s + "*)";
-
-    // url special chars
-    String url_special_chars = "[!#$%&*-~]";
-
-    // url chars               ({url_special_chars}|{nonascii}|{escape})*
-    String URL_CHARS = "(?:"
-        + url_special_chars + "|" + nonascii + "|" + escape + ")*";
-
-    // url
-    String url = "url\\(" + w + "(" + string + "|" + URL_CHARS + ")"
-        + w + "\\)";
-
-    // comments
-    // see http://www.w3.org/TR/CSS21/grammar.html
-    String comment = "/\\*(?:\\**[^*])*\\*+/";
-
-    // {E}{M}             {return EMS;}
-    // {E}{X}             {return EXS;}
-    // {P}{X}             {return LENGTH;}
-    // {C}{M}             {return LENGTH;}
-    // {M}{M}             {return LENGTH;}
-    // {I}{N}             {return LENGTH;}
-    // {P}{T}             {return LENGTH;}
-    // {P}{C}             {return LENGTH;}
-    // {D}{E}{G}          {return ANGLE;}
-    // {R}{A}{D}          {return ANGLE;}
-    // {G}{R}{A}{D}       {return ANGLE;}
-    // {M}{S}             {return TIME;}
-    // {S}                {return TIME;}
-    // {H}{Z}             {return FREQ;}
-    // {K}{H}{Z}          {return FREQ;}
-    // %                  {return PERCENTAGE;}
-    String unit =
-      "(?:em|ex|px|cm|mm|in|pt|pc|deg|rad|grad|ms|s|hz|khz|%"
-      + "|rem|vh|vw|vmin|vmax)";
-
-    // {num}{UNIT|IDENT}                   {return NUMBER;}
-    // Many parsers allow white-space between the numeric portion and the
-    // unit, but we don't want to allow that for arbitrary idents (which
-    // allow forward-compatibility with new units) since we don't want to
-    // capture keywords like "auto" which can follow lengths.
-    String quantity = num + "(?:(?:" + w + unit + ")|" + ident + ")?";
-
-    // "<!--"                  {return CDO;}
-    // "-->"                   {return CDC;}
-    // "~="                    {return INCLUDES;}
-    // "|="                    {return DASHMATCH;}
-    // {w}"{"                  {return LBRACE;}
-    // {w}"+"                  {return PLUS;}
-    // {w}">"                  {return GREATER;}
-    // {w}","                  {return COMMA;}
-    // Extra punctuation: brackets, dots, slash.
-    String punc = "<!--|-->|~=|\\|=|[\\{\\}\\+>,:;()\\[\\]\\./]";
-
-    CSS_TOKEN = Pattern.compile(
-        // Identifier, keyword, or hash in group 1,
-        "((?!url\\b)" + ident + "|" + hash + ")"
-        + "|([+-]?" + quantity + ")"  // A quantity in group 2,
-        // A comment in group 0.
-        + "|" + comment
-        // A string, URL, or punctuation in group 3,
-        + "|(" + string + "|" + url + "|" + punc + ")"
-        // or a whitespace in group 0.
-        + "|(?:" + s + "+)|",
-        Pattern.CASE_INSENSITIVE);
+  private static void errorRecoveryUntilSemiOrCloseBracket(
+      CssTokens.TokenIterator it) {
+    int bracketDepth = 0;
+    for (; it.hasNext(); it.advance()) {
+if (CssTokens.DEBUG) System.err.println("token=`" + it.token() + "` : " + it.type());
+      switch (it.type()) {
+        case SEMICOLON:
+          it.advance();
+if (CssTokens.DEBUG) System.err.println("DONE");
+          return;
+        case LEFT_CURLY:
+        case LEFT_PAREN:
+        case LEFT_SQUARE:
+          ++bracketDepth;
+          break;
+        case RIGHT_CURLY:
+        case RIGHT_PAREN:
+        case RIGHT_SQUARE:
+          --bracketDepth;
+          if (bracketDepth <= 0) {
+            if (bracketDepth != 0) { it.advance(); }
+            if (CssTokens.DEBUG) System.err.println("exhausted");
+            return;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+if (CssTokens.DEBUG) System.err.println("exhausted");
   }
 
-  /**
-   * Creates a matcher that will match tokens in the CSS in order.
-   * The matcher will have the token in group 0.  If the token is an identifier,
-   * keyword, or hash token (color or HTML ID) then it group 1 will be present.
-   * If the token is a quantity, group 2 will be present.
-   * If the token is a string, url, or punctuation, group 3 will be present.
-   */
-  static Matcher lex(String css) {
-    return CSS_TOKEN.matcher(css);
-  }
-
-  static void asPropertyGroup(String css, PropertyHandler handler) {
+  static void parsePropertyGroup(String css, PropertyHandler handler) {
     // Split tokens by semicolons/curly-braces, then by first colon,
     // dropping spaces and comments to identify property names and token runs
     // that form the value.
 
-    Matcher m = lex(css);
+    CssTokens tokens = CssTokens.lex(css);
+    CssTokens.TokenIterator it = tokens.iterator();
     propertyNameLoop:
-    while (m.find()) {
+    while (it.hasTokenAfterSpace()) {
       // Check that we have an identifier that might be a property name.
-      if (m.start(1) < 0 || css.charAt(m.start(1)) == '#') { continue; }
+      if (it.type() != CssTokens.TokenType.IDENT) {
+        errorRecoveryUntilSemiOrCloseBracket(it);
+        continue;
+      }
 
-      String name = m.group(0);
+      String name = it.next();
+if (CssTokens.DEBUG) System.err.println("name=" + name);
 
       // Look for a colon.
-      while (m.find()) {
-        if (m.start(1) >= 0) {
-          if (css.charAt(m.start(1)) == '#') { continue propertyNameLoop; }
-          name = m.group(0);
-        } else if (m.start(2) >= 0) {
-          continue propertyNameLoop;
-        } else if (m.start(3) + 1 == m.end(3)) {
-          if (':' == css.charAt(m.start(3))) {
-            break;
-          } else {
-            continue propertyNameLoop;
-          }
-        }
+      if (!(it.hasTokenAfterSpace() && ":".equals(it.token()))) {
+        if (CssTokens.DEBUG) System.err.println("Starting error recovery");
+        errorRecoveryUntilSemiOrCloseBracket(it);
+        continue propertyNameLoop;
       }
+      it.advance();
+if (CssTokens.DEBUG) System.err.println("colon");
 
-      handler.startProperty(Strings.toLowerCase(cssContent(name)));
-
-      propertyValueLoop:
-      while (m.find()) {
-        if (m.start(1) >= 0) {
-          handler.identifierOrHash(m.group());
-        } else if (m.start(2) >= 0) {
-          handler.quantity(normalizeNum(m.group()));
-        } else if (m.start(3) >= 0) {
-          String token = m.group(0);
-          switch (token.charAt(0)) {
-            case '"': case '\'':
-              handler.quotedString(token);
-              break;
-            case 'u': case 'U':
-              handler.url(token);
-              break;
-            case ';': case '{': case '}': case ':':
-              break propertyValueLoop;
-            default:
-              handler.punctuation(token);
-          }
-        }
-      }
-
+      handler.startProperty(Strings.toLowerCase(name));
+      parsePropertyValue(it, handler);
       handler.endProperty();
+    }
+  }
+
+  private static void parsePropertyValue(
+      CssTokens.TokenIterator it, PropertyHandler handler) {
+    propertyValueLoop:
+    while (it.hasNext()) {
+      CssTokens.TokenType type = it.type();
+      String token = it.token();
+if (CssTokens.DEBUG) System.err.println("type=" + type + ", token=" + token);
+      switch (type) {
+        case SEMICOLON:
+          it.advance();
+          break propertyValueLoop;
+        case FUNCTION:
+          CssTokens.TokenIterator actuals = it.spliceToEnd();
+          handler.startFunction(token);
+          parsePropertyValue(actuals, handler);
+          handler.endFunction(token);
+          continue;  // Skip the advance over token.
+        case IDENT:
+          handler.identifier(token);
+          break;
+        case HASH_UNRESTRICTED:
+          handler.hash(token);
+          break;
+        case STRING:
+          handler.quotedString(token);
+          break;
+        case URL:
+          handler.url(token);
+          break;
+        case DIMENSION:
+        case NUMBER:
+        case PERCENTAGE:
+          handler.quantity(token);
+          break;
+        case AT:
+        case COLUMN:
+        case DOT_IDENT:
+        case HASH_ID:
+        case MATCH:
+        case UNICODE_RANGE:
+        case WHITESPACE:
+          break;
+        case LEFT_CURLY:
+        case LEFT_PAREN:
+        case LEFT_SQUARE:
+        case RIGHT_CURLY:
+        case RIGHT_PAREN:
+        case RIGHT_SQUARE:
+        case COMMA:
+        case COLON:
+        case DELIM:
+          handler.punctuation(token);
+          break;
+      }
+      it.advance();
     }
   }
 
@@ -276,127 +207,16 @@ class CssGrammar {
         || ('a' <= codepoint && codepoint <= 'f');
   }
 
-  /**
-   * Denormalized numbers complicate filters and confuse parsers.
-   * Make sure that only negative quantities have a sign;
-   * the integer portion is non-empty: ".5" -> "0.5";
-   * the fraction if present is non-zero: "1.0" -> "1";
-   * there are no extraneous, leading or trailing zeroes: "01" -> "1";
-   * any spaces between the number and unit are elided: ".5 ex" -> ".5ex";
-   * and any unit is lower-cased: "1EM" -> "1em".
-   */
-  private static String normalizeNum(String s) {
-    int n = s.length();
-    int numStart = 0;
-    if (numStart < n) {
-      char ch = s.charAt(0);
-      if (ch == '+' || ch == '-') {
-        ++numStart;
-      }
-    }
-    int numEnd = numStart;
-    for (; numEnd < n; ++numEnd) {
-      char ch = s.charAt(numEnd);
-      if (!('0' <= ch && ch <= '9')) { break; }
-    }
-    int fractionStart = numEnd;
-    if (numEnd < n && '.' == s.charAt(numEnd)) {
-      ++numEnd;
-      for (; numEnd < n; ++numEnd) {
-        char ch = s.charAt(numEnd);
-        if (!('0' <= ch && ch <= '9')) { break; }
-      }
-    }
-    int fractionEnd = numEnd;
-    int unitStart = fractionEnd;
-    while (unitStart < n && s.charAt(unitStart) <= 0x20) {
-      ++unitStart;
-    }
-
-    StringBuilder sb = null;
-    if (numStart != 0 && s.charAt(0) != '-') {  // "+5" -> "5"
-      sb = new StringBuilder(n);
-    }
-    // s[0:numStart] is normal and on sb
-
-    if (numStart == fractionStart) {  // ".5" -> "0.5"
-      if (sb == null) { sb = new StringBuilder(n).append(s, 0, numStart); }
-      sb.append('0');
-    } else {
-      int zeroes = numStart;
-      while (zeroes < fractionStart && s.charAt(zeroes) == '0') {
-        ++zeroes;
-      }
-      if (zeroes != fractionStart) {  // "01" -> "1"
-        if (sb == null) { sb = new StringBuilder(n).append(s, 0, numStart); }
-        sb.append(s, zeroes, fractionStart);
-      } else if (zeroes > numStart + 1) {  // "000" -> "0"
-        if (sb == null) { sb = new StringBuilder(n).append(s, 0, numStart); }
-        sb.append('0');
-      } else if (sb != null) {
-        sb.append(s, 0, fractionStart);
-      }
-    }
-    // s[0:fractionStart] is normal and on sb.
-
-    if (fractionStart != fractionEnd) {
-      int zeroes = fractionEnd;
-      while (zeroes > fractionStart + 1 && s.charAt(zeroes - 1) == '0') {
-        --zeroes;
-      }
-      if (zeroes == fractionStart + 1) {  // "5." -> "5"
-        if (sb == null) {
-          sb = new StringBuilder(n).append(s, 0, fractionStart);
-        }
-        // Done
-      } else {
-        // Elide trailing zeroes
-        if (zeroes != fractionEnd && sb == null) {  // "1.50" -> "1.5"
-          sb = new StringBuilder(n).append(s, 0, fractionStart);
-        }
-        if (sb != null) {
-          sb.append(s, fractionStart, zeroes);
-        }
-      }
-    }
-    // s[0:fractionEnd] is normal and on sb.
-
-    if (fractionEnd != unitStart) {
-      if (sb == null) {
-        sb = new StringBuilder(n).append(s, 0, fractionEnd);
-      }
-      // "5 ex" -> "5ex"
-    }
-    // s[0:unitStart] is normal and on sb
-
-    {
-      int pos = unitStart;
-      for (int i = unitStart; i < n; ++i) {
-        char ch = s.charAt(i);
-        if ('A' <= ch && ch <= 'Z') {
-          if (sb == null) {
-            sb = new StringBuilder(n).append(s, 0, pos);
-          }
-          sb.append(s, pos, i).append((char) (ch | 32));
-          pos = i + 1;
-        }
-      }
-      if (sb != null) {
-        sb.append(s, pos, n);
-      }
-    }
-    // s[0:n] is normal and on sb
-
-    return sb == null ? s : sb.toString();
-  }
-
   interface PropertyHandler {
     void startProperty(String propertyName);
     void quantity(String token);
-    void identifierOrHash(String token);
+    void identifier(String token);
+    void hash(String token);
     void quotedString(String token);
     void url(String token);
     void punctuation(String token);
+    void startFunction(String token);
+    void endFunction(String token);
     void endProperty();
   }
 

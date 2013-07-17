@@ -35,7 +35,6 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -309,6 +308,9 @@ class StylingPolicy implements AttributePolicy {
     class StyleExtractor implements CssGrammar.PropertyHandler {
       CssPropertyType type = CssPropertyType.NONE;
 
+      // Depth of fns that we have started but not finished.
+      int fnDepth = 0;
+      StringBuilder fn;
       // Values that are not-whitelisted are put into font attributes to render
       // the innocuous.
       List<String> faces;
@@ -327,11 +329,17 @@ class StylingPolicy implements AttributePolicy {
       public void url(String token) {
         // Ignore.
       }
+
       public void startProperty(String propertyName) {
         CssPropertyType type = BY_CSS_PROPERTY_NAME.get(propertyName);
         this.type = type != null ? type : CssPropertyType.NONE;
       }
+
       public void quotedString(String token) {
+        if (fn != null) {
+          fn.append(token);
+          return;
+        }
         switch (type) {
           case FONT: case FACE:
             if (faces == null) { faces = Lists.newArrayList(); }
@@ -342,6 +350,10 @@ class StylingPolicy implements AttributePolicy {
       }
 
       public void quantity(String token) {
+        if (fn != null) {
+          fn.append(token);
+          return;
+        }
         switch (type) {
           case FONT:
           case SIZE:
@@ -449,7 +461,11 @@ class StylingPolicy implements AttributePolicy {
         }
       }
 
-      public void identifierOrHash(String token) {
+      public void identifier(String token) {
+        if (fn != null) {
+          fn.append(token);
+          return;
+        }
         switch (type) {
           case SIZE:
             token = Strings.toLowerCase(token);
@@ -526,22 +542,69 @@ class StylingPolicy implements AttributePolicy {
         }
       }
 
+      public void hash(String token) {
+        if (fn != null) {
+          fn.append(token);
+          return;
+        }
+        switch (type) {
+          case BACKGROUND_COLOR:
+            if (backgroundColor == null) {
+              backgroundColor = new StringBuilder();
+              backgroundColor.append(token);
+            }
+            break;
+          case COLOR:
+            if (color == null) {
+              color = new StringBuilder();
+              color.append(token);
+            }
+            break;
+          default:
+            break;
+        }
+      }
+
       public void punctuation(String token) {
+        if (fn != null) {
+          fn.append(token);
+          return;
+        }
         switch (type) {
           case FACE: case FONT:
             // Commas separate font-families since HTML fonts fall-back to
             // simpler forms based on the installed font-set.
             if (",".equals(token) && faces != null) { faces.add(","); }
             break;
-          case BACKGROUND_COLOR:
-            // Parentheses and commas in the rgb(...) color form.
-            if (backgroundColor != null) { backgroundColor.append(token); }
-            break;
-          case COLOR:
-            // Parentheses and commas in the rgb(...) color form.
-            if (color != null) { color.append(token); }
-            break;
           default: break;
+        }
+      }
+
+      public void startFunction(String token) {
+        if (fn == null) { fn = new StringBuilder(); }
+        fn.append(token);
+        ++fnDepth;
+      }
+
+      public void endFunction(String token) {
+        fn.append(')');
+        if (--fnDepth == 0) {
+          StringBuilder fnContent = fn;
+          fn = null;
+          // Use rgb and rgba in color.
+          switch (type) {
+            case BACKGROUND_COLOR:
+              if (backgroundColor == null) {
+                backgroundColor = fnContent;
+              }
+              break;
+            case COLOR:
+              if (color == null) {
+                color = fnContent;
+              }
+              break;
+            default: break;
+          }
         }
       }
 
@@ -609,7 +672,7 @@ class StylingPolicy implements AttributePolicy {
 
 
     StyleExtractor extractor = new StyleExtractor();
-    CssGrammar.asPropertyGroup(style, extractor);
+    CssGrammar.parsePropertyGroup(style, extractor);
     return extractor.toCssProperties();
   }
 
