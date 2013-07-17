@@ -28,11 +28,14 @@
 
 package org.owasp.html;
 
+import org.junit.Test;
+
 import junit.framework.TestCase;
 
 public class SanitizersTest extends TestCase {
 
-  public final void testFormatting() {
+  @Test
+  public static final void testFormatting() {
     assertEquals("", Sanitizers.FORMATTING.sanitize(null));
     assertEquals("", Sanitizers.FORMATTING.sanitize(""));
     assertEquals(
@@ -47,7 +50,8 @@ public class SanitizersTest extends TestCase {
             "<p>Hello, <b onclick=alert(1337)>World</b>!</p>"));
   }
 
-  public final void testBlockElements() {
+  @Test
+  public static final void testBlockElements() {
     assertEquals("", Sanitizers.BLOCKS.sanitize(null));
     assertEquals(
         "Hello, World!",
@@ -61,7 +65,8 @@ public class SanitizersTest extends TestCase {
             "<p onclick=alert(1337)>Hello, <b>World</b>!</p>"));
   }
 
-  public final void testBlockAndFormattingElements() {
+  @Test
+  public static final void testBlockAndFormattingElements() {
     PolicyFactory s = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
     PolicyFactory r1 = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
         .and(Sanitizers.BLOCKS);
@@ -77,7 +82,8 @@ public class SanitizersTest extends TestCase {
     }
   }
 
-  public final void testAndIntersects() {
+  @Test
+  public static final void testAndIntersects() {
     PolicyFactory restrictedLink = new HtmlPolicyBuilder()
        .allowElements("a")
        .allowUrlProtocols("https")
@@ -110,7 +116,8 @@ public class SanitizersTest extends TestCase {
         and2.sanitize(inputHtml));
   }
 
-  public final void testImages() {
+  @Test
+  public static final void testImages() {
     PolicyFactory s = Sanitizers.IMAGES;
     assertEquals(
         "foo", s.sanitize("<a href=\"javascript:alert(1337)\">foo</a>"));
@@ -130,7 +137,8 @@ public class SanitizersTest extends TestCase {
         );
   }
 
-  public final void testLinks() {
+  @Test
+  public static final void testLinks() {
     PolicyFactory s = Sanitizers.LINKS;
     assertEquals(
         "<a href=\"foo.html\" rel=\"nofollow\">Link text</a>",
@@ -166,7 +174,8 @@ public class SanitizersTest extends TestCase {
         s.sanitize("<a name=\"header\" id=\"header\">Header text</a>"));
   }
 
-  public final void testIssue9StylesInTables() {
+  @Test
+  public static final void testIssue9StylesInTables() {
     String input = ""
         + "<table style=\"color: rgb(0, 0, 0);"
         + " font-family: Arial, Geneva, sans-serif;\">"

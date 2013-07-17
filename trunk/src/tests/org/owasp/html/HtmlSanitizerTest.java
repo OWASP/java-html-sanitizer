@@ -32,56 +32,68 @@ import junit.framework.TestCase;
 
 import javax.annotation.Nullable;
 
+import org.junit.Test;
+
 
 public class HtmlSanitizerTest extends TestCase {
 
-  public final void testEmpty() throws Exception {
+  @Test
+  public static final void testEmpty() throws Exception {
     assertEquals("", sanitize(""));
     assertEquals("", sanitize(null));
   }
 
-  public final void testSimpleText() throws Exception {
+  @Test
+  public static final void testSimpleText() throws Exception {
     assertEquals("hello world", sanitize("hello world"));
   }
 
-  public final void testEntities1() throws Exception {
+  @Test
+  public static final void testEntities1() throws Exception {
     assertEquals("&lt;hello world&gt;", sanitize("&lt;hello world&gt;"));
   }
 
-  public final void testEntities2() throws Exception {
+  @Test
+  public static final void testEntities2() throws Exception {
     assertEquals("<b>hello <i>world</i></b>",
                  sanitize("<b>hello <i>world</i></b>"));
   }
 
-  public final void testUnknownTagsRemoved() throws Exception {
+  @Test
+  public static final void testUnknownTagsRemoved() throws Exception {
     assertEquals("<b>hello <i>world</i></b>",
                  sanitize("<b>hello <bogus></bogus><i>world</i></b>"));
   }
 
-  public final void testUnsafeTagsRemoved() throws Exception {
+  @Test
+  public static final void testUnsafeTagsRemoved() throws Exception {
     assertEquals("<b>hello <i>world</i></b>",
                  sanitize("<b>hello <i>world</i>"
                           + "<script src=foo.js></script></b>"));
   }
 
-  public final void testUnsafeAttributesRemoved() throws Exception {
+  @Test
+  public static final void testUnsafeAttributesRemoved() throws Exception {
     assertEquals(
         "<b>hello <i>world</i></b>",
         sanitize("<b>hello <i onclick=\"takeOverWorld(this)\">world</i></b>"));
   }
 
-  public final void testCruftEscaped() throws Exception {
+  @Test
+  public static final void testCruftEscaped() throws Exception {
     assertEquals("<b>hello <i>world&lt;</i></b> &amp; tomorrow the universe",
                  sanitize(
                      "<b>hello <i>world<</i></b> & tomorrow the universe"));
   }
 
-  public final void testTagCruftRemoved() throws Exception {
+  @Test
+  public static final void testTagCruftRemoved() throws Exception {
     assertEquals("<b id=\"p-foo\">hello <i>world&lt;</i></b>",
                  sanitize("<b id=\"foo\" / -->hello <i>world<</i></b>"));
   }
 
-  public final void testIdsAndClassesPrefixed() throws Exception {
+  @Test
+  public static final void testIdsAndClassesPrefixed() throws Exception {
     assertEquals(
         "<b id=\"p-foo\" class=\"p-boo p-bar p-baz\">"
         + "hello <i>world&lt;</i></b>",
@@ -89,23 +101,27 @@ public class HtmlSanitizerTest extends TestCase {
             "<b id=\"foo\" class=\"boo bar baz\">hello <i>world<</i></b>"));
   }
 
-  public final void testSpecialCharsInAttributes() throws Exception {
+  @Test
+  public static final void testSpecialCharsInAttributes() throws Exception {
     assertEquals(
         "<b title=\"a&lt;b &amp;&amp; c&gt;b\">bar</b>",
         sanitize("<b title=\"a<b && c>b\">bar</b>"));
   }
 
-  public final void testUnclosedTags() throws Exception {
+  @Test
+  public static final void testUnclosedTags() throws Exception {
     assertEquals("<div id=\"p-foo\">Bar<br />Baz</div>",
                  sanitize("<div id=\"foo\">Bar<br>Baz"));
   }
 
-  public final void testUnopenedTags() throws Exception {
+  @Test
+  public static final void testUnopenedTags() throws Exception {
     assertEquals("Foo<b>Bar</b>Baz",
                  sanitize("Foo<b></select>Bar</b></b>Baz</select>"));
   }
 
-  public final void testUnsafeEndTags() throws Exception {
+  @Test
+  public static final void testUnsafeEndTags() throws Exception {
     assertEquals(
         "",
         sanitize(
@@ -113,23 +129,27 @@ public class HtmlSanitizerTest extends TestCase {
             + " content=\"1;URL=http://evilgadget.com\">"));
   }
 
-  public final void testEmptyEndTags() throws Exception {
+  @Test
+  public static final void testEmptyEndTags() throws Exception {
     assertEquals("<input />", sanitize("<input></input>"));
   }
 
-  public final void testOnLoadStripped() throws Exception {
+  @Test
+  public static final void testOnLoadStripped() throws Exception {
     assertEquals(
         "<img />",
         sanitize("<img src=http://foo.com/bar ONLOAD=alert(1)>"));
   }
 
-  public final void testClosingTagParameters() throws Exception {
+  @Test
+  public static final void testClosingTagParameters() throws Exception {
     assertEquals(
         "<p>Hello world</p>",
         sanitize("<p>Hello world</b style=\"width:expression(alert(1))\">"));
   }
 
-  public final void testOptionalEndTags() throws Exception {
+  @Test
+  public static final void testOptionalEndTags() throws Exception {
     // Should not be
     //     "<ol> <li>A</li> <li>B<li>C </li></li></ol>"
     // The difference is significant because in the first, the item contains no
@@ -139,7 +159,8 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("<ol> <li>A</li> <li>B<li>C </ol>"));
   }
 
-  public final void testFoldingOfHtmlAndBodyTags() throws Exception {
+  @Test
+  public static final void testFoldingOfHtmlAndBodyTags() throws Exception {
     assertEquals(
         "<p>P 1</p>",
         sanitize("<html><head><title>Foo</title></head>"
@@ -164,13 +185,15 @@ public class HtmlSanitizerTest extends TestCase {
             + "</html>"));
   }
 
-  public final void testEmptyAndValuelessAttributes() throws Exception {
+  @Test
+  public static final void testEmptyAndValuelessAttributes() throws Exception {
     assertEquals(
         "<input checked=\"checked\" type=\"checkbox\" id=\"\" class=\"\" />",
         sanitize("<input checked type=checkbox id=\"\" class=>"));
   }
 
-  public final void testSgmlShortTags() throws Exception {
+  @Test
+  public static final void testSgmlShortTags() throws Exception {
     // We make no attempt to correctly handle SGML short tags since they are
     // not implemented consistently across browsers, and have been removed from
     // HTML 5.
@@ -194,7 +217,8 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("<p<a href=\"/\">first part of the text</> second part"));
   }
 
-  public final void testNul() throws Exception {
+  @Test
+  public static final void testNul() throws Exception {
     assertEquals(
         "<a title="
         + "\"harmless  SCRIPT&#61;javascript:alert(1) ignored&#61;ignored\">"
@@ -205,7 +229,8 @@ public class HtmlSanitizerTest extends TestCase {
             ));
   }
 
-  public final void testDigitsInAttrNames() throws Exception {
+  @Test
+  public static final void testDigitsInAttrNames() throws Exception {
     // See bug 614 for details.
     assertEquals(
         "<div>Hello</div>",
@@ -214,7 +239,9 @@ public class HtmlSanitizerTest extends TestCase {
             ));
   }
 
-  public final void testSupplementaryCodepointEncoding() throws Exception {
+  @Test
+  public static final void testSupplementaryCodepointEncoding()
+      throws Exception {
     // &#xd87e;&#xdc1a; is not appropriate.
     // &#x2f81a; is appropriate as is the unencoded form.
     assertEquals(
@@ -222,7 +249,8 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("&#x2F81A; | \ud87e\udc1a | &#xd87e;&#xdc1a;"));
   }
 
-  public final void testDeeplyNestedTagsDoS() throws Exception {
+  @Test
+  public static final void testDeeplyNestedTagsDoS() throws Exception {
     String sanitized = sanitize(stringRepeatedTimes("<div>", 20000));
     int n = sanitized.length() / "<div></div>".length();
     assertTrue("" + n, 50 <= n && n <= 1000);
@@ -233,7 +261,8 @@ public class HtmlSanitizerTest extends TestCase {
                  stringRepeatedTimes("</div>", n));
   }
 
-  public final void testInnerHTMLIE8() throws Exception {
+  @Test
+  public static final void testInnerHTMLIE8() throws Exception {
     // Apparently, in quirks mode, IE8 does a poor job producing innerHTML
     // values.  Given
     //     <div attr="``foo=bar">
@@ -252,7 +281,8 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("<div title=\"``onmouseover=alert(1337)\">"));
   }
 
-  public final void testNabobsOfNegativism() throws Exception {
+  @Test
+  public static final void testNabobsOfNegativism() throws Exception {
     // Treating <noscript> as raw-text gains us nothing security-wise.
     assertEquals("<noscript></noscript>",
                  sanitize("<noscript><evil></noscript>"));
@@ -271,7 +301,8 @@ public class HtmlSanitizerTest extends TestCase {
         sanitize("<xmp><noscript>I <b><3</b> Ponies</noscript></xmp>"));
   }
 
-  public final void testNULs() throws Exception {
+  @Test
+  public static final void testNULs() throws Exception {
     assertEquals("<b>Hello, </b>", sanitize("<b>Hello, \u0000</b>"));
     assertEquals("<b>Hello, </b>", sanitize("<b>Hello, \u0000"));
     assertEquals("",               sanitize("\u0000"));
@@ -279,7 +310,8 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals("",               sanitize("&#0;"));
   }
 
-  public final void testQMarkMeta() throws Exception {
+  @Test
+  public static final void testQMarkMeta() throws Exception {
     assertEquals(
         "Hello, <b>World</b>!",
         sanitize(
@@ -298,7 +330,8 @@ public class HtmlSanitizerTest extends TestCase {
             + "</b>!"));
   }
 
-  public final void testScriptInIframe() throws Exception {
+  @Test
+  public static final void testScriptInIframe() throws Exception {
     assertEquals(
         "<iframe></iframe>",
         sanitize(

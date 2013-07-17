@@ -36,12 +36,14 @@ import java.lang.reflect.Method;
 
 import com.google.common.base.Throwables;
 
+import org.junit.Test;
 import org.owasp.html.examples.EbayPolicyExample;
 
 import junit.framework.TestCase;
 
 public class ExamplesTest extends TestCase {
-  public final void testExamplesRun() throws Exception {
+  @Test
+  public static final void testExamplesRun() throws Exception {
     InputStream stdin = System.in;
     PrintStream stdout = System.out;
     PrintStream stderr = System.err;
@@ -72,21 +74,24 @@ public class ExamplesTest extends TestCase {
     }
   }
 
-  public final void testSanitizeRemovesScripts() {
+  @Test
+  public static final void testSanitizeRemovesScripts() {
     String input =
       "<p>Hello World</p>"
       + "<script language=\"text/javascript\">alert(\"bad\");</script>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals("<p>Hello World</p>", sanitized);
   }
-  
-  public final void testSanitizeRemovesOnclick() {
+
+  @Test
+  public static final void testSanitizeRemovesOnclick() {
     String input = "<p onclick=\"alert(\"bad\");\">Hello World</p>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals("<p>Hello World</p>", sanitized);
   }
 
-  public final void testTextAllowedInLinks() {
+  @Test
+  public static final void testTextAllowedInLinks() {
     String input = "<a href=\"../good.html\">click here</a>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals("<a href=\"../good.html\" rel=\"nofollow\">click here</a>",

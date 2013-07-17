@@ -697,7 +697,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     return HtmlLexer.canonicalName(input.substring(start, end));
   }
 
-  private boolean isIdentStart(char ch) {
+  private static boolean isIdentStart(char ch) {
     return ch >= 'A' && ch <= 'z' && (ch <= 'Z' || ch >= 'a');
   }
 
