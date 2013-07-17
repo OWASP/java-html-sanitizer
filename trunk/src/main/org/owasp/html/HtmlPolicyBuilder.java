@@ -63,7 +63,7 @@ import com.google.common.collect.Sets;
  *         .toFactory();
  *
  * // Sanitize your output.
- * HtmlSanitizer.sanitize(myHtml. policy.apply(myHtmlStreamRenderer));
+ * HtmlSanitizer.sanitize(myHtml, policy.apply(myHtmlStreamRenderer));
  * </pre>
  *
  * <h3>Embedded Content</h3>
