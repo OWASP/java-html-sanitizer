@@ -29,7 +29,8 @@
 package org.owasp.html;
 
 import java.util.List;
-import java.util.regex.Matcher;
+
+import org.junit.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
@@ -37,40 +38,70 @@ import com.google.common.collect.Lists;
 import junit.framework.TestCase;
 
 public class CssGrammarTest extends TestCase {
-  public final void testLex() throws Exception {
-    Matcher m = CssGrammar.lex(Joiner.on('\n').join(
+  @Test
+  public static final void testLex() throws Exception {
+    CssTokens tokens = CssTokens.lex(Joiner.on('\n').join(
         "/* A comment */",
         "words with-dashes #hashes .dots. -and-leading-dashes",
         "quantities: 3px 4ex -.5pt 12.5%",
-        "punctuation: { } / , ;",
-        "url( http://example.com )",
+        "punctuation: { ( } / , ;",
+        "[ url( http://example.com )",
         "rgb(255, 127, 127)",
-        "'strings' \"oh \\\"my\"",
+        "'strings' \"oh \\\"my\" 'foo bar'",
         ""));
 
     List<String> actualTokens = Lists.newArrayList();
-    while (m.find()) {
-      String token = m.group();
-      if (!"".equals(token.trim())) {
-        actualTokens.add(token);
+    for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
+      CssTokens.TokenType type = it.type();
+      String token = it.next();
+      if (!" ".equals(token)) {
+        actualTokens.add(token + ":" + type.name());
       }
     }
 
     assertEquals(
         Joiner.on('\n').join(
-            "/* A comment */",
-            "words", "with-dashes", "#hashes", ".", "dots", ".",
-            "-and-leading-dashes",
-            "quantities", ":", "3px", "4ex", "-.5pt", "12.5%",
-            "punctuation", ":", "{", "}", "/", ",", ";",
-            "url( http://example.com )",
-            "rgb", "(", "255", ",", "127", ",", "127", ")",
-            "'strings'", "\"oh \\\"my\""
+            // "/* A comment */",  // Comments are elided.
+            "words:IDENT",
+            "with-dashes:IDENT",
+            "#hashes:HASH_ID",
+            ".dots:DOT_IDENT",
+            ".:DELIM",
+            "-and-leading-dashes:IDENT",
+            "quantities:IDENT",
+            "::COLON",
+            "3px:DIMENSION",
+            "4ex:DIMENSION",
+            "-0.5pt:DIMENSION",
+            "12.5%:PERCENTAGE",
+            "punctuation:IDENT",
+            "::COLON",
+            "{:LEFT_CURLY",
+            "(:LEFT_PAREN",  // Explicit
+            "):RIGHT_PAREN",  // Implicit closing bracket to keep balance.
+            "}:RIGHT_CURLY",
+            "/:DELIM",
+            ",:COMMA",
+            ";:SEMICOLON",
+            "[:LEFT_SQUARE",
+            "url('http://example.com'):URL",
+            "rgb(:FUNCTION",
+            "255:NUMBER",
+            ",:COMMA",
+            "127:NUMBER",
+            ",:COMMA",
+            "127:NUMBER",
+            "):RIGHT_PAREN",
+            "'strings':STRING",
+            "'oh \\22my':STRING",
+            "'foo bar':STRING",
+            "]:RIGHT_SQUARE"
             ),
         Joiner.on('\n').join(actualTokens));
   }
 
-  public final void testCssContent() {
+  @Test
+  public static final void testCssContent() {
     assertEquals("", CssGrammar.cssContent(""));
     assertEquals("azimuth", CssGrammar.cssContent("\\61zimuth"));
     assertEquals("table-cell", CssGrammar.cssContent("t\\61\tble-cell"));
