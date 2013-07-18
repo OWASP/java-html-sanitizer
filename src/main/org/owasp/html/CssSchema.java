@@ -159,12 +159,10 @@ final class CssSchema {
     ImmutableSet<String> alpha$FunLiterals0 = ImmutableSet.of("=", "opacity");
     CssSchema mozBorderRadius = new CssSchema(5, mozBorderRadiusLiterals0, zeroFns);
     builder.put("-moz-border-radius", mozBorderRadius);
-    CssSchema mozBorderRadiusBottomleft = new CssSchema(5, null, zeroFns);
+    CssSchema mozBorderRadiusBottomleft = new CssSchema(5, ImmutableSet.<String>of(), zeroFns);
     builder.put("-moz-border-radius-bottomleft", mozBorderRadiusBottomleft);
-    /*
-    CssSchema mozOpacity = new CssSchema(1, mozOpacityLiterals0, zeroFns);
-    builder.put("-moz-opacity", mozOpacity);
-    */
+    //CssSchema mozOpacity = new CssSchema(1, mozOpacityLiterals0, zeroFns);
+    //builder.put("-moz-opacity", mozOpacity);
     @SuppressWarnings("unchecked")
     CssSchema mozOutline = new CssSchema(7, union(mozOutlineLiterals0, mozOutlineLiterals1, mozOutlineLiterals2, mozOutlineLiterals3), mozOutlineFunctions);
     builder.put("-moz-outline", mozOutline);
@@ -230,7 +228,7 @@ final class CssSchema {
     CssSchema direction = new CssSchema(0, union(directionLiterals0, mozOpacityLiterals0), zeroFns);
     builder.put("direction", direction);
     //@SuppressWarnings("unchecked")
-    //CssSchema display = new CssSchema(32, union(cueLiterals0, displayLiterals0), zeroFns);
+    //CssSchema display = new CssSchema(0, union(cueLiterals0, displayLiterals0), zeroFns);
     //builder.put("display", display);
     @SuppressWarnings("unchecked")
     CssSchema elevation = new CssSchema(5, union(elevationLiterals0, mozOpacityLiterals0), zeroFns);
@@ -238,9 +236,9 @@ final class CssSchema {
     @SuppressWarnings("unchecked")
     CssSchema emptyCells = new CssSchema(0, union(emptyCellsLiterals0, mozOpacityLiterals0), zeroFns);
     builder.put("empty-cells", emptyCells);
-    //builder.put("filter", new CssSchema(32, null, filterFunctions));
+    //builder.put("filter", new CssSchema(0, ImmutableSet.<String>of(), filterFunctions));
     //@SuppressWarnings("unchecked")
-    //CssSchema cssFloat = new CssSchema(32, union(azimuthLiterals1, cueLiterals0), zeroFns);
+    //CssSchema cssFloat = new CssSchema(0, union(azimuthLiterals1, cueLiterals0), zeroFns);
     //builder.put("float", cssFloat);
     @SuppressWarnings("unchecked")
     CssSchema font = new CssSchema(73, union(fontLiterals0, fontLiterals1, fontLiterals2, fontLiterals3, fontLiterals4, fontLiterals5), zeroFns);
@@ -261,7 +259,7 @@ final class CssSchema {
     @SuppressWarnings("unchecked")
     CssSchema fontWeight = new CssSchema(0, union(fontLiterals0, fontStyleLiterals0), zeroFns);
     builder.put("font-weight", fontWeight);
-    CssSchema height = new CssSchema(37, bottomLiterals0, zeroFns);
+    CssSchema height = new CssSchema(5, bottomLiterals0, zeroFns);
     builder.put("height", height);
     CssSchema letterSpacing = new CssSchema(5, fontStyleLiterals0, zeroFns);
     builder.put("letter-spacing", letterSpacing);
@@ -280,11 +278,9 @@ final class CssSchema {
     builder.put("margin", margin);
     CssSchema maxHeight = new CssSchema(1, maxHeightLiterals0, zeroFns);
     builder.put("max-height", maxHeight);
-    CssSchema minHeight = new CssSchema(1, bottomLiterals0, zeroFns);
-    builder.put("min-height", minHeight);
-    //CssSchema opacity = new CssSchema(33, mozOpacityLiterals0, zeroFns);
+    //CssSchema opacity = new CssSchema(1, mozOpacityLiterals0, zeroFns);
     //builder.put("opacity", opacity);
-    //builder.put("overflow", new CssSchema(32, overflowLiterals0, zeroFns));
+    //builder.put("overflow", new CssSchema(0, overflowLiterals0, zeroFns));
     //@SuppressWarnings("unchecked")
     //CssSchema overflowX = new CssSchema(0, union(overflowXLiterals0, overflowXLiterals1), zeroFns);
     //builder.put("overflow-x", overflowX);
@@ -299,7 +295,7 @@ final class CssSchema {
     builder.put("pitch", pitch);
     //builder.put("play-during", new CssSchema(16, playDuringLiterals0, zeroFns));
     //@SuppressWarnings("unchecked")
-    //CssSchema position = new CssSchema(32, union(mozOpacityLiterals0, positionLiterals0), zeroFns);
+    //CssSchema position = new CssSchema(0, union(mozOpacityLiterals0, positionLiterals0), zeroFns);
     //builder.put("position", position);
     builder.put("quotes", new CssSchema(8, cueLiterals0, zeroFns));
     builder.put("speak", new CssSchema(0, speakLiterals0, zeroFns));
@@ -330,7 +326,7 @@ final class CssSchema {
     @SuppressWarnings("unchecked")
     CssSchema verticalAlign = new CssSchema(5, union(backgroundLiterals2, mozOpacityLiterals0, verticalAlignLiterals0), zeroFns);
     builder.put("vertical-align", verticalAlign);
-    //builder.put("visibility", new CssSchema(32, visibilityLiterals0, zeroFns));
+    //builder.put("visibility", new CssSchema(0, visibilityLiterals0, zeroFns));
     @SuppressWarnings("unchecked")
     CssSchema voiceFamily = new CssSchema(8, union(fontFamilyLiterals0, voiceFamilyLiterals0), zeroFns);
     builder.put("voice-family", voiceFamily);
@@ -340,7 +336,6 @@ final class CssSchema {
     @SuppressWarnings("unchecked")
     CssSchema whiteSpace = new CssSchema(0, union(fontStyleLiterals0, whiteSpaceLiterals0), zeroFns);
     builder.put("white-space", whiteSpace);
-    builder.put("width", new CssSchema(33, bottomLiterals0, zeroFns));
     builder.put("word-wrap", new CssSchema(0, wordWrapLiterals0, zeroFns));
     //builder.put("zoom", new CssSchema(1, fontStretchLiterals1, zeroFns));
     CssSchema rgb$Fun = new CssSchema(1, rgb$FunLiterals0, zeroFns);
@@ -401,7 +396,8 @@ final class CssSchema {
     builder.put("margin-right", margin);
     builder.put("margin-top", margin);
     builder.put("max-width", maxHeight);
-    builder.put("min-width", minHeight);
+    builder.put("min-height", margin);
+    builder.put("min-width", margin);
     builder.put("outline", mozOutline);
     builder.put("outline-color", mozOutlineColor);
     builder.put("outline-style", mozOutlineStyle);
@@ -423,6 +419,7 @@ final class CssSchema {
     builder.put("text-overflow", oTextOverflow);
     builder.put("text-shadow", boxShadow);
     //builder.put("top", height);
+    builder.put("width", margin);
     builder.put("word-spacing", letterSpacing);
     //builder.put("z-index", bottom);
     builder.put("rgba()", rgb$Fun);
