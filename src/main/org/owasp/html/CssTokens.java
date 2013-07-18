@@ -29,7 +29,6 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -76,8 +75,6 @@ import com.google.common.collect.ImmutableMap;
  * </ul>
  */
 final class CssTokens implements Iterable<String> {
-
-static final boolean DEBUG = false;
 
   public final String normalizedCss;
   public final Brackets brackets;
@@ -258,23 +255,18 @@ static final boolean DEBUG = false;
 
     /** The index of the partner token or -1 if none. */
     int partner(int tokenIndex) {
-if (DEBUG) System.err.println("index=" + tokenIndex + ", brackets=" + Arrays.toString(brackets));
       int bracketIndex = bracketIndexForToken(tokenIndex);
-if (DEBUG) System.err.println("\tbracketIndex=" + bracketIndex);
       if (bracketIndex < 0) { return -1; }
       return brackets[(bracketIndex << 1) + 1];
     }
 
     int bracketIndexForToken(int target) {
-int tries = 100;
       // Binary search by leftmost element of pair.
       int left = 0;
       int right = brackets.length >> 1;
       while (left < right) {
-if (DEBUG && --tries <= 0) { throw new Error(); }
         int mid = left + ((right - left) >> 1);
         int value = brackets[mid << 1];
-if (DEBUG) System.err.println("\tleft=" + left + ", right=" + right + ", mid=" + mid + ", value=" + value + ", target=" + target);
         if (value == target) { return mid; }
         if (value < target) {
           left = mid + 1;
@@ -350,7 +342,6 @@ if (DEBUG) System.err.println("\tleft=" + left + ", right=" + right + ", mid=" +
         default:
           throw new AssertionError("Invalid open bracket " + bracketChar);
       }
-if (DEBUG) System.err.println("openBracket " + bracketChar + ", tokenBreaksLimit=" + tokenBreaksLimit);
       brackets = expandIfNecessary(brackets, bracketsLimit, 2);
       open = expandIfNecessary(open, openLimit, 2);
       open[openLimit++] = bracketsLimit;
@@ -362,16 +353,6 @@ if (DEBUG) System.err.println("openBracket " + bracketChar + ", tokenBreaksLimit
     }
 
     void closeBracket(char bracketChar) {
-if (DEBUG) {
-  StringBuilder sb = new StringBuilder();
-  for (int i = 0; i < openLimit; i += 2) {
-    if (i != 0) { sb.append(';'); }
-    sb.append(open[i]);
-    sb.append(',');
-    sb.append((char) open[i+1]);
-  }
-  System.err.println("Closing " + bracketChar + ", openLimit=" + openLimit + ", open=" + sb);
-}
       int openLimitAfterClose = openLimit;
       do {
         if (openLimitAfterClose == 0) {
@@ -381,8 +362,6 @@ if (DEBUG) {
         }
         openLimitAfterClose -= 2;
       } while (bracketChar != open[openLimitAfterClose + 1]);
-
-if (DEBUG) System.err.println("\tafter close, openLimit=" + openLimitAfterClose);
       closeBrackets(openLimitAfterClose);
     }
 
@@ -397,7 +376,6 @@ if (DEBUG) System.err.println("\tafter close, openLimit=" + openLimitAfterClose)
         int closeBracket = open[--openLimit];
         int openBracketIndex = open[--openLimit];
         int openTokenIndex = brackets[openBracketIndex];
-if (DEBUG) System.err.println("\tclosingBracket " + ((char) closeBracket) + ", openBracketIndex=" + openBracketIndex);
         // Update open bracket to point to its partner.
         brackets[openBracketIndex + 1] = closeTokenIndex;
         // Emit the close bracket.
@@ -405,7 +383,6 @@ if (DEBUG) System.err.println("\tclosingBracket " + ((char) closeBracket) + ", o
         brackets[bracketsLimit++] = openTokenIndex;
         sb.appendCodePoint(closeBracket);
         closeTokenIndex++;
-if (DEBUG) System.err.println("\tbrackets=" + Arrays.toString(brackets));
       }
     }
 
@@ -424,12 +401,8 @@ if (DEBUG) System.err.println("\tbrackets=" + Arrays.toString(brackets));
       // breakAfter call anyway.
       int cssEnd = sb.length();
       if (cssEnd > 0 && sb.charAt(cssEnd - 1) == ' ') {
-if (DEBUG) System.err.println(
-    "cssEnd=" + cssEnd + ", tokenBreaksLimit=" + tokenBreaksLimit + ", tokenTypes.size=" + tokenTypes.size());
         --cssEnd;
         tokenTypes.remove(--tokenBreaksLimit);
-if (DEBUG) System.err.println(
-    "cssEnd'=" + cssEnd + ", tokenBreaksLimit=" + tokenBreaksLimit + ", tokenTypes.size=" + tokenTypes.size());
       }
       String normalizedCss = sb.substring(0, cssEnd);
 
@@ -441,16 +414,17 @@ if (DEBUG) System.err.println(
       int[] tokenBreaksTrunc = truncateOrShare(tokenBreaks, tokenBreaksLimit);
       TokenType[] tokenTypesArr = tokenTypes.toArray(ZERO_TYPES);
 
-if (DEBUG) System.err.println("normalizedCss=" + normalizedCss);
-if (DEBUG) System.err.println("tokenBreaks=" + Arrays.toString(tokenBreaksTrunc));
-if (DEBUG) System.err.println("tokenTypes =" + Arrays.toString(tokenTypesArr));
-
       return new CssTokens(
           normalizedCss, new Brackets(bracketsTrunc),
           tokenBreaksTrunc, tokenTypesArr);
     }
 
     void lex() {
+      // Do not treat a BOM at the start as an identifier character per
+      // http://dev.w3.org/csswg/css-syntax/#the-input-byte-stream
+      if (pos < cssLimit && css.charAt(pos) == '\ufeff') {
+        ++pos;
+      }
       // Fast-track no content.
       consumeIgnorable();
       sb.setLength(0);
@@ -458,12 +432,7 @@ if (DEBUG) System.err.println("tokenTypes =" + Arrays.toString(tokenTypesArr));
 
       String css = this.css;
       int cssLimit = this.cssLimit;
-      int lastPos = pos - 1;
       while (pos < cssLimit) {
-        assert pos > lastPos
-            : "pos=" + pos + ", lastPos=" + lastPos + ", ch=" + css.charAt(pos);
-        lastPos = pos;
-if (DEBUG) System.err.println("Starting at " + pos + " / " + cssLimit);
         // SPEC: 4. Tokenization
         // The output of the tokenization step is a stream of zero
         // or more of the following tokens: <ident>, <function>,
@@ -541,7 +510,6 @@ if (DEBUG) System.err.println("Starting at " + pos + " / " + cssLimit);
             break;
           case '+': case '-': case '.': {
             char lookahead = pos + 1 < cssLimit ? css.charAt(pos + 1) : 0;
-if (DEBUG) System.err.println("ch=" + ch + ", lookahead=" + lookahead);
             if (isDecimal(lookahead)
                 || (lookahead == '.' && pos + 2 < cssLimit
                     && isDecimal(css.charAt(pos + 2)))) {
@@ -561,6 +529,11 @@ if (DEBUG) System.err.println("ch=" + ch + ", lookahead=" + lookahead);
               ++pos;
               consumeIdent(false);
               type = TokenType.DOT_IDENT;
+              if (pos < cssLimit && '(' == css.charAt(pos)) {
+                // A dotted identifier followed by a parenthesis is ambiguously
+                // a function.
+                sb.append(' ');
+              }
             } else {
               consumeDelim('.');
               type = TokenType.DELIM;
@@ -627,7 +600,6 @@ if (DEBUG) System.err.println("ch=" + ch + ", lookahead=" + lookahead);
         }
         assert pos > startOfToken
             : "empty token at " + pos + ", ch0=" + css.charAt(startOfToken);
-if (DEBUG) System.err.println("found `" + css.substring(startOfToken, pos) + "` -> `" + sb.substring(startOfOutputToken) + "` : " + type);
         int endOfOutputToken = sb.length();
         if (endOfOutputToken > startOfOutputToken) {
           if (type == TokenType.DELIM) {
@@ -692,20 +664,16 @@ if (DEBUG) System.err.println("found `" + css.substring(startOfToken, pos) + "` 
       int posBefore = pos;
       while (pos < cssLimit) {
         char ch = css.charAt(pos);
-if (DEBUG) System.err.println("possibly ignorable " + ch + " at " + pos);
         if (ch <= 0x20) {
           ++pos;
         } else if (pos + 1 == cssLimit) {
           break;
         } else if (ch == '/') {
           char next = css.charAt(pos + 1);
-if (DEBUG) System.err.println("Found /, next=" + next);
           if (next == '*') {
             pos += 2;
-if (DEBUG) System.err.println("Looking for end of /* at " + pos);
             while (pos < cssLimit) {
               int ast = css.indexOf('*', pos);
-if (DEBUG) System.err.println("ast=" + ast);
               if (ast < 0) {
                 pos = cssLimit;  // Unclosed /* comment */
                 break;
@@ -715,14 +683,12 @@ if (DEBUG) System.err.println("ast=" + ast);
                 while (pos < cssLimit && css.charAt(pos) == '*') {
                   ++pos;
                 }
-if (DEBUG) System.err.println("Looking for / at " + pos);
                 if (pos < cssLimit && css.charAt(pos) == '/') {
                   ++pos;
                   break;
                 }
               }
             }
-if (DEBUG) System.err.println("Finished */ at " + pos);
           } else if (next == '/') {  // Non-standard but widely supported
             while (++pos < cssLimit) {
               if (isLineTerminator(css.charAt(pos))) { break; }
@@ -887,7 +853,6 @@ if (DEBUG) System.err.println("Finished */ at " + pos);
     }
 
     private void encodeCharOntoOutput(int codepoint, int last) {
-if (DEBUG) System.err.println("codepoint=" + Integer.toString(codepoint, 16) + ", last=" + Integer.toString(last, 16));
       switch (codepoint) {
         case '\\': sb.append("\\\\"); break;
         case '\0': sb.append("\\0");  break;
@@ -916,7 +881,6 @@ if (DEBUG) System.err.println("codepoint=" + Integer.toString(codepoint, 16) + "
               && (codepoint == ' ' || codepoint == '\t'
                   || ('0' <= codepoint && codepoint <= '9')
                   || ('a' <= (codepoint | 32) && (codepoint | 32) <= 'f'))) {
-if (DEBUG) System.err.println("last '" + new StringBuilder().appendCodePoint(last) + "' is hex-encoded");
             sb.append(' ');
           }
           sb.appendCodePoint(codepoint);
@@ -925,7 +889,6 @@ if (DEBUG) System.err.println("last '" + new StringBuilder().appendCodePoint(las
     }
 
     private TokenType consumeNumberOrPercentageOrDimension() {
-if (DEBUG) System.err.println("Consuming number");
       String css = this.css;
       int cssLimit = this.cssLimit;
       boolean isZero = true;
@@ -936,7 +899,6 @@ if (DEBUG) System.err.println("Consuming number");
           ++intStart;
         }
       }
-if (DEBUG) System.err.println("\tintStart=" + intStart);
       // Find the integer part after any sign.
       int intEnd = intStart;
       for (; intEnd < cssLimit; ++intEnd) {
@@ -944,7 +906,6 @@ if (DEBUG) System.err.println("\tintStart=" + intStart);
         if (!('0' <= ch && ch <= '9')) { break; }
         if (ch != '0') { isZero = false; }
       }
-if (DEBUG) System.err.println("\tintEnd=" + intEnd);
       // Find a fraction like ".5" or ".".
       int fractionStart = intEnd;
       int fractionEnd = fractionStart;
@@ -956,8 +917,6 @@ if (DEBUG) System.err.println("\tintEnd=" + intEnd);
           if (ch != '0') { isZero = false; }
         }
       }
-if (DEBUG) System.err.println("\tfractionStart=" + fractionStart);
-if (DEBUG) System.err.println("\tfractionEnd=" + fractionEnd);
       int exponentStart = fractionEnd;
       int exponentIntStart = exponentStart;
       int exponentEnd = exponentStart;
@@ -987,9 +946,6 @@ if (DEBUG) System.err.println("\tfractionEnd=" + fractionEnd);
           isExponentZero = true;
         }
       }
-if (DEBUG) System.err.println("\texponentStart=" + exponentStart);
-if (DEBUG) System.err.println("\texponentIntStart=" + exponentIntStart);
-if (DEBUG) System.err.println("\texponentEnd=" + exponentEnd);
 
       int unitStart = exponentEnd;
       // Skip over space between number and unit.
@@ -1003,9 +959,6 @@ if (DEBUG) System.err.println("\texponentEnd=" + exponentEnd);
         }
       }
 
-int sbStart = sb.length();
-if (DEBUG) System.err.println("\tCP0 : " + sb.substring(sbStart));
-
       // Normalize the number onto the buffer.
       // We will normalize and unit later.
       // Skip the sign if it is positive.
@@ -1018,12 +971,10 @@ if (DEBUG) System.err.println("\tCP0 : " + sb.substring(sbStart));
         // Strip leading zeroes from the integer and exponent and trailing
         // zeroes from the fraction.
         while (intStart < intEnd && css.charAt(intStart) == '0') { ++intStart; }
-if (DEBUG) System.err.println("\tintStart <- " + intStart);
         while (fractionEnd > fractionStart
                && css.charAt(fractionEnd - 1) == '0') {
           --fractionEnd;
         }
-if (DEBUG) System.err.println("\tfractionEnd <- " + fractionEnd);
         if (intStart == intEnd) {
           sb.append('0');  // .5 -> 0.5
         } else {
@@ -1032,7 +983,6 @@ if (DEBUG) System.err.println("\tfractionEnd <- " + fractionEnd);
         if (fractionEnd > fractionStart + 1) {  // 5. -> 5; 5.0 -> 5
           sb.append(css, fractionStart, fractionEnd);
         }
-if (DEBUG) System.err.println("\tCP1 : " + sb.substring(sbStart) + " ; sbStart=" + sbStart);
         if (!isExponentZero) {
           sb.append('e');
           // 1e+1 -> 1e1
@@ -1041,12 +991,9 @@ if (DEBUG) System.err.println("\tCP1 : " + sb.substring(sbStart) + " ; sbStart="
                  && css.charAt(exponentIntStart) == '0') {
             ++exponentIntStart;
           }
-if (DEBUG) System.err.println("\texponentIntStart <- " + exponentIntStart);
           sb.append(css, exponentIntStart, exponentEnd);
-if (DEBUG) System.err.println("\tCP2 : " + sb.substring(sbStart));
         }
       }
-if (DEBUG) System.err.println("\tCP3 : " + sb.substring(sbStart));
 
       int unitEnd;
       TokenType type;
@@ -1081,9 +1028,6 @@ if (DEBUG) System.err.println("\tCP3 : " + sb.substring(sbStart));
             : TokenType.BAD_DIMENSION;
       }
       pos = unitEnd;
-if (DEBUG) System.err.println("\tunitStart=" + unitStart);
-if (DEBUG) System.err.println("\tunitEnd=" + unitEnd);
-if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
       return type;
     }
 
@@ -1108,9 +1052,21 @@ if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
         if (isLineTerminator(ch)) { break; }
         int decoded = ch;
         if (ch == '\\') {
-          decoded = consumeAndDecodeEscapeSequence();
-          if (decoded < 0) {
-            break;
+          if (pos + 1 < cssLimit && isLineTerminator(css.charAt(pos+1))) {
+            // consume it but generate no tokens.
+            // Lookahead to treat a \r\n sequence as one line-terminator.
+            if (pos + 2 < cssLimit
+                && css.charAt(pos+1) == '\r' && css.charAt(pos+2) == '\n') {
+              pos += 3;
+            } else {
+              pos += 2;
+            }
+            continue;
+          } else {
+            decoded = consumeAndDecodeEscapeSequence();
+            if (decoded < 0) {
+              break;
+            }
           }
         } else {
           ++pos;
@@ -1392,11 +1348,9 @@ if (DEBUG) System.err.println("\tCP4 : " + sb.substring(sbStart));
   private static int[] expandIfNecessary(int[] arr, int limit, int needed) {
     int neededLength = limit + needed;
     int length = arr.length;
-if (DEBUG) System.err.println("limit=" + limit + ", needed=" + needed + ", length=" + length);
     if (length >= neededLength) { return arr; }
     int[] newArr = new int[Math.max(16, Math.max(neededLength, length * 2))];
     System.arraycopy(arr, 0, newArr, 0, limit);
-if (DEBUG) System.err.println("\texpanded to " + newArr.length);
     return newArr;
   }
 
