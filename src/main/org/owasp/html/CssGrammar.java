@@ -77,7 +77,6 @@ final class CssGrammar {
 
       // Look for a colon.
       if (!(it.hasTokenAfterSpace() && ":".equals(it.token()))) {
-        if (CssTokens.DEBUG) System.err.println("Starting error recovery");
         errorRecoveryUntilSemiOrCloseBracket(it);
         continue propertyNameLoop;
       }
@@ -95,7 +94,6 @@ final class CssGrammar {
     while (it.hasNext()) {
       CssTokens.TokenType type = it.type();
       String token = it.token();
-if (CssTokens.DEBUG) System.err.println("type=" + type + ", token=" + token);
       switch (type) {
         case SEMICOLON:
           it.advance();
@@ -126,6 +124,7 @@ if (CssTokens.DEBUG) System.err.println("type=" + type + ", token=" + token);
           handler.quantity(token);
           break;
         case AT:
+        case BAD_DIMENSION:
         case COLUMN:
         case DOT_IDENT:
         case HASH_ID:
