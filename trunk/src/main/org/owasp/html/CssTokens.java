@@ -56,21 +56,16 @@ import com.google.common.collect.ImmutableMap;
  *       <tr><td>left-angle &lt;</td><td><code>\3c</code></tr>
  *       <tr><td>rt-angle &gt;</td>  <td><code>\3e</code></tr>
  *       <tr><td>back slash</td>     <td><code>\\</code></tr>
- *       <tr><td>dash</td>           <td><code>-</code> or <code>\-</code></tr>
  *       <tr><td>all others</td>     <td>raw</td></tr>
  *     </table>
- *     The dash may be encoded as necessary to prevent the valid CSS,
- *     <pre>.foo-\2d&gt;span { color:red }</pre>
- *     which specifies the selector for the {@code <span>} children of elements
- *     with class ".foo--" from being rendered to include an ignorable
- *     {@code -->} token.
  *   </li>
  *   <li>All <code>url(&hellip;)</code> tokens are quoted.
  *   <li>All keywords, identifiers, and hex literals are lower-case and have
- *       embedded escape sequences decoded, except that double dash sequences
- *       are encoded as {@code -\-}.</li>
+ *       embedded escape sequences decoded, except that .</li>
  *   <li>All brackets nest properly.</li>
- *   <li>Does not contain the sequence {@code <!--} or {@code -->}.</li>
+ *   <li>Does not contain any case-insensitive variant of the sequences
+ *       {@code <!--}, {@code -->}, {@code <![CDATA[}, {@code ]]>}, or
+ *       {@code </style}.</li>
  *   <li>All delimiters that can start longer tokens are followed by a space.
  * </ul>
  */
@@ -164,6 +159,11 @@ final class CssTokens implements Iterable<String> {
     public void advance() {
       if (!hasToken()) { throw new NoSuchElementException(); }
       ++tokenIndex;
+    }
+
+    public void backup() {
+      if (tokenIndex == 0) { throw new NoSuchElementException(); }
+      --tokenIndex;
     }
 
     public void remove() throws UnsupportedOperationException {
@@ -420,19 +420,19 @@ final class CssTokens implements Iterable<String> {
     }
 
     void lex() {
-      // Do not treat a BOM at the start as an identifier character per
-      // http://dev.w3.org/csswg/css-syntax/#the-input-byte-stream
-      if (pos < cssLimit && css.charAt(pos) == '\ufeff') {
-        ++pos;
-      }
       // Fast-track no content.
       consumeIgnorable();
       sb.setLength(0);
       if (pos == cssLimit) { return; }
 
+      tokenTypes = new ArrayList<TokenType>();
+
       String css = this.css;
       int cssLimit = this.cssLimit;
       while (pos < cssLimit) {
+        assert this.tokenBreaksLimit == this.tokenTypes.size()
+            : "token and types out of sync at " + tokenBreaksLimit
+            + " in `" + css + "`";
         // SPEC: 4. Tokenization
         // The output of the tokenization step is a stream of zero
         // or more of the following tokens: <ident>, <function>,
@@ -450,7 +450,7 @@ final class CssTokens implements Iterable<String> {
         int startOfOutputToken = sb.length();
         final TokenType type;
         switch (ch) {
-          case '\t': case '\n': case '\f': case '\r': case ' ':
+          case '\t': case '\n': case '\f': case '\r': case ' ': case '\ufeff':
             consumeIgnorable();
             type = TokenType.WHITESPACE;
             break;
@@ -473,6 +473,12 @@ final class CssTokens implements Iterable<String> {
               type = TokenType.DELIM;
             }
             break;
+          case '>':
+            breakOutput();
+            sb.append('>');
+            type = TokenType.DELIM;
+            ++pos;
+            break;
           case '@':
             if (consumeAtKeyword()) {
               type = TokenType.AT;
@@ -488,6 +494,7 @@ final class CssTokens implements Iterable<String> {
               type = hashType;
             } else {
               ++pos;
+              sb.append(' ');
               type = TokenType.DELIM;
             }
             break;
@@ -528,10 +535,18 @@ final class CssTokens implements Iterable<String> {
               sb.append('.');
               ++pos;
               consumeIdent(false);
-              type = TokenType.DOT_IDENT;
-              if (pos < cssLimit && '(' == css.charAt(pos)) {
-                // A dotted identifier followed by a parenthesis is ambiguously
-                // a function.
+              if (pos != startOfToken + 1) {
+                type = TokenType.DOT_IDENT;
+                if (pos < cssLimit) {
+                  char next = css.charAt(pos);
+                  if ('(' == next) {
+                    // A dotted identifier followed by a parenthesis is
+                    // ambiguously a function.
+                    sb.append(' ');
+                  }
+                }
+              } else {
+                type = TokenType.DELIM;
                 sb.append(' ');
               }
             } else {
@@ -588,23 +603,36 @@ final class CssTokens implements Iterable<String> {
           default:
             int chlower = ch | 32;
             if ('a' <= chlower && chlower <= 'z' || ch >= 0x80) {
-              type = consumeIdentOrUrlOrFunction();
+              TokenType identType = consumeIdentOrUrlOrFunction();
+              if (identType != null) {
+                type = identType;
+              } else {  // Occurs on undefined-codepoints.
+                ++pos;
+                breakOutput();
+                type = TokenType.WHITESPACE;
+              }
             } else if (ch > 0x20) {
               consumeDelim(ch);
               type = TokenType.DELIM;
             } else {  // Ignore.
-              breakOutput();
+              consumeIgnorable();
               type = TokenType.WHITESPACE;
-              ++pos;
             }
         }
         assert pos > startOfToken
-            : "empty token at " + pos + ", ch0=" + css.charAt(startOfToken);
+            : "empty token at " + pos + ", ch0=" + css.charAt(startOfToken)
+            + ":U+" + Integer.toHexString(css.charAt(startOfToken));
         int endOfOutputToken = sb.length();
         if (endOfOutputToken > startOfOutputToken) {
           if (type == TokenType.DELIM) {
             emitMergedTokens(startOfOutputToken, endOfOutputToken);
           } else {
+            if (type != TokenType.WHITESPACE
+                && sb.charAt(startOfOutputToken) == ' ') {
+              emitToken(TokenType.WHITESPACE, startOfOutputToken);
+              ++startOfOutputToken;
+              assert startOfOutputToken != endOfOutputToken;
+            }
             emitToken(type, startOfOutputToken);
             // Token emitters can emit a space after a token to avoid possible
             // merges with following tokens
@@ -638,7 +666,6 @@ final class CssTokens implements Iterable<String> {
     private void emitToken(TokenType type, int startOfOutputToken) {
       if (tokenBreaksLimit == 0
           || tokenBreaks[tokenBreaksLimit - 1] != startOfOutputToken) {
-        if (tokenTypes == null) { tokenTypes = new ArrayList<TokenType>(); }
         tokenBreaks = expandIfNecessary(tokenBreaks, tokenBreaksLimit, 1);
         tokenBreaks[tokenBreaksLimit++] = startOfOutputToken;
         tokenTypes.add(type);
@@ -648,8 +675,9 @@ final class CssTokens implements Iterable<String> {
     private void consumeDelim(char ch) {
       sb.append(ch);
       switch (ch) {
-        case '~': case '|': case '^': case '$': case '\\': case '#':
-        case '.': case '+': case '-': case '@': case '/':
+        // Prevent token merging.
+        case '~': case '|': case '^': case '$': case '\\':
+        case '.': case '+': case '-': case '@': case '/':  case '<':
           sb.append(' ');
           break;
         default:
@@ -664,7 +692,10 @@ final class CssTokens implements Iterable<String> {
       int posBefore = pos;
       while (pos < cssLimit) {
         char ch = css.charAt(pos);
-        if (ch <= 0x20) {
+        if (ch <= 0x20
+            // Treat a BOM as white-space so that it is ignored at the beginning
+            // of a file.
+            || ch == '\ufeff') {
           ++pos;
         } else if (pos + 1 == cssLimit) {
           break;
@@ -741,7 +772,6 @@ final class CssTokens implements Iterable<String> {
     }
 
     private void consumeIdent(boolean allowFirstDigit) {
-      String css = this.css;
       int cssLimit = this.cssLimit;
       int last = -1, nCodepoints = 0;
       int sbAtStart = sb.length();
@@ -749,7 +779,7 @@ final class CssTokens implements Iterable<String> {
       while (pos < cssLimit) {
         int posBefore = pos;
 
-        int decoded = css.charAt(pos);
+        int decoded = readCodepoint();
         if (decoded == '\\') {
           decoded = consumeAndDecodeEscapeSequence();
         } else {
@@ -766,15 +796,6 @@ final class CssTokens implements Iterable<String> {
               sb.setLength(sbAtStart);
               return;
             }
-          }
-          if (decoded == '-' && last == '-') {
-            // Disallow -- sequences in identifiers so that the three token
-            // sequence
-            //   "<" "!" "--"
-            // and the two token sequence
-            //   "--" ">"
-            // cannot merge into the ignorable tokens "<!--" or "-->"
-            sb.append('\\');
           }
           sb.appendCodePoint(decoded);
           last = decoded;
@@ -825,7 +846,7 @@ final class CssTokens implements Iterable<String> {
           escLower = esc | 32;
         } while (('0' <= esc && esc <= '9')
                  || ('a' <= escLower && escLower <= 'f'));
-        if (hexValue > Character.MAX_CODE_POINT) {
+        if (!Character.isDefined(hexValue)) {
           hexValue = 0xfffd;
         }
         pos = hexEnd;
@@ -867,9 +888,6 @@ final class CssTokens implements Iterable<String> {
         // The set of escapes above that end with a hex digit must appear in
         // HEX_ENCODED_BITMASK.
         case '-':
-          if (last == '-') {
-            sb.append('\\');
-          }
           sb.append('-');
           break;
         default:
@@ -959,6 +977,9 @@ final class CssTokens implements Iterable<String> {
         }
       }
 
+      if (sb.length() != 0 && isIdentPart(sb.charAt(sb.length() - 1))) {
+        sb.append(' ');
+      }
       // Normalize the number onto the buffer.
       // We will normalize and unit later.
       // Skip the sign if it is positive.
@@ -1028,6 +1049,10 @@ final class CssTokens implements Iterable<String> {
             : TokenType.BAD_DIMENSION;
       }
       pos = unitEnd;
+      if (type != TokenType.PERCENTAGE
+          && pos < cssLimit && css.charAt(pos) == '.') {
+        sb.append(' ');
+      }
       return type;
     }
 
@@ -1094,9 +1119,9 @@ final class CssTokens implements Iterable<String> {
         return null;
       }
       for (int i = beforeIdent; i < pos; ++i) {
-        char ch = css.charAt(i);
-        if (!(('0' <= ch && ch <= '9')
-              || ('a' <= (ch | 32) && (ch | 32) <= 'f'))) {
+        char chLower = (char) (css.charAt(i) | 32);
+        if (!(('0' <= chLower && chLower <= '9')
+              || ('a' <= chLower && chLower <= 'f'))) {
           return TokenType.HASH_ID;
         }
       }
@@ -1131,6 +1156,9 @@ final class CssTokens implements Iterable<String> {
           } else {
             break;
           }
+        }
+        if (numStartDigits == 0) {
+          break parse;
         }
         boolean hasQmark = false;
         while (pos < cssLimit && numStartDigits < 6 && css.charAt(pos) == '?') {
@@ -1203,6 +1231,16 @@ final class CssTokens implements Iterable<String> {
         ++pos;
         return TokenType.FUNCTION;
       } else {
+        if (pos + 1 < cssLimit && '.' == css.charAt(pos)) {
+          // Prevent merging of ident and number as in
+          //     border:solid.1cm black
+          // when .1 is rewritten to 0.1 becoming
+          //     border:solid0.1cm black
+          char next = css.charAt(pos + 1);
+          if ('0' <= next && next <= '9') {
+            sb.append(' ');
+          }
+        }
         return TokenType.IDENT;
       }
     }
@@ -1232,15 +1270,7 @@ final class CssTokens implements Iterable<String> {
       }
       sb.append("('");
       while (pos < cssLimit) {
-        int decoded = css.charAt(pos);
-        if (Character.isHighSurrogate((char) decoded)
-            && pos + 1 < cssLimit) {
-          char next = css.charAt(pos + 1);
-          if (Character.isLowSurrogate(next)) {
-            decoded = 0x10000 + (((decoded - 0xd800) << 10) | (next - 0xdc00));
-            ++pos;
-          }
-        }
+        int decoded = readCodepoint();
         if (delim != 0) {
           if (decoded == delim) {
             ++pos;
@@ -1319,10 +1349,29 @@ final class CssTokens implements Iterable<String> {
       sb.append("')");
       return true;
     }
+
+    /**
+     * Reads the codepoint at pos, leaving pos at the index of the last code
+     * unit.
+     */
+    private int readCodepoint() {
+      String css = this.css;
+      char ch = css.charAt(pos);
+      if (Character.isHighSurrogate(ch) && pos + 1 < cssLimit) {
+        char next = css.charAt(pos + 1);
+        if (Character.isLowSurrogate(next)) {
+          ++pos;
+          return 0x10000 + (((ch - 0xd800) << 10) | (next - 0xdc00));
+        }
+      }
+      return ch;
+    }
   }
 
   private static final boolean isIdentPart(int cp) {
-    return cp >= 0x80 || IDENT_PART_ASCII[cp];
+    return cp >= 0x80
+        ? Character.isDefined(cp) && cp != '\ufeff'
+        : IDENT_PART_ASCII[cp];
   }
 
   private static final boolean isDecimal(char ch) {
@@ -1403,17 +1452,20 @@ final class CssTokens implements Iterable<String> {
         .put("dppx", RESOLUTION_UNIT_TYPE)
         .build());
 
-  private static boolean isWellKnownUnit(StringBuilder sb, int start, int end) {
+  static boolean isWellKnownUnit(CharSequence s, int start, int end) {
     if (start == end) { return false; }
     Trie t = UNIT_TRIE;
     for (int i = start; i < end; ++i) {
-      char ch = sb.charAt(i);
+      char ch = s.charAt(i);
       t = t.lookup('A' <= ch && ch <= 'Z' ? (char) (ch | 32) : ch);
       if (t == null) { return false; }
     }
     return t.isTerminal();
   }
 
+  static boolean isWellKnownUnit(CharSequence s) {
+    return isWellKnownUnit(s, 0, s.length());
+  }
 
   private static final boolean[] URL_SAFE = new boolean[128];
   static {
@@ -1449,6 +1501,8 @@ final class CssTokens implements Iterable<String> {
     URL_SAFE[','] = true;
     URL_SAFE[';'] = true;
     URL_SAFE['='] = true;
+    // % is used to encode unsafe octets.
+    URL_SAFE['%'] = true;
   }
 
   private static final char[] HEX_DIGITS = {
