@@ -42,9 +42,19 @@ import static org.owasp.html.CssTokens.TokenType.*;
 
 public class CssTokensTest extends TestCase {
 
+  private static CssTokens lex(String s) {
+    CssTokens tokens = CssTokens.lex(s);
+    // Check that lexing is idempotent.
+    assertEquals(
+        "`" + s + "` not idempotent",
+        tokens.normalizedCss,
+        CssTokens.lex(tokens.normalizedCss).normalizedCss);
+    return tokens;
+  }
+
   @Test
   public static final void testBracketIndices() {
-    CssTokens tokens = CssTokens.lex("([foo[[||]])");
+    CssTokens tokens = lex("([foo[[||]])");
     assertEquals("([foo[[||]]])", tokens.normalizedCss);
 
     List<String> tokenTexts = Lists.newArrayList();
@@ -83,7 +93,7 @@ public class CssTokensTest extends TestCase {
         "\"'\"",                       "'\\27'",
         "\"\\\"\"",                    "'\\22'",
         "'\\\\'",                      "'\\\\'",
-        "'-->'",                       "'-\\-\\3e'",
+        "'-->'",                       "'--\\3e'",
         "'</style>'",                  "'\\3c/style\\3e'",
         "\"<![CDATA[...]]>\"",         "'\\3c![CDATA[...]]\\3e'",
         "\"&quot;/*\"",                "'\\26quot;/*'",
@@ -105,7 +115,7 @@ public class CssTokensTest extends TestCase {
     for (int i = 0, n = tests.length; i < n; i += 2) {
       String input = tests[i],
           golden = tests[i+1];
-      CssTokens tokens = CssTokens.lex(input);
+      CssTokens tokens = lex(input);
       assertEquals(input, golden != null ? golden : "", tokens.normalizedCss);
       CssTokens.TokenIterator it = tokens.iterator();
       assertEquals(input, it.hasNext(), golden != null);
@@ -121,24 +131,24 @@ public class CssTokensTest extends TestCase {
   public static final void testComments() throws Exception {
     assertEquals(
         "a b c d e f g h",
-        CssTokens.lex(
+        lex(
             "//\na/*z*/b//z*/z\\az\nc/*z/**/d//*/\f/**/e/***/f/*//*/g/*z**z*/h"
             ).normalizedCss);
   }
 
   @Test
   public static final void testNonCommentSlash() throws Exception {
-    assertEquals("foo/ bar/", CssTokens.lex("foo/bar/").normalizedCss);
+    assertEquals("foo/ bar/", lex("foo/bar/").normalizedCss);
   }
 
   @Test
   public static final void testCdoCdc() throws Exception {
     assertEquals(
         "|| and are ignorable||",
-        CssTokens.lex("||<!-- and --> are ignorable||").normalizedCss);
+        lex("||<!-- and --> are ignorable||").normalizedCss);
     assertEquals(
-        "<!-\\- and -\\-> are not ignorable",
-        CssTokens.lex("<!\\-- and -\\-> are not ignorable").normalizedCss);
+        "< !-- and -- > are not ignorable",
+        lex("<!-\\- and -\\-> are not ignorable").normalizedCss);
   }
 
   @Test
@@ -195,7 +205,7 @@ public class CssTokensTest extends TestCase {
           golden = golden.substring(0, colon);
         }
       }
-      CssTokens tokens = CssTokens.lex(input);
+      CssTokens tokens = lex(input);
       assertEquals(input, golden != null ? golden : "", tokens.normalizedCss);
       CssTokens.TokenIterator it = tokens.iterator();
       assertEquals(input, it.hasNext(), golden != null);
@@ -213,7 +223,7 @@ public class CssTokensTest extends TestCase {
 
   @Test
   public static final void testOrphanedCloseBrackets() throws Exception {
-    assertEquals("{foo bar}", CssTokens.lex("{foo]bar").normalizedCss);
+    assertEquals("{foo bar}", lex("{foo]bar").normalizedCss);
   }
 
   @Test
@@ -357,6 +367,9 @@ public class CssTokensTest extends TestCase {
         "U+d8??:UNICODE_RANGE", " ",
         "-dc:IDENT",
         "?:DELIM", "?:DELIM");
+    assertTokens(
+        "U+?",
+        "U:IDENT", "+:DELIM", " ", "?:DELIM");
     // TODO: invalid code-units in unicode ranges, and out of order values.
   }
 
@@ -381,38 +394,32 @@ public class CssTokensTest extends TestCase {
   }
 
   private static final void assertTokens(String css, String... goldens) {
-    List<String> expectedTokens = Lists.newArrayList();
-    List<CssTokens.TokenType> expectedTypes = Lists.newArrayList();
+    List<String> expected = Lists.newArrayList();
     for (String golden : goldens) {
       if (" ".equals(golden)) {
-        expectedTokens.add(golden);
-        expectedTypes.add(WHITESPACE);
+        expected.add(" :" + WHITESPACE.name());
       } else {
         int colon = golden.lastIndexOf(':');
-        expectedTokens.add(golden.substring(0, colon));
-        expectedTypes.add(
-            CssTokens.TokenType.valueOf(golden.substring(colon+1)));
+        expected.add(
+            golden.substring(0, colon) + ":"
+            + CssTokens.TokenType.valueOf(golden.substring(colon+1)).name());
       }
     }
-    List<String> actualTokens = Lists.newArrayList();
-    List<CssTokens.TokenType> actualTypes = Lists.newArrayList();
-    for (CssTokens.TokenIterator it = CssTokens.lex(css).iterator();
-         it.hasNext();) {
-      actualTypes.add(it.type());
-      actualTokens.add(it.next());
+    List<String> actual = Lists.newArrayList();
+    for (CssTokens.TokenIterator it = lex(css).iterator();
+         it.hasNext(); it.advance()) {
+      actual.add(it.token() + ":" + it.type());
     }
 
     // Slightly better debugging output
-    assertEquals(css, expectedTokens.toString(), actualTokens.toString());
-    assertEquals(css, expectedTypes.toString(), actualTypes.toString());
+    assertEquals(css, expected.toString(), actual.toString());
     // The real assertions
-    assertEquals(css, expectedTokens, actualTokens);
-    assertEquals(css, expectedTypes, actualTypes);
+    assertEquals(css, expected, actual);
   }
 
   private static void assertLexedCss(String input, String... goldens) {
     List<String> actual = Lists.newArrayList();
-    for (String token : CssTokens.lex(input)) {
+    for (String token : lex(input)) {
       actual.add(token);
     }
     List<String> goldensList = Arrays.asList(goldens);
@@ -986,8 +993,8 @@ public class CssTokensTest extends TestCase {
   @Test
   public static final void testLex19() {
     assertLexedCss(
-      "/* The RHS of the attribute comparison operator in the following cases\n"
-      + " * will parse to a StringLiteral since it is surrounded by quotes. */\n"
+      "/* The RHS of the attribute comparison operators parse to quoted\n"
+      + " * parse to quoted strings since they are surrounded by quotes. */\n"
       + "foo[attr = \'bar\'] {}\n"
       + "foo[attr = \"bar\"] {}\n"
       + "foo[attr ~= \'bar baz\'] {}\n"
@@ -1093,7 +1100,7 @@ public class CssTokensTest extends TestCase {
       + "p { content: \'-->foo<!--\' }  /* - -> bar <!--- */\n"
       + "-->",
       "p", " ", "{", " ", "content", ":",
-      " ", "'-\\-\\3e foo\\3c!-\\-'", " ", "}");
+      " ", "'--\\3e foo\\3c!--'", " ", "}");
   }
 
   @Test
@@ -1308,7 +1315,8 @@ public class CssTokensTest extends TestCase {
   public static final void testLex50() {
     assertLexedCss(
       "@font-face; @font-face {}\n"
-      + "@font-face @font-face { font-family: Letters; src: url(\'Letters.ttf\') }",
+      + "@font-face @font-face"
+      + " { font-family: Letters; src: url(\'Letters.ttf\') }",
       "@font-face", ";", " ", "@font-face", " ", "{", "}", " ",
       "@font-face", " ", "@font-face", " ", "{",
       " ", "font-family", ":", " ", "Letters", ";",
@@ -1387,4 +1395,140 @@ public class CssTokensTest extends TestCase {
       "url('')");
   }
 
+
+  @Test
+  public static final void testLex60() {
+    assertLexedCss(
+      "\t\ufeff x",
+      "x");
+  }
+
+  @Test
+  public static final void testLex61() {
+    assertTokens(
+      "x.1",
+      "x:IDENT", " ", "0.1:NUMBER");
+  }
+
+  @Test
+  public static final void testLex62() {
+    assertTokens(
+      "0.. 1. . 0e1. 0e1 .",
+      "0:NUMBER", " ", ".:DELIM", " ", "1:NUMBER", " ", ".:DELIM", " ",
+      "0:NUMBER", " ", ".:DELIM", " ", "0:NUMBER", " ", ".:DELIM");
+  }
+
+  @Test
+  public static final void testLex63() {
+    assertTokens(
+        "[[ ]]>",
+        "[:LEFT_SQUARE",
+        "[:LEFT_SQUARE",
+        " ",
+        "]:RIGHT_SQUARE",
+        "]:RIGHT_SQUARE",
+        " ",  // Inserted
+        ">:DELIM");
+    assertTokens(
+        "[[ ]] >",
+        "[:LEFT_SQUARE",
+        "[:LEFT_SQUARE",
+        " ",
+        "]:RIGHT_SQUARE",
+        "]:RIGHT_SQUARE",
+        " ",
+        ">:DELIM");
+  }
+
+  @Test
+  public static final void testLex64() {
+    assertTokens(
+        "<![CDATA[",
+        "<:DELIM",
+        " ", // inserted
+        "!:DELIM",
+        "[:LEFT_SQUARE",
+        "CDATA:IDENT",
+        "[:LEFT_SQUARE",
+        "]:RIGHT_SQUARE",
+        "]:RIGHT_SQUARE");
+    assertTokens(
+        "<\\![\\43 DATA[",
+        "<:DELIM",
+        " ", // inserted
+        "!:DELIM",
+        "[:LEFT_SQUARE",
+        "CDATA:IDENT",
+        "[:LEFT_SQUARE",
+        "]:RIGHT_SQUARE",
+        "]:RIGHT_SQUARE");
+  }
+
+  @Test
+  public static final void testLex65() {
+    assertTokens(
+        "<\\/St\\79le",
+        "<:DELIM",
+        " ", // inserted
+        "/:DELIM",
+        " ", // inserted
+        "Style:IDENT");
+  }
+
+  @Test
+  public static final void testLex66() {
+    assertTokens(
+        "/\\/foo\n/\\*bar*/",
+        "/:DELIM",
+        " ",
+        "/:DELIM",
+        " ",
+        "foo:IDENT",
+        " ",
+        "/:DELIM",
+        " ",
+        "*:DELIM",
+        "bar:IDENT",
+        "*:DELIM",
+        "/:DELIM");
+  }
+
+  @Test
+  public static final void testLex67() {
+    assertTokens(
+        "0 .-42",
+        "0:NUMBER",
+        " ",
+        ".:DELIM",
+        " ",
+        "-42:NUMBER");
+  }
+
+  @Test
+  public static final void testLex68() {
+    assertTokens(
+        "#.42",
+        "#:DELIM",
+        " ",
+        "0.42:NUMBER"
+        );
+    assertTokens(
+        "#-.42",
+        "#-:HASH_ID",
+        " ",
+        "0.42:NUMBER"
+        );
+  }
+
+  @Test
+  public static final void testLex69() {
+    assertTokens(
+        "font: 24ex\0pression",
+        "font:IDENT",
+        "::COLON",
+        " ",
+        "24ex:DIMENSION",
+        " ",
+        "pression:IDENT");
+  }
 }
