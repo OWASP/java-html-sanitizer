@@ -28,8 +28,11 @@
 
 package org.owasp.html;
 
+import java.util.SortedSet;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 /** Describes the kinds of tokens a CSS property's value can safely contain. */
 final class CssSchema {
@@ -434,5 +437,22 @@ final class CssSchema {
       all.addAll(subset);
     }
     return all.build();
+  }
+
+  /** Dumps key and literal list to stdout for easy examination. */
+  public static void main(String... argv) {
+    SortedSet<String> keys = Sets.newTreeSet();
+    SortedSet<String> literals = Sets.newTreeSet();
+    for (ImmutableMap.Entry<String, CssSchema> e : SCHEMA.entrySet()) {
+      keys.add(e.getKey());
+      literals.addAll(e.getValue().literals);
+    }
+    for (String key : keys) {
+      System.out.println(key);
+    }
+    System.out.println();
+    for (String literal : literals) {
+      System.out.println(literal);
+    }
   }
 }
