@@ -177,7 +177,8 @@ final class Encoding {
         if (ch <= ((char) 0xdfff)) {
           char next;
           if (i + 1 < n
-              && Character.isSurrogatePair(ch, next = plainText.charAt(i + 1))) {
+              && Character.isSurrogatePair(
+                  ch, next = plainText.charAt(i + 1))) {
             // Emit supplemental codepoints as entity so that they cannot
             // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
             // and get involved in UTF-16/UCS-2 confusion.

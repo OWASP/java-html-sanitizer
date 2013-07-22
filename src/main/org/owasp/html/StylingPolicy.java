@@ -109,7 +109,9 @@ final class StylingPolicy implements AttributePolicy {
         cssProperties.add(cssProperty);
         token = Strings.toLowerCase(token);
         String key = cssProperty.fnKeys.get(token);
-        cssProperty = key != null ? cssSchema.forKey(key) : CssSchema.DISALLOWED;
+        cssProperty = key != null
+            ? cssSchema.forKey(key)
+            : CssSchema.DISALLOWED;
         if (cssProperty != CssSchema.DISALLOWED) {
           emitToken(token);
         }
@@ -117,14 +119,21 @@ final class StylingPolicy implements AttributePolicy {
 
       public void quotedString(String token) {
         closeQuotedIdents();
+        // The contents of a quoted string could be treated as
+        // 1. a run of space-separated words, as in a font family name,
+        // 2. as a URL,
+        // 3. as plain text content as in a list-item bullet,
+        // 4. or it could be ambiguous as when multiple bits are set.
         int meaning =
-            cssProperty.bits & (CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_URL);
+            cssProperty.bits
+            & (CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_URL);
         if ((meaning & (meaning - 1)) == 0) {  // meaning is unambiguous
           if (meaning == CssSchema.BIT_UNRESERVED_WORD
               && token.length() > 2
               && isAlphanumericOrSpace(token, 1, token.length() - 1)) {
             emitToken(Strings.toLowerCase(token));
           } else if (meaning == CssSchema.BIT_URL) {
+            // convert to a URL token and hand-off to the appropriate method
             // url("url(" + token + ")");  // TODO: %-encode properly
           }
         }

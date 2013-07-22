@@ -981,7 +981,10 @@ public class TagBalancingHtmlStreamEventReceiver
   static boolean allowsPlainTextualContent(String canonElementName) {
     ElementContainmentInfo info =
        ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);
-    if (info == null || (info.contents & ElementContainmentRelationships.CHARACTER_DATA.types) != 0) {
+    if (info == null
+        || ((info.contents
+             & ElementContainmentRelationships.CHARACTER_DATA.types)
+            != 0)) {
       switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {
         case PCDATA:     return true;
         case RCDATA:     return true;
