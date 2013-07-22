@@ -4,7 +4,7 @@
 <HEAD>
 <META http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <TITLE>
-AttributePolicy.Util (OWASP Java HTML Sanitizer)
+CssSchema (OWASP Java HTML Sanitizer)
 </TITLE>
 
 
@@ -14,7 +14,7 @@ AttributePolicy.Util (OWASP Java HTML Sanitizer)
 function windowTitle()
 {
     if (location.href.indexOf('is-external=true') == -1) {
-        parent.document.title="AttributePolicy.Util (OWASP Java HTML Sanitizer)";
+        parent.document.title="CssSchema (OWASP Java HTML Sanitizer)";
     }
 }
 </SCRIPT>
@@ -39,7 +39,7 @@ function windowTitle()
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/AttributePolicy.Util.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/CssSchema.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
@@ -53,11 +53,11 @@ function windowTitle()
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/AttributePolicy.Util.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/ElementPolicy.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-  <A HREF="../../../index.html?org/owasp/html/AttributePolicy.Util.html" target="_top"><B>FRAMES</B></A>  &nbsp;
-&nbsp;<A HREF="AttributePolicy.Util.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+  <A HREF="../../../index.html?org/owasp/html/CssSchema.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="CssSchema.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
 &nbsp;<SCRIPT type="text/javascript">
   <!--
   if(window==top) {
@@ -74,9 +74,9 @@ function windowTitle()
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-DETAIL:&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>
 </TABLE>
 <A NAME="skip-navbar_top"></A>
@@ -88,38 +88,36 @@ DETAIL:&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&n
 <FONT SIZE="-1">
 org.owasp.html</FONT>
 <BR>
-Class AttributePolicy.Util</H2>
+Class CssSchema</H2>
 <PRE>
 java.lang.Object
-  <IMG SRC="../../../resources/inherit.gif" ALT="extended by "><B>org.owasp.html.AttributePolicy.Util</B>
+  <IMG SRC="../../../resources/inherit.gif" ALT="extended by "><B>org.owasp.html.CssSchema</B>
 </PRE>
-<DL>
-<DT><B>Enclosing interface:</B><DD><A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A></DD>
-</DL>
 <HR>
 <DL>
-<DT><PRE>public static final class <A HREF="../../../src-html/org/owasp/html/AttributePolicy.html#line.57"><B>AttributePolicy.Util</B></A><DT>extends java.lang.Object</DL>
+<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.39"><B>CssSchema</B></A><DT>extends java.lang.Object</DL>
 </PRE>
 
 <P>
-Utilities for working with attribute policies.
+Describes the kinds of tokens a CSS property's value can safely contain.
 <P>
 
 <P>
 <HR>
 
 <P>
+<!-- =========== FIELD SUMMARY =========== -->
 
-<!-- ======== CONSTRUCTOR SUMMARY ======== -->
-
-<A NAME="constructor_summary"><!-- --></A>
+<A NAME="field_summary"><!-- --></A>
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
 <TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
 <TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
-<B>Constructor Summary</B></FONT></TH>
+<B>Field Summary</B></FONT></TH>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
-<TD><CODE><B><A HREF="../../../org/owasp/html/AttributePolicy.Util.html#AttributePolicy.Util()">AttributePolicy.Util</A></B>()</CODE>
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;org.owasp.html.CssSchema.Property</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#DISALLOWED">DISALLOWED</A></B></CODE>
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
@@ -136,12 +134,19 @@ Utilities for working with attribute policies.
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>static&nbsp;<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A></CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/AttributePolicy.Util.html#join(org.owasp.html.AttributePolicy...)">join</A></B>(<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A>...&nbsp;policies)</CODE>
+<CODE>&nbsp;org.owasp.html.CssSchema.Property</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#forKey(java.lang.String)">forKey</A></B>(java.lang.String&nbsp;propertyName)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;An attribute policy equivalent to applying all the given policies in
- order, failing early if any of them fails.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The schema for the named property or function key.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;void</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#main(java.lang.String...)">main</A></B>(java.lang.String...&nbsp;argv)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dumps key and literal list to stdout for easy examination.</TD>
 </TR>
 </TABLE>
 &nbsp;<A NAME="methods_inherited_from_class_java.lang.Object"><!-- --></A>
@@ -156,21 +161,23 @@ Utilities for working with attribute policies.
 &nbsp;
 <P>
 
-<!-- ========= CONSTRUCTOR DETAIL ======== -->
+<!-- ============ FIELD DETAIL =========== -->
 
-<A NAME="constructor_detail"><!-- --></A>
+<A NAME="field_detail"><!-- --></A>
 <TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
 <TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
 <TH ALIGN="left" COLSPAN="1"><FONT SIZE="+2">
-<B>Constructor Detail</B></FONT></TH>
+<B>Field Detail</B></FONT></TH>
 </TR>
 </TABLE>
 
-<A NAME="AttributePolicy.Util()"><!-- --></A><H3>
-AttributePolicy.Util</H3>
+<A NAME="DISALLOWED"><!-- --></A><H3>
+DISALLOWED</H3>
 <PRE>
-public <A HREF="../../../src-html/org/owasp/html/AttributePolicy.Util.html#line.57"><B>AttributePolicy.Util</B></A>()</PRE>
+public static final org.owasp.html.CssSchema.Property <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.68"><B>DISALLOWED</B></A></PRE>
 <DL>
+<DL>
+</DL>
 </DL>
 
 <!-- ============ METHOD DETAIL ========== -->
@@ -183,13 +190,25 @@ public <A HREF="../../../src-html/org/owasp/html/AttributePolicy.Util.html#line.
 </TR>
 </TABLE>
 
-<A NAME="join(org.owasp.html.AttributePolicy...)"><!-- --></A><H3>
-join</H3>
+<A NAME="forKey(java.lang.String)"><!-- --></A><H3>
+forKey</H3>
 <PRE>
-public static final <A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A> <A HREF="../../../src-html/org/owasp/html/AttributePolicy.Util.html#line.63"><B>join</B></A>(<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A>...&nbsp;policies)</PRE>
+public org.owasp.html.CssSchema.Property <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.78"><B>forKey</B></A>(java.lang.String&nbsp;propertyName)</PRE>
 <DL>
-<DD>An attribute policy equivalent to applying all the given policies in
- order, failing early if any of them fails.
+<DD>The schema for the named property or function key.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="main(java.lang.String...)"><!-- --></A><H3>
+main</H3>
+<PRE>
+public static void <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.684"><B>main</B></A>(java.lang.String...&nbsp;argv)</PRE>
+<DL>
+<DD>Dumps key and literal list to stdout for easy examination.
 <P>
 <DD><DL>
 </DL>
@@ -211,7 +230,7 @@ public static final <A HREF="../../../org/owasp/html/AttributePolicy.html" title
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
-  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/AttributePolicy.Util.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/CssSchema.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
   <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
@@ -225,11 +244,11 @@ public static final <A HREF="../../../org/owasp/html/AttributePolicy.html" title
 
 <TR>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-&nbsp;<A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
-&nbsp;<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+&nbsp;<A HREF="../../../org/owasp/html/AttributePolicy.Util.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/ElementPolicy.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
 <TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
-  <A HREF="../../../index.html?org/owasp/html/AttributePolicy.Util.html" target="_top"><B>FRAMES</B></A>  &nbsp;
-&nbsp;<A HREF="AttributePolicy.Util.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+  <A HREF="../../../index.html?org/owasp/html/CssSchema.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="CssSchema.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
 &nbsp;<SCRIPT type="text/javascript">
   <!--
   if(window==top) {
@@ -246,9 +265,9 @@ public static final <A HREF="../../../org/owasp/html/AttributePolicy.html" title
 </TR>
 <TR>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_summary">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#field_summary">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
 <TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
-DETAIL:&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#constructor_detail">CONSTR</A>&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+DETAIL:&nbsp;<A HREF="#field_detail">FIELD</A>&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
 </TR>
 </TABLE>
 <A NAME="skip-navbar_bottom"></A>

@@ -5,6 +5,10 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="198">Replaced CSS sanitizer with one that does token-level
+  filtering, and replaces the old CSS lexer that used regular
+  expressions with one that doesn't back-track, or behave
+  quadratically on crafted inputs.</li>
 <li value="173">Fixed bug: tag balancer allowed
   <code>&lt;/p&gt;</code> to close a table, so rewrote tag balancer
   to recognize scoping elements per HTML5.</li>

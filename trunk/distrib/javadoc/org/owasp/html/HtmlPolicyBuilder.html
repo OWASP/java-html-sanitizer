@@ -118,7 +118,7 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
          .toFactory();
 
  // Sanitize your output.
- HtmlSanitizer.sanitize(myHtml. policy.apply(myHtmlStreamRenderer));
+ HtmlSanitizer.sanitize(myHtml, policy.apply(myHtmlStreamRenderer));
  </pre>
 
  <h3>Embedded Content</h3>
@@ -329,9 +329,18 @@ Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/H
 <TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowStyling()">allowStyling</A></B>()</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Convert <code>style="&lt;CSS&gt;"</code> to simple non-JS containing
- <code>&lt;font&gt;</code> tags to allow color, font-size, typeface, and
- other styling.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
+ color, font-size, type-face, and other styling using the default schema;
+ but which does not allow content to escape its clipping context.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;<A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#allowStyling(org.owasp.html.CssSchema)">allowStyling</A></B>(<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A>&nbsp;whitelist)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
+ color, font-size, type-face, and other styling using the given schema.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -738,9 +747,23 @@ allowStyling</H3>
 <PRE>
 public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.422"><B>allowStyling</B></A>()</PRE>
 <DL>
-<DD>Convert <code>style="&lt;CSS&gt;"</code> to simple non-JS containing
- <code>&lt;font&gt;</code> tags to allow color, font-size, typeface, and
- other styling.
+<DD>Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
+ color, font-size, type-face, and other styling using the default schema;
+ but which does not allow content to escape its clipping context.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="allowStyling(org.owasp.html.CssSchema)"><!-- --></A><H3>
+allowStyling</H3>
+<PRE>
+public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.431"><B>allowStyling</B></A>(<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A>&nbsp;whitelist)</PRE>
+<DL>
+<DD>Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
+ color, font-size, type-face, and other styling using the given schema.
 <P>
 <DD><DL>
 </DL>
@@ -751,7 +774,7 @@ public <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in 
 <A NAME="build(org.owasp.html.HtmlStreamEventReceiver)"><!-- --></A><H3>
 build</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.445"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
+public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.455"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out)</PRE>
 <DL>
 <DD>Produces a policy based on the allow and disallow calls previously made.
 <P>
@@ -766,7 +789,7 @@ public <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interf
 <A NAME="build(org.owasp.html.HtmlStreamEventReceiver,org.owasp.html.HtmlChangeListener,java.lang.Object)"><!-- --></A><A NAME="build(org.owasp.html.HtmlStreamEventReceiver, org.owasp.html.HtmlChangeListener, CTX)"><!-- --></A><H3>
 build</H3>
 <PRE>
-public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.462"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
+public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.472"><B>build</B></A>(<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A>&nbsp;out,
                                         <FONT SIZE="-1">@Nullable</FONT>
                                         <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener</A>&lt;? super CTX&gt;&nbsp;listener,
                                         <FONT SIZE="-1">@Nullable</FONT>
@@ -789,7 +812,7 @@ public &lt;CTX&gt; <A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" t
 <A NAME="toFactory()"><!-- --></A><H3>
 toFactory</H3>
 <PRE>
-public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.473"><B>toFactory</B></A>()</PRE>
+public <A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A> <A HREF="../../../src-html/org/owasp/html/HtmlPolicyBuilder.html#line.483"><B>toFactory</B></A>()</PRE>
 <DL>
 <DD>Like <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html#build(org.owasp.html.HtmlStreamEventReceiver)"><CODE>build(org.owasp.html.HtmlStreamEventReceiver)</CODE></A> but can be reused to create many different policies
  each backed by a different output channel.

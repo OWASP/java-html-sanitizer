@@ -1,0 +1,766 @@
+<HTML>
+<BODY BGCOLOR="white">
+<PRE>
+<FONT color="green">001</FONT>    // Copyright (c) 2013, Mike Samuel<a name="line.1"></a>
+<FONT color="green">002</FONT>    // All rights reserved.<a name="line.2"></a>
+<FONT color="green">003</FONT>    //<a name="line.3"></a>
+<FONT color="green">004</FONT>    // Redistribution and use in source and binary forms, with or without<a name="line.4"></a>
+<FONT color="green">005</FONT>    // modification, are permitted provided that the following conditions<a name="line.5"></a>
+<FONT color="green">006</FONT>    // are met:<a name="line.6"></a>
+<FONT color="green">007</FONT>    //<a name="line.7"></a>
+<FONT color="green">008</FONT>    // Redistributions of source code must retain the above copyright<a name="line.8"></a>
+<FONT color="green">009</FONT>    // notice, this list of conditions and the following disclaimer.<a name="line.9"></a>
+<FONT color="green">010</FONT>    // Redistributions in binary form must reproduce the above copyright<a name="line.10"></a>
+<FONT color="green">011</FONT>    // notice, this list of conditions and the following disclaimer in the<a name="line.11"></a>
+<FONT color="green">012</FONT>    // documentation and/or other materials provided with the distribution.<a name="line.12"></a>
+<FONT color="green">013</FONT>    // Neither the name of the OWASP nor the names of its contributors may<a name="line.13"></a>
+<FONT color="green">014</FONT>    // be used to endorse or promote products derived from this software<a name="line.14"></a>
+<FONT color="green">015</FONT>    // without specific prior written permission.<a name="line.15"></a>
+<FONT color="green">016</FONT>    // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS<a name="line.16"></a>
+<FONT color="green">017</FONT>    // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT<a name="line.17"></a>
+<FONT color="green">018</FONT>    // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS<a name="line.18"></a>
+<FONT color="green">019</FONT>    // FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE<a name="line.19"></a>
+<FONT color="green">020</FONT>    // COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,<a name="line.20"></a>
+<FONT color="green">021</FONT>    // INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,<a name="line.21"></a>
+<FONT color="green">022</FONT>    // BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;<a name="line.22"></a>
+<FONT color="green">023</FONT>    // LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER<a name="line.23"></a>
+<FONT color="green">024</FONT>    // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT<a name="line.24"></a>
+<FONT color="green">025</FONT>    // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN<a name="line.25"></a>
+<FONT color="green">026</FONT>    // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE<a name="line.26"></a>
+<FONT color="green">027</FONT>    // POSSIBILITY OF SUCH DAMAGE.<a name="line.27"></a>
+<FONT color="green">028</FONT>    <a name="line.28"></a>
+<FONT color="green">029</FONT>    package org.owasp.html;<a name="line.29"></a>
+<FONT color="green">030</FONT>    <a name="line.30"></a>
+<FONT color="green">031</FONT>    import java.util.SortedSet;<a name="line.31"></a>
+<FONT color="green">032</FONT>    <a name="line.32"></a>
+<FONT color="green">033</FONT>    import com.google.common.collect.ImmutableMap;<a name="line.33"></a>
+<FONT color="green">034</FONT>    import com.google.common.collect.ImmutableSet;<a name="line.34"></a>
+<FONT color="green">035</FONT>    import com.google.common.collect.Sets;<a name="line.35"></a>
+<FONT color="green">036</FONT>    <a name="line.36"></a>
+<FONT color="green">037</FONT>    /** Describes the kinds of tokens a CSS property's value can safely contain. */<a name="line.37"></a>
+<FONT color="green">038</FONT>    @TCB<a name="line.38"></a>
+<FONT color="green">039</FONT>    public final class CssSchema {<a name="line.39"></a>
+<FONT color="green">040</FONT>    <a name="line.40"></a>
+<FONT color="green">041</FONT>      static final class Property {<a name="line.41"></a>
+<FONT color="green">042</FONT>        /** A bitfield of BIT_* constants describing groups of allowed tokens. */<a name="line.42"></a>
+<FONT color="green">043</FONT>        final int bits;<a name="line.43"></a>
+<FONT color="green">044</FONT>        /** Specific allowed values. */<a name="line.44"></a>
+<FONT color="green">045</FONT>        final ImmutableSet&lt;String&gt; literals;<a name="line.45"></a>
+<FONT color="green">046</FONT>        /**<a name="line.46"></a>
+<FONT color="green">047</FONT>         * Maps lower-case function tokens to the schema key for their parameters.<a name="line.47"></a>
+<FONT color="green">048</FONT>         */<a name="line.48"></a>
+<FONT color="green">049</FONT>        final ImmutableMap&lt;String, String&gt; fnKeys;<a name="line.49"></a>
+<FONT color="green">050</FONT>    <a name="line.50"></a>
+<FONT color="green">051</FONT>        private Property(<a name="line.51"></a>
+<FONT color="green">052</FONT>            int bits, ImmutableSet&lt;String&gt; literals,<a name="line.52"></a>
+<FONT color="green">053</FONT>            ImmutableMap&lt;String, String&gt; fnKeys) {<a name="line.53"></a>
+<FONT color="green">054</FONT>          this.bits = bits;<a name="line.54"></a>
+<FONT color="green">055</FONT>          this.literals = literals;<a name="line.55"></a>
+<FONT color="green">056</FONT>          this.fnKeys = fnKeys;<a name="line.56"></a>
+<FONT color="green">057</FONT>        }<a name="line.57"></a>
+<FONT color="green">058</FONT>      }<a name="line.58"></a>
+<FONT color="green">059</FONT>    <a name="line.59"></a>
+<FONT color="green">060</FONT>      static final int BIT_QUANTITY = 1;<a name="line.60"></a>
+<FONT color="green">061</FONT>      static final int BIT_HASH_VALUE = 2;<a name="line.61"></a>
+<FONT color="green">062</FONT>      static final int BIT_NEGATIVE = 4;<a name="line.62"></a>
+<FONT color="green">063</FONT>      static final int BIT_STRING = 8;<a name="line.63"></a>
+<FONT color="green">064</FONT>      static final int BIT_URL = 16;<a name="line.64"></a>
+<FONT color="green">065</FONT>      static final int BIT_UNRESERVED_WORD = 64;<a name="line.65"></a>
+<FONT color="green">066</FONT>      static final int BIT_UNICODE_RANGE = 128;<a name="line.66"></a>
+<FONT color="green">067</FONT>    <a name="line.67"></a>
+<FONT color="green">068</FONT>      public static final Property DISALLOWED = new Property(<a name="line.68"></a>
+<FONT color="green">069</FONT>          0, ImmutableSet.&lt;String&gt;of(), ImmutableMap.&lt;String, String&gt;of());<a name="line.69"></a>
+<FONT color="green">070</FONT>    <a name="line.70"></a>
+<FONT color="green">071</FONT>      private final ImmutableMap&lt;String, Property&gt; properties;<a name="line.71"></a>
+<FONT color="green">072</FONT>    <a name="line.72"></a>
+<FONT color="green">073</FONT>      CssSchema(ImmutableMap&lt;String, Property&gt; properties) {<a name="line.73"></a>
+<FONT color="green">074</FONT>        this.properties = properties;<a name="line.74"></a>
+<FONT color="green">075</FONT>      }<a name="line.75"></a>
+<FONT color="green">076</FONT>    <a name="line.76"></a>
+<FONT color="green">077</FONT>      /** The schema for the named property or function key. */<a name="line.77"></a>
+<FONT color="green">078</FONT>      public Property forKey(String propertyName) {<a name="line.78"></a>
+<FONT color="green">079</FONT>        Property property = properties.get(Strings.toLowerCase(propertyName));<a name="line.79"></a>
+<FONT color="green">080</FONT>        return property == null ? DISALLOWED : property;<a name="line.80"></a>
+<FONT color="green">081</FONT>      }<a name="line.81"></a>
+<FONT color="green">082</FONT>    <a name="line.82"></a>
+<FONT color="green">083</FONT>      /** Maps lower-cased CSS property names to information about them. */<a name="line.83"></a>
+<FONT color="green">084</FONT>      private static final ImmutableMap&lt;String, Property&gt; DEFAULT_PROPERTIES;<a name="line.84"></a>
+<FONT color="green">085</FONT>      static {<a name="line.85"></a>
+<FONT color="green">086</FONT>        ImmutableMap&lt;String, String&gt; zeroFns = ImmutableMap.of();<a name="line.86"></a>
+<FONT color="green">087</FONT>        ImmutableMap.Builder&lt;String, Property&gt; builder<a name="line.87"></a>
+<FONT color="green">088</FONT>            = ImmutableMap.builder();<a name="line.88"></a>
+<FONT color="green">089</FONT>        ImmutableSet&lt;String&gt; mozBorderRadiusLiterals0 = ImmutableSet.of("/");<a name="line.89"></a>
+<FONT color="green">090</FONT>        ImmutableSet&lt;String&gt; mozOpacityLiterals0 = ImmutableSet.of("inherit");<a name="line.90"></a>
+<FONT color="green">091</FONT>        ImmutableSet&lt;String&gt; mozOutlineLiterals0 = ImmutableSet.of(<a name="line.91"></a>
+<FONT color="green">092</FONT>            "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige",<a name="line.92"></a>
+<FONT color="green">093</FONT>            "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown",<a name="line.93"></a>
+<FONT color="green">094</FONT>            "burlywood", "cadetblue", "chartreuse", "chocolate", "coral",<a name="line.94"></a>
+<FONT color="green">095</FONT>            "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan",<a name="line.95"></a>
+<FONT color="green">096</FONT>            "darkgoldenrod", "darkgray", "darkgreen", "darkkhaki", "darkmagenta",<a name="line.96"></a>
+<FONT color="green">097</FONT>            "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon",<a name="line.97"></a>
+<FONT color="green">098</FONT>            "darkseagreen", "darkslateblue", "darkslategray", "darkturquoise",<a name="line.98"></a>
+<FONT color="green">099</FONT>            "darkviolet", "deeppink", "deepskyblue", "dimgray", "dodgerblue",<a name="line.99"></a>
+<FONT color="green">100</FONT>            "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro",<a name="line.100"></a>
+<FONT color="green">101</FONT>            "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow",<a name="line.101"></a>
+<FONT color="green">102</FONT>            "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki",<a name="line.102"></a>
+<FONT color="green">103</FONT>            "lavender", "lavenderblush", "lawngreen", "lemonchiffon", "lightblue",<a name="line.103"></a>
+<FONT color="green">104</FONT>            "lightcoral", "lightcyan", "lightgoldenrodyellow", "lightgreen",<a name="line.104"></a>
+<FONT color="green">105</FONT>            "lightgrey", "lightpink", "lightsalmon", "lightseagreen",<a name="line.105"></a>
+<FONT color="green">106</FONT>            "lightskyblue", "lightslategray", "lightsteelblue", "lightyellow",<a name="line.106"></a>
+<FONT color="green">107</FONT>            "lime", "limegreen", "linen", "magenta", "maroon", "mediumaquamarine",<a name="line.107"></a>
+<FONT color="green">108</FONT>            "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen",<a name="line.108"></a>
+<FONT color="green">109</FONT>            "mediumslateblue", "mediumspringgreen", "mediumturquoise",<a name="line.109"></a>
+<FONT color="green">110</FONT>            "mediumvioletred", "midnightblue", "mintcream", "mistyrose",<a name="line.110"></a>
+<FONT color="green">111</FONT>            "moccasin", "navajowhite", "navy", "oldlace", "olive", "olivedrab",<a name="line.111"></a>
+<FONT color="green">112</FONT>            "orange", "orangered", "orchid", "palegoldenrod", "palegreen",<a name="line.112"></a>
+<FONT color="green">113</FONT>            "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru",<a name="line.113"></a>
+<FONT color="green">114</FONT>            "pink", "plum", "powderblue", "purple", "red", "rosybrown", "royalblue",<a name="line.114"></a>
+<FONT color="green">115</FONT>            "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna",<a name="line.115"></a>
+<FONT color="green">116</FONT>            "silver", "skyblue", "slateblue", "slategray", "snow", "springgreen",<a name="line.116"></a>
+<FONT color="green">117</FONT>            "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "violet",<a name="line.117"></a>
+<FONT color="green">118</FONT>            "wheat", "white", "whitesmoke", "yellow", "yellowgreen");<a name="line.118"></a>
+<FONT color="green">119</FONT>        ImmutableSet&lt;String&gt; mozOutlineLiterals1 = ImmutableSet.of(<a name="line.119"></a>
+<FONT color="green">120</FONT>            "dashed", "dotted", "double", "groove", "outset", "ridge", "solid");<a name="line.120"></a>
+<FONT color="green">121</FONT>        ImmutableSet&lt;String&gt; mozOutlineLiterals2 = ImmutableSet.of("thick", "thin");<a name="line.121"></a>
+<FONT color="green">122</FONT>        ImmutableSet&lt;String&gt; mozOutlineLiterals3 = ImmutableSet.of(<a name="line.122"></a>
+<FONT color="green">123</FONT>            "hidden", "inherit", "inset", "invert", "medium", "none");<a name="line.123"></a>
+<FONT color="green">124</FONT>        ImmutableMap&lt;String, String&gt; mozOutlineFunctions =<a name="line.124"></a>
+<FONT color="green">125</FONT>          ImmutableMap.&lt;String, String&gt;of("rgb(", "rgb()", "rgba(", "rgba()");<a name="line.125"></a>
+<FONT color="green">126</FONT>        ImmutableSet&lt;String&gt; mozOutlineColorLiterals0 =<a name="line.126"></a>
+<FONT color="green">127</FONT>          ImmutableSet.of("inherit", "invert");<a name="line.127"></a>
+<FONT color="green">128</FONT>        ImmutableSet&lt;String&gt; mozOutlineStyleLiterals0 =<a name="line.128"></a>
+<FONT color="green">129</FONT>          ImmutableSet.of("hidden", "inherit", "inset", "none");<a name="line.129"></a>
+<FONT color="green">130</FONT>        ImmutableSet&lt;String&gt; mozOutlineWidthLiterals0 =<a name="line.130"></a>
+<FONT color="green">131</FONT>          ImmutableSet.of("inherit", "medium");<a name="line.131"></a>
+<FONT color="green">132</FONT>        ImmutableSet&lt;String&gt; oTextOverflowLiterals0 =<a name="line.132"></a>
+<FONT color="green">133</FONT>          ImmutableSet.of("clip", "ellipsis");<a name="line.133"></a>
+<FONT color="green">134</FONT>        ImmutableSet&lt;String&gt; azimuthLiterals0 = ImmutableSet.of(<a name="line.134"></a>
+<FONT color="green">135</FONT>            "behind", "center-left", "center-right", "far-left", "far-right",<a name="line.135"></a>
+<FONT color="green">136</FONT>            "left-side", "leftwards", "right-side", "rightwards");<a name="line.136"></a>
+<FONT color="green">137</FONT>        ImmutableSet&lt;String&gt; azimuthLiterals1 = ImmutableSet.of("left", "right");<a name="line.137"></a>
+<FONT color="green">138</FONT>        ImmutableSet&lt;String&gt; azimuthLiterals2 =<a name="line.138"></a>
+<FONT color="green">139</FONT>          ImmutableSet.of("center", "inherit");<a name="line.139"></a>
+<FONT color="green">140</FONT>        ImmutableSet&lt;String&gt; backgroundLiterals0 = ImmutableSet.of(<a name="line.140"></a>
+<FONT color="green">141</FONT>            "border-box", "contain", "content-box", "cover", "padding-box");<a name="line.141"></a>
+<FONT color="green">142</FONT>        ImmutableSet&lt;String&gt; backgroundLiterals1 =<a name="line.142"></a>
+<FONT color="green">143</FONT>          ImmutableSet.of("no-repeat", "repeat-x", "repeat-y", "round", "space");<a name="line.143"></a>
+<FONT color="green">144</FONT>        ImmutableSet&lt;String&gt; backgroundLiterals2 = ImmutableSet.of("bottom", "top");<a name="line.144"></a>
+<FONT color="green">145</FONT>        ImmutableSet&lt;String&gt; backgroundLiterals3 = ImmutableSet.of(<a name="line.145"></a>
+<FONT color="green">146</FONT>            ",", "/", "auto", "center", "fixed", "inherit", "local", "none",<a name="line.146"></a>
+<FONT color="green">147</FONT>            "repeat", "scroll", "transparent");<a name="line.147"></a>
+<FONT color="green">148</FONT>        ImmutableMap&lt;String, String&gt; backgroundFunctions =<a name="line.148"></a>
+<FONT color="green">149</FONT>          ImmutableMap.&lt;String, String&gt;builder()<a name="line.149"></a>
+<FONT color="green">150</FONT>          .put("image(", "image()")<a name="line.150"></a>
+<FONT color="green">151</FONT>          .put("linear-gradient(", "linear-gradient()")<a name="line.151"></a>
+<FONT color="green">152</FONT>          .put("radial-gradient(", "radial-gradient()")<a name="line.152"></a>
+<FONT color="green">153</FONT>          .put("repeating-linear-gradient(", "repeating-linear-gradient()")<a name="line.153"></a>
+<FONT color="green">154</FONT>          .put("repeating-radial-gradient(", "repeating-radial-gradient()")<a name="line.154"></a>
+<FONT color="green">155</FONT>          .put("rgb(", "rgb()").put("rgba(", "rgba()")<a name="line.155"></a>
+<FONT color="green">156</FONT>          .build();<a name="line.156"></a>
+<FONT color="green">157</FONT>        ImmutableSet&lt;String&gt; backgroundAttachmentLiterals0 =<a name="line.157"></a>
+<FONT color="green">158</FONT>          ImmutableSet.of(",", "fixed", "local", "scroll");<a name="line.158"></a>
+<FONT color="green">159</FONT>        ImmutableSet&lt;String&gt; backgroundColorLiterals0 =<a name="line.159"></a>
+<FONT color="green">160</FONT>          ImmutableSet.of("inherit", "transparent");<a name="line.160"></a>
+<FONT color="green">161</FONT>        ImmutableSet&lt;String&gt; backgroundImageLiterals0 =<a name="line.161"></a>
+<FONT color="green">162</FONT>          ImmutableSet.of(",", "none");<a name="line.162"></a>
+<FONT color="green">163</FONT>        ImmutableMap&lt;String, String&gt; backgroundImageFunctions =<a name="line.163"></a>
+<FONT color="green">164</FONT>          ImmutableMap.&lt;String, String&gt;of(<a name="line.164"></a>
+<FONT color="green">165</FONT>              "image(", "image()",<a name="line.165"></a>
+<FONT color="green">166</FONT>              "linear-gradient(", "linear-gradient()",<a name="line.166"></a>
+<FONT color="green">167</FONT>              "radial-gradient(", "radial-gradient()",<a name="line.167"></a>
+<FONT color="green">168</FONT>              "repeating-linear-gradient(", "repeating-linear-gradient()",<a name="line.168"></a>
+<FONT color="green">169</FONT>              "repeating-radial-gradient(", "repeating-radial-gradient()");<a name="line.169"></a>
+<FONT color="green">170</FONT>        ImmutableSet&lt;String&gt; backgroundPositionLiterals0 = ImmutableSet.of(<a name="line.170"></a>
+<FONT color="green">171</FONT>            ",", "center");<a name="line.171"></a>
+<FONT color="green">172</FONT>        ImmutableSet&lt;String&gt; backgroundRepeatLiterals0 = ImmutableSet.of(<a name="line.172"></a>
+<FONT color="green">173</FONT>            ",", "repeat");<a name="line.173"></a>
+<FONT color="green">174</FONT>        ImmutableSet&lt;String&gt; borderLiterals0 = ImmutableSet.of(<a name="line.174"></a>
+<FONT color="green">175</FONT>            "hidden", "inherit", "inset", "medium", "none", "transparent");<a name="line.175"></a>
+<FONT color="green">176</FONT>        ImmutableSet&lt;String&gt; borderCollapseLiterals0 = ImmutableSet.of(<a name="line.176"></a>
+<FONT color="green">177</FONT>            "collapse", "inherit", "separate");<a name="line.177"></a>
+<FONT color="green">178</FONT>        ImmutableSet&lt;String&gt; bottomLiterals0 = ImmutableSet.of("auto", "inherit");<a name="line.178"></a>
+<FONT color="green">179</FONT>        ImmutableSet&lt;String&gt; boxShadowLiterals0 = ImmutableSet.of(<a name="line.179"></a>
+<FONT color="green">180</FONT>            ",", "inset", "none");<a name="line.180"></a>
+<FONT color="green">181</FONT>        //ImmutableSet&lt;String&gt; clearLiterals0 = ImmutableSet.of(<a name="line.181"></a>
+<FONT color="green">182</FONT>        //    "both", "inherit", "none");<a name="line.182"></a>
+<FONT color="green">183</FONT>        //ImmutableMap&lt;String, String&gt; clipFunctions =<a name="line.183"></a>
+<FONT color="green">184</FONT>        //  ImmutableMap.&lt;String, String&gt;of("rect(", "rect()");<a name="line.184"></a>
+<FONT color="green">185</FONT>        ImmutableSet&lt;String&gt; contentLiterals0 = ImmutableSet.of("none", "normal");<a name="line.185"></a>
+<FONT color="green">186</FONT>        ImmutableSet&lt;String&gt; cueLiterals0 = ImmutableSet.of("inherit", "none");<a name="line.186"></a>
+<FONT color="green">187</FONT>        //ImmutableSet&lt;String&gt; cursorLiterals0 = ImmutableSet.of(<a name="line.187"></a>
+<FONT color="green">188</FONT>        //    "all-scroll", "col-resize", "crosshair", "default", "e-resize",<a name="line.188"></a>
+<FONT color="green">189</FONT>        //    "hand", "help", "move", "n-resize", "ne-resize", "no-drop",<a name="line.189"></a>
+<FONT color="green">190</FONT>        //    "not-allowed", "nw-resize", "pointer", "progress", "row-resize",<a name="line.190"></a>
+<FONT color="green">191</FONT>        //    "s-resize", "se-resize", "sw-resize", "text", "vertical-text",<a name="line.191"></a>
+<FONT color="green">192</FONT>        //    "w-resize", "wait");<a name="line.192"></a>
+<FONT color="green">193</FONT>        //ImmutableSet&lt;String&gt; cursorLiterals1 = ImmutableSet.of(<a name="line.193"></a>
+<FONT color="green">194</FONT>        //    ",", "auto", "inherit");<a name="line.194"></a>
+<FONT color="green">195</FONT>        ImmutableSet&lt;String&gt; directionLiterals0 = ImmutableSet.of("ltr", "rtl");<a name="line.195"></a>
+<FONT color="green">196</FONT>        //ImmutableSet&lt;String&gt; displayLiterals0 = ImmutableSet.of(<a name="line.196"></a>
+<FONT color="green">197</FONT>        //    "-moz-inline-box", "-moz-inline-stack", "block", "inline",<a name="line.197"></a>
+<FONT color="green">198</FONT>        //    "inline-block", "inline-table", "list-item", "run-in", "table",<a name="line.198"></a>
+<FONT color="green">199</FONT>        //    "table-caption", "table-cell", "table-column", "table-column-group",<a name="line.199"></a>
+<FONT color="green">200</FONT>        //    "table-footer-group", "table-header-group", "table-row",<a name="line.200"></a>
+<FONT color="green">201</FONT>        //    "table-row-group");<a name="line.201"></a>
+<FONT color="green">202</FONT>        ImmutableSet&lt;String&gt; elevationLiterals0 = ImmutableSet.of(<a name="line.202"></a>
+<FONT color="green">203</FONT>            "above", "below", "higher", "level", "lower");<a name="line.203"></a>
+<FONT color="green">204</FONT>        ImmutableSet&lt;String&gt; emptyCellsLiterals0 = ImmutableSet.of("hide", "show");<a name="line.204"></a>
+<FONT color="green">205</FONT>        //ImmutableMap&lt;String, String&gt; filterFunctions =<a name="line.205"></a>
+<FONT color="green">206</FONT>        //  ImmutableMap.&lt;String, String&gt;of("alpha(", "alpha()");<a name="line.206"></a>
+<FONT color="green">207</FONT>        ImmutableSet&lt;String&gt; fontLiterals0 = ImmutableSet.of(<a name="line.207"></a>
+<FONT color="green">208</FONT>            "100", "200", "300", "400", "500", "600", "700", "800", "900", "bold",<a name="line.208"></a>
+<FONT color="green">209</FONT>            "bolder", "lighter");<a name="line.209"></a>
+<FONT color="green">210</FONT>        ImmutableSet&lt;String&gt; fontLiterals1 = ImmutableSet.of(<a name="line.210"></a>
+<FONT color="green">211</FONT>            "large", "larger", "small", "smaller", "x-large", "x-small",<a name="line.211"></a>
+<FONT color="green">212</FONT>            "xx-large", "xx-small");<a name="line.212"></a>
+<FONT color="green">213</FONT>        ImmutableSet&lt;String&gt; fontLiterals2 = ImmutableSet.of(<a name="line.213"></a>
+<FONT color="green">214</FONT>            "caption", "icon", "menu", "message-box", "small-caption",<a name="line.214"></a>
+<FONT color="green">215</FONT>            "status-bar");<a name="line.215"></a>
+<FONT color="green">216</FONT>        ImmutableSet&lt;String&gt; fontLiterals3 = ImmutableSet.of(<a name="line.216"></a>
+<FONT color="green">217</FONT>            "cursive", "fantasy", "monospace", "sans-serif", "serif");<a name="line.217"></a>
+<FONT color="green">218</FONT>        ImmutableSet&lt;String&gt; fontLiterals4 = ImmutableSet.of("italic", "oblique");<a name="line.218"></a>
+<FONT color="green">219</FONT>        ImmutableSet&lt;String&gt; fontLiterals5 = ImmutableSet.of(<a name="line.219"></a>
+<FONT color="green">220</FONT>            ",", "/", "inherit", "medium", "normal", "small-caps");<a name="line.220"></a>
+<FONT color="green">221</FONT>        ImmutableSet&lt;String&gt; fontFamilyLiterals0 = ImmutableSet.of(",", "inherit");<a name="line.221"></a>
+<FONT color="green">222</FONT>        ImmutableSet&lt;String&gt; fontStretchLiterals0 = ImmutableSet.of(<a name="line.222"></a>
+<FONT color="green">223</FONT>            "condensed", "expanded", "extra-condensed", "extra-expanded",<a name="line.223"></a>
+<FONT color="green">224</FONT>            "narrower", "semi-condensed", "semi-expanded", "ultra-condensed",<a name="line.224"></a>
+<FONT color="green">225</FONT>            "ultra-expanded", "wider");<a name="line.225"></a>
+<FONT color="green">226</FONT>        ImmutableSet&lt;String&gt; fontStretchLiterals1 = ImmutableSet.of("normal");<a name="line.226"></a>
+<FONT color="green">227</FONT>        ImmutableSet&lt;String&gt; fontStyleLiterals0 = ImmutableSet.of(<a name="line.227"></a>
+<FONT color="green">228</FONT>            "inherit", "normal");<a name="line.228"></a>
+<FONT color="green">229</FONT>        ImmutableSet&lt;String&gt; fontVariantLiterals0 = ImmutableSet.of(<a name="line.229"></a>
+<FONT color="green">230</FONT>            "inherit", "normal", "small-caps");<a name="line.230"></a>
+<FONT color="green">231</FONT>        ImmutableSet&lt;String&gt; listStyleLiterals0 = ImmutableSet.of(<a name="line.231"></a>
+<FONT color="green">232</FONT>            "armenian", "cjk-decimal", "decimal", "decimal-leading-zero", "disc",<a name="line.232"></a>
+<FONT color="green">233</FONT>            "disclosure-closed", "disclosure-open", "ethiopic-numeric", "georgian",<a name="line.233"></a>
+<FONT color="green">234</FONT>            "hebrew", "hiragana", "hiragana-iroha", "japanese-formal",<a name="line.234"></a>
+<FONT color="green">235</FONT>            "japanese-informal", "katakana", "katakana-iroha",<a name="line.235"></a>
+<FONT color="green">236</FONT>            "korean-hangul-formal", "korean-hanja-formal",<a name="line.236"></a>
+<FONT color="green">237</FONT>            "korean-hanja-informal", "lower-alpha", "lower-greek", "lower-latin",<a name="line.237"></a>
+<FONT color="green">238</FONT>            "lower-roman", "simp-chinese-formal", "simp-chinese-informal",<a name="line.238"></a>
+<FONT color="green">239</FONT>            "square", "trad-chinese-formal", "trad-chinese-informal",<a name="line.239"></a>
+<FONT color="green">240</FONT>            "upper-alpha", "upper-latin", "upper-roman");<a name="line.240"></a>
+<FONT color="green">241</FONT>        ImmutableSet&lt;String&gt; listStyleLiterals1 = ImmutableSet.of(<a name="line.241"></a>
+<FONT color="green">242</FONT>            "inside", "outside");<a name="line.242"></a>
+<FONT color="green">243</FONT>        ImmutableSet&lt;String&gt; listStyleLiterals2 = ImmutableSet.of(<a name="line.243"></a>
+<FONT color="green">244</FONT>            "circle", "inherit", "none");<a name="line.244"></a>
+<FONT color="green">245</FONT>        ImmutableSet&lt;String&gt; maxHeightLiterals0 = ImmutableSet.of(<a name="line.245"></a>
+<FONT color="green">246</FONT>            "auto", "inherit", "none");<a name="line.246"></a>
+<FONT color="green">247</FONT>        //ImmutableSet&lt;String&gt; overflowLiterals0 = ImmutableSet.of(<a name="line.247"></a>
+<FONT color="green">248</FONT>        //    "auto", "hidden", "inherit", "scroll", "visible");<a name="line.248"></a>
+<FONT color="green">249</FONT>        //ImmutableSet&lt;String&gt; overflowXLiterals0 = ImmutableSet.of(<a name="line.249"></a>
+<FONT color="green">250</FONT>        //    "no-content", "no-display");<a name="line.250"></a>
+<FONT color="green">251</FONT>        //ImmutableSet&lt;String&gt; overflowXLiterals1 = ImmutableSet.of(<a name="line.251"></a>
+<FONT color="green">252</FONT>        //    "auto", "hidden", "scroll", "visible");<a name="line.252"></a>
+<FONT color="green">253</FONT>        //ImmutableSet&lt;String&gt; pageBreakAfterLiterals0 = ImmutableSet.of(<a name="line.253"></a>
+<FONT color="green">254</FONT>        //    "always", "auto", "avoid", "inherit");<a name="line.254"></a>
+<FONT color="green">255</FONT>        //ImmutableSet&lt;String&gt; pageBreakInsideLiterals0 = ImmutableSet.of(<a name="line.255"></a>
+<FONT color="green">256</FONT>        //    "auto", "avoid", "inherit");<a name="line.256"></a>
+<FONT color="green">257</FONT>        ImmutableSet&lt;String&gt; pitchLiterals0 = ImmutableSet.of(<a name="line.257"></a>
+<FONT color="green">258</FONT>            "high", "low", "x-high", "x-low");<a name="line.258"></a>
+<FONT color="green">259</FONT>        //ImmutableSet&lt;String&gt; playDuringLiterals0 = ImmutableSet.of(<a name="line.259"></a>
+<FONT color="green">260</FONT>        //    "auto", "inherit", "mix", "none", "repeat");<a name="line.260"></a>
+<FONT color="green">261</FONT>        //ImmutableSet&lt;String&gt; positionLiterals0 = ImmutableSet.of(<a name="line.261"></a>
+<FONT color="green">262</FONT>        //    "absolute", "relative", "static");<a name="line.262"></a>
+<FONT color="green">263</FONT>        ImmutableSet&lt;String&gt; speakLiterals0 = ImmutableSet.of(<a name="line.263"></a>
+<FONT color="green">264</FONT>            "inherit", "none", "normal", "spell-out");<a name="line.264"></a>
+<FONT color="green">265</FONT>        ImmutableSet&lt;String&gt; speakHeaderLiterals0 = ImmutableSet.of(<a name="line.265"></a>
+<FONT color="green">266</FONT>            "always", "inherit", "once");<a name="line.266"></a>
+<FONT color="green">267</FONT>        ImmutableSet&lt;String&gt; speakNumeralLiterals0 = ImmutableSet.of(<a name="line.267"></a>
+<FONT color="green">268</FONT>            "continuous", "digits");<a name="line.268"></a>
+<FONT color="green">269</FONT>        ImmutableSet&lt;String&gt; speakPunctuationLiterals0 = ImmutableSet.of(<a name="line.269"></a>
+<FONT color="green">270</FONT>            "code", "inherit", "none");<a name="line.270"></a>
+<FONT color="green">271</FONT>        ImmutableSet&lt;String&gt; speechRateLiterals0 = ImmutableSet.of(<a name="line.271"></a>
+<FONT color="green">272</FONT>            "fast", "faster", "slow", "slower", "x-fast", "x-slow");<a name="line.272"></a>
+<FONT color="green">273</FONT>        ImmutableSet&lt;String&gt; tableLayoutLiterals0 = ImmutableSet.of(<a name="line.273"></a>
+<FONT color="green">274</FONT>            "auto", "fixed", "inherit");<a name="line.274"></a>
+<FONT color="green">275</FONT>        ImmutableSet&lt;String&gt; textAlignLiterals0 = ImmutableSet.of(<a name="line.275"></a>
+<FONT color="green">276</FONT>            "center", "inherit", "justify");<a name="line.276"></a>
+<FONT color="green">277</FONT>        ImmutableSet&lt;String&gt; textDecorationLiterals0 = ImmutableSet.of(<a name="line.277"></a>
+<FONT color="green">278</FONT>            "blink", "line-through", "overline", "underline");<a name="line.278"></a>
+<FONT color="green">279</FONT>        ImmutableSet&lt;String&gt; textTransformLiterals0 = ImmutableSet.of(<a name="line.279"></a>
+<FONT color="green">280</FONT>            "capitalize", "lowercase", "uppercase");<a name="line.280"></a>
+<FONT color="green">281</FONT>        ImmutableSet&lt;String&gt; textWrapLiterals0 = ImmutableSet.of(<a name="line.281"></a>
+<FONT color="green">282</FONT>            "suppress", "unrestricted");<a name="line.282"></a>
+<FONT color="green">283</FONT>        ImmutableSet&lt;String&gt; unicodeBidiLiterals0 = ImmutableSet.of(<a name="line.283"></a>
+<FONT color="green">284</FONT>            "bidi-override", "embed");<a name="line.284"></a>
+<FONT color="green">285</FONT>        ImmutableSet&lt;String&gt; verticalAlignLiterals0 = ImmutableSet.of(<a name="line.285"></a>
+<FONT color="green">286</FONT>            "baseline", "middle", "sub", "super", "text-bottom", "text-top");<a name="line.286"></a>
+<FONT color="green">287</FONT>        //ImmutableSet&lt;String&gt; visibilityLiterals0 = ImmutableSet.of(<a name="line.287"></a>
+<FONT color="green">288</FONT>        //    "collapse", "hidden", "inherit", "visible");<a name="line.288"></a>
+<FONT color="green">289</FONT>        ImmutableSet&lt;String&gt; voiceFamilyLiterals0 = ImmutableSet.of(<a name="line.289"></a>
+<FONT color="green">290</FONT>            "child", "female", "male");<a name="line.290"></a>
+<FONT color="green">291</FONT>        ImmutableSet&lt;String&gt; volumeLiterals0 = ImmutableSet.of(<a name="line.291"></a>
+<FONT color="green">292</FONT>            "loud", "silent", "soft", "x-loud", "x-soft");<a name="line.292"></a>
+<FONT color="green">293</FONT>        ImmutableSet&lt;String&gt; whiteSpaceLiterals0 = ImmutableSet.of(<a name="line.293"></a>
+<FONT color="green">294</FONT>            "-moz-pre-wrap", "-o-pre-wrap", "-pre-wrap", "nowrap", "pre",<a name="line.294"></a>
+<FONT color="green">295</FONT>            "pre-line", "pre-wrap");<a name="line.295"></a>
+<FONT color="green">296</FONT>        ImmutableSet&lt;String&gt; wordWrapLiterals0 = ImmutableSet.of(<a name="line.296"></a>
+<FONT color="green">297</FONT>            "break-word", "normal");<a name="line.297"></a>
+<FONT color="green">298</FONT>        ImmutableSet&lt;String&gt; rgb$FunLiterals0 = ImmutableSet.of(",");<a name="line.298"></a>
+<FONT color="green">299</FONT>        ImmutableSet&lt;String&gt; linearGradient$FunLiterals0 = ImmutableSet.of(<a name="line.299"></a>
+<FONT color="green">300</FONT>            ",", "to");<a name="line.300"></a>
+<FONT color="green">301</FONT>        ImmutableSet&lt;String&gt; radialGradient$FunLiterals0 = ImmutableSet.of(<a name="line.301"></a>
+<FONT color="green">302</FONT>            "at", "closest-corner", "closest-side", "ellipse", "farthest-corner",<a name="line.302"></a>
+<FONT color="green">303</FONT>            "farthest-side");<a name="line.303"></a>
+<FONT color="green">304</FONT>        ImmutableSet&lt;String&gt; radialGradient$FunLiterals1 = ImmutableSet.of(<a name="line.304"></a>
+<FONT color="green">305</FONT>            ",", "center", "circle");<a name="line.305"></a>
+<FONT color="green">306</FONT>        ImmutableSet&lt;String&gt; rect$FunLiterals0 = ImmutableSet.of(",", "auto");<a name="line.306"></a>
+<FONT color="green">307</FONT>        ImmutableSet&lt;String&gt; alpha$FunLiterals0 = ImmutableSet.of("=", "opacity");<a name="line.307"></a>
+<FONT color="green">308</FONT>        Property mozBorderRadius =<a name="line.308"></a>
+<FONT color="green">309</FONT>           new Property(5, mozBorderRadiusLiterals0, zeroFns);<a name="line.309"></a>
+<FONT color="green">310</FONT>        builder.put("-moz-border-radius", mozBorderRadius);<a name="line.310"></a>
+<FONT color="green">311</FONT>        Property mozBorderRadiusBottomleft =<a name="line.311"></a>
+<FONT color="green">312</FONT>           new Property(5, ImmutableSet.&lt;String&gt;of(), zeroFns);<a name="line.312"></a>
+<FONT color="green">313</FONT>        builder.put("-moz-border-radius-bottomleft", mozBorderRadiusBottomleft);<a name="line.313"></a>
+<FONT color="green">314</FONT>        //CssSchema mozOpacity = new Property(1, mozOpacityLiterals0, zeroFns);<a name="line.314"></a>
+<FONT color="green">315</FONT>        //builder.put("-moz-opacity", mozOpacity);<a name="line.315"></a>
+<FONT color="green">316</FONT>        @SuppressWarnings("unchecked")<a name="line.316"></a>
+<FONT color="green">317</FONT>        Property mozOutline = new Property(<a name="line.317"></a>
+<FONT color="green">318</FONT>            7,<a name="line.318"></a>
+<FONT color="green">319</FONT>            union(mozOutlineLiterals0, mozOutlineLiterals1, mozOutlineLiterals2,<a name="line.319"></a>
+<FONT color="green">320</FONT>                  mozOutlineLiterals3),<a name="line.320"></a>
+<FONT color="green">321</FONT>            mozOutlineFunctions);<a name="line.321"></a>
+<FONT color="green">322</FONT>        builder.put("-moz-outline", mozOutline);<a name="line.322"></a>
+<FONT color="green">323</FONT>        @SuppressWarnings("unchecked")<a name="line.323"></a>
+<FONT color="green">324</FONT>        Property mozOutlineColor = new Property(<a name="line.324"></a>
+<FONT color="green">325</FONT>            2, union(mozOutlineColorLiterals0, mozOutlineLiterals0),<a name="line.325"></a>
+<FONT color="green">326</FONT>            mozOutlineFunctions);<a name="line.326"></a>
+<FONT color="green">327</FONT>        builder.put("-moz-outline-color", mozOutlineColor);<a name="line.327"></a>
+<FONT color="green">328</FONT>        @SuppressWarnings("unchecked")<a name="line.328"></a>
+<FONT color="green">329</FONT>        Property mozOutlineStyle = new Property(<a name="line.329"></a>
+<FONT color="green">330</FONT>            0, union(mozOutlineLiterals1, mozOutlineStyleLiterals0), zeroFns);<a name="line.330"></a>
+<FONT color="green">331</FONT>        builder.put("-moz-outline-style", mozOutlineStyle);<a name="line.331"></a>
+<FONT color="green">332</FONT>        @SuppressWarnings("unchecked")<a name="line.332"></a>
+<FONT color="green">333</FONT>        Property mozOutlineWidth = new Property(<a name="line.333"></a>
+<FONT color="green">334</FONT>            5, union(mozOutlineLiterals2, mozOutlineWidthLiterals0), zeroFns);<a name="line.334"></a>
+<FONT color="green">335</FONT>        builder.put("-moz-outline-width", mozOutlineWidth);<a name="line.335"></a>
+<FONT color="green">336</FONT>        Property oTextOverflow = new Property(0, oTextOverflowLiterals0, zeroFns);<a name="line.336"></a>
+<FONT color="green">337</FONT>        builder.put("-o-text-overflow", oTextOverflow);<a name="line.337"></a>
+<FONT color="green">338</FONT>        @SuppressWarnings("unchecked")<a name="line.338"></a>
+<FONT color="green">339</FONT>        Property azimuth = new Property(<a name="line.339"></a>
+<FONT color="green">340</FONT>            5, union(azimuthLiterals0, azimuthLiterals1, azimuthLiterals2),<a name="line.340"></a>
+<FONT color="green">341</FONT>            zeroFns);<a name="line.341"></a>
+<FONT color="green">342</FONT>        builder.put("azimuth", azimuth);<a name="line.342"></a>
+<FONT color="green">343</FONT>        @SuppressWarnings("unchecked")<a name="line.343"></a>
+<FONT color="green">344</FONT>        Property background = new Property(<a name="line.344"></a>
+<FONT color="green">345</FONT>            23,<a name="line.345"></a>
+<FONT color="green">346</FONT>            union(azimuthLiterals1, backgroundLiterals0, backgroundLiterals1,<a name="line.346"></a>
+<FONT color="green">347</FONT>                  backgroundLiterals2, backgroundLiterals3, mozOutlineLiterals0),<a name="line.347"></a>
+<FONT color="green">348</FONT>            backgroundFunctions);<a name="line.348"></a>
+<FONT color="green">349</FONT>        builder.put("background", background);<a name="line.349"></a>
+<FONT color="green">350</FONT>        builder.put("background-attachment",<a name="line.350"></a>
+<FONT color="green">351</FONT>                    new Property(0, backgroundAttachmentLiterals0, zeroFns));<a name="line.351"></a>
+<FONT color="green">352</FONT>        @SuppressWarnings("unchecked")<a name="line.352"></a>
+<FONT color="green">353</FONT>        Property backgroundColor = new Property(<a name="line.353"></a>
+<FONT color="green">354</FONT>            258, union(backgroundColorLiterals0, mozOutlineLiterals0),<a name="line.354"></a>
+<FONT color="green">355</FONT>            mozOutlineFunctions);<a name="line.355"></a>
+<FONT color="green">356</FONT>        builder.put("background-color", backgroundColor);<a name="line.356"></a>
+<FONT color="green">357</FONT>        builder.put("background-image",<a name="line.357"></a>
+<FONT color="green">358</FONT>                    new Property(16, backgroundImageLiterals0,<a name="line.358"></a>
+<FONT color="green">359</FONT>                                 backgroundImageFunctions));<a name="line.359"></a>
+<FONT color="green">360</FONT>        @SuppressWarnings("unchecked")<a name="line.360"></a>
+<FONT color="green">361</FONT>        Property backgroundPosition = new Property(<a name="line.361"></a>
+<FONT color="green">362</FONT>            5,<a name="line.362"></a>
+<FONT color="green">363</FONT>            union(azimuthLiterals1, backgroundLiterals2,<a name="line.363"></a>
+<FONT color="green">364</FONT>                  backgroundPositionLiterals0),<a name="line.364"></a>
+<FONT color="green">365</FONT>            zeroFns);<a name="line.365"></a>
+<FONT color="green">366</FONT>        builder.put("background-position", backgroundPosition);<a name="line.366"></a>
+<FONT color="green">367</FONT>        @SuppressWarnings("unchecked")<a name="line.367"></a>
+<FONT color="green">368</FONT>        Property backgroundRepeat = new Property(<a name="line.368"></a>
+<FONT color="green">369</FONT>            0, union(backgroundLiterals1, backgroundRepeatLiterals0), zeroFns);<a name="line.369"></a>
+<FONT color="green">370</FONT>        builder.put("background-repeat", backgroundRepeat);<a name="line.370"></a>
+<FONT color="green">371</FONT>        @SuppressWarnings("unchecked")<a name="line.371"></a>
+<FONT color="green">372</FONT>        Property border = new Property(<a name="line.372"></a>
+<FONT color="green">373</FONT>            7,<a name="line.373"></a>
+<FONT color="green">374</FONT>            union(borderLiterals0, mozOutlineLiterals0, mozOutlineLiterals1,<a name="line.374"></a>
+<FONT color="green">375</FONT>                  mozOutlineLiterals2),<a name="line.375"></a>
+<FONT color="green">376</FONT>            mozOutlineFunctions);<a name="line.376"></a>
+<FONT color="green">377</FONT>        builder.put("border", border);<a name="line.377"></a>
+<FONT color="green">378</FONT>        @SuppressWarnings("unchecked")<a name="line.378"></a>
+<FONT color="green">379</FONT>        Property borderBottomColor = new Property(<a name="line.379"></a>
+<FONT color="green">380</FONT>            2, union(backgroundColorLiterals0, mozOutlineLiterals0),<a name="line.380"></a>
+<FONT color="green">381</FONT>            mozOutlineFunctions);<a name="line.381"></a>
+<FONT color="green">382</FONT>        builder.put("border-bottom-color", borderBottomColor);<a name="line.382"></a>
+<FONT color="green">383</FONT>        builder.put("border-collapse",<a name="line.383"></a>
+<FONT color="green">384</FONT>                    new Property(0, borderCollapseLiterals0, zeroFns));<a name="line.384"></a>
+<FONT color="green">385</FONT>        Property borderSpacing = new Property(5, mozOpacityLiterals0, zeroFns);<a name="line.385"></a>
+<FONT color="green">386</FONT>        builder.put("border-spacing", borderSpacing);<a name="line.386"></a>
+<FONT color="green">387</FONT>        //Property bottom = new Property(5, bottomLiterals0, zeroFns);<a name="line.387"></a>
+<FONT color="green">388</FONT>        //builder.put("bottom", bottom);<a name="line.388"></a>
+<FONT color="green">389</FONT>        @SuppressWarnings("unchecked")<a name="line.389"></a>
+<FONT color="green">390</FONT>        Property boxShadow = new Property(<a name="line.390"></a>
+<FONT color="green">391</FONT>            7, union(boxShadowLiterals0, mozOutlineLiterals0), mozOutlineFunctions);<a name="line.391"></a>
+<FONT color="green">392</FONT>        builder.put("box-shadow", boxShadow);<a name="line.392"></a>
+<FONT color="green">393</FONT>        @SuppressWarnings("unchecked")<a name="line.393"></a>
+<FONT color="green">394</FONT>        Property captionSide = new Property(<a name="line.394"></a>
+<FONT color="green">395</FONT>            0, union(backgroundLiterals2, mozOpacityLiterals0), zeroFns);<a name="line.395"></a>
+<FONT color="green">396</FONT>        builder.put("caption-side", captionSide);<a name="line.396"></a>
+<FONT color="green">397</FONT>        //@SuppressWarnings("unchecked")<a name="line.397"></a>
+<FONT color="green">398</FONT>        //Property clear = new Property(<a name="line.398"></a>
+<FONT color="green">399</FONT>        //    0, union(azimuthLiterals1, clearLiterals0), zeroFns);<a name="line.399"></a>
+<FONT color="green">400</FONT>        //builder.put("clear", clear);<a name="line.400"></a>
+<FONT color="green">401</FONT>        //builder.put("clip", new Property(0, bottomLiterals0, clipFunctions));<a name="line.401"></a>
+<FONT color="green">402</FONT>        @SuppressWarnings("unchecked")<a name="line.402"></a>
+<FONT color="green">403</FONT>        Property color = new Property(<a name="line.403"></a>
+<FONT color="green">404</FONT>            258, union(mozOpacityLiterals0, mozOutlineLiterals0),<a name="line.404"></a>
+<FONT color="green">405</FONT>            mozOutlineFunctions);<a name="line.405"></a>
+<FONT color="green">406</FONT>        builder.put("color", color);<a name="line.406"></a>
+<FONT color="green">407</FONT>        //builder.put("content", new Property(8, contentLiterals0, zeroFns));<a name="line.407"></a>
+<FONT color="green">408</FONT>        Property cue = new Property(16, cueLiterals0, zeroFns);<a name="line.408"></a>
+<FONT color="green">409</FONT>        builder.put("cue", cue);<a name="line.409"></a>
+<FONT color="green">410</FONT>        //@SuppressWarnings("unchecked")<a name="line.410"></a>
+<FONT color="green">411</FONT>        //Property cursor = new Property(<a name="line.411"></a>
+<FONT color="green">412</FONT>        //    272, union(cursorLiterals0, cursorLiterals1), zeroFns);<a name="line.412"></a>
+<FONT color="green">413</FONT>        //builder.put("cursor", cursor);<a name="line.413"></a>
+<FONT color="green">414</FONT>        @SuppressWarnings("unchecked")<a name="line.414"></a>
+<FONT color="green">415</FONT>        Property direction = new Property(<a name="line.415"></a>
+<FONT color="green">416</FONT>            0, union(directionLiterals0, mozOpacityLiterals0), zeroFns);<a name="line.416"></a>
+<FONT color="green">417</FONT>        builder.put("direction", direction);<a name="line.417"></a>
+<FONT color="green">418</FONT>        //@SuppressWarnings("unchecked")<a name="line.418"></a>
+<FONT color="green">419</FONT>        //Property display = new Property(<a name="line.419"></a>
+<FONT color="green">420</FONT>        //    0, union(cueLiterals0, displayLiterals0), zeroFns);<a name="line.420"></a>
+<FONT color="green">421</FONT>        //builder.put("display", display);<a name="line.421"></a>
+<FONT color="green">422</FONT>        @SuppressWarnings("unchecked")<a name="line.422"></a>
+<FONT color="green">423</FONT>        Property elevation = new Property(<a name="line.423"></a>
+<FONT color="green">424</FONT>            5, union(elevationLiterals0, mozOpacityLiterals0), zeroFns);<a name="line.424"></a>
+<FONT color="green">425</FONT>        builder.put("elevation", elevation);<a name="line.425"></a>
+<FONT color="green">426</FONT>        @SuppressWarnings("unchecked")<a name="line.426"></a>
+<FONT color="green">427</FONT>        Property emptyCells = new Property(<a name="line.427"></a>
+<FONT color="green">428</FONT>            0, union(emptyCellsLiterals0, mozOpacityLiterals0), zeroFns);<a name="line.428"></a>
+<FONT color="green">429</FONT>        builder.put("empty-cells", emptyCells);<a name="line.429"></a>
+<FONT color="green">430</FONT>        //builder.put("filter",<a name="line.430"></a>
+<FONT color="green">431</FONT>        //            new Property(0, ImmutableSet.&lt;String&gt;of(), filterFunctions));<a name="line.431"></a>
+<FONT color="green">432</FONT>        //@SuppressWarnings("unchecked")<a name="line.432"></a>
+<FONT color="green">433</FONT>        //Property cssFloat = new Property(<a name="line.433"></a>
+<FONT color="green">434</FONT>        //    0, union(azimuthLiterals1, cueLiterals0), zeroFns);<a name="line.434"></a>
+<FONT color="green">435</FONT>        //builder.put("float", cssFloat);<a name="line.435"></a>
+<FONT color="green">436</FONT>        @SuppressWarnings("unchecked")<a name="line.436"></a>
+<FONT color="green">437</FONT>        Property font = new Property(<a name="line.437"></a>
+<FONT color="green">438</FONT>            73,<a name="line.438"></a>
+<FONT color="green">439</FONT>            union(fontLiterals0, fontLiterals1, fontLiterals2, fontLiterals3,<a name="line.439"></a>
+<FONT color="green">440</FONT>                  fontLiterals4, fontLiterals5),<a name="line.440"></a>
+<FONT color="green">441</FONT>            zeroFns);<a name="line.441"></a>
+<FONT color="green">442</FONT>        builder.put("font", font);<a name="line.442"></a>
+<FONT color="green">443</FONT>        @SuppressWarnings("unchecked")<a name="line.443"></a>
+<FONT color="green">444</FONT>        Property fontFamily = new Property(<a name="line.444"></a>
+<FONT color="green">445</FONT>            72, union(fontFamilyLiterals0, fontLiterals3), zeroFns);<a name="line.445"></a>
+<FONT color="green">446</FONT>        builder.put("font-family", fontFamily);<a name="line.446"></a>
+<FONT color="green">447</FONT>        @SuppressWarnings("unchecked")<a name="line.447"></a>
+<FONT color="green">448</FONT>        Property fontSize = new Property(<a name="line.448"></a>
+<FONT color="green">449</FONT>            1, union(fontLiterals1, mozOutlineWidthLiterals0), zeroFns);<a name="line.449"></a>
+<FONT color="green">450</FONT>        builder.put("font-size", fontSize);<a name="line.450"></a>
+<FONT color="green">451</FONT>        @SuppressWarnings("unchecked")<a name="line.451"></a>
+<FONT color="green">452</FONT>        Property fontStretch = new Property(<a name="line.452"></a>
+<FONT color="green">453</FONT>            0, union(fontStretchLiterals0, fontStretchLiterals1), zeroFns);<a name="line.453"></a>
+<FONT color="green">454</FONT>        builder.put("font-stretch", fontStretch);<a name="line.454"></a>
+<FONT color="green">455</FONT>        @SuppressWarnings("unchecked")<a name="line.455"></a>
+<FONT color="green">456</FONT>        Property fontStyle = new Property(<a name="line.456"></a>
+<FONT color="green">457</FONT>            0, union(fontLiterals4, fontStyleLiterals0), zeroFns);<a name="line.457"></a>
+<FONT color="green">458</FONT>        builder.put("font-style", fontStyle);<a name="line.458"></a>
+<FONT color="green">459</FONT>        builder.put("font-variant", new Property(<a name="line.459"></a>
+<FONT color="green">460</FONT>            0, fontVariantLiterals0, zeroFns));<a name="line.460"></a>
+<FONT color="green">461</FONT>        @SuppressWarnings("unchecked")<a name="line.461"></a>
+<FONT color="green">462</FONT>        Property fontWeight = new Property(<a name="line.462"></a>
+<FONT color="green">463</FONT>            0, union(fontLiterals0, fontStyleLiterals0), zeroFns);<a name="line.463"></a>
+<FONT color="green">464</FONT>        builder.put("font-weight", fontWeight);<a name="line.464"></a>
+<FONT color="green">465</FONT>        Property height = new Property(5, bottomLiterals0, zeroFns);<a name="line.465"></a>
+<FONT color="green">466</FONT>        builder.put("height", height);<a name="line.466"></a>
+<FONT color="green">467</FONT>        Property letterSpacing = new Property(5, fontStyleLiterals0, zeroFns);<a name="line.467"></a>
+<FONT color="green">468</FONT>        builder.put("letter-spacing", letterSpacing);<a name="line.468"></a>
+<FONT color="green">469</FONT>        builder.put("line-height", new Property(1, fontStyleLiterals0, zeroFns));<a name="line.469"></a>
+<FONT color="green">470</FONT>        @SuppressWarnings("unchecked")<a name="line.470"></a>
+<FONT color="green">471</FONT>        Property listStyle = new Property(<a name="line.471"></a>
+<FONT color="green">472</FONT>            16,<a name="line.472"></a>
+<FONT color="green">473</FONT>            union(listStyleLiterals0, listStyleLiterals1, listStyleLiterals2),<a name="line.473"></a>
+<FONT color="green">474</FONT>            backgroundImageFunctions);<a name="line.474"></a>
+<FONT color="green">475</FONT>        builder.put("list-style", listStyle);<a name="line.475"></a>
+<FONT color="green">476</FONT>        builder.put("list-style-image", new Property(<a name="line.476"></a>
+<FONT color="green">477</FONT>            16, cueLiterals0, backgroundImageFunctions));<a name="line.477"></a>
+<FONT color="green">478</FONT>        @SuppressWarnings("unchecked")<a name="line.478"></a>
+<FONT color="green">479</FONT>        Property listStylePosition = new Property(<a name="line.479"></a>
+<FONT color="green">480</FONT>            0, union(listStyleLiterals1, mozOpacityLiterals0), zeroFns);<a name="line.480"></a>
+<FONT color="green">481</FONT>        builder.put("list-style-position", listStylePosition);<a name="line.481"></a>
+<FONT color="green">482</FONT>        @SuppressWarnings("unchecked")<a name="line.482"></a>
+<FONT color="green">483</FONT>        Property listStyleType = new Property(<a name="line.483"></a>
+<FONT color="green">484</FONT>            0, union(listStyleLiterals0, listStyleLiterals2), zeroFns);<a name="line.484"></a>
+<FONT color="green">485</FONT>        builder.put("list-style-type", listStyleType);<a name="line.485"></a>
+<FONT color="green">486</FONT>        Property margin = new Property(1, bottomLiterals0, zeroFns);<a name="line.486"></a>
+<FONT color="green">487</FONT>        builder.put("margin", margin);<a name="line.487"></a>
+<FONT color="green">488</FONT>        Property maxHeight = new Property(1, maxHeightLiterals0, zeroFns);<a name="line.488"></a>
+<FONT color="green">489</FONT>        builder.put("max-height", maxHeight);<a name="line.489"></a>
+<FONT color="green">490</FONT>        //Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);<a name="line.490"></a>
+<FONT color="green">491</FONT>        //builder.put("opacity", opacity);<a name="line.491"></a>
+<FONT color="green">492</FONT>        //builder.put("overflow", new Property(0, overflowLiterals0, zeroFns));<a name="line.492"></a>
+<FONT color="green">493</FONT>        //@SuppressWarnings("unchecked")<a name="line.493"></a>
+<FONT color="green">494</FONT>        //Property overflowX = new Property(<a name="line.494"></a>
+<FONT color="green">495</FONT>        //    0, union(overflowXLiterals0, overflowXLiterals1), zeroFns);<a name="line.495"></a>
+<FONT color="green">496</FONT>        //builder.put("overflow-x", overflowX);<a name="line.496"></a>
+<FONT color="green">497</FONT>        Property padding = new Property(1, mozOpacityLiterals0, zeroFns);<a name="line.497"></a>
+<FONT color="green">498</FONT>        builder.put("padding", padding);<a name="line.498"></a>
+<FONT color="green">499</FONT>        //@SuppressWarnings("unchecked")<a name="line.499"></a>
+<FONT color="green">500</FONT>        //Property pageBreakAfter = new Property(<a name="line.500"></a>
+<FONT color="green">501</FONT>        //    0, union(azimuthLiterals1, pageBreakAfterLiterals0), zeroFns);<a name="line.501"></a>
+<FONT color="green">502</FONT>        //builder.put("page-break-after", pageBreakAfter);<a name="line.502"></a>
+<FONT color="green">503</FONT>        //builder.put("page-break-inside", new Property(<a name="line.503"></a>
+<FONT color="green">504</FONT>        //    0, pageBreakInsideLiterals0, zeroFns));<a name="line.504"></a>
+<FONT color="green">505</FONT>        @SuppressWarnings("unchecked")<a name="line.505"></a>
+<FONT color="green">506</FONT>        Property pitch = new Property(<a name="line.506"></a>
+<FONT color="green">507</FONT>            5, union(mozOutlineWidthLiterals0, pitchLiterals0), zeroFns);<a name="line.507"></a>
+<FONT color="green">508</FONT>        builder.put("pitch", pitch);<a name="line.508"></a>
+<FONT color="green">509</FONT>        //builder.put("play-during", new Property(<a name="line.509"></a>
+<FONT color="green">510</FONT>        //    16, playDuringLiterals0, zeroFns));<a name="line.510"></a>
+<FONT color="green">511</FONT>        //@SuppressWarnings("unchecked")<a name="line.511"></a>
+<FONT color="green">512</FONT>        //Property position = new Property(<a name="line.512"></a>
+<FONT color="green">513</FONT>        //    0, union(mozOpacityLiterals0, positionLiterals0), zeroFns);<a name="line.513"></a>
+<FONT color="green">514</FONT>        //builder.put("position", position);<a name="line.514"></a>
+<FONT color="green">515</FONT>        builder.put("quotes", new Property(8, cueLiterals0, zeroFns));<a name="line.515"></a>
+<FONT color="green">516</FONT>        builder.put("speak", new Property(0, speakLiterals0, zeroFns));<a name="line.516"></a>
+<FONT color="green">517</FONT>        builder.put("speak-header", new Property(<a name="line.517"></a>
+<FONT color="green">518</FONT>            0, speakHeaderLiterals0, zeroFns));<a name="line.518"></a>
+<FONT color="green">519</FONT>        @SuppressWarnings("unchecked")<a name="line.519"></a>
+<FONT color="green">520</FONT>        Property speakNumeral = new Property(<a name="line.520"></a>
+<FONT color="green">521</FONT>            0, union(mozOpacityLiterals0, speakNumeralLiterals0), zeroFns);<a name="line.521"></a>
+<FONT color="green">522</FONT>        builder.put("speak-numeral", speakNumeral);<a name="line.522"></a>
+<FONT color="green">523</FONT>        builder.put("speak-punctuation", new Property(<a name="line.523"></a>
+<FONT color="green">524</FONT>            0, speakPunctuationLiterals0, zeroFns));<a name="line.524"></a>
+<FONT color="green">525</FONT>        @SuppressWarnings("unchecked")<a name="line.525"></a>
+<FONT color="green">526</FONT>        Property speechRate = new Property(<a name="line.526"></a>
+<FONT color="green">527</FONT>            5, union(mozOutlineWidthLiterals0, speechRateLiterals0), zeroFns);<a name="line.527"></a>
+<FONT color="green">528</FONT>        builder.put("speech-rate", speechRate);<a name="line.528"></a>
+<FONT color="green">529</FONT>        builder.put("table-layout", new Property(<a name="line.529"></a>
+<FONT color="green">530</FONT>            0, tableLayoutLiterals0, zeroFns));<a name="line.530"></a>
+<FONT color="green">531</FONT>        @SuppressWarnings("unchecked")<a name="line.531"></a>
+<FONT color="green">532</FONT>        Property textAlign = new Property(<a name="line.532"></a>
+<FONT color="green">533</FONT>            0, union(azimuthLiterals1, textAlignLiterals0), zeroFns);<a name="line.533"></a>
+<FONT color="green">534</FONT>        builder.put("text-align", textAlign);<a name="line.534"></a>
+<FONT color="green">535</FONT>        @SuppressWarnings("unchecked")<a name="line.535"></a>
+<FONT color="green">536</FONT>        Property textDecoration = new Property(<a name="line.536"></a>
+<FONT color="green">537</FONT>            0, union(cueLiterals0, textDecorationLiterals0), zeroFns);<a name="line.537"></a>
+<FONT color="green">538</FONT>        builder.put("text-decoration", textDecoration);<a name="line.538"></a>
+<FONT color="green">539</FONT>        @SuppressWarnings("unchecked")<a name="line.539"></a>
+<FONT color="green">540</FONT>        Property textTransform = new Property(<a name="line.540"></a>
+<FONT color="green">541</FONT>            0, union(cueLiterals0, textTransformLiterals0), zeroFns);<a name="line.541"></a>
+<FONT color="green">542</FONT>        builder.put("text-transform", textTransform);<a name="line.542"></a>
+<FONT color="green">543</FONT>        @SuppressWarnings("unchecked")<a name="line.543"></a>
+<FONT color="green">544</FONT>        Property textWrap = new Property(<a name="line.544"></a>
+<FONT color="green">545</FONT>            0, union(contentLiterals0, textWrapLiterals0), zeroFns);<a name="line.545"></a>
+<FONT color="green">546</FONT>        builder.put("text-wrap", textWrap);<a name="line.546"></a>
+<FONT color="green">547</FONT>        @SuppressWarnings("unchecked")<a name="line.547"></a>
+<FONT color="green">548</FONT>        Property unicodeBidi = new Property(<a name="line.548"></a>
+<FONT color="green">549</FONT>            0, union(fontStyleLiterals0, unicodeBidiLiterals0), zeroFns);<a name="line.549"></a>
+<FONT color="green">550</FONT>        builder.put("unicode-bidi", unicodeBidi);<a name="line.550"></a>
+<FONT color="green">551</FONT>        @SuppressWarnings("unchecked")<a name="line.551"></a>
+<FONT color="green">552</FONT>        Property verticalAlign = new Property(<a name="line.552"></a>
+<FONT color="green">553</FONT>            5,<a name="line.553"></a>
+<FONT color="green">554</FONT>            union(backgroundLiterals2, mozOpacityLiterals0, verticalAlignLiterals0),<a name="line.554"></a>
+<FONT color="green">555</FONT>            zeroFns);<a name="line.555"></a>
+<FONT color="green">556</FONT>        builder.put("vertical-align", verticalAlign);<a name="line.556"></a>
+<FONT color="green">557</FONT>        //builder.put("visibility", new Property(0, visibilityLiterals0, zeroFns));<a name="line.557"></a>
+<FONT color="green">558</FONT>        @SuppressWarnings("unchecked")<a name="line.558"></a>
+<FONT color="green">559</FONT>        Property voiceFamily = new Property(<a name="line.559"></a>
+<FONT color="green">560</FONT>            8, union(fontFamilyLiterals0, voiceFamilyLiterals0), zeroFns);<a name="line.560"></a>
+<FONT color="green">561</FONT>        builder.put("voice-family", voiceFamily);<a name="line.561"></a>
+<FONT color="green">562</FONT>        @SuppressWarnings("unchecked")<a name="line.562"></a>
+<FONT color="green">563</FONT>        Property volume = new Property(<a name="line.563"></a>
+<FONT color="green">564</FONT>            1, union(mozOutlineWidthLiterals0, volumeLiterals0), zeroFns);<a name="line.564"></a>
+<FONT color="green">565</FONT>        builder.put("volume", volume);<a name="line.565"></a>
+<FONT color="green">566</FONT>        @SuppressWarnings("unchecked")<a name="line.566"></a>
+<FONT color="green">567</FONT>        Property whiteSpace = new Property(<a name="line.567"></a>
+<FONT color="green">568</FONT>            0, union(fontStyleLiterals0, whiteSpaceLiterals0), zeroFns);<a name="line.568"></a>
+<FONT color="green">569</FONT>        builder.put("white-space", whiteSpace);<a name="line.569"></a>
+<FONT color="green">570</FONT>        builder.put("word-wrap", new Property(0, wordWrapLiterals0, zeroFns));<a name="line.570"></a>
+<FONT color="green">571</FONT>        //builder.put("zoom", new Property(1, fontStretchLiterals1, zeroFns));<a name="line.571"></a>
+<FONT color="green">572</FONT>        Property rgb$Fun = new Property(1, rgb$FunLiterals0, zeroFns);<a name="line.572"></a>
+<FONT color="green">573</FONT>        builder.put("rgb()", rgb$Fun);<a name="line.573"></a>
+<FONT color="green">574</FONT>        @SuppressWarnings("unchecked")<a name="line.574"></a>
+<FONT color="green">575</FONT>        Property image$Fun = new Property(<a name="line.575"></a>
+<FONT color="green">576</FONT>            18, union(mozOutlineLiterals0, rgb$FunLiterals0), mozOutlineFunctions);<a name="line.576"></a>
+<FONT color="green">577</FONT>        builder.put("image()", image$Fun);<a name="line.577"></a>
+<FONT color="green">578</FONT>        @SuppressWarnings("unchecked")<a name="line.578"></a>
+<FONT color="green">579</FONT>        Property linearGradient$Fun = new Property(<a name="line.579"></a>
+<FONT color="green">580</FONT>            7,<a name="line.580"></a>
+<FONT color="green">581</FONT>            union(azimuthLiterals1, backgroundLiterals2,<a name="line.581"></a>
+<FONT color="green">582</FONT>                  linearGradient$FunLiterals0, mozOutlineLiterals0),<a name="line.582"></a>
+<FONT color="green">583</FONT>            mozOutlineFunctions);<a name="line.583"></a>
+<FONT color="green">584</FONT>        builder.put("linear-gradient()", linearGradient$Fun);<a name="line.584"></a>
+<FONT color="green">585</FONT>        @SuppressWarnings("unchecked")<a name="line.585"></a>
+<FONT color="green">586</FONT>        Property radialGradient$Fun = new Property(<a name="line.586"></a>
+<FONT color="green">587</FONT>            7,<a name="line.587"></a>
+<FONT color="green">588</FONT>            union(azimuthLiterals1, backgroundLiterals2, mozOutlineLiterals0,<a name="line.588"></a>
+<FONT color="green">589</FONT>                  radialGradient$FunLiterals0, radialGradient$FunLiterals1),<a name="line.589"></a>
+<FONT color="green">590</FONT>            mozOutlineFunctions);<a name="line.590"></a>
+<FONT color="green">591</FONT>        builder.put("radial-gradient()", radialGradient$Fun);<a name="line.591"></a>
+<FONT color="green">592</FONT>        builder.put("rect()", new Property(5, rect$FunLiterals0, zeroFns));<a name="line.592"></a>
+<FONT color="green">593</FONT>        builder.put("alpha()", new Property(1, alpha$FunLiterals0, zeroFns));<a name="line.593"></a>
+<FONT color="green">594</FONT>        builder.put("-moz-border-radius-bottomright", mozBorderRadiusBottomleft);<a name="line.594"></a>
+<FONT color="green">595</FONT>        builder.put("-moz-border-radius-topleft", mozBorderRadiusBottomleft);<a name="line.595"></a>
+<FONT color="green">596</FONT>        builder.put("-moz-border-radius-topright", mozBorderRadiusBottomleft);<a name="line.596"></a>
+<FONT color="green">597</FONT>        builder.put("-moz-box-shadow", boxShadow);<a name="line.597"></a>
+<FONT color="green">598</FONT>        builder.put("-webkit-border-bottom-left-radius", mozBorderRadiusBottomleft);<a name="line.598"></a>
+<FONT color="green">599</FONT>        builder.put("-webkit-border-bottom-right-radius",<a name="line.599"></a>
+<FONT color="green">600</FONT>                    mozBorderRadiusBottomleft);<a name="line.600"></a>
+<FONT color="green">601</FONT>        builder.put("-webkit-border-radius", mozBorderRadius);<a name="line.601"></a>
+<FONT color="green">602</FONT>        builder.put("-webkit-border-radius-bottom-left", mozBorderRadiusBottomleft);<a name="line.602"></a>
+<FONT color="green">603</FONT>        builder.put("-webkit-border-radius-bottom-right",<a name="line.603"></a>
+<FONT color="green">604</FONT>                    mozBorderRadiusBottomleft);<a name="line.604"></a>
+<FONT color="green">605</FONT>        builder.put("-webkit-border-radius-top-left", mozBorderRadiusBottomleft);<a name="line.605"></a>
+<FONT color="green">606</FONT>        builder.put("-webkit-border-radius-top-right", mozBorderRadiusBottomleft);<a name="line.606"></a>
+<FONT color="green">607</FONT>        builder.put("-webkit-border-top-left-radius", mozBorderRadiusBottomleft);<a name="line.607"></a>
+<FONT color="green">608</FONT>        builder.put("-webkit-border-top-right-radius", mozBorderRadiusBottomleft);<a name="line.608"></a>
+<FONT color="green">609</FONT>        builder.put("-webkit-box-shadow", boxShadow);<a name="line.609"></a>
+<FONT color="green">610</FONT>        builder.put("border-bottom", border);<a name="line.610"></a>
+<FONT color="green">611</FONT>        builder.put("border-bottom-left-radius", mozBorderRadiusBottomleft);<a name="line.611"></a>
+<FONT color="green">612</FONT>        builder.put("border-bottom-right-radius", mozBorderRadiusBottomleft);<a name="line.612"></a>
+<FONT color="green">613</FONT>        builder.put("border-bottom-style", mozOutlineStyle);<a name="line.613"></a>
+<FONT color="green">614</FONT>        builder.put("border-bottom-width", mozOutlineWidth);<a name="line.614"></a>
+<FONT color="green">615</FONT>        builder.put("border-color", borderBottomColor);<a name="line.615"></a>
+<FONT color="green">616</FONT>        builder.put("border-left", border);<a name="line.616"></a>
+<FONT color="green">617</FONT>        builder.put("border-left-color", borderBottomColor);<a name="line.617"></a>
+<FONT color="green">618</FONT>        builder.put("border-left-style", mozOutlineStyle);<a name="line.618"></a>
+<FONT color="green">619</FONT>        builder.put("border-left-width", mozOutlineWidth);<a name="line.619"></a>
+<FONT color="green">620</FONT>        builder.put("border-radius", mozBorderRadius);<a name="line.620"></a>
+<FONT color="green">621</FONT>        builder.put("border-right", border);<a name="line.621"></a>
+<FONT color="green">622</FONT>        builder.put("border-right-color", borderBottomColor);<a name="line.622"></a>
+<FONT color="green">623</FONT>        builder.put("border-right-style", mozOutlineStyle);<a name="line.623"></a>
+<FONT color="green">624</FONT>        builder.put("border-right-width", mozOutlineWidth);<a name="line.624"></a>
+<FONT color="green">625</FONT>        builder.put("border-style", mozOutlineStyle);<a name="line.625"></a>
+<FONT color="green">626</FONT>        builder.put("border-top", border);<a name="line.626"></a>
+<FONT color="green">627</FONT>        builder.put("border-top-color", borderBottomColor);<a name="line.627"></a>
+<FONT color="green">628</FONT>        builder.put("border-top-left-radius", mozBorderRadiusBottomleft);<a name="line.628"></a>
+<FONT color="green">629</FONT>        builder.put("border-top-right-radius", mozBorderRadiusBottomleft);<a name="line.629"></a>
+<FONT color="green">630</FONT>        builder.put("border-top-style", mozOutlineStyle);<a name="line.630"></a>
+<FONT color="green">631</FONT>        builder.put("border-top-width", mozOutlineWidth);<a name="line.631"></a>
+<FONT color="green">632</FONT>        builder.put("border-width", mozOutlineWidth);<a name="line.632"></a>
+<FONT color="green">633</FONT>        builder.put("cue-after", cue);<a name="line.633"></a>
+<FONT color="green">634</FONT>        builder.put("cue-before", cue);<a name="line.634"></a>
+<FONT color="green">635</FONT>        //builder.put("left", height);<a name="line.635"></a>
+<FONT color="green">636</FONT>        builder.put("margin-bottom", margin);<a name="line.636"></a>
+<FONT color="green">637</FONT>        builder.put("margin-left", margin);<a name="line.637"></a>
+<FONT color="green">638</FONT>        builder.put("margin-right", margin);<a name="line.638"></a>
+<FONT color="green">639</FONT>        builder.put("margin-top", margin);<a name="line.639"></a>
+<FONT color="green">640</FONT>        builder.put("max-width", maxHeight);<a name="line.640"></a>
+<FONT color="green">641</FONT>        builder.put("min-height", margin);<a name="line.641"></a>
+<FONT color="green">642</FONT>        builder.put("min-width", margin);<a name="line.642"></a>
+<FONT color="green">643</FONT>        builder.put("outline", mozOutline);<a name="line.643"></a>
+<FONT color="green">644</FONT>        builder.put("outline-color", mozOutlineColor);<a name="line.644"></a>
+<FONT color="green">645</FONT>        builder.put("outline-style", mozOutlineStyle);<a name="line.645"></a>
+<FONT color="green">646</FONT>        builder.put("outline-width", mozOutlineWidth);<a name="line.646"></a>
+<FONT color="green">647</FONT>        //builder.put("overflow-y", overflowX);<a name="line.647"></a>
+<FONT color="green">648</FONT>        builder.put("padding-bottom", padding);<a name="line.648"></a>
+<FONT color="green">649</FONT>        builder.put("padding-left", padding);<a name="line.649"></a>
+<FONT color="green">650</FONT>        builder.put("padding-right", padding);<a name="line.650"></a>
+<FONT color="green">651</FONT>        builder.put("padding-top", padding);<a name="line.651"></a>
+<FONT color="green">652</FONT>        //builder.put("page-break-before", pageBreakAfter);<a name="line.652"></a>
+<FONT color="green">653</FONT>        builder.put("pause", borderSpacing);<a name="line.653"></a>
+<FONT color="green">654</FONT>        builder.put("pause-after", borderSpacing);<a name="line.654"></a>
+<FONT color="green">655</FONT>        builder.put("pause-before", borderSpacing);<a name="line.655"></a>
+<FONT color="green">656</FONT>        builder.put("pitch-range", borderSpacing);<a name="line.656"></a>
+<FONT color="green">657</FONT>        builder.put("richness", borderSpacing);<a name="line.657"></a>
+<FONT color="green">658</FONT>        //builder.put("right", height);<a name="line.658"></a>
+<FONT color="green">659</FONT>        builder.put("stress", borderSpacing);<a name="line.659"></a>
+<FONT color="green">660</FONT>        builder.put("text-indent", borderSpacing);<a name="line.660"></a>
+<FONT color="green">661</FONT>        builder.put("text-overflow", oTextOverflow);<a name="line.661"></a>
+<FONT color="green">662</FONT>        builder.put("text-shadow", boxShadow);<a name="line.662"></a>
+<FONT color="green">663</FONT>        //builder.put("top", height);<a name="line.663"></a>
+<FONT color="green">664</FONT>        builder.put("width", margin);<a name="line.664"></a>
+<FONT color="green">665</FONT>        builder.put("word-spacing", letterSpacing);<a name="line.665"></a>
+<FONT color="green">666</FONT>        //builder.put("z-index", bottom);<a name="line.666"></a>
+<FONT color="green">667</FONT>        builder.put("rgba()", rgb$Fun);<a name="line.667"></a>
+<FONT color="green">668</FONT>        builder.put("repeating-linear-gradient()", linearGradient$Fun);<a name="line.668"></a>
+<FONT color="green">669</FONT>        builder.put("repeating-radial-gradient()", radialGradient$Fun);<a name="line.669"></a>
+<FONT color="green">670</FONT>        DEFAULT_PROPERTIES = builder.build();<a name="line.670"></a>
+<FONT color="green">671</FONT>      }<a name="line.671"></a>
+<FONT color="green">672</FONT>    <a name="line.672"></a>
+<FONT color="green">673</FONT>      private static &lt;T&gt; ImmutableSet&lt;T&gt; union(ImmutableSet&lt;T&gt;... subsets) {<a name="line.673"></a>
+<FONT color="green">674</FONT>        ImmutableSet.Builder&lt;T&gt; all = ImmutableSet.builder();<a name="line.674"></a>
+<FONT color="green">675</FONT>        for (ImmutableSet&lt;T&gt; subset : subsets) {<a name="line.675"></a>
+<FONT color="green">676</FONT>          all.addAll(subset);<a name="line.676"></a>
+<FONT color="green">677</FONT>        }<a name="line.677"></a>
+<FONT color="green">678</FONT>        return all.build();<a name="line.678"></a>
+<FONT color="green">679</FONT>      }<a name="line.679"></a>
+<FONT color="green">680</FONT>    <a name="line.680"></a>
+<FONT color="green">681</FONT>      static final CssSchema DEFAULT = new CssSchema(DEFAULT_PROPERTIES);<a name="line.681"></a>
+<FONT color="green">682</FONT>    <a name="line.682"></a>
+<FONT color="green">683</FONT>      /** Dumps key and literal list to stdout for easy examination. */<a name="line.683"></a>
+<FONT color="green">684</FONT>      public static void main(String... argv) {<a name="line.684"></a>
+<FONT color="green">685</FONT>        SortedSet&lt;String&gt; keys = Sets.newTreeSet();<a name="line.685"></a>
+<FONT color="green">686</FONT>        SortedSet&lt;String&gt; literals = Sets.newTreeSet();<a name="line.686"></a>
+<FONT color="green">687</FONT>        for (ImmutableMap.Entry&lt;String, Property&gt; e<a name="line.687"></a>
+<FONT color="green">688</FONT>             : DEFAULT_PROPERTIES.entrySet()) {<a name="line.688"></a>
+<FONT color="green">689</FONT>          keys.add(e.getKey());<a name="line.689"></a>
+<FONT color="green">690</FONT>          literals.addAll(e.getValue().literals);<a name="line.690"></a>
+<FONT color="green">691</FONT>        }<a name="line.691"></a>
+<FONT color="green">692</FONT>        for (String key : keys) {<a name="line.692"></a>
+<FONT color="green">693</FONT>          System.out.println(key);<a name="line.693"></a>
+<FONT color="green">694</FONT>        }<a name="line.694"></a>
+<FONT color="green">695</FONT>        System.out.println();<a name="line.695"></a>
+<FONT color="green">696</FONT>        for (String literal : literals) {<a name="line.696"></a>
+<FONT color="green">697</FONT>          System.out.println(literal);<a name="line.697"></a>
+<FONT color="green">698</FONT>        }<a name="line.698"></a>
+<FONT color="green">699</FONT>      }<a name="line.699"></a>
+<FONT color="green">700</FONT>    }<a name="line.700"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</PRE>
+</BODY>
+</HTML>
