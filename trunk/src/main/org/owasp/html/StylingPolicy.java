@@ -36,12 +36,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 
 /**
- * An HTML sanitizer policy that tries to preserve simple CSS by whitelisting
+ * An HTML sanitizer policy that tries to preserve simple CSS by white-listing
  * property values and splitting combo properties into multiple more specific
  * ones to reduce the attack-surface.
  */
 @TCB
-class StylingPolicy implements AttributePolicy {
+final class StylingPolicy implements AttributePolicy {
+
+  private final CssSchema cssSchema;
+
+  StylingPolicy(CssSchema cssSchema) {
+    this.cssSchema = cssSchema;
+  }
 
   public @Nullable String apply(
       String elementName, String attributeName, String value) {
@@ -56,11 +62,11 @@ class StylingPolicy implements AttributePolicy {
    * @return A sanitized version of the input.
    */
   @VisibleForTesting
-  static String sanitizeCssProperties(String style) {
+  String sanitizeCssProperties(String style) {
     final StringBuilder sanitizedCss = new StringBuilder();
     CssGrammar.parsePropertyGroup(style, new CssGrammar.PropertyHandler() {
-      CssSchema schema = CssSchema.DISALLOWED;
-      List<CssSchema> schemas = null;
+      CssSchema.Property cssProperty = CssSchema.DISALLOWED;
+      List<CssSchema.Property> cssProperties = null;
       int propertyStart = 0;
       boolean hasTokens;
       boolean inQuotedIdents;
@@ -81,15 +87,14 @@ class StylingPolicy implements AttributePolicy {
 
       public void url(String token) {
         closeQuotedIdents();
-        // TODO: sanitize the URL.
         //if ((schema.bits & CssSchema.BIT_URL) != 0) {
-
+        // TODO: sanitize the URL.
         //}
       }
 
       public void startProperty(String propertyName) {
-        if (schemas != null) { schemas.clear(); }
-        schema = CssSchema.forKey(propertyName);
+        if (cssProperties != null) { cssProperties.clear(); }
+        cssProperty = cssSchema.forKey(propertyName);
         hasTokens = false;
         propertyStart = sanitizedCss.length();
         if (sanitizedCss.length() != 0) {
@@ -100,12 +105,12 @@ class StylingPolicy implements AttributePolicy {
 
       public void startFunction(String token) {
         closeQuotedIdents();
-        if (schemas == null) { schemas = Lists.newArrayList(); }
-        schemas.add(schema);
+        if (cssProperties == null) { cssProperties = Lists.newArrayList(); }
+        cssProperties.add(cssProperty);
         token = Strings.toLowerCase(token);
-        String key = schema.fnKeys.get(token);
-        schema = key != null ? CssSchema.forKey(key) : CssSchema.DISALLOWED;
-        if (schema != CssSchema.DISALLOWED) {
+        String key = cssProperty.fnKeys.get(token);
+        cssProperty = key != null ? cssSchema.forKey(key) : CssSchema.DISALLOWED;
+        if (cssProperty != CssSchema.DISALLOWED) {
           emitToken(token);
         }
       }
@@ -113,7 +118,7 @@ class StylingPolicy implements AttributePolicy {
       public void quotedString(String token) {
         closeQuotedIdents();
         int meaning =
-            schema.bits & (CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_URL);
+            cssProperty.bits & (CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_URL);
         if ((meaning & (meaning - 1)) == 0) {  // meaning is unambiguous
           if (meaning == CssSchema.BIT_UNRESERVED_WORD
               && token.length() > 2
@@ -128,16 +133,16 @@ class StylingPolicy implements AttributePolicy {
       public void quantity(String token) {
         int test = token.startsWith("-")
             ? CssSchema.BIT_NEGATIVE : CssSchema.BIT_QUANTITY;
-        if ((schema.bits & test) != 0
+        if ((cssProperty.bits & test) != 0
             // font-weight uses 100, 200, 300, etc.
-            || schema.literals.contains(token)) {
+            || cssProperty.literals.contains(token)) {
           emitToken(token);
         }
       }
 
       public void punctuation(String token) {
         closeQuotedIdents();
-        if (schema.literals.contains(token)) {
+        if (cssProperty.literals.contains(token)) {
           emitToken(token);
         }
       }
@@ -146,9 +151,9 @@ class StylingPolicy implements AttributePolicy {
           CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_STRING;
       public void identifier(String token) {
         token = Strings.toLowerCase(token);
-        if (schema.literals.contains(token)) {
+        if (cssProperty.literals.contains(token)) {
           emitToken(token);
-        } else if ((schema.bits & IDENT_TO_STRING) == IDENT_TO_STRING) {
+        } else if ((cssProperty.bits & IDENT_TO_STRING) == IDENT_TO_STRING) {
           if (!inQuotedIdents) {
             inQuotedIdents = true;
             if (hasTokens) { sanitizedCss.append(' '); }
@@ -163,7 +168,7 @@ class StylingPolicy implements AttributePolicy {
 
       public void hash(String token) {
         closeQuotedIdents();
-        if ((schema.bits & CssSchema.BIT_HASH_VALUE) != 0) {
+        if ((cssProperty.bits & CssSchema.BIT_HASH_VALUE) != 0) {
           emitToken(Strings.toLowerCase(token));
         }
       }
@@ -177,8 +182,8 @@ class StylingPolicy implements AttributePolicy {
       }
 
       public void endFunction(String token) {
-        if (schema != CssSchema.DISALLOWED) { emitToken(")"); }
-        schema = schemas.remove(schemas.size() - 1);
+        if (cssProperty != CssSchema.DISALLOWED) { emitToken(")"); }
+        cssProperty = cssProperties.remove(cssProperties.size() - 1);
       }
     });
     return sanitizedCss.length() == 0 ? null : sanitizedCss.toString();

@@ -415,13 +415,23 @@ public class HtmlPolicyBuilder {
   }
 
   /**
-   * Convert <code>style="&lt;CSS&gt;"</code> to simple non-JS containing
-   * <code>&lt;font&gt;</code> tags to allow color, font-size, typeface, and
-   * other styling.
+   * Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
+   * color, font-size, type-face, and other styling using the default schema; but
+   * which does not allow content to escape its clipping context.
    */
   public HtmlPolicyBuilder allowStyling() {
+    allowStyling(CssSchema.DEFAULT);
+    return this;
+  }
+
+  /**
+   * Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
+   * color, font-size, type-face, and other styling using the given schema.
+   */
+  public HtmlPolicyBuilder allowStyling(CssSchema whitelist) {
     invalidateCompiledState();
-    allowAttributesGlobally(new StylingPolicy(), ImmutableList.of("style"));
+    allowAttributesGlobally(
+        new StylingPolicy(whitelist), ImmutableList.of("style"));
     return this;
   }
 
