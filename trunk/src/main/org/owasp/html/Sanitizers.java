@@ -80,7 +80,8 @@ public final class Sanitizers {
       .toFactory();
 
   private static final AttributePolicy INTEGER = new AttributePolicy() {
-    public String apply(String elementName, String attributeName, String value) {
+    public String apply(
+        String elementName, String attributeName, String value) {
       int n = value.length();
       if (n == 0) { return null; }
       for (int i = 0; i < n; ++i) {

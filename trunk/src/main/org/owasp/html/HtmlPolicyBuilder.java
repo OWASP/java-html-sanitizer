@@ -416,8 +416,8 @@ public class HtmlPolicyBuilder {
 
   /**
    * Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
-   * color, font-size, type-face, and other styling using the default schema; but
-   * which does not allow content to escape its clipping context.
+   * color, font-size, type-face, and other styling using the default schema;
+   * but which does not allow content to escape its clipping context.
    */
   public HtmlPolicyBuilder allowStyling() {
     allowStyling(CssSchema.DEFAULT);
