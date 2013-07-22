@@ -211,6 +211,9 @@ public class StylingPolicyTest extends TestCase {
 
   @Test
   public static final void testUrls() throws Exception {
+    // Test that a long URL does not blow out the stack or consume quadratic
+    // amounts of processor as when the CSS lexer was implemented as a bunch of
+    // regular expressions.
     String longUrl = ""
         + "background-image:url(data:image/gif;base64,"
         + "R0lGODlhMgCaAPf/AO5ZOuRpTfXSyvro5Pz08uCEb+ShkeummPOMdPOqmdZdQvbEud1"
@@ -289,6 +292,7 @@ public class StylingPolicyTest extends TestCase {
 
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
-    assertEquals(expectedCss, StylingPolicy.sanitizeCssProperties(css));
+    StylingPolicy stylingPolicy = new StylingPolicy(CssSchema.DEFAULT);
+    assertEquals(expectedCss, stylingPolicy.sanitizeCssProperties(css));
   }
 }
