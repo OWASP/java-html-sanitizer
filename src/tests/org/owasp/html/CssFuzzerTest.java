@@ -62,20 +62,20 @@ public class CssFuzzerTest extends FuzzyTestCase {
 
     public void run() {
       synchronized (this) {
-        while (true) {
-          try {
-            this.wait();
-          } catch (InterruptedException ex) {
-            break;
+        try {
+          while (true) {
+            this.wait(1000 /* ms = 1s */);
+            String input = this.input;
+            if (input == null) { break; }  // Done
+            long started = this.started;
+            long now = System.nanoTime();
+            if (now - started >= 1000000000L /* ns = 1s */) {
+              System.err.println(
+                  "`" + input + "` is slow. seed=" + CssFuzzerTest.this.seed);
+            }
           }
-          String input = this.input;
-          if (input == null) { break; }  // Done
-          long started = this.started;
-          long now = System.nanoTime();
-          if (now - started >= 1000000000L) {
-            System.err.println(
-                "`" + input + "` is slow. seed=" + CssFuzzerTest.this.seed);
-          }
+        } catch (InterruptedException ex) {
+          // Done
         }
       }
     }
