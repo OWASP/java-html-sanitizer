@@ -984,21 +984,24 @@
 <FONT color="green">981</FONT>      static boolean allowsPlainTextualContent(String canonElementName) {<a name="line.981"></a>
 <FONT color="green">982</FONT>        ElementContainmentInfo info =<a name="line.982"></a>
 <FONT color="green">983</FONT>           ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);<a name="line.983"></a>
-<FONT color="green">984</FONT>        if (info == null || (info.contents &amp; ElementContainmentRelationships.CHARACTER_DATA.types) != 0) {<a name="line.984"></a>
-<FONT color="green">985</FONT>          switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {<a name="line.985"></a>
-<FONT color="green">986</FONT>            case PCDATA:     return true;<a name="line.986"></a>
-<FONT color="green">987</FONT>            case RCDATA:     return true;<a name="line.987"></a>
-<FONT color="green">988</FONT>            case PLAIN_TEXT: return true;<a name="line.988"></a>
-<FONT color="green">989</FONT>            case VOID:       return false;<a name="line.989"></a>
-<FONT color="green">990</FONT>            case CDATA:<a name="line.990"></a>
-<FONT color="green">991</FONT>            case CDATA_SOMETIMES:<a name="line.991"></a>
-<FONT color="green">992</FONT>              return "xmp".equals(canonElementName)<a name="line.992"></a>
-<FONT color="green">993</FONT>                  || "listing".equals(canonElementName);<a name="line.993"></a>
-<FONT color="green">994</FONT>          }<a name="line.994"></a>
-<FONT color="green">995</FONT>        }<a name="line.995"></a>
-<FONT color="green">996</FONT>        return false;<a name="line.996"></a>
-<FONT color="green">997</FONT>      }<a name="line.997"></a>
-<FONT color="green">998</FONT>    }<a name="line.998"></a>
+<FONT color="green">984</FONT>        if (info == null<a name="line.984"></a>
+<FONT color="green">985</FONT>            || ((info.contents<a name="line.985"></a>
+<FONT color="green">986</FONT>                 &amp; ElementContainmentRelationships.CHARACTER_DATA.types)<a name="line.986"></a>
+<FONT color="green">987</FONT>                != 0)) {<a name="line.987"></a>
+<FONT color="green">988</FONT>          switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {<a name="line.988"></a>
+<FONT color="green">989</FONT>            case PCDATA:     return true;<a name="line.989"></a>
+<FONT color="green">990</FONT>            case RCDATA:     return true;<a name="line.990"></a>
+<FONT color="green">991</FONT>            case PLAIN_TEXT: return true;<a name="line.991"></a>
+<FONT color="green">992</FONT>            case VOID:       return false;<a name="line.992"></a>
+<FONT color="green">993</FONT>            case CDATA:<a name="line.993"></a>
+<FONT color="green">994</FONT>            case CDATA_SOMETIMES:<a name="line.994"></a>
+<FONT color="green">995</FONT>              return "xmp".equals(canonElementName)<a name="line.995"></a>
+<FONT color="green">996</FONT>                  || "listing".equals(canonElementName);<a name="line.996"></a>
+<FONT color="green">997</FONT>          }<a name="line.997"></a>
+<FONT color="green">998</FONT>        }<a name="line.998"></a>
+<FONT color="green">999</FONT>        return false;<a name="line.999"></a>
+<FONT color="green">1000</FONT>      }<a name="line.1000"></a>
+<FONT color="green">1001</FONT>    }<a name="line.1001"></a>
 
 
 
