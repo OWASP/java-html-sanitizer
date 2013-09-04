@@ -197,7 +197,8 @@ public class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testAppendNumericEntityAndEncodeOnto() throws Exception {
+  public static final void testAppendNumericEntityAndEncodeOnto()
+      throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
     for (int codepoint : new int[] {
