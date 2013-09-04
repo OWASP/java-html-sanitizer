@@ -95,7 +95,7 @@ java.lang.Object
 </PRE>
 <HR>
 <DL>
-<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.39"><B>CssSchema</B></A><DT>extends java.lang.Object</DL>
+<DT><PRE>public final class <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.44"><B>CssSchema</B></A><DT>extends java.lang.Object</DL>
 </PRE>
 
 <P>
@@ -116,11 +116,12 @@ Describes the kinds of tokens a CSS property's value can safely contain.
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>static&nbsp;org.owasp.html.CssSchema.Property</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#DISALLOWED">DISALLOWED</A></B></CODE>
+<CODE>static&nbsp;<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#DEFAULT">DEFAULT</A></B></CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A schema that includes only those properties on the default schema
+ white-list.</TD>
 </TR>
 </TABLE>
 &nbsp;
@@ -134,11 +135,11 @@ Describes the kinds of tokens a CSS property's value can safely contain.
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
-<CODE>&nbsp;org.owasp.html.CssSchema.Property</CODE></FONT></TD>
-<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#forKey(java.lang.String)">forKey</A></B>(java.lang.String&nbsp;propertyName)</CODE>
+<CODE>&nbsp;java.util.Set&lt;java.lang.String&gt;</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#allowedProperties()">allowedProperties</A></B>()</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The schema for the named property or function key.</TD>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The set of CSS properties allowed by this schema.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
 <TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
@@ -147,6 +148,22 @@ Describes the kinds of tokens a CSS property's value can safely contain.
 
 <BR>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dumps key and literal list to stdout for easy examination.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#union(org.owasp.html.CssSchema...)">union</A></B>(<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A>...&nbsp;cssSchemas)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A schema that represents the union of the input schemas.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/CssSchema.html#withProperties(java.lang.Iterable)">withProperties</A></B>(java.lang.Iterable&lt;? extends java.lang.String&gt;&nbsp;propertyNames)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A schema that includes all and only the named properties.</TD>
 </TR>
 </TABLE>
 &nbsp;<A NAME="methods_inherited_from_class_java.lang.Object"><!-- --></A>
@@ -171,11 +188,14 @@ Describes the kinds of tokens a CSS property's value can safely contain.
 </TR>
 </TABLE>
 
-<A NAME="DISALLOWED"><!-- --></A><H3>
-DISALLOWED</H3>
+<A NAME="DEFAULT"><!-- --></A><H3>
+DEFAULT</H3>
 <PRE>
-public static final org.owasp.html.CssSchema.Property <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.68"><B>DISALLOWED</B></A></PRE>
+public static final <A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A> <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.901"><B>DEFAULT</B></A></PRE>
 <DL>
+<DD>A schema that includes only those properties on the default schema
+ white-list.
+<P>
 <DL>
 </DL>
 </DL>
@@ -190,15 +210,47 @@ public static final org.owasp.html.CssSchema.Property <A HREF="../../../src-html
 </TR>
 </TABLE>
 
-<A NAME="forKey(java.lang.String)"><!-- --></A><H3>
-forKey</H3>
+<A NAME="withProperties(java.lang.Iterable)"><!-- --></A><H3>
+withProperties</H3>
 <PRE>
-public org.owasp.html.CssSchema.Property <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.78"><B>forKey</B></A>(java.lang.String&nbsp;propertyName)</PRE>
+public static <A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A> <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.91"><B>withProperties</B></A>(java.lang.Iterable&lt;? extends java.lang.String&gt;&nbsp;propertyNames)</PRE>
 <DL>
-<DD>The schema for the named property or function key.
+<DD>A schema that includes all and only the named properties.
 <P>
 <DD><DL>
+<DT><B>Parameters:</B><DD><CODE>propertyNames</CODE> - a series of lower-case CSS property names that appear
+    in the built-in CSS definitions.  It is an error to mention an unknown
+    property name.  This class's <code>main</code> method will dump a list of
+    known property names when run with zero arguments.</DL>
+</DD>
 </DL>
+<HR>
+
+<A NAME="union(org.owasp.html.CssSchema...)"><!-- --></A><H3>
+union</H3>
+<PRE>
+public static <A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A> <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.109"><B>union</B></A>(<A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A>...&nbsp;cssSchemas)</PRE>
+<DL>
+<DD>A schema that represents the union of the input schemas.
+<P>
+<DD><DL>
+
+<DT><B>Returns:</B><DD>A schema that allows all and only CSS properties that are allowed
+    by at least one of the inputs.</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="allowedProperties()"><!-- --></A><H3>
+allowedProperties</H3>
+<PRE>
+public java.util.Set&lt;java.lang.String&gt; <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.123"><B>allowedProperties</B></A>()</PRE>
+<DL>
+<DD>The set of CSS properties allowed by this schema.
+<P>
+<DD><DL>
+
+<DT><B>Returns:</B><DD>an immutable set.</DL>
 </DD>
 </DL>
 <HR>
@@ -206,7 +258,7 @@ public org.owasp.html.CssSchema.Property <A HREF="../../../src-html/org/owasp/ht
 <A NAME="main(java.lang.String...)"><!-- --></A><H3>
 main</H3>
 <PRE>
-public static void <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.684"><B>main</B></A>(java.lang.String...&nbsp;argv)</PRE>
+public static void <A HREF="../../../src-html/org/owasp/html/CssSchema.html#line.905"><B>main</B></A>(java.lang.String...&nbsp;argv)</PRE>
 <DL>
 <DD>Dumps key and literal list to stdout for easy examination.
 <P>
