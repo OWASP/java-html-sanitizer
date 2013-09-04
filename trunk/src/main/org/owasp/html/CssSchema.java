@@ -28,10 +28,15 @@
 
 package org.owasp.html;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
+
+import javax.annotation.Nullable;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /** Describes the kinds of tokens a CSS property's value can safely contain. */
@@ -65,23 +70,98 @@ public final class CssSchema {
   static final int BIT_UNRESERVED_WORD = 64;
   static final int BIT_UNICODE_RANGE = 128;
 
-  public static final Property DISALLOWED = new Property(
+  static final Property DISALLOWED = new Property(
       0, ImmutableSet.<String>of(), ImmutableMap.<String, String>of());
 
   private final ImmutableMap<String, Property> properties;
 
-  CssSchema(ImmutableMap<String, Property> properties) {
+  private CssSchema(ImmutableMap<String, Property> properties) {
+    if (properties == null) { throw new NullPointerException(); }
     this.properties = properties;
   }
 
+  /**
+   * A schema that includes all and only the named properties.
+   *
+   * @param propertyNames a series of lower-case CSS property names that appear
+   *    in the built-in CSS definitions.  It is an error to mention an unknown
+   *    property name.  This class's {@code main} method will dump a list of
+   *    known property names when run with zero arguments.
+   */
+  public static CssSchema withProperties(
+      Iterable<? extends String> propertyNames) {
+    ImmutableMap.Builder<String, Property> propertiesBuilder =
+        ImmutableMap.builder();
+    for (String propertyName : propertyNames) {
+      Property prop = DEFINITIONS.get(propertyName);
+      if (prop == null) { throw new IllegalArgumentException(propertyName); }
+      propertiesBuilder.put(propertyName, prop);
+    }
+    return new CssSchema(propertiesBuilder.build());
+  }
+
+  /**
+   * A schema that represents the union of the input schemas.
+   *
+   * @return A schema that allows all and only CSS properties that are allowed
+   *    by at least one of the inputs.
+   */
+  public static CssSchema union(CssSchema... cssSchemas) {
+    if (cssSchemas.length == 1) { return cssSchemas[0]; }
+    Map<String, Property> properties = Maps.newLinkedHashMap();
+    for (CssSchema cssSchema : cssSchemas) {
+      properties.putAll(cssSchema.properties);
+    }
+    return new CssSchema(ImmutableMap.copyOf(properties));
+  }
+
+  /**
+   * The set of CSS properties allowed by this schema.
+   *
+   * @return an immutable set.
+   */
+  public Set<String> allowedProperties() {
+    return properties.keySet();
+  }
+
   /** The schema for the named property or function key. */
-  public Property forKey(String propertyName) {
-    Property property = properties.get(Strings.toLowerCase(propertyName));
-    return property == null ? DISALLOWED : property;
+  Property forKey(String propertyName) {
+    propertyName = Strings.toLowerCase(propertyName);
+    Property property = properties.get(propertyName);
+    if (property != null) { return property; }
+    int n = propertyName.length();
+    if (n != 0 && propertyName.charAt(0) == '-') {
+      String barePropertyName = stripVendorPrefix(propertyName);
+      property = properties.get(barePropertyName);
+      if (property != null) { return property; }
+    }
+    return DISALLOWED;
+  }
+
+  /** {@code "-moz-foo"} &rarr; {@code "foo"}. */
+  private static @Nullable String stripVendorPrefix(String cssKeyword) {
+    int prefixLen = 0;
+    switch (cssKeyword.charAt(1)) {
+      case 'm':
+        if (cssKeyword.startsWith("-ms-")) {
+          prefixLen = 4;
+        } else if (cssKeyword.startsWith("-moz-")) {
+          prefixLen = 5;
+        }
+        break;
+      case 'o':
+        if (cssKeyword.startsWith("-o-")) { prefixLen = 3; }
+        break;
+      case 'w':
+        if (cssKeyword.startsWith("-webkit-")) { prefixLen = 8; }
+        break;
+      default: break;
+    }
+    return prefixLen == 0 ? null : cssKeyword.substring(prefixLen);
   }
 
   /** Maps lower-cased CSS property names to information about them. */
-  private static final ImmutableMap<String, Property> DEFAULT_PROPERTIES;
+  static final ImmutableMap<String, Property> DEFINITIONS;
   static {
     ImmutableMap<String, String> zeroFns = ImmutableMap.of();
     ImmutableMap.Builder<String, Property> builder
@@ -178,27 +258,27 @@ public final class CssSchema {
     ImmutableSet<String> bottomLiterals0 = ImmutableSet.of("auto", "inherit");
     ImmutableSet<String> boxShadowLiterals0 = ImmutableSet.of(
         ",", "inset", "none");
-    //ImmutableSet<String> clearLiterals0 = ImmutableSet.of(
-    //    "both", "inherit", "none");
-    //ImmutableMap<String, String> clipFunctions =
-    //  ImmutableMap.<String, String>of("rect(", "rect()");
+    ImmutableSet<String> clearLiterals0 = ImmutableSet.of(
+        "both", "inherit", "none");
+    ImmutableMap<String, String> clipFunctions =
+        ImmutableMap.<String, String>of("rect(", "rect()");
     ImmutableSet<String> contentLiterals0 = ImmutableSet.of("none", "normal");
     ImmutableSet<String> cueLiterals0 = ImmutableSet.of("inherit", "none");
-    //ImmutableSet<String> cursorLiterals0 = ImmutableSet.of(
-    //    "all-scroll", "col-resize", "crosshair", "default", "e-resize",
-    //    "hand", "help", "move", "n-resize", "ne-resize", "no-drop",
-    //    "not-allowed", "nw-resize", "pointer", "progress", "row-resize",
-    //    "s-resize", "se-resize", "sw-resize", "text", "vertical-text",
-    //    "w-resize", "wait");
-    //ImmutableSet<String> cursorLiterals1 = ImmutableSet.of(
-    //    ",", "auto", "inherit");
+    ImmutableSet<String> cursorLiterals0 = ImmutableSet.of(
+        "all-scroll", "col-resize", "crosshair", "default", "e-resize",
+        "hand", "help", "move", "n-resize", "ne-resize", "no-drop",
+        "not-allowed", "nw-resize", "pointer", "progress", "row-resize",
+        "s-resize", "se-resize", "sw-resize", "text", "vertical-text",
+        "w-resize", "wait");
+    ImmutableSet<String> cursorLiterals1 = ImmutableSet.of(
+        ",", "auto", "inherit");
     ImmutableSet<String> directionLiterals0 = ImmutableSet.of("ltr", "rtl");
-    //ImmutableSet<String> displayLiterals0 = ImmutableSet.of(
-    //    "-moz-inline-box", "-moz-inline-stack", "block", "inline",
-    //    "inline-block", "inline-table", "list-item", "run-in", "table",
-    //    "table-caption", "table-cell", "table-column", "table-column-group",
-    //    "table-footer-group", "table-header-group", "table-row",
-    //    "table-row-group");
+    ImmutableSet<String> displayLiterals0 = ImmutableSet.of(
+        "-moz-inline-box", "-moz-inline-stack", "block", "inline",
+        "inline-block", "inline-table", "list-item", "run-in", "table",
+        "table-caption", "table-cell", "table-column", "table-column-group",
+        "table-footer-group", "table-header-group", "table-row",
+        "table-row-group");
     ImmutableSet<String> elevationLiterals0 = ImmutableSet.of(
         "above", "below", "higher", "level", "lower");
     ImmutableSet<String> emptyCellsLiterals0 = ImmutableSet.of("hide", "show");
@@ -244,22 +324,22 @@ public final class CssSchema {
         "circle", "inherit", "none");
     ImmutableSet<String> maxHeightLiterals0 = ImmutableSet.of(
         "auto", "inherit", "none");
-    //ImmutableSet<String> overflowLiterals0 = ImmutableSet.of(
-    //    "auto", "hidden", "inherit", "scroll", "visible");
-    //ImmutableSet<String> overflowXLiterals0 = ImmutableSet.of(
-    //    "no-content", "no-display");
-    //ImmutableSet<String> overflowXLiterals1 = ImmutableSet.of(
-    //    "auto", "hidden", "scroll", "visible");
-    //ImmutableSet<String> pageBreakAfterLiterals0 = ImmutableSet.of(
-    //    "always", "auto", "avoid", "inherit");
-    //ImmutableSet<String> pageBreakInsideLiterals0 = ImmutableSet.of(
-    //    "auto", "avoid", "inherit");
+    ImmutableSet<String> overflowLiterals0 = ImmutableSet.of(
+        "auto", "hidden", "inherit", "scroll", "visible");
+    ImmutableSet<String> overflowXLiterals0 = ImmutableSet.of(
+        "no-content", "no-display");
+    ImmutableSet<String> overflowXLiterals1 = ImmutableSet.of(
+        "auto", "hidden", "scroll", "visible");
+    ImmutableSet<String> pageBreakAfterLiterals0 = ImmutableSet.of(
+        "always", "auto", "avoid", "inherit");
+    ImmutableSet<String> pageBreakInsideLiterals0 = ImmutableSet.of(
+        "auto", "avoid", "inherit");
     ImmutableSet<String> pitchLiterals0 = ImmutableSet.of(
         "high", "low", "x-high", "x-low");
-    //ImmutableSet<String> playDuringLiterals0 = ImmutableSet.of(
-    //    "auto", "inherit", "mix", "none", "repeat");
-    //ImmutableSet<String> positionLiterals0 = ImmutableSet.of(
-    //    "absolute", "relative", "static");
+    ImmutableSet<String> playDuringLiterals0 = ImmutableSet.of(
+        "auto", "inherit", "mix", "none", "repeat");
+    ImmutableSet<String> positionLiterals0 = ImmutableSet.of(
+        "absolute", "relative", "static");
     ImmutableSet<String> speakLiterals0 = ImmutableSet.of(
         "inherit", "none", "normal", "spell-out");
     ImmutableSet<String> speakHeaderLiterals0 = ImmutableSet.of(
@@ -284,8 +364,8 @@ public final class CssSchema {
         "bidi-override", "embed");
     ImmutableSet<String> verticalAlignLiterals0 = ImmutableSet.of(
         "baseline", "middle", "sub", "super", "text-bottom", "text-top");
-    //ImmutableSet<String> visibilityLiterals0 = ImmutableSet.of(
-    //    "collapse", "hidden", "inherit", "visible");
+    ImmutableSet<String> visibilityLiterals0 = ImmutableSet.of(
+        "collapse", "hidden", "inherit", "visible");
     ImmutableSet<String> voiceFamilyLiterals0 = ImmutableSet.of(
         "child", "female", "male");
     ImmutableSet<String> volumeLiterals0 = ImmutableSet.of(
@@ -304,15 +384,15 @@ public final class CssSchema {
     ImmutableSet<String> radialGradient$FunLiterals1 = ImmutableSet.of(
         ",", "center", "circle");
     ImmutableSet<String> rect$FunLiterals0 = ImmutableSet.of(",", "auto");
-    ImmutableSet<String> alpha$FunLiterals0 = ImmutableSet.of("=", "opacity");
+    //ImmutableSet<String> alpha$FunLiterals0 = ImmutableSet.of("=", "opacity");
     Property mozBorderRadius =
        new Property(5, mozBorderRadiusLiterals0, zeroFns);
     builder.put("-moz-border-radius", mozBorderRadius);
     Property mozBorderRadiusBottomleft =
        new Property(5, ImmutableSet.<String>of(), zeroFns);
     builder.put("-moz-border-radius-bottomleft", mozBorderRadiusBottomleft);
-    //CssSchema mozOpacity = new Property(1, mozOpacityLiterals0, zeroFns);
-    //builder.put("-moz-opacity", mozOpacity);
+    Property mozOpacity = new Property(1, mozOpacityLiterals0, zeroFns);
+    builder.put("-moz-opacity", mozOpacity);
     @SuppressWarnings("unchecked")
     Property mozOutline = new Property(
         7,
@@ -384,8 +464,8 @@ public final class CssSchema {
                 new Property(0, borderCollapseLiterals0, zeroFns));
     Property borderSpacing = new Property(5, mozOpacityLiterals0, zeroFns);
     builder.put("border-spacing", borderSpacing);
-    //Property bottom = new Property(5, bottomLiterals0, zeroFns);
-    //builder.put("bottom", bottom);
+    Property bottom = new Property(5, bottomLiterals0, zeroFns);
+    builder.put("bottom", bottom);
     @SuppressWarnings("unchecked")
     Property boxShadow = new Property(
         7, union(boxShadowLiterals0, mozOutlineLiterals0), mozOutlineFunctions);
@@ -394,31 +474,31 @@ public final class CssSchema {
     Property captionSide = new Property(
         0, union(backgroundLiterals2, mozOpacityLiterals0), zeroFns);
     builder.put("caption-side", captionSide);
-    //@SuppressWarnings("unchecked")
-    //Property clear = new Property(
-    //    0, union(azimuthLiterals1, clearLiterals0), zeroFns);
-    //builder.put("clear", clear);
-    //builder.put("clip", new Property(0, bottomLiterals0, clipFunctions));
+    @SuppressWarnings("unchecked")
+    Property clear = new Property(
+        0, union(azimuthLiterals1, clearLiterals0), zeroFns);
+    builder.put("clear", clear);
+    builder.put("clip", new Property(0, bottomLiterals0, clipFunctions));
     @SuppressWarnings("unchecked")
     Property color = new Property(
         258, union(mozOpacityLiterals0, mozOutlineLiterals0),
         mozOutlineFunctions);
     builder.put("color", color);
-    //builder.put("content", new Property(8, contentLiterals0, zeroFns));
+    builder.put("content", new Property(8, contentLiterals0, zeroFns));
     Property cue = new Property(16, cueLiterals0, zeroFns);
     builder.put("cue", cue);
-    //@SuppressWarnings("unchecked")
-    //Property cursor = new Property(
-    //    272, union(cursorLiterals0, cursorLiterals1), zeroFns);
-    //builder.put("cursor", cursor);
+    @SuppressWarnings("unchecked")
+    Property cursor = new Property(
+        272, union(cursorLiterals0, cursorLiterals1), zeroFns);
+    builder.put("cursor", cursor);
     @SuppressWarnings("unchecked")
     Property direction = new Property(
         0, union(directionLiterals0, mozOpacityLiterals0), zeroFns);
     builder.put("direction", direction);
-    //@SuppressWarnings("unchecked")
-    //Property display = new Property(
-    //    0, union(cueLiterals0, displayLiterals0), zeroFns);
-    //builder.put("display", display);
+    @SuppressWarnings("unchecked")
+    Property display = new Property(
+        0, union(cueLiterals0, displayLiterals0), zeroFns);
+    builder.put("display", display);
     @SuppressWarnings("unchecked")
     Property elevation = new Property(
         5, union(elevationLiterals0, mozOpacityLiterals0), zeroFns);
@@ -429,10 +509,10 @@ public final class CssSchema {
     builder.put("empty-cells", emptyCells);
     //builder.put("filter",
     //            new Property(0, ImmutableSet.<String>of(), filterFunctions));
-    //@SuppressWarnings("unchecked")
-    //Property cssFloat = new Property(
-    //    0, union(azimuthLiterals1, cueLiterals0), zeroFns);
-    //builder.put("float", cssFloat);
+    @SuppressWarnings("unchecked")
+    Property cssFloat = new Property(
+        0, union(azimuthLiterals1, cueLiterals0), zeroFns);
+    builder.put("float", cssFloat);
     @SuppressWarnings("unchecked")
     Property font = new Property(
         73,
@@ -487,31 +567,31 @@ public final class CssSchema {
     builder.put("margin", margin);
     Property maxHeight = new Property(1, maxHeightLiterals0, zeroFns);
     builder.put("max-height", maxHeight);
-    //Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);
-    //builder.put("opacity", opacity);
-    //builder.put("overflow", new Property(0, overflowLiterals0, zeroFns));
-    //@SuppressWarnings("unchecked")
-    //Property overflowX = new Property(
-    //    0, union(overflowXLiterals0, overflowXLiterals1), zeroFns);
-    //builder.put("overflow-x", overflowX);
+    Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);
+    builder.put("opacity", opacity);
+    builder.put("overflow", new Property(0, overflowLiterals0, zeroFns));
+    @SuppressWarnings("unchecked")
+    Property overflowX = new Property(
+        0, union(overflowXLiterals0, overflowXLiterals1), zeroFns);
+    builder.put("overflow-x", overflowX);
     Property padding = new Property(1, mozOpacityLiterals0, zeroFns);
     builder.put("padding", padding);
-    //@SuppressWarnings("unchecked")
-    //Property pageBreakAfter = new Property(
-    //    0, union(azimuthLiterals1, pageBreakAfterLiterals0), zeroFns);
-    //builder.put("page-break-after", pageBreakAfter);
-    //builder.put("page-break-inside", new Property(
-    //    0, pageBreakInsideLiterals0, zeroFns));
+    @SuppressWarnings("unchecked")
+    Property pageBreakAfter = new Property(
+        0, union(azimuthLiterals1, pageBreakAfterLiterals0), zeroFns);
+    builder.put("page-break-after", pageBreakAfter);
+    builder.put("page-break-inside", new Property(
+        0, pageBreakInsideLiterals0, zeroFns));
     @SuppressWarnings("unchecked")
     Property pitch = new Property(
         5, union(mozOutlineWidthLiterals0, pitchLiterals0), zeroFns);
     builder.put("pitch", pitch);
-    //builder.put("play-during", new Property(
-    //    16, playDuringLiterals0, zeroFns));
-    //@SuppressWarnings("unchecked")
-    //Property position = new Property(
-    //    0, union(mozOpacityLiterals0, positionLiterals0), zeroFns);
-    //builder.put("position", position);
+    builder.put("play-during", new Property(
+        16, playDuringLiterals0, zeroFns));
+    @SuppressWarnings("unchecked")
+    Property position = new Property(
+        0, union(mozOpacityLiterals0, positionLiterals0), zeroFns);
+    builder.put("position", position);
     builder.put("quotes", new Property(8, cueLiterals0, zeroFns));
     builder.put("speak", new Property(0, speakLiterals0, zeroFns));
     builder.put("speak-header", new Property(
@@ -554,7 +634,7 @@ public final class CssSchema {
         union(backgroundLiterals2, mozOpacityLiterals0, verticalAlignLiterals0),
         zeroFns);
     builder.put("vertical-align", verticalAlign);
-    //builder.put("visibility", new Property(0, visibilityLiterals0, zeroFns));
+    builder.put("visibility", new Property(0, visibilityLiterals0, zeroFns));
     @SuppressWarnings("unchecked")
     Property voiceFamily = new Property(
         8, union(fontFamilyLiterals0, voiceFamilyLiterals0), zeroFns);
@@ -568,7 +648,7 @@ public final class CssSchema {
         0, union(fontStyleLiterals0, whiteSpaceLiterals0), zeroFns);
     builder.put("white-space", whiteSpace);
     builder.put("word-wrap", new Property(0, wordWrapLiterals0, zeroFns));
-    //builder.put("zoom", new Property(1, fontStretchLiterals1, zeroFns));
+    builder.put("zoom", new Property(1, fontStretchLiterals1, zeroFns));
     Property rgb$Fun = new Property(1, rgb$FunLiterals0, zeroFns);
     builder.put("rgb()", rgb$Fun);
     @SuppressWarnings("unchecked")
@@ -590,7 +670,7 @@ public final class CssSchema {
         mozOutlineFunctions);
     builder.put("radial-gradient()", radialGradient$Fun);
     builder.put("rect()", new Property(5, rect$FunLiterals0, zeroFns));
-    builder.put("alpha()", new Property(1, alpha$FunLiterals0, zeroFns));
+    //builder.put("alpha()", new Property(1, alpha$FunLiterals0, zeroFns));
     builder.put("-moz-border-radius-bottomright", mozBorderRadiusBottomleft);
     builder.put("-moz-border-radius-topleft", mozBorderRadiusBottomleft);
     builder.put("-moz-border-radius-topright", mozBorderRadiusBottomleft);
@@ -632,7 +712,7 @@ public final class CssSchema {
     builder.put("border-width", mozOutlineWidth);
     builder.put("cue-after", cue);
     builder.put("cue-before", cue);
-    //builder.put("left", height);
+    builder.put("left", height);
     builder.put("margin-bottom", margin);
     builder.put("margin-left", margin);
     builder.put("margin-right", margin);
@@ -644,30 +724,30 @@ public final class CssSchema {
     builder.put("outline-color", mozOutlineColor);
     builder.put("outline-style", mozOutlineStyle);
     builder.put("outline-width", mozOutlineWidth);
-    //builder.put("overflow-y", overflowX);
+    builder.put("overflow-y", overflowX);
     builder.put("padding-bottom", padding);
     builder.put("padding-left", padding);
     builder.put("padding-right", padding);
     builder.put("padding-top", padding);
-    //builder.put("page-break-before", pageBreakAfter);
+    builder.put("page-break-before", pageBreakAfter);
     builder.put("pause", borderSpacing);
     builder.put("pause-after", borderSpacing);
     builder.put("pause-before", borderSpacing);
     builder.put("pitch-range", borderSpacing);
     builder.put("richness", borderSpacing);
-    //builder.put("right", height);
+    builder.put("right", height);
     builder.put("stress", borderSpacing);
     builder.put("text-indent", borderSpacing);
     builder.put("text-overflow", oTextOverflow);
     builder.put("text-shadow", boxShadow);
-    //builder.put("top", height);
+    builder.put("top", height);
     builder.put("width", margin);
     builder.put("word-spacing", letterSpacing);
-    //builder.put("z-index", bottom);
+    builder.put("z-index", bottom);
     builder.put("rgba()", rgb$Fun);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
     builder.put("repeating-radial-gradient()", radialGradient$Fun);
-    DEFAULT_PROPERTIES = builder.build();
+    DEFINITIONS = builder.build();
   }
 
   private static <T> ImmutableSet<T> union(ImmutableSet<T>... subsets) {
@@ -678,19 +758,172 @@ public final class CssSchema {
     return all.build();
   }
 
-  static final CssSchema DEFAULT = new CssSchema(DEFAULT_PROPERTIES);
+  static final ImmutableSet<String> DEFAULT_WHITELIST = ImmutableSet.of(
+      "-moz-border-radius",
+      "-moz-border-radius-bottomleft",
+      "-moz-border-radius-bottomright",
+      "-moz-border-radius-topleft",
+      "-moz-border-radius-topright",
+      "-moz-box-shadow",
+      "-moz-outline",
+      "-moz-outline-color",
+      "-moz-outline-style",
+      "-moz-outline-width",
+      "-o-text-overflow",
+      "-webkit-border-bottom-left-radius",
+      "-webkit-border-bottom-right-radius",
+      "-webkit-border-radius",
+      "-webkit-border-radius-bottom-left",
+      "-webkit-border-radius-bottom-right",
+      "-webkit-border-radius-top-left",
+      "-webkit-border-radius-top-right",
+      "-webkit-border-top-left-radius",
+      "-webkit-border-top-right-radius",
+      "-webkit-box-shadow",
+      "azimuth",
+      "background",
+      "background-attachment",
+      "background-color",
+      "background-image",
+      "background-position",
+      "background-repeat",
+      "border",
+      "border-bottom",
+      "border-bottom-color",
+      "border-bottom-left-radius",
+      "border-bottom-right-radius",
+      "border-bottom-style",
+      "border-bottom-width",
+      "border-collapse",
+      "border-color",
+      "border-left",
+      "border-left-color",
+      "border-left-style",
+      "border-left-width",
+      "border-radius",
+      "border-right",
+      "border-right-color",
+      "border-right-style",
+      "border-right-width",
+      "border-spacing",
+      "border-style",
+      "border-top",
+      "border-top-color",
+      "border-top-left-radius",
+      "border-top-right-radius",
+      "border-top-style",
+      "border-top-width",
+      "border-width",
+      "box-shadow",
+      "caption-side",
+      "color",
+      "cue",
+      "cue-after",
+      "cue-before",
+      "direction",
+      "elevation",
+      "empty-cells",
+      "font",
+      "font-family",
+      "font-size",
+      "font-stretch",
+      "font-style",
+      "font-variant",
+      "font-weight",
+      "height",
+      "image()",
+      "letter-spacing",
+      "line-height",
+      "linear-gradient()",
+      "list-style",
+      "list-style-image",
+      "list-style-position",
+      "list-style-type",
+      "margin",
+      "margin-bottom",
+      "margin-left",
+      "margin-right",
+      "margin-top",
+      "max-height",
+      "max-width",
+      "min-height",
+      "min-width",
+      "outline",
+      "outline-color",
+      "outline-style",
+      "outline-width",
+      "padding",
+      "padding-bottom",
+      "padding-left",
+      "padding-right",
+      "padding-top",
+      "pause",
+      "pause-after",
+      "pause-before",
+      "pitch",
+      "pitch-range",
+      "quotes",
+      "radial-gradient()",
+      "rect()",
+      "repeating-linear-gradient()",
+      "repeating-radial-gradient()",
+      "rgb()",
+      "rgba()",
+      "richness",
+      "speak",
+      "speak-header",
+      "speak-numeral",
+      "speak-punctuation",
+      "speech-rate",
+      "stress",
+      "table-layout",
+      "text-align",
+      "text-decoration",
+      "text-indent",
+      "text-overflow",
+      "text-shadow",
+      "text-transform",
+      "text-wrap",
+      "unicode-bidi",
+      "vertical-align",
+      "voice-family",
+      "volume",
+      "white-space",
+      "width",
+      "word-spacing",
+      "word-wrap"
+  );
+
+  /**
+   * A schema that includes only those properties on the default schema
+   * white-list.
+   */
+  public static final CssSchema DEFAULT =
+      CssSchema.withProperties(DEFAULT_WHITELIST);
 
   /** Dumps key and literal list to stdout for easy examination. */
   public static void main(String... argv) {
     SortedSet<String> keys = Sets.newTreeSet();
     SortedSet<String> literals = Sets.newTreeSet();
-    for (ImmutableMap.Entry<String, Property> e
-         : DEFAULT_PROPERTIES.entrySet()) {
+
+    for (ImmutableMap.Entry<String, Property> e : DEFINITIONS.entrySet()) {
       keys.add(e.getKey());
       literals.addAll(e.getValue().literals);
     }
+
+    System.out.println(
+        "# Below two blocks of tokens.\n"
+            + "#\n"
+        + "# First are all property names.\n"
+        + "# Those followed by an asterisk (*) are in the default white-list.\n"
+        + "#\n"
+        + "# Second are the literal tokens recognized in any defined property\n"
+        + "# value.\n"
+        );
     for (String key : keys) {
-      System.out.println(key);
+      System.out.print(key);
+      if (DEFAULT_WHITELIST.contains(key)) { System.out.print("*"); }
+      System.out.println();
     }
     System.out.println();
     for (String literal : literals) {
