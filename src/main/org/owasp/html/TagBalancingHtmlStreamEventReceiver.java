@@ -220,7 +220,7 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = 0; i < n; ++i) {
       int ch = text.charAt(i);
       if (ch > 0x20 || (HTML_SPACE_CHAR_BITMASK & (1 << ch)) == 0) {
-        prepareForContent(ElementContainmentRelationships.CHARACTER_DATA);
+        prepareForContent(ElementContainmentRelationships.CHARACTER_DATA_ONLY);
         break;
       }
     }
@@ -969,7 +969,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
     }
 
-    private static final ElementContainmentInfo CHARACTER_DATA
+    private static final ElementContainmentInfo CHARACTER_DATA_ONLY
         = new ElementContainmentInfo(
             "#text", false,
             elementGroupBits(
@@ -983,7 +983,7 @@ public class TagBalancingHtmlStreamEventReceiver
        ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);
     if (info == null
         || ((info.contents
-             & ElementContainmentRelationships.CHARACTER_DATA.types)
+             & ElementContainmentRelationships.CHARACTER_DATA_ONLY.types)
             != 0)) {
       switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {
         case PCDATA:     return true;
