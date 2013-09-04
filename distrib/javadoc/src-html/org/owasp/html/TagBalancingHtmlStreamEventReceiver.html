@@ -223,7 +223,7 @@
 <FONT color="green">220</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.220"></a>
 <FONT color="green">221</FONT>          int ch = text.charAt(i);<a name="line.221"></a>
 <FONT color="green">222</FONT>          if (ch &gt; 0x20 || (HTML_SPACE_CHAR_BITMASK &amp; (1 &lt;&lt; ch)) == 0) {<a name="line.222"></a>
-<FONT color="green">223</FONT>            prepareForContent(ElementContainmentRelationships.CHARACTER_DATA);<a name="line.223"></a>
+<FONT color="green">223</FONT>            prepareForContent(ElementContainmentRelationships.CHARACTER_DATA_ONLY);<a name="line.223"></a>
 <FONT color="green">224</FONT>            break;<a name="line.224"></a>
 <FONT color="green">225</FONT>          }<a name="line.225"></a>
 <FONT color="green">226</FONT>        }<a name="line.226"></a>
@@ -972,7 +972,7 @@
 <FONT color="green">969</FONT>    <a name="line.969"></a>
 <FONT color="green">970</FONT>        }<a name="line.970"></a>
 <FONT color="green">971</FONT>    <a name="line.971"></a>
-<FONT color="green">972</FONT>        private static final ElementContainmentInfo CHARACTER_DATA<a name="line.972"></a>
+<FONT color="green">972</FONT>        private static final ElementContainmentInfo CHARACTER_DATA_ONLY<a name="line.972"></a>
 <FONT color="green">973</FONT>            = new ElementContainmentInfo(<a name="line.973"></a>
 <FONT color="green">974</FONT>                "#text", false,<a name="line.974"></a>
 <FONT color="green">975</FONT>                elementGroupBits(<a name="line.975"></a>
@@ -986,7 +986,7 @@
 <FONT color="green">983</FONT>           ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);<a name="line.983"></a>
 <FONT color="green">984</FONT>        if (info == null<a name="line.984"></a>
 <FONT color="green">985</FONT>            || ((info.contents<a name="line.985"></a>
-<FONT color="green">986</FONT>                 &amp; ElementContainmentRelationships.CHARACTER_DATA.types)<a name="line.986"></a>
+<FONT color="green">986</FONT>                 &amp; ElementContainmentRelationships.CHARACTER_DATA_ONLY.types)<a name="line.986"></a>
 <FONT color="green">987</FONT>                != 0)) {<a name="line.987"></a>
 <FONT color="green">988</FONT>          switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {<a name="line.988"></a>
 <FONT color="green">989</FONT>            case PCDATA:     return true;<a name="line.989"></a>
