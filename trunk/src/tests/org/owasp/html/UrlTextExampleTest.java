@@ -1,4 +1,4 @@
-// Copyright (c) 2011, Mike Samuel
+// Copyright (c) 2013, Mike Samuel
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
