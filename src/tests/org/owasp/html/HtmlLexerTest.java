@@ -41,6 +41,7 @@ import com.google.common.io.Resources;
 
 public class HtmlLexerTest extends TestCase {
 
+  @Test
   public final void testHtmlLexer() throws Exception {
     // Do the lexing.
     String input = Resources.toString(
