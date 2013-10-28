@@ -65,28 +65,37 @@ public class UrlTextExample {
     public void openTag(String elementName, List<String> attribs) {
       underlying.openTag(elementName, attribs);
 
-      if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
-        String trailingText = null;
+      String trailingText = null;
 
-        if (!attribs.isEmpty()) {
-          // Figure out which attribute we should look for.
-          String urlAttrName = null;
-          if ("a".equals(elementName)) {
-            urlAttrName = "href";
-          } else if ("img".equals(elementName)) {
-            urlAttrName = "src";
-          }
-          if (urlAttrName != null) {
-            // Look for the attribute, and after it for its value.
-            for (int i = 0, n = attribs.size(); i < n; i += 2) {
-              if (urlAttrName.equals(attribs.get(i))) {
-                String url = attribs.get(i+1);
-                trailingText = domainOf(url);
-                break;
+      if (!attribs.isEmpty()) {
+        // Figure out which attribute we should look for.
+        String urlAttrName = null;
+        if ("a".equals(elementName)) {
+          urlAttrName = "href";
+        } else if ("img".equals(elementName)) {
+          urlAttrName = "src";
+        }
+        if (urlAttrName != null) {
+          // Look for the attribute, and after it for its value.
+          for (int i = 0, n = attribs.size(); i < n; i += 2) {
+            if (urlAttrName.equals(attribs.get(i))) {
+              String url = attribs.get(i+1).trim();
+              String domain = domainOf(url);
+              if (domain != null) {
+                trailingText = " - " + domain;
               }
+              break;
             }
           }
         }
+      }
+      if (HtmlTextEscapingMode.isVoidElement(elementName)) {
+        // A void element like <img> will not have a corresponding closeTag
+        // call.
+        if (trailingText != null) {
+          text(trailingText);
+        }
+      } else {
         // Push the trailing text onto a stack so when we see the corresponding
         // close tag, we can emit the text.
         pendingText.add(trailingText);
@@ -98,9 +107,8 @@ public class UrlTextExample {
       int pendingTextSize = pendingText.size();
       if (pendingTextSize != 0) {
         String trailingText = pendingText.remove(pendingTextSize - 1);
-        // Emit it with a separator.
         if (trailingText != null) {
-          text(" - " + trailingText);
+          text(trailingText);
         }
       }
     }
@@ -108,7 +116,6 @@ public class UrlTextExample {
       underlying.text(text);
     }
   }
-
 
   public static void run(Appendable out, String... argv) throws IOException {
     PolicyFactory policyBuilder = new HtmlPolicyBuilder()
