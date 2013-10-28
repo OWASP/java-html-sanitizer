@@ -9,6 +9,5 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/commons-codec-1.4/commons-codec-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/junit/junit.jar"/>
-	<classpathentry kind="lib" path="benchmark-data"/>
-	<classpathentry kind="output" path="bin"/>
+	<classpathentry kind="output" path="out/classes"/>
 </classpath>
