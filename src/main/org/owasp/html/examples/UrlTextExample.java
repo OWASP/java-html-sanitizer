@@ -28,6 +28,7 @@
 
 package org.owasp.html.examples;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +37,7 @@ import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamEventReceiver;
 import org.owasp.html.HtmlStreamRenderer;
+import org.owasp.html.HtmlTextEscapingMode;
 import org.owasp.html.PolicyFactory;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver;
 
@@ -45,6 +47,7 @@ import org.owasp.html.TagBalancingHtmlStreamEventReceiver;
  */
 public class UrlTextExample {
 
+  /** An event receiver that emits the domain of a link or image after it. */
   static class AppendDomainAfterText implements HtmlStreamEventReceiver {
     final HtmlStreamEventReceiver underlying;
     private final List<String> pendingText = new ArrayList<String>();
@@ -61,31 +64,41 @@ public class UrlTextExample {
     }
     public void openTag(String elementName, List<String> attribs) {
       underlying.openTag(elementName, attribs);
-      String trailingText = null;
-      if (!attribs.isEmpty()) {
-        String urlAttrName = null;
-        if ("a".equals(elementName)) {
-          urlAttrName = "href";
-        } else if ("img".equals(elementName)) {
-          urlAttrName = "src";
-        }
-        if (urlAttrName != null) {
-          for (int i = 0, n = attribs.size(); i < n; i += 2) {
-            if (urlAttrName.equals(attribs.get(i))) {
-              String url = attribs.get(i+1);
-              trailingText = domainOf(url);
-              break;
+
+      if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
+        String trailingText = null;
+
+        if (!attribs.isEmpty()) {
+          // Figure out which attribute we should look for.
+          String urlAttrName = null;
+          if ("a".equals(elementName)) {
+            urlAttrName = "href";
+          } else if ("img".equals(elementName)) {
+            urlAttrName = "src";
+          }
+          if (urlAttrName != null) {
+            // Look for the attribute, and after it for its value.
+            for (int i = 0, n = attribs.size(); i < n; i += 2) {
+              if (urlAttrName.equals(attribs.get(i))) {
+                String url = attribs.get(i+1);
+                trailingText = domainOf(url);
+                break;
+              }
             }
           }
         }
+        // Push the trailing text onto a stack so when we see the corresponding
+        // close tag, we can emit the text.
+        pendingText.add(trailingText);
       }
-      pendingText.add(trailingText);
     }
     public void closeTag(String elementName) {
       underlying.closeTag(elementName);
+      // Pull the trailing text for the recently closed element off the stack.
       int pendingTextSize = pendingText.size();
       if (pendingTextSize != 0) {
         String trailingText = pendingText.remove(pendingTextSize - 1);
+        // Emit it with a separator.
         if (trailingText != null) {
           text(" - " + trailingText);
         }
@@ -97,10 +110,11 @@ public class UrlTextExample {
   }
 
 
-  public static void main(String... argv) {
+  public static void run(Appendable out, String... argv) throws IOException {
     PolicyFactory policyBuilder = new HtmlPolicyBuilder()
       .allowAttributes("src").onElements("img")
       .allowAttributes("href").onElements("a")
+      // Allow some URLs through.
       .allowStandardUrlProtocols()
       .allowElements(
           "a", "label", "h1", "h2", "h3", "h4", "h5", "h6",
@@ -111,11 +125,14 @@ public class UrlTextExample {
           "table", "td", "th", "tr", "colgroup", "fieldset", "legend"
       ).toFactory();
 
-
-    final StringBuilder htmlOut = new StringBuilder();
+    StringBuilder htmlOut = new StringBuilder();
     HtmlSanitizer.Policy policy = policyBuilder.apply(
+        // The tag balancer passes events to AppendDomainAfterText which
+        // assumes that openTag and closeTag events line up with one-another.
         new TagBalancingHtmlStreamEventReceiver(
+            // The domain appender forwards events to the HTML renderer,
             new AppendDomainAfterText(
+                // which puts tags and text onto the output buffer.
                 HtmlStreamRenderer.create(htmlOut, Handler.DO_NOTHING)
             )
         )
@@ -125,8 +142,14 @@ public class UrlTextExample {
       HtmlSanitizer.sanitize(input, policy);
     }
 
-    System.out.println(htmlOut);
+    out.append(htmlOut);
   }
+
+  public static void main(String... argv) throws IOException {
+    run(System.out, argv);
+    System.out.println();
+  }
+
 
   /**
    * The domain (actually authority component) of an HTML5 URL.
