@@ -1,0 +1,724 @@
+<!doctype html>
+<html>
+<head>
+<title>HTML containment</title>
+<script>
+if (!Date.now) { Date.now = function () { return +new Date; }; }
+</script>
+<script src="html-containment.js"></script>
+<script>
+// Extract URL query parameters into options
+var opts = {
+  // use a short list for quick iteration and debugging
+  shortlist: false,
+  rerun:     false
+};
+var cannedData;
+(function () {
+  location.search.replace(
+      /[?&]([^&=]*)(?:=(?:false|no|([^&]*))(?![^&]))?/ig,
+      function (_, keyEncoded, valueEncoded) {
+        var key   = decodeURIComponent(keyEncoded);
+        var value = valueEncoded == null ? "true"
+                  : decodeURIComponent(valueEncoded);
+        opts[key] = value;
+      });
+
+  if (opts.rerun) {
+    cannedData = newBlankObject();
+  } else {
+    document.write('<script src="canned-data.js"><\/script>');
+  }
+})();
+</script>
+<script>
+// Includes both conforming and obsolete elements from
+// http://dev.w3.org/html5/html-author/#index-of-elements
+// It does not include foreign content.
+var elementNames =
+  opts.shortlist
+? [
+  'a', 'font', 'form', 'frameset', 'h1', 'h2', 'iframe',
+  'img', 'li', 'ol', 'plaintext', 'script', 'select', 'table', 'tbody',
+  'textarea', 'td', 'tr', 'video', 'xmp'
+]
+: [
+  'a', 'abbr', 'acronym', 'address', 'applet', 'area', 'article', 'aside',
+  'audio', 'b', 'base', 'basefont', 'bb', 'bdo', 'bgsound', 'big', 'blink',
+  'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'center', 'cite',
+  'code', 'col', 'colgroup', 'command', 'datagrid', 'datalist', 'dd', 'del',
+  'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'em', 'embed',
+  'fieldset', 'figure', 'font', 'footer', 'form', 'frame', 'frameset', 'h1',
+  'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hr', 'html', 'i', 'iframe',
+  'img', 'input', 'ins', 'isindex', 'kbd', 'label', 'legend', 'li', 'link',
+  'listing', 'map', 'mark', 'marquee', 'menu', 'meta', 'meter', 'nav', 'nobr',
+  'noembed', 'noframes', 'noscript', 'object', 'ol', 'optgroup', 'option',
+  'output', 'p', 'param', 'plaintext', 'pre', 'progress', 'q', 'rp', 'rt',
+  'ruby', 's', 'samp', 'script', 'section', 'select', 'small', 'source',
+  'spacer', 'span', 'strike', 'strong', 'style', 'sub', 'sup', 'table',
+  'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr',
+  'tt', 'u', 'ul', 'var', 'video', 'wbr', 'xmp',
+
+  'xcustom'
+];
+</script>
+<style>
+pre.json  { white-space: pre-wrap }
+.json-kw          { color: #800 }
+.json-str         { color: #080 }
+.json-val         { color: #008 }
+.json-sep         { background: white }
+.json-ell         { color: blue }  /* ellipses are linky */
+
+/* Collapse inner blocks except on roll-over. */
+                            .json-int { display: none }
+.json-ext.json-expanded   > .json-int,
+.json-ext.json-nocollapse > .json-int { display: inline }
+.json-ext.json-nocollapse > .json-ell { display: none }
+.json-ext.json-expanded   > .json-ell { color: transparent }
+
+#experiment-progress-counter:empty { display: none }
+#experiment-progress-counter {
+  width: 25em;
+  display: block;
+  list-style-type: none;
+  -webkit-padding-start: 0;
+}
+div #experiment-progress-counter:empty {
+  border-width: 0px solid black;
+  padding: 0 0 0 0;
+}
+div #experiment-progress-counter {
+  border:1px solid black;
+  padding: 0 0 2px 2px;
+}
+#experiment-progress-counter li {
+  display: block;
+  border: 1px solid black;
+  padding: 2px;
+  margin-top: 2px;
+  height: 1em;
+  background: #ddf;
+  white-space: nowrap;
+  font-size:8pt;
+}
+#experiment-iframes iframe {
+  visibility:hidden;
+  width:40em;
+  height:1em;
+}
+em { color: #fff; font-weight: bold; background: #800; border: 1px solid #800; padding: 1px }
+</style>
+</head>
+<body>
+<p>
+This page tries to exhaustively combine tags for all pairings of HTML elements
+to answer the following questions about how HTML browsers parse tag soup:</p>
+<ul>
+  <li><a href="#nests-in-body">Which elements can appear directly in the body of an HTML document?</ad></li>
+  <li><a href="#can-contain">Which elements can nest directly in which other elements?</a></li>
+  <li><a href="#text-content-model">Which elements can contain text content, comments, entities?</a></li>
+  <li><a href="#containment-stack-json">Which elements can be introduced between the body and an element
+      to allow it to nest properly?</a></li>
+  <li>Which elements are implied by which tags? (TODO)</li>
+  <li><a href="#explicit-closers">Which open tags close which other elements?</a></li>
+  <li><a href="#closed-by-close">Which close tags close which elements?</a></li>
+  <li><a href="#closed-by-open">Which open tags close which elements?</a></li>
+</ul>
+
+<p>A <a href="#result-dump">JSON dump</a>
+   of the results is available at the end once running is done.</p>
+
+<div><ul id="experiment-progress-counter"></ul></div>
+
+<p>A few query parameters affect the behavior of this page:</p>
+<ul>
+  <li><a href="?rerun"><tt><span class="basename"></span>?rerun</tt></a> &mdash;
+      <em style="font-size:66%">&iexcl;VERY SLOW!</em>
+      Rerun experiments on the browser intead of using the canned results from Chrome.
+  <li><a href="?rerun&shortlist"><tt><span class="basename"></span>?rerun&amp;shortlist</tt></a> &mdash;
+      Rerun experiments on the browser instead of using the canned results from Chrome,
+      but with a short list of elements instead of the full 128+ HTML elements
+      which speeds debugging.</li>
+  <li><a href="?"><tt><span class="basename"></span>?</tt></a> &mdash;
+      Quick browsing of canned results from Chrome.</li>
+</ul>
+<script>(function () {
+  var basename = location.pathname.replace(/^[\s\S]*\//, '');
+  function toCss(s) {
+    return ('\x22'
+        + s.replace(/[^\w\-.]/g, function (c) {
+                      return '\\' + c.charCodeAt(0).toString(16) + ' ';
+                    })
+        + '\x22');
+  }
+  document.write('<style>.basename:after { content: ' + toCss(basename) + ' }<\/style>');
+}());</script>
+
+
+
+<!-- Contains iframes that are used to parse HTML since innerHTML parsing differs
+     from regular parsing in many respects. -->
+<div id="experiment-iframes"></div>
+
+<h2 id="nests-in-body">Nests in body</h2>
+<p>Does a tag <tt>&lt;X&gt;</tt> directly inside
+ <tt>&lt;body&gt;&hellip;&lt;/body&gt;</tt> parse to an element named X
+ directly inside the document body?</p>
+<pre id="nests-in-body-json" class="json"></pre>
+<script>
+var canAppearInBody = getOwn(cannedData, 'canAppearInBody') || new Promise();
+(function () {
+  // Generates HTML for the experiment.
+  function nestInBody(elementName) {
+    return '<' + elementName + '></' + elementName + '>';
+  }
+  // Examines the resulting body to fold a single experiment into the result.
+  function isNestedInBody(elementName, body, result) {
+    result[elementName] = !!(
+      body.firstChild && body.firstChild.nodeName.toLowerCase() === elementName
+    );
+    return result;
+  }
+  // When the experiment is finished, replace the promise so that we can
+  // kick off experiments that depend on the result of this experiment.
+  function finish(result) {
+    var toSatisfy = canAppearInBody;
+    if (toSatisfy instanceof Promise) {
+      canAppearInBody = result;
+      toSatisfy.satisfy();
+    }
+    displayJson(result, document.getElementById('nests-in-body-json'))
+  }
+  if (canAppearInBody instanceof Promise) {
+    runExperiment(nestInBody, isNestedInBody, newBlankObject(), finish);
+  } else {
+    finish(canAppearInBody);
+  }
+}());
+</script>
+
+<h2 id="can-contain">Containment</h2>
+<p>For each element, what elements can contain it?</p>
+<p>E.g., <code>canAppearIn['x'].indexOf('y') >= 0</code> when
+<code>&lt;x&gt;&lt;y&gt;&lt;/y&gt;&lt;/x&gt;</code> parses to
+an element <tt>x</tt> that contains an element <tt>y</tt> when embedded
+in an element that can contain <code>&lt;x&gt;</code>.</p>
+<h3>Can Contain</h3>
+<pre class="json" id="can-contain-json"></pre>
+<h3>Can Appear In</h3>
+<pre class="json" id="can-appear-in-json"></pre>
+<h3>Containment stack</h3>
+<pre class="json" id="containment-stack-json"></pre>
+<script>
+// We use promises to allow experiment chaining where one
+// experiment depends on the results of another.
+
+var canContain = getOwn(cannedData, 'canContain') || new Promise();
+var canAppearIn = getOwn(cannedData, 'canAppearIn') || new Promise();
+// For a given element name, give a stack of elements that can
+// be validly embedded in body that have the element at the top.
+var containmentStackFor = new Promise();
+
+// HTML for the elements in the with the body HTML inside the
+// top-most element.
+function tagStackToHtml(stack, body) {
+  var stackReverse = stack.slice();
+  stackReverse.reverse();
+  return (
+    '<' + stack.join('><') + '>'
+    + body
+    + '</' + stackReverse.join('></') + '>'
+  );
+}
+
+(function () {
+  var nNeededLast = Infinity;
+
+  // We need a function that tells us which elements we need to have on the
+  // open element stack so that we can get the outer element on the stack to
+  // test whether an inner tag leads to an inner element inside it.
+  // For example, to test whether an <a> tag nestes properly in a <td>, we
+  // need to construct <table><tbody><tr><td><a>.
+  //
+  // Knowing what needs to be on the open element stack for <td> requires
+  // knowing what needs to be on the open element stack for <tr>.
+  function containmentStackMaker(canAppearIn) {
+    var memoTable = newBlankObject();
+    return function (elementName, opt_exclusions) {
+      var memoKey = opt_exclusions
+          ? elementName + ' ' + opt_exclusions.join(' / ') : elementName;
+
+      if (getOwn(canAppearInBody, elementName)) { return [elementName]; }
+      var prior = getOwn(memoKey, elementName, void 0);
+      if (prior !== void 0) { return prior ? prior.slice() : null; }
+      var empty = [];
+
+      function end(e) {
+        return getOwn(canAppearInBody, e, false);
+      }
+      function eq (e, f) { return e === f; }
+      function neighbors(e) {
+        var neighbors = getOwn(canAppearIn, e, empty);
+        if (opt_exclusions) {
+          var exclusions = makeSet(opt_exclusions);
+          var included = null;
+          for (var i = 0, n = neighbors.length; i < n; ++i) {
+            var neighbor = neighbors[i];
+            if (inSet(exclusions, neighbor)) {
+              if (!included) { included = neighbors.slice(0, i); }
+            } else if (included) {
+              included.push(neighbor);
+            }
+          }
+          if (included) { neighbors = included; }
+        }
+        return neighbors;
+      }
+      var result = breadthFirstSearch(elementName, end, eq, neighbors) || null;
+      memoTable[memoKey] = result;
+      return result ? result.slice() : null;
+    };
+  }
+
+  function run(result) {
+
+    function makeContainerHtmlString(outer, inner) {
+      if (neededSet[outer] !== neededSet) { return null; }
+      // We try to assemble a stack of elements that can contain outer before
+      // checking whether it can contain inner.
+      // If we cannot, we punt so that we can retry later after we've fleshed
+      // out more of canAppearIn.
+      var stack = containmentStack(outer);
+      if (!stack) { return null; }
+      stack.push(inner);
+      return tagStackToHtml(stack, '');
+    }
+
+    function checkCanContain(outer, inner, body, canContain) {
+      var outerEls = body.getElementsByTagName(outer);
+      if (outerEls.length) {
+        var containees = getOwn(canContain, outer) || [];
+        canContain[outer] = containees;
+        var outerEl = outerEls[0];
+        var firstChild = outerEl.firstChild;
+        if (((firstChild && firstChild.nodeName.toLowerCase() === inner)
+             || outerEl.getElementsByTagName(inner).length)
+            && containees.indexOf(inner) < 0) {
+          containees.push(inner);
+        }
+      }
+      return canContain;
+    }
+
+    var elementNamesNeeded = [];
+    for (var i = 0, n = elementNames.length; i < n; ++i) {
+      var elementName = elementNames[i];
+      if (!Object.hasOwnProperty.call(result, elementName)) {
+        elementNamesNeeded.push(elementName);
+      }
+    }
+    console.log('nNeededLast=%s, nNeeded=%d, result=%o',
+                nNeededLast, elementNamesNeeded.length, result);
+    if (elementNamesNeeded.length === nNeededLast) {
+      // We made no progress last run.
+      console.log('cannot place ' + elementNamesNeeded);
+      elementNamesNeeded.length = 0;
+    }
+
+    var containmentStack = containmentStackMaker(reverseMultiMap(result));
+
+    var neededSet = newBlankObject();
+    for (var i = elementNamesNeeded.length; --i >= 0;) {
+      neededSet[elementNamesNeeded[i]] = neededSet;
+    }
+
+    if (elementNamesNeeded.length) {
+      nNeededLast = elementNamesNeeded.length;
+      return runExperiment(
+          makeContainerHtmlString, checkCanContain, result, run,
+          elementNames);
+    } else {
+      finishCanContain(result);
+      return result;
+    }
+  }
+
+  function finishCanContain(result) {
+    var toSatisfy = canContain;
+    if (toSatisfy instanceof Promise) {
+      canContain = sortedMultiMap(result);
+      toSatisfy.satisfy();
+    }
+    displayJson(canContain, document.getElementById('can-contain-json'));
+  }
+
+  if (canContain instanceof Promise) {
+    when(function () { run(newBlankObject()); }, canAppearInBody);
+  } else {
+    finishCanContain(canContain);
+  }
+
+  function reverseMap() {
+    var toSatisfy = canAppearIn;
+    if (toSatisfy instanceof Promise) {
+      canAppearIn = sortedMultiMap(reverseMultiMap(canContain));
+      toSatisfy.satisfy();
+    }
+    displayJson(canAppearIn, document.getElementById('can-appear-in-json'));
+    toSatisfy = containmentStackFor;
+
+    containmentStackFor = containmentStackMaker(canAppearIn);
+    toSatisfy.satisfy();
+  }
+
+  when(function () { reverseMap(); }, canContain);
+
+  function mapStacks() {
+    var containmentStackMap = newBlankObject();
+    for (var i = 0, n = elementNames.length; i < n; ++i) {
+      var elementName = elementNames[i];
+      var stack = containmentStackFor(elementName);
+      if (stack) { --stack.length; }
+      containmentStackMap[elementName] = stack;
+    }
+    displayJson(containmentStackMap,
+                document.getElementById('containment-stack-json'));
+  }
+  when(mapStacks, containmentStackFor);
+}());
+</script>
+
+<h2 id="text-content-model">Text and comment content</h2>
+
+<p>Tests which elements can contain a non-whitespace text node and which can
+contain comments or other non-text elements as a result of parsing.</p>
+<p><code>textContentModel['x'].text</code> is true when
+<code>&lt;x&gt;text&lt;/x&gt;</code> parses to an X element containing
+a text node.</p>
+<p><code>textContentModel['x'].comments</code> is true when
+<code>&lt;x&gt;&lt;!--comment--&gt;&lt;/x&gt;</code> parses to an X element
+containing a comment node.</p>
+<p><code>textContentModel['x'].xml</code> is true when
+<code>&lt;x&gt;&amp;amp;<![[CDATA&amp;]]>;&lt;/x&gt;</code> parses to an X
+element contains text nodes that normalize to <code>&&amp;</code>.</p>
+<p><code>textContentModel['x'].raw</code> is true when
+<code>&lt;x&gt;&lt;br&gt;&lt;/x&gt;</code> parses to an X element
+containing a text node.</p>
+<p><code>textContentModel['x'].entities</code> is true when
+<code>&lt;x&gt;&amp;amp;;&lt;/x&gt;</code> parses to an X element
+containing a text node <tt>&amp;amp;</tt>.</p>
+<pre class="json" id="text-content-model-json"></pre>
+<script>
+var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
+(function () {
+  function run() {
+    function makeHtmlStringWithText(elementName) {
+      var stack = containmentStackFor(elementName);
+      if (stack == null) { return null; }
+      return tagStackToHtml(
+          stack, '/*1&amp;2<![CDATA[&amp;]]>3<!---->4<br>5*/');
+    }
+    function checkText(elementName, body, result) {
+      var el = body.getElementsByTagName(elementName)[0];
+      var text = innerTextOf(el);
+      var model = newBlankObject();
+      switch (text) {
+        case '':
+          if (elementContainsComment(el)) { model.comments = true; }
+          break;
+        case '/*1&2345*/':  // CDATA section treated as "bogus comment"
+          model.text = model.entities = model.comments = true;
+          break;
+        case '/*1&2&amp;345*/':  // CDATA section treated as per XML
+          model.text = model.entities = model.xml = model.comments = true;
+          break;
+        case '/*1&2<![CDATA[&]]>3<!---->4<br>5*/':  // '<' is raw
+          model.text = model.entities = model.raw = true;
+          break;
+        case '/*1&amp;2<![CDATA[&amp;]]>3<!---->4<br>5*/':  // '<' and '&' raw
+          model.text = model.raw = true;
+          break;
+        case '/*1&amp;2<![CDATA[&amp;]]>3<!---->4<br>5*/</' + elementName + '>':
+          // </plaintext> does not close <plaintext>
+          model.text = model.raw = model.unended = true;
+          break;
+        default:
+          console.log('unexpected text `%s` in %s', text, elementName);
+      }
+      result[elementName] = sortedMultiMap(model);
+      return result;
+    }
+
+    runExperiment(makeHtmlStringWithText, checkText, newBlankObject(), finish);
+  }
+
+  function finish(result) {
+    var toSatisfy = textContentModel;
+    if (toSatisfy instanceof Promise) {
+      textContentModel = sortedMultiMap(result);
+      toSatisfy.satisfy();
+    }
+    displayJson(textContentModel,
+                document.getElementById('text-content-model-json'));
+  }
+
+  if (textContentModel instanceof Promise) {
+    when(run, containmentStackFor);
+  } else {
+    finish(textContentModel);
+  }
+}());
+</script>
+
+<h2>Tag Closers</h2>
+<h3 id="explicit-closers">Explicit closers</h3>
+<p>Are there any close tags besides the tag name itself that close the tag?</p>
+<pre class="json" id="explicit-closers-json"></pre>
+<script>
+var explicitClosers = getOwn(cannedData, 'explicitClosers') || new Promise();
+(function () {
+  function run() {
+    var contentForElement = newBlankObject();
+    function nestableContent(openTag, excludedTag) {
+      var content = getOwn(contentForElement, openTag);
+      if (content === undefined) {
+        var tcm = getOwn(textContentModel, openTag);
+        if (tcm && tcm.text) {
+          content = '#text';
+        } else {
+          content = getOwn(canContain, openTag, null);
+        }
+        contentForElement[openTag] = content;
+      }
+      // arrays are element names
+      if (content instanceof Array) {
+        for (var i = 0, n = content.length; i < n; ++i) {
+          var tag = content[i];
+          if (tag === openTag || tag === excludedTag) { continue; }
+          return tag;
+        }
+        return null;
+      } else {
+        return content;
+      }
+    }
+
+    function makeHtmlString(openTag, closeTag) {
+      if (openTag === closeTag) { return null; }
+      var stack = containmentStackFor(openTag, [closeTag]);
+      if (stack == null) { return null; }
+      if (closeTag === 'body' || closeTag === 'html') {
+        return null;
+      }
+      var content = nestableContent(openTag, closeTag);
+      if (content === null) { return null; }
+      if (content !== '#text') {
+        content = '<' + content + '></' + content + '>';
+      }
+      return tagStackToHtml(stack, '</' + closeTag + '>' + content);
+    }
+
+    function check(openTag, closeTag, body, result) {
+      var content = nestableContent(openTag, closeTag);
+      var element = body.getElementsByTagName(openTag)[0];
+      if (element) {
+        var closed = (content === '#text')
+          ? innerTextOf(element) === ''
+          : !element.getElementsByTagName(content).length;
+        if (closed) {
+          var closeTags = getOwn(result, openTag) || [];
+          closeTags.push(closeTag);
+          result[openTag] = closeTags;
+        }
+      }
+      return result;
+    }
+
+    runExperiment(makeHtmlString, check, newBlankObject(), finish);
+  }
+
+  function finish(result) {
+    var toSatisfy = explicitClosers;
+    if (toSatisfy instanceof Promise) {
+      explicitClosers = sortedMultiMap(result);
+      toSatisfy.satisfy();
+    }
+    displayJson(explicitClosers,
+                document.getElementById('explicit-closers-json'));
+  }
+
+  if (explicitClosers instanceof Promise) {
+    when(run, containmentStackFor, textContentModel);
+  } else {
+    finish(explicitClosers);
+  }
+}());
+</script>
+
+
+<h3 id="closed-by-open">Open tags close which elements</h3>
+<p>Which open tags close the element when embedded between it and content it
+   could otherwise contain?</p>
+<p>Which <code>C</code> close <code>T</code> in
+   <code>&lt;T&gt;&lt;C&gt;X&lt;/C&gt;&lt;/T&gt;</code>
+   leading to X being a sibling of the element T instead of its child as it would
+   be if parsed as <code>&lt;T&gt;X&lt;/T&gt;</code>.
+<pre class="json" id="closed-by-open-json"></pre>
+<script>
+var closedOnOpen = getOwn(cannedData, 'closedOnOpen') || new Promise();
+(function () {
+  function run() {
+    function makeHtmlString(outer, inner) {
+      if (textContentModel[outer] && textContentModel[outer].comments
+          && !(textContentModel[inner] && textContentModel[inner].unended)) {
+        var stack = containmentStackFor(outer, [inner]);
+        if (stack) {
+          // <outer><inner></inner><!--After inner --></outer>
+          return tagStackToHtml(
+              stack, '<' + inner + '></' + inner + '><!-- After inner -->');
+        }
+      }
+      return null;
+    }
+
+    function check(outer, inner, body, result) {
+      var outerEl = body.getElementsByTagName(outer)[0];
+      var hasComment = elementContainsComment(outerEl);
+      var closers = getOwn(result, outer) || [];
+      if (!hasComment) {
+        closers.push(inner);
+      }
+      result[outer] = closers;
+      return result;
+    }
+
+    runExperiment(makeHtmlString, check, newBlankObject(), finish);
+  }
+
+  function finish(result) {
+    var toSatisfy = closedOnOpen;
+    if (toSatisfy instanceof Promise) {
+      closedOnOpen = sortedMultiMap(result);
+      toSatisfy.satisfy();
+    }
+    displayJson(closedOnOpen,
+                document.getElementById('closed-by-open-json'));
+  }
+
+  if (closedOnOpen instanceof Promise) {
+    when(run, containmentStackFor, textContentModel, canContain);
+  } else {
+    finish(closedOnOpen);
+  }
+}());
+</script>
+
+
+<h3 id="closed-by-close">Close tags close which elements</h3>
+<p>Which <code>C</code> close <code>T</code> in
+   <code>&lt;C&gt;&lt;T&gt;&lt;/C&gt;X&lt;/T&gt;</code>
+   leading to X being a sibling of the element T instead of its child as it
+   would be if parsed as <code>&lt;T&gt;X&lt;/T&gt;</code>.
+<pre class="json" id="closed-by-close-json"></pre>
+<script>
+var closedOnClose = getOwn(cannedData, 'closedOnClose') || new Promise();
+(function () {
+  function run() {
+    function makeHtmlString(outer, inner) {
+      var outerTc = textContentModel[outer];
+      var innerTc = textContentModel[inner];
+      if (outerTc && innerTc && outerTc.comments && innerTc.comments) {
+        var stack = containmentStackFor(outer, [inner]);
+        if (stack) {
+          --stack.length;  // strip outer.
+          // <outer><inner></outer><!--X--></inner>
+          return tagStackToHtml(
+              stack,
+              '<' + outer + '><' + inner + '>'
+              + '</' + outer + '><!--X--></' + inner + '>');
+        }
+      }
+      return null;
+    }
+
+    function check(outer, inner, body, result) {
+      var innerEl = body.getElementsByTagName(inner)[0];
+      var closers = getOwn(result, inner) || [];
+      if (!elementContainsComment(innerEl)) {
+        closers.push(outer);
+      }
+      result[inner] = closers;
+      return result;
+    }
+
+    runExperiment(makeHtmlString, check, newBlankObject(), finish);
+  }
+
+  function finish(result) {
+    var toSatisfy = closedOnClose;
+    if (toSatisfy instanceof Promise) {
+      closedOnClose = sortedMultiMap(result);
+      toSatisfy.satisfy();
+    }
+    displayJson(closedOnClose,
+                document.getElementById('closed-by-close-json'));
+  }
+
+  if (closedOnClose instanceof Promise) {
+    when(run, containmentStackFor, textContentModel, canContain);
+  } else {
+    finish(closedOnClose);
+  }
+}());
+</script>
+
+<h2 id="result-dump">JSON Dump</h2>
+<p id="working"><em>working</em></p>
+<script>
+var fullJson = {
+  "canAppearInBody":     canAppearInBody,
+  "canContain":          canContain,
+  "canAppearIn":         canAppearIn,
+  "containmentStackFor": containmentStackFor,
+  "textContentModel":    textContentModel,
+  "explicitClosers":     explicitClosers,
+  "closedOnOpen":        closedOnOpen,
+  "closedOnClose":       closedOnClose
+};
+
+(function () {
+
+  function run() {
+    for (var k in fullJson) {
+      if (fullJson.hasOwnProperty(k)) {
+        fullJson[k] = window[k];
+      }
+    }
+
+    var textarea = document.createElement('textarea');
+    textarea.setAttribute('cols', '80');
+    textarea.setAttribute('rows', '20');
+    textarea.setAttribute('readonly', 'readonly');
+    textarea.onclick = function () { textarea.select(); };
+    textarea.value = JSON.stringify(fullJson);
+    var resultDumpHeader = document.getElementById('result-dump');
+    resultDumpHeader.parentNode.insertBefore(
+        textarea, resultDumpHeader.nextSibling);
+    var workingNote = document.getElementById('working');
+    workingNote.parentNode.removeChild(workingNote);
+  }
+
+  var whenArgs = [run];
+  for (var k in fullJson) {
+    if (fullJson.hasOwnProperty(k)) {
+      whenArgs.push(fullJson[k]);
+    }
+  }
+
+  when.apply(null, whenArgs);
+}());
+</script>
+
+</body>
+</html>
