@@ -39,6 +39,9 @@ TEST_CLASSPATH=$(CLASSPATH):lib/htmlparser-1.3/htmlparser-1.3.jar:lib/junit/juni
 JAVAC_FLAGS=-source 1.5 -target 1.5 -Xlint -encoding UTF-8
 TEST_RUNNER=junit.textui.TestRunner
 JASSERTS=-ea
+# Run tests in the Turkish locale to trigger any extra-case-folding-rule bugs
+# http://www.moserware.com/2008/02/does-your-code-pass-turkey-test.html
+TURKEYTEST=-Duser.counter=TR -Duser.language-tr
 
 ifdef VERBOSE
 override TEST_RUNNER=org.owasp.html.VerboseTestRunner
@@ -114,7 +117,8 @@ out/genfiles/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*
 	) > $@
 
 runtests: tests
-	java ${JASSERTS} -classpath out/classes:src/tests:${TEST_CLASSPATH} \
+	java ${TURKEYTEST} ${JASSERTS} \
+	    -classpath out/classes:src/tests:${TEST_CLASSPATH} \
 	    ${TEST_RUNNER} org.owasp.html.AllTests
 
 coverage: tests
