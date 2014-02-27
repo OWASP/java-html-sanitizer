@@ -1,0 +1,519 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--NewPage-->
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<TITLE>
+HtmlTextEscapingMode (OWASP Java HTML Sanitizer)
+</TITLE>
+
+
+<LINK REL ="stylesheet" TYPE="text/css" HREF="../../../stylesheet.css" TITLE="Style">
+
+<SCRIPT type="text/javascript">
+function windowTitle()
+{
+    if (location.href.indexOf('is-external=true') == -1) {
+        parent.document.title="HtmlTextEscapingMode (OWASP Java HTML Sanitizer)";
+    }
+}
+</SCRIPT>
+<NOSCRIPT>
+</NOSCRIPT>
+
+</HEAD>
+
+<BODY BGCOLOR="white" onload="windowTitle();">
+<HR>
+
+
+<!-- ========= START OF TOP NAVBAR ======= -->
+<A NAME="navbar_top"><!-- --></A>
+<A HREF="#skip-navbar_top" title="Skip navigation links"></A>
+<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" SUMMARY="">
+<TR>
+<TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
+<A NAME="navbar_top_firstrow"><!-- --></A>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
+  <TR ALIGN="center" VALIGN="top">
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlTextEscapingMode.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
+  </TR>
+</TABLE>
+</TD>
+<TD ALIGN="right" VALIGN="top" ROWSPAN=3><EM>
+<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a></EM>
+</TD>
+</TR>
+
+<TR>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+&nbsp;<A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+  <A HREF="../../../index.html?org/owasp/html/HtmlTextEscapingMode.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlTextEscapingMode.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+&nbsp;<SCRIPT type="text/javascript">
+  <!--
+  if(window==top) {
+    document.writeln('<A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>');
+  }
+  //-->
+</SCRIPT>
+<NOSCRIPT>
+  <A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>
+</NOSCRIPT>
+
+
+</FONT></TD>
+</TR>
+<TR>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#enum_constant_summary">ENUM CONSTANTS</A>&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+DETAIL:&nbsp;<A HREF="#enum_constant_detail">ENUM CONSTANTS</A>&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="skip-navbar_top"></A>
+<!-- ========= END OF TOP NAVBAR ========= -->
+
+<HR>
+<!-- ======== START OF CLASS DATA ======== -->
+<H2>
+<FONT SIZE="-1">
+org.owasp.html</FONT>
+<BR>
+Enum HtmlTextEscapingMode</H2>
+<PRE>
+java.lang.Object
+  <IMG SRC="../../../resources/inherit.gif" ALT="extended by ">java.lang.Enum&lt;<A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A>&gt;
+      <IMG SRC="../../../resources/inherit.gif" ALT="extended by "><B>org.owasp.html.HtmlTextEscapingMode</B>
+</PRE>
+<DL>
+<DT><B>All Implemented Interfaces:</B> <DD>java.io.Serializable, java.lang.Comparable&lt;<A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A>&gt;</DD>
+</DL>
+<HR>
+<DL>
+<DT><PRE>public enum <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.54"><B>HtmlTextEscapingMode</B></A><DT>extends java.lang.Enum&lt;<A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A>&gt;</DL>
+</PRE>
+
+<P>
+From section 8.1.2.6 of http://www.whatwg.org/specs/web-apps/current-work/
+ <p>
+ The text in CDATA and RCDATA elements must not contain any
+ occurrences of the string "</" (U+003C LESS-THAN SIGN, U+002F
+ SOLIDUS) followed by characters that case-insensitively match the
+ tag name of the element followed by one of U+0009 CHARACTER
+ TABULATION, U+000A LINE FEED (LF), U+000B LINE TABULATION, U+000C
+ FORM FEED (FF), U+0020 SPACE, U+003E GREATER-THAN SIGN (>), or
+ U+002F SOLIDUS (/), unless that string is part of an escaping
+ text span.
+ </p>
+
+ <p>
+ See also
+ http://www.whatwg.org/specs/web-apps/current-work/#cdata-rcdata-restrictions
+ for the elements which fall in each category.
+ </p>
+<P>
+
+<P>
+<DL>
+<DT><B>Author:</B></DT>
+  <DD>Mike Samuel <mikesamuel@gmail.com></DD>
+</DL>
+<HR>
+
+<P>
+<!-- =========== ENUM CONSTANT SUMMARY =========== -->
+
+<A NAME="enum_constant_summary"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Enum Constant Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#CDATA">CDATA</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A span of text where HTML special characters are interpreted literally,
+ as in a SCRIPT tag.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#CDATA_SOMETIMES">CDATA_SOMETIMES</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Like <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#CDATA"><CODE>CDATA</CODE></A> but only for certain browsers.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#PCDATA">PCDATA</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Normally escaped character data that breaks around comments and tags.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#PLAIN_TEXT">PLAIN_TEXT</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A span of text where HTML special characters are interpreted literally,
+ where there is no end tag.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#RCDATA">RCDATA</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A span of text and character entity references where HTML special
+ characters are interpreted literally, as in a TITLE tag.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#VOID">VOID</A></B></CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cannot contain data.</TD>
+</TR>
+</TABLE>
+&nbsp;
+<!-- ========== METHOD SUMMARY =========== -->
+
+<A NAME="method_summary"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Method Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;boolean</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#allowsEscapingTextSpan(java.lang.String)">allowsEscapingTextSpan</A></B>(java.lang.String&nbsp;canonTagName)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;True iff the content following the given tag allows escaping text
+ spans: <code>&lt;!--&amp;hellip;--&gt;</code> that escape even things that might
+ be an end tag for the corresponding open tag.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;<A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#getModeForTag(java.lang.String)">getModeForTag</A></B>(java.lang.String&nbsp;canonTagName)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The mode used for content following a start tag with the given name.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;boolean</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#isTagFollowedByLiteralContent(java.lang.String)">isTagFollowedByLiteralContent</A></B>(java.lang.String&nbsp;canonTagName)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;True if content immediately following the start tag must be treated as
+ special CDATA so that &lt;'s are not treated as starting tags, comments
+ or directives.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;boolean</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#isVoidElement(java.lang.String)">isVoidElement</A></B>(java.lang.String&nbsp;canonTagName)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;True iff the tag cannot contain any content -- will an HTML parser consider
+ the element to have ended immediately after the start tag.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;<A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A></CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#valueOf(java.lang.String)">valueOf</A></B>(java.lang.String&nbsp;name)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns the enum constant of this type with the specified name.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>static&nbsp;<A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A>[]</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#values()">values</A></B>()</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns an array containing the constants of this enum type, in
+the order they are declared.</TD>
+</TR>
+</TABLE>
+&nbsp;<A NAME="methods_inherited_from_class_java.lang.Enum"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#EEEEFF" CLASS="TableSubHeadingColor">
+<TH ALIGN="left"><B>Methods inherited from class java.lang.Enum</B></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE>clone, compareTo, equals, finalize, getDeclaringClass, hashCode, name, ordinal, toString, valueOf</CODE></TD>
+</TR>
+</TABLE>
+&nbsp;<A NAME="methods_inherited_from_class_java.lang.Object"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#EEEEFF" CLASS="TableSubHeadingColor">
+<TH ALIGN="left"><B>Methods inherited from class java.lang.Object</B></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE>getClass, notify, notifyAll, wait, wait, wait</CODE></TD>
+</TR>
+</TABLE>
+&nbsp;
+<P>
+
+<!-- ============ ENUM CONSTANT DETAIL =========== -->
+
+<A NAME="enum_constant_detail"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="1"><FONT SIZE="+2">
+<B>Enum Constant Detail</B></FONT></TH>
+</TR>
+</TABLE>
+
+<A NAME="PCDATA"><!-- --></A><H3>
+PCDATA</H3>
+<PRE>
+public static final <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.58"><B>PCDATA</B></A></PRE>
+<DL>
+<DD>Normally escaped character data that breaks around comments and tags.
+<P>
+<DL>
+</DL>
+</DL>
+<HR>
+
+<A NAME="CDATA"><!-- --></A><H3>
+CDATA</H3>
+<PRE>
+public static final <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.63"><B>CDATA</B></A></PRE>
+<DL>
+<DD>A span of text where HTML special characters are interpreted literally,
+ as in a SCRIPT tag.
+<P>
+<DL>
+</DL>
+</DL>
+<HR>
+
+<A NAME="CDATA_SOMETIMES"><!-- --></A><H3>
+CDATA_SOMETIMES</H3>
+<PRE>
+public static final <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.67"><B>CDATA_SOMETIMES</B></A></PRE>
+<DL>
+<DD>Like <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html#CDATA"><CODE>CDATA</CODE></A> but only for certain browsers.
+<P>
+<DL>
+</DL>
+</DL>
+<HR>
+
+<A NAME="RCDATA"><!-- --></A><H3>
+RCDATA</H3>
+<PRE>
+public static final <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.72"><B>RCDATA</B></A></PRE>
+<DL>
+<DD>A span of text and character entity references where HTML special
+ characters are interpreted literally, as in a TITLE tag.
+<P>
+<DL>
+</DL>
+</DL>
+<HR>
+
+<A NAME="PLAIN_TEXT"><!-- --></A><H3>
+PLAIN_TEXT</H3>
+<PRE>
+public static final <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.77"><B>PLAIN_TEXT</B></A></PRE>
+<DL>
+<DD>A span of text where HTML special characters are interpreted literally,
+ where there is no end tag.  PLAIN_TEXT runs until the end of the file.
+<P>
+<DL>
+</DL>
+</DL>
+<HR>
+
+<A NAME="VOID"><!-- --></A><H3>
+VOID</H3>
+<PRE>
+public static final <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.82"><B>VOID</B></A></PRE>
+<DL>
+<DD>Cannot contain data.
+<P>
+<DL>
+</DL>
+</DL>
+
+<!-- ============ METHOD DETAIL ========== -->
+
+<A NAME="method_detail"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="1"><FONT SIZE="+2">
+<B>Method Detail</B></FONT></TH>
+</TR>
+</TABLE>
+
+<A NAME="values()"><!-- --></A><H3>
+values</H3>
+<PRE>
+public static <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A>[] <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.34"><B>values</B></A>()</PRE>
+<DL>
+<DD>Returns an array containing the constants of this enum type, in
+the order they are declared.  This method may be used to iterate
+over the constants as follows:
+<pre>
+for (HtmlTextEscapingMode c : HtmlTextEscapingMode.values())
+&nbsp;   System.out.println(c);
+</pre>
+<P>
+<DD><DL>
+
+<DT><B>Returns:</B><DD>an array containing the constants of this enum type, in
+the order they are declared</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="valueOf(java.lang.String)"><!-- --></A><H3>
+valueOf</H3>
+<PRE>
+public static <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.34"><B>valueOf</B></A>(java.lang.String&nbsp;name)</PRE>
+<DL>
+<DD>Returns the enum constant of this type with the specified name.
+The string must match <I>exactly</I> an identifier used to declare an
+enum constant in this type.  (Extraneous whitespace characters are 
+not permitted.)
+<P>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>name</CODE> - the name of the enum constant to be returned.
+<DT><B>Returns:</B><DD>the enum constant with the specified name
+<DT><B>Throws:</B>
+<DD><CODE>java.lang.IllegalArgumentException</CODE> - if this enum type has no constant
+with the specified name
+<DD><CODE>java.lang.NullPointerException</CODE> - if the argument is null</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="getModeForTag(java.lang.String)"><!-- --></A><H3>
+getModeForTag</H3>
+<PRE>
+public static <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.137"><B>getModeForTag</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+<DL>
+<DD>The mode used for content following a start tag with the given name.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="allowsEscapingTextSpan(java.lang.String)"><!-- --></A><H3>
+allowsEscapingTextSpan</H3>
+<PRE>
+public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.147"><B>allowsEscapingTextSpan</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+<DL>
+<DD>True iff the content following the given tag allows escaping text
+ spans: <code>&lt;!--&amp;hellip;--&gt;</code> that escape even things that might
+ be an end tag for the corresponding open tag.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="isTagFollowedByLiteralContent(java.lang.String)"><!-- --></A><H3>
+isTagFollowedByLiteralContent</H3>
+<PRE>
+public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.159"><B>isTagFollowedByLiteralContent</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+<DL>
+<DD>True if content immediately following the start tag must be treated as
+ special CDATA so that &lt;'s are not treated as starting tags, comments
+ or directives.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="isVoidElement(java.lang.String)"><!-- --></A><H3>
+isVoidElement</H3>
+<PRE>
+public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.168"><B>isVoidElement</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+<DL>
+<DD>True iff the tag cannot contain any content -- will an HTML parser consider
+ the element to have ended immediately after the start tag.
+<P>
+<DD><DL>
+</DL>
+</DD>
+</DL>
+<!-- ========= END OF CLASS DATA ========= -->
+<HR>
+
+
+<!-- ======= START OF BOTTOM NAVBAR ====== -->
+<A NAME="navbar_bottom"><!-- --></A>
+<A HREF="#skip-navbar_bottom" title="Skip navigation links"></A>
+<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" SUMMARY="">
+<TR>
+<TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
+<A NAME="navbar_bottom_firstrow"><!-- --></A>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
+  <TR ALIGN="center" VALIGN="top">
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlTextEscapingMode.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
+  </TR>
+</TABLE>
+</TD>
+<TD ALIGN="right" VALIGN="top" ROWSPAN=3><EM>
+<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a></EM>
+</TD>
+</TR>
+
+<TR>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+&nbsp;<A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+  <A HREF="../../../index.html?org/owasp/html/HtmlTextEscapingMode.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlTextEscapingMode.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+&nbsp;<SCRIPT type="text/javascript">
+  <!--
+  if(window==top) {
+    document.writeln('<A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>');
+  }
+  //-->
+</SCRIPT>
+<NOSCRIPT>
+  <A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>
+</NOSCRIPT>
+
+
+</FONT></TD>
+</TR>
+<TR>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;<A HREF="#enum_constant_summary">ENUM CONSTANTS</A>&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+DETAIL:&nbsp;<A HREF="#enum_constant_detail">ENUM CONSTANTS</A>&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="skip-navbar_bottom"></A>
+<!-- ======== END OF BOTTOM NAVBAR ======= -->
+
+<HR>
+
+</BODY>
+</HTML>
