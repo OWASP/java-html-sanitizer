@@ -443,7 +443,7 @@ public class HtmlPolicyBuilder {
   private static final Set<String> URL_ATTRIBUTE_NAMES = ImmutableSet.of(
       "action", "archive", "background", "cite", "classid", "codebase", "data",
       "dsync", "formaction", "href", "icon", "longdesc", "manifest", "poster",
-      "profile", "src", "usemap");
+      "profile", "src", "srcset", "usemap");
 
   /**
    * Produces a policy based on the allow and disallow calls previously made.
