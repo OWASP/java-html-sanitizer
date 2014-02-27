@@ -78,10 +78,24 @@ final class ElementAndAttributePolicies {
         joinedAttrPolicies.put(attrName, e.getValue());
       }
     }
+
+    // HACK: this is attempting to recognize when skipIfEmpty has been
+    // explicitly set in HtmlPolicyBuilder and can only make a best effort at
+    // that and is also too tightly coupled with HtmlPolicyBuilder.
+    // Maybe go tri-state.
+    boolean combinedSkipIfEmpty;
+    if (HtmlPolicyBuilder.DEFAULT_SKIP_IF_EMPTY.contains(elementName)) {
+      // Either policy explicitly opted out of skip if empty.
+      combinedSkipIfEmpty = skipIfEmpty && p.skipIfEmpty;
+    } else {
+      // Either policy explicitly specified skip if empty.
+      combinedSkipIfEmpty = skipIfEmpty || p.skipIfEmpty;
+    }
+
     return new ElementAndAttributePolicies(
         elementName,
         ElementPolicy.Util.join(elPolicy, p.elPolicy),
         joinedAttrPolicies.build(),
-        skipIfEmpty || p.skipIfEmpty);
+        combinedSkipIfEmpty);
   }
 }
