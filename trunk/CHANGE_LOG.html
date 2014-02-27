@@ -5,6 +5,10 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="218">Fixed bug: case-sensitivity of URL protocols was ignored
+  when a set of protocols other than the standard set was used</li>
+<li value="220"><code>allowWithoutAttributes(true)</code> was being ignored for
+  a subset of elements when policies were ANDED.</li>
 <li value="209">Reworked <code>CssSchema</code> to allow
   users to extend the default property white-list.</li>
 <li value="198">Replaced CSS sanitizer with one that does token-level
