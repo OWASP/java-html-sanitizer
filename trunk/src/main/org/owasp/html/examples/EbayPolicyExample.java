@@ -86,7 +86,7 @@ public class EbayPolicyExample {
       "(?:[\\p{L}\\p{N}\\\\\\.\\#@\\$%\\+&;\\-_~,\\?=/!]+|\\#(\\w)+)");
   private static final Pattern OFFSITE_URL = Pattern.compile(
       "\\s*(?:(?:ht|f)tps?://|mailto:)[\\p{L}\\p{N}]"
-      + "[\\p{L}\\p{N}\\p{Zs}\\.\\#@\\$%\\+&;:\\-_~,\\?=/!\\(\\)]*\\s*");
+      + "[\\p{L}\\p{N}\\p{Zs}\\.\\#@\\$%\\+&;:\\-_~,\\?=/!\\(\\)]*+\\s*");
 
   private static final Pattern NUMBER = Pattern.compile(
       "[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|\\.[0-9]+)");
