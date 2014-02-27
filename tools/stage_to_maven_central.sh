@@ -23,7 +23,7 @@ VERSION="$1"
 
 PASSPHRASE="$2"
 
-KEYNAME=04074996
+KEYNAME=41449802
 
 function usageAndExit() {
   echo "Usage: $0 <version> <passphrase>"
