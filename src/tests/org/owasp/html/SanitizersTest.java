@@ -248,4 +248,28 @@ public class SanitizersTest extends TestCase {
         + "</table>";
     assertEquals(sanitized, s.sanitize(input));
   }
+
+  @Test
+  public static final void testSkipIfEmptyUnionsProperly() {
+    // Issue 23
+    PolicyFactory extras = new HtmlPolicyBuilder()
+        .allowWithoutAttributes("span", "div")
+        .allowElements("span", "div", "textarea")
+        // This is not the proper way to require the attribute disabled on
+        // textareas.  This is a test.  This is only a test.
+        .allowAttributes("disabled").onElements("textarea")
+        .disallowWithoutAttributes("textarea")
+        .toFactory();
+    PolicyFactory policy = Sanitizers.FORMATTING
+        .and(Sanitizers.BLOCKS)
+        .and(Sanitizers.IMAGES)
+        .and(Sanitizers.STYLES)
+        .and(extras);
+    String input =
+        "<textarea>text</textarea><textarea disabled></textarea>"
+        + "<div onclick='redirect()'><span>Styled by span</span></div>";
+    String want = "text<textarea disabled=\"disabled\"></textarea>"
+        + "<div><span>Styled by span</span></div>";
+    assertEquals(want, policy.sanitize(input));
+  }
 }
