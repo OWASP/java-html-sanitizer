@@ -5,7 +5,7 @@
                 exclude-result-prefixes="#default">
 
 <!-- build.xml will substitute the real path to fo/docbook.xsl here. -->
-<xsl:import href="/Users/msamuel/work/findbugs-read-only/software-home/docbook-xsl-1.76.1/fo/docbook.xsl"/>
+<xsl:import href="/Users/pugh/tools/docbook-xsl-1.76.1/fo/docbook.xsl"/>
 
 <!-- Enumerate sections. -->
 <xsl:variable name="section.autolabel">1</xsl:variable>

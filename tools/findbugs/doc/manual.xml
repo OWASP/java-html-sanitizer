@@ -44,9 +44,9 @@ The name FindBugs and the FindBugs logo are trademarked by the University of Mar
 </para>
 </legalnotice>
 
-<edition>2.0.2</edition>
+<edition>2.0.3</edition>
 
-<pubdate>21:04:38 EST, 25 February, 2013</pubdate>
+<pubdate>17:16:15 EST, 22 November, 2013</pubdate>
 
 </bookinfo>
 
@@ -62,7 +62,7 @@ The name FindBugs and the FindBugs logo are trademarked by the University of Mar
 <para> &FindBugs;&trade; is a program to find bugs in Java programs.  It looks for instances
 of "bug patterns" --- code instances that are likely to be errors.</para>
 
-<para> This document describes version 2.0.2 of &FindBugs;.We
+<para> This document describes version 2.0.3 of &FindBugs;.We
 are very interested in getting your feedback on &FindBugs;. Please visit
 the <ulink url="http://findbugs.sourceforge.net">&FindBugs; web page</ulink> for
 the latest information on &FindBugs;, contact information, and support resources such
@@ -100,31 +100,31 @@ This chapter explains how to install &FindBugs;.
 <para>
 The easiest way to install &FindBugs; is to download a binary distribution.
 Binary distributions are available in
-<ulink url="http://prdownloads.sourceforge.net/findbugs/findbugs-2.0.2.tar.gz?download">gzipped tar format</ulink> and
-<ulink url="http://prdownloads.sourceforge.net/findbugs/findbugs-2.0.2.zip?download">zip format</ulink>.
+<ulink url="http://prdownloads.sourceforge.net/findbugs/findbugs-2.0.3.tar.gz?download">gzipped tar format</ulink> and
+<ulink url="http://prdownloads.sourceforge.net/findbugs/findbugs-2.0.3.zip?download">zip format</ulink>.
 Once you have downloaded a binary distribution, extract it into a directory of your choice.
 </para>
 
 <para>
 Extracting a gzipped tar format distribution:
 <screen>
-<prompt>$ </prompt><command>gunzip -c findbugs-2.0.2.tar.gz | tar xvf -</command>
+<prompt>$ </prompt><command>gunzip -c findbugs-2.0.3.tar.gz | tar xvf -</command>
 </screen>
 </para>
 
 <para>
 Extracting a zip format distribution:
 <screen>
-<prompt>C:\Software></prompt><command>unzip findbugs-2.0.2.zip</command>
+<prompt>C:\Software></prompt><command>unzip findbugs-2.0.3.zip</command>
 </screen>
 </para>
 
 <para>
 Usually, extracting a binary distribution will create a directory ending in
-<filename class="directory">findbugs-2.0.2</filename>. For example, if you extracted
+<filename class="directory">findbugs-2.0.3</filename>. For example, if you extracted
 the binary distribution from the <filename class="directory">C:\Software</filename>
 directory, then the &FindBugs; software will be extracted into the directory
-<filename class="directory">C:\Software\findbugs-2.0.2</filename>.
+<filename class="directory">C:\Software\findbugs-2.0.3</filename>.
 This directory is the &FindBugs; home directory.  We'll refer to it as
 &FBHome; (or &FBHomeWin; for Windows) throughout this manual.
 </para>
@@ -155,7 +155,7 @@ To compile &FindBugs; from source, you will need the following:
 <itemizedlist>
   <listitem>
     <para>
-      The <ulink url="http://prdownloads.sourceforge.net/findbugs/findbugs-2.0.2-source.zip?download"
+      The <ulink url="http://prdownloads.sourceforge.net/findbugs/findbugs-2.0.3-source.zip?download"
       >&FindBugs; source distribution</ulink>
     </para>
   </listitem>
@@ -218,7 +218,7 @@ After you download the source distribution, you'll need to extract it into
 a working directory.  A typical command to do this is:
 
 <screen>
-<prompt>$ </prompt><command>unzip findbugs-2.0.2-source.zip</command>
+<prompt>$ </prompt><command>unzip findbugs-2.0.3-source.zip</command>
 </screen>
 
 </para>
@@ -938,6 +938,19 @@ These options are only accepted by the Text User Interface.
   </listitem>
   </varlistentry>
 
+  <varlistentry>
+  <term><command>-userPrefs</command> <replaceable>edu.umd.cs.findbugs.core.prefs</replaceable></term>
+  <listitem>
+    <para>
+    Set the path of the user preferences file to use, which might override some of the options abobe.
+    Specifying <literal>userPrefs</literal> as first argument would mean some later
+    options will override them, as last argument would mean they will override some previous options).
+    This rationale behind this option is to reuse FindBugs Eclipse project settings for command
+    line execution.
+    </para>
+  </listitem>
+  </varlistentry>
+
 <!--
   <varlistentry>
   <term><command></command> <replaceable></replaceable></term>
@@ -1232,8 +1245,8 @@ using the &FindBugs; task.
        elements may be specified as children of a single <literal>findbugs</literal> element.
        </para>
        <para>In addition to or instead of specifying a <literal>class</literal> element,
-       the  &FindBugs; task can contain one or more <literal>fileset</literal> element(s) that 
-       specify files to be analyzed. 
+       the  &FindBugs; task can contain one or more <literal>fileset</literal> element(s) that
+       specify files to be analyzed.
        For example, you might use a fileset to specify that all of the jar files in a directory
        should be analyzed.
        </para>
@@ -1292,7 +1305,7 @@ using the &FindBugs; task.
        <para>
        An optional attribute.  It specifies
        the confidence/priority threshold for reporting issues.  If set to "low", confidence is not used to filter bugs.
-       If set to "medium" (the default), low confidence issues are supressed. 
+       If set to "medium" (the default), low confidence issues are supressed.
        If set to "high", only high confidence bugs are reported.
        </para>
     </listitem>
@@ -1513,6 +1526,19 @@ using the &FindBugs; task.
       </listitem>
   </varlistentry>
 
+  <varlistentry>
+      <term><literal>userPreferencesFile</literal></term>
+      <listitem>
+          <para>
+              Optional attribute. Set the path of the user preferences file to use, which might override some of the options abobe.
+              Specifying <literal>userPreferencesFile</literal> as first argument would mean some later
+              options will override them, as last argument would mean they will override some previous options).
+              This rationale behind this option is to reuse FindBugs Eclipse project settings for command
+              line execution.
+            </para>
+      </listitem>
+  </varlistentry>
+
 </variablelist>
 
 
@@ -1591,10 +1617,10 @@ and JRE/JDK 1.5 or later.
 
 <para>You can also manually
 download the plugin from the following link:
-<ulink url="http://prdownloads.sourceforge.net/findbugs/edu.umd.cs.findbugs.plugin.eclipse_2.0.2.20130225.zip?download"
->http://prdownloads.sourceforge.net/findbugs/edu.umd.cs.findbugs.plugin.eclipse_2.0.2.20130225.zip?download</ulink>.
+<ulink url="http://prdownloads.sourceforge.net/findbugs/edu.umd.cs.findbugs.plugin.eclipse_2.0.3.20131122.zip?download"
+>http://prdownloads.sourceforge.net/findbugs/edu.umd.cs.findbugs.plugin.eclipse_2.0.3.20131122.zip?download</ulink>.
 Extract it in Eclipse's "plugins" subdirectory.
-(So &lt;eclipse_install_dir&gt;/plugins/edu.umd.cs.findbugs.plugin.eclipse_2.0.2.20130225/findbugs.png
+(So &lt;eclipse_install_dir&gt;/plugins/edu.umd.cs.findbugs.plugin.eclipse_2.0.3.20131122/findbugs.png
 should be the path to the &FindBugs; logo.)
 
 </para>

@@ -5,7 +5,7 @@
                 exclude-result-prefixes="#default">
 
 <!-- build.xml will substitute the real path to chunk.xsl here. -->
-<xsl:import href="/Users/msamuel/work/findbugs-read-only/software-home/docbook-xsl-1.76.1/html/chunk.xsl"/>
+<xsl:import href="/Users/pugh/tools/docbook-xsl-1.76.1/html/chunk.xsl"/>
 
 <xsl:template name="user.header.content">
 
