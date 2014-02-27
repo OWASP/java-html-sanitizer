@@ -80,77 +80,78 @@
 <FONT color="green">077</FONT>              }<a name="line.77"></a>
 <FONT color="green">078</FONT>              break protocol_loop;<a name="line.78"></a>
 <FONT color="green">079</FONT>            case ':':<a name="line.79"></a>
-<FONT color="green">080</FONT>              if (!protocols.contains(s.substring(0, i))) { return null; }<a name="line.80"></a>
-<FONT color="green">081</FONT>              break protocol_loop;<a name="line.81"></a>
-<FONT color="green">082</FONT>          }<a name="line.82"></a>
-<FONT color="green">083</FONT>        }<a name="line.83"></a>
-<FONT color="green">084</FONT>        return normalizeUri(s);<a name="line.84"></a>
-<FONT color="green">085</FONT>      }<a name="line.85"></a>
-<FONT color="green">086</FONT>    <a name="line.86"></a>
-<FONT color="green">087</FONT>      protected boolean allowProtocolRelativeUrls() {<a name="line.87"></a>
-<FONT color="green">088</FONT>        return protocols.contains("http") &amp;&amp; protocols.contains("https");<a name="line.88"></a>
-<FONT color="green">089</FONT>      }<a name="line.89"></a>
-<FONT color="green">090</FONT>    <a name="line.90"></a>
-<FONT color="green">091</FONT>      /** Percent encodes anything that looks like a colon, or a parenthesis. */<a name="line.91"></a>
-<FONT color="green">092</FONT>      static String normalizeUri(String s) {<a name="line.92"></a>
-<FONT color="green">093</FONT>        int n = s.length();<a name="line.93"></a>
-<FONT color="green">094</FONT>        boolean colonsIrrelevant = false;<a name="line.94"></a>
-<FONT color="green">095</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.95"></a>
-<FONT color="green">096</FONT>          char ch = s.charAt(i);<a name="line.96"></a>
-<FONT color="green">097</FONT>          switch (ch) {<a name="line.97"></a>
-<FONT color="green">098</FONT>            case '/': case '#': case '?': case ':':<a name="line.98"></a>
-<FONT color="green">099</FONT>              colonsIrrelevant = true;<a name="line.99"></a>
-<FONT color="green">100</FONT>              break;<a name="line.100"></a>
-<FONT color="green">101</FONT>            case '(': case ')': case '\uff1a':<a name="line.101"></a>
-<FONT color="green">102</FONT>              StringBuilder sb = new StringBuilder(n + 16);<a name="line.102"></a>
-<FONT color="green">103</FONT>              int pos = 0;<a name="line.103"></a>
-<FONT color="green">104</FONT>              for (; i &lt; n; ++i) {<a name="line.104"></a>
-<FONT color="green">105</FONT>                ch = s.charAt(i);<a name="line.105"></a>
-<FONT color="green">106</FONT>                switch (ch) {<a name="line.106"></a>
-<FONT color="green">107</FONT>                  case '(':<a name="line.107"></a>
-<FONT color="green">108</FONT>                    sb.append(s, pos, i).append("%28");<a name="line.108"></a>
-<FONT color="green">109</FONT>                    pos = i + 1;<a name="line.109"></a>
-<FONT color="green">110</FONT>                    break;<a name="line.110"></a>
-<FONT color="green">111</FONT>                  case ')':<a name="line.111"></a>
-<FONT color="green">112</FONT>                    sb.append(s, pos, i).append("%29");<a name="line.112"></a>
-<FONT color="green">113</FONT>                    pos = i + 1;<a name="line.113"></a>
-<FONT color="green">114</FONT>                    break;<a name="line.114"></a>
-<FONT color="green">115</FONT>                  default:<a name="line.115"></a>
-<FONT color="green">116</FONT>                    if (ch &gt; 0x100 &amp;&amp; !colonsIrrelevant) {<a name="line.116"></a>
-<FONT color="green">117</FONT>                      // Other colon like characters.<a name="line.117"></a>
-<FONT color="green">118</FONT>                      // TODO: do we need to encode non-colon characters if we're<a name="line.118"></a>
-<FONT color="green">119</FONT>                      // not dealing with URLs that haven't been copy/pasted into<a name="line.119"></a>
-<FONT color="green">120</FONT>                      // the URL bar?<a name="line.120"></a>
-<FONT color="green">121</FONT>                      // Is it safe to assume UTF-8 here?<a name="line.121"></a>
-<FONT color="green">122</FONT>                      switch (ch) {<a name="line.122"></a>
-<FONT color="green">123</FONT>                        case '\u0589':<a name="line.123"></a>
-<FONT color="green">124</FONT>                          sb.append(s, pos, i).append("%d6%89");<a name="line.124"></a>
-<FONT color="green">125</FONT>                          pos = i + 1;<a name="line.125"></a>
-<FONT color="green">126</FONT>                          break;<a name="line.126"></a>
-<FONT color="green">127</FONT>                        case '\u05c3':<a name="line.127"></a>
-<FONT color="green">128</FONT>                          sb.append(s, pos, i).append("%d7%83");<a name="line.128"></a>
-<FONT color="green">129</FONT>                          pos = i + 1;<a name="line.129"></a>
-<FONT color="green">130</FONT>                          break;<a name="line.130"></a>
-<FONT color="green">131</FONT>                        case '\u2236':<a name="line.131"></a>
-<FONT color="green">132</FONT>                          sb.append(s, pos, i).append("%e2%88%b6");<a name="line.132"></a>
-<FONT color="green">133</FONT>                          pos = i + 1;<a name="line.133"></a>
-<FONT color="green">134</FONT>                          break;<a name="line.134"></a>
-<FONT color="green">135</FONT>                        case '\uff1a':<a name="line.135"></a>
-<FONT color="green">136</FONT>                          sb.append(s, pos, i).append("%ef%bc%9a");<a name="line.136"></a>
-<FONT color="green">137</FONT>                          pos = i + 1;<a name="line.137"></a>
-<FONT color="green">138</FONT>                          break;<a name="line.138"></a>
-<FONT color="green">139</FONT>                      }<a name="line.139"></a>
-<FONT color="green">140</FONT>                    }<a name="line.140"></a>
-<FONT color="green">141</FONT>                    break;<a name="line.141"></a>
-<FONT color="green">142</FONT>                }<a name="line.142"></a>
-<FONT color="green">143</FONT>              }<a name="line.143"></a>
-<FONT color="green">144</FONT>              return sb.append(s, pos, n).toString();<a name="line.144"></a>
-<FONT color="green">145</FONT>          }<a name="line.145"></a>
-<FONT color="green">146</FONT>        }<a name="line.146"></a>
-<FONT color="green">147</FONT>        return s;<a name="line.147"></a>
-<FONT color="green">148</FONT>      }<a name="line.148"></a>
-<FONT color="green">149</FONT>    <a name="line.149"></a>
-<FONT color="green">150</FONT>    }<a name="line.150"></a>
+<FONT color="green">080</FONT>              String protocol = Strings.toLowerCase(s.substring(0, i));<a name="line.80"></a>
+<FONT color="green">081</FONT>              if (!protocols.contains(protocol)) { return null; }<a name="line.81"></a>
+<FONT color="green">082</FONT>              break protocol_loop;<a name="line.82"></a>
+<FONT color="green">083</FONT>          }<a name="line.83"></a>
+<FONT color="green">084</FONT>        }<a name="line.84"></a>
+<FONT color="green">085</FONT>        return normalizeUri(s);<a name="line.85"></a>
+<FONT color="green">086</FONT>      }<a name="line.86"></a>
+<FONT color="green">087</FONT>    <a name="line.87"></a>
+<FONT color="green">088</FONT>      protected boolean allowProtocolRelativeUrls() {<a name="line.88"></a>
+<FONT color="green">089</FONT>        return protocols.contains("http") &amp;&amp; protocols.contains("https");<a name="line.89"></a>
+<FONT color="green">090</FONT>      }<a name="line.90"></a>
+<FONT color="green">091</FONT>    <a name="line.91"></a>
+<FONT color="green">092</FONT>      /** Percent encodes anything that looks like a colon, or a parenthesis. */<a name="line.92"></a>
+<FONT color="green">093</FONT>      static String normalizeUri(String s) {<a name="line.93"></a>
+<FONT color="green">094</FONT>        int n = s.length();<a name="line.94"></a>
+<FONT color="green">095</FONT>        boolean colonsIrrelevant = false;<a name="line.95"></a>
+<FONT color="green">096</FONT>        for (int i = 0; i &lt; n; ++i) {<a name="line.96"></a>
+<FONT color="green">097</FONT>          char ch = s.charAt(i);<a name="line.97"></a>
+<FONT color="green">098</FONT>          switch (ch) {<a name="line.98"></a>
+<FONT color="green">099</FONT>            case '/': case '#': case '?': case ':':<a name="line.99"></a>
+<FONT color="green">100</FONT>              colonsIrrelevant = true;<a name="line.100"></a>
+<FONT color="green">101</FONT>              break;<a name="line.101"></a>
+<FONT color="green">102</FONT>            case '(': case ')': case '\uff1a':<a name="line.102"></a>
+<FONT color="green">103</FONT>              StringBuilder sb = new StringBuilder(n + 16);<a name="line.103"></a>
+<FONT color="green">104</FONT>              int pos = 0;<a name="line.104"></a>
+<FONT color="green">105</FONT>              for (; i &lt; n; ++i) {<a name="line.105"></a>
+<FONT color="green">106</FONT>                ch = s.charAt(i);<a name="line.106"></a>
+<FONT color="green">107</FONT>                switch (ch) {<a name="line.107"></a>
+<FONT color="green">108</FONT>                  case '(':<a name="line.108"></a>
+<FONT color="green">109</FONT>                    sb.append(s, pos, i).append("%28");<a name="line.109"></a>
+<FONT color="green">110</FONT>                    pos = i + 1;<a name="line.110"></a>
+<FONT color="green">111</FONT>                    break;<a name="line.111"></a>
+<FONT color="green">112</FONT>                  case ')':<a name="line.112"></a>
+<FONT color="green">113</FONT>                    sb.append(s, pos, i).append("%29");<a name="line.113"></a>
+<FONT color="green">114</FONT>                    pos = i + 1;<a name="line.114"></a>
+<FONT color="green">115</FONT>                    break;<a name="line.115"></a>
+<FONT color="green">116</FONT>                  default:<a name="line.116"></a>
+<FONT color="green">117</FONT>                    if (ch &gt; 0x100 &amp;&amp; !colonsIrrelevant) {<a name="line.117"></a>
+<FONT color="green">118</FONT>                      // Other colon like characters.<a name="line.118"></a>
+<FONT color="green">119</FONT>                      // TODO: do we need to encode non-colon characters if we're<a name="line.119"></a>
+<FONT color="green">120</FONT>                      // not dealing with URLs that haven't been copy/pasted into<a name="line.120"></a>
+<FONT color="green">121</FONT>                      // the URL bar?<a name="line.121"></a>
+<FONT color="green">122</FONT>                      // Is it safe to assume UTF-8 here?<a name="line.122"></a>
+<FONT color="green">123</FONT>                      switch (ch) {<a name="line.123"></a>
+<FONT color="green">124</FONT>                        case '\u0589':<a name="line.124"></a>
+<FONT color="green">125</FONT>                          sb.append(s, pos, i).append("%d6%89");<a name="line.125"></a>
+<FONT color="green">126</FONT>                          pos = i + 1;<a name="line.126"></a>
+<FONT color="green">127</FONT>                          break;<a name="line.127"></a>
+<FONT color="green">128</FONT>                        case '\u05c3':<a name="line.128"></a>
+<FONT color="green">129</FONT>                          sb.append(s, pos, i).append("%d7%83");<a name="line.129"></a>
+<FONT color="green">130</FONT>                          pos = i + 1;<a name="line.130"></a>
+<FONT color="green">131</FONT>                          break;<a name="line.131"></a>
+<FONT color="green">132</FONT>                        case '\u2236':<a name="line.132"></a>
+<FONT color="green">133</FONT>                          sb.append(s, pos, i).append("%e2%88%b6");<a name="line.133"></a>
+<FONT color="green">134</FONT>                          pos = i + 1;<a name="line.134"></a>
+<FONT color="green">135</FONT>                          break;<a name="line.135"></a>
+<FONT color="green">136</FONT>                        case '\uff1a':<a name="line.136"></a>
+<FONT color="green">137</FONT>                          sb.append(s, pos, i).append("%ef%bc%9a");<a name="line.137"></a>
+<FONT color="green">138</FONT>                          pos = i + 1;<a name="line.138"></a>
+<FONT color="green">139</FONT>                          break;<a name="line.139"></a>
+<FONT color="green">140</FONT>                      }<a name="line.140"></a>
+<FONT color="green">141</FONT>                    }<a name="line.141"></a>
+<FONT color="green">142</FONT>                    break;<a name="line.142"></a>
+<FONT color="green">143</FONT>                }<a name="line.143"></a>
+<FONT color="green">144</FONT>              }<a name="line.144"></a>
+<FONT color="green">145</FONT>              return sb.append(s, pos, n).toString();<a name="line.145"></a>
+<FONT color="green">146</FONT>          }<a name="line.146"></a>
+<FONT color="green">147</FONT>        }<a name="line.147"></a>
+<FONT color="green">148</FONT>        return s;<a name="line.148"></a>
+<FONT color="green">149</FONT>      }<a name="line.149"></a>
+<FONT color="green">150</FONT>    <a name="line.150"></a>
+<FONT color="green">151</FONT>    }<a name="line.151"></a>
 
 
 
