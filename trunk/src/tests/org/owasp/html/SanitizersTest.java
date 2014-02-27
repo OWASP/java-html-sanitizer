@@ -158,6 +158,11 @@ public class SanitizersTest extends TestCase {
             "<a href=\"https://example.com/x.html\""
             + " onclick=\"alert(1337)\">Link text</a>"));
     assertEquals(
+        "<a href=\"HTTPS://example.com/x.html\" rel=\"nofollow\">Link text</a>",
+        s.sanitize(
+            "<a href=\"HTTPS://example.com/x.html\""
+            + " onclick=\"alert(1337)\">Link text</a>"));
+    assertEquals(
         "<a href=\"//example.com/x.html\" rel=\"nofollow\">Link text</a>",
         s.sanitize(
             "<a href=\"//example.com/x.html\""
@@ -172,6 +177,28 @@ public class SanitizersTest extends TestCase {
     assertEquals(
         "Header text",
         s.sanitize("<a name=\"header\" id=\"header\">Header text</a>"));
+  }
+
+  @Test
+  public static final void testExplicitlyAllowedProtocolsAreCaseInsensitive() {
+    // Issue 24.
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols()
+        .allowUrlProtocols("file")  // Don't try this at home
+        .toFactory();
+    String input = (
+        "<a href='file:///etc/passwd'>Copy and paste this into email</a>"
+        + "<a href='FILE:///etc/passwd'>Or this one</a>"
+        + "<a href='F\u0130LE:///etc/passwd'>not with Turkish dotted I's</a>"
+        + "<a href='fail:///etc/passed'>The fail protocol needs to happen</a>");
+    String want = (
+        "<a href=\"file:///etc/passwd\">Copy and paste this into email</a>"
+        + "<a href=\"FILE:///etc/passwd\">Or this one</a>"
+        + "not with Turkish dotted I&#39;s"
+        + "The fail protocol needs to happen");
+    assertEquals(want, s.sanitize(input));
   }
 
   @Test

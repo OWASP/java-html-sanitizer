@@ -77,7 +77,8 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
           }
           break protocol_loop;
         case ':':
-          if (!protocols.contains(s.substring(0, i))) { return null; }
+          String protocol = Strings.toLowerCase(s.substring(0, i));
+          if (!protocols.contains(protocol)) { return null; }
           break protocol_loop;
       }
     }
