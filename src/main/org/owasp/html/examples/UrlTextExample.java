@@ -174,12 +174,14 @@ public class UrlTextExample {
     for (int i = 0; i < start - 3; ++i) {
       switch (url.charAt(i)) {
       case '/': case '?': case '#': return null;
+      default: break;
       }
     }
     int end = url.length();
     for (int i = start; i < end; ++i) {
       switch (url.charAt(i)) {
       case '/': case '?': case '#': end = i; break;
+      default: break;
       }
     }
     if (start < end) {
