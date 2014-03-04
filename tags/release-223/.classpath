@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src/tests"/>
+	<classpathentry kind="src" path="out/genfiles"/>
+	<classpathentry kind="src" path="src/main"/>
+	<classpathentry kind="lib" path="lib/guava-libraries/guava.jar"/>
+	<classpathentry kind="lib" path="lib/htmlparser-1.3/htmlparser-1.3-with-transitions.jar"/>
+	<classpathentry kind="lib" path="lib/jsr305/jsr305.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/commons-codec-1.4/commons-codec-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/junit/junit.jar"/>
+	<classpathentry kind="output" path="out/classes"/>
+</classpath>

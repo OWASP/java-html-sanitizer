@@ -1,0 +1,289 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--NewPage-->
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<TITLE>
+org.owasp.html (OWASP Java HTML Sanitizer)
+</TITLE>
+
+
+<LINK REL ="stylesheet" TYPE="text/css" HREF="../../../stylesheet.css" TITLE="Style">
+
+<SCRIPT type="text/javascript">
+function windowTitle()
+{
+    if (location.href.indexOf('is-external=true') == -1) {
+        parent.document.title="org.owasp.html (OWASP Java HTML Sanitizer)";
+    }
+}
+</SCRIPT>
+<NOSCRIPT>
+</NOSCRIPT>
+
+</HEAD>
+
+<BODY BGCOLOR="white" onload="windowTitle();">
+<HR>
+
+
+<!-- ========= START OF TOP NAVBAR ======= -->
+<A NAME="navbar_top"><!-- --></A>
+<A HREF="#skip-navbar_top" title="Skip navigation links"></A>
+<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" SUMMARY="">
+<TR>
+<TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
+<A NAME="navbar_top_firstrow"><!-- --></A>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
+  <TR ALIGN="center" VALIGN="top">
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Package</B></FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <FONT CLASS="NavBarFont1">Class</FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-use.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
+  </TR>
+</TABLE>
+</TD>
+<TD ALIGN="right" VALIGN="top" ROWSPAN=3><EM>
+<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a></EM>
+</TD>
+</TR>
+
+<TR>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+&nbsp;PREV PACKAGE&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/examples/package-summary.html"><B>NEXT PACKAGE</B></A></FONT></TD>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+  <A HREF="../../../index.html?org/owasp/html/package-summary.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="package-summary.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+&nbsp;<SCRIPT type="text/javascript">
+  <!--
+  if(window==top) {
+    document.writeln('<A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>');
+  }
+  //-->
+</SCRIPT>
+<NOSCRIPT>
+  <A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>
+</NOSCRIPT>
+
+
+</FONT></TD>
+</TR>
+</TABLE>
+<A NAME="skip-navbar_top"></A>
+<!-- ========= END OF TOP NAVBAR ========= -->
+
+<HR>
+<FONT SIZE="-1">@ParametersAreNonnullByDefault
+</FONT><H2>
+Package org.owasp.html
+</H2>
+An efficient <A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><CODE>HtmlSanitizer</CODE></A>
+ configurable via a flexible
+ <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><CODE>HtmlPolicyBuilder</CODE></A>.
+<P>
+<B>See:</B>
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="#package_description"><B>Description</B></A>
+<P>
+
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Interface Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/AttributePolicy.html" title="interface in org.owasp.html">AttributePolicy</A></B></TD>
+<TD>A policy that can be applied to an HTML attribute to decide whether or not to
+ allow it in the output, possibly after transforming its value.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/ElementPolicy.html" title="interface in org.owasp.html">ElementPolicy</A></B></TD>
+<TD>A policy that can be applied to an element to decide whether or not to
+ allow it in the output, possibly after transforming attributes.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/Handler.html" title="interface in org.owasp.html">Handler&lt;T&gt;</A></B></TD>
+<TD>Receives notification of problems.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html">HtmlChangeListener&lt;T&gt;</A></B></TD>
+<TD>Receives events when an HTML tag, or attribute is discarded.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html" title="interface in org.owasp.html">HtmlSanitizer.Policy</A></B></TD>
+<TD>Receives events based on the HTML stream, and applies a policy to decide
+ what HTML constructs to allow.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></B></TD>
+<TD>A light-weight SAX-like listener for HTML.</TD>
+</TR>
+</TABLE>
+&nbsp;
+
+<P>
+
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Class Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/AttributePolicy.Util.html" title="class in org.owasp.html">AttributePolicy.Util</A></B></TD>
+<TD>Utilities for working with attribute policies.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/CssSchema.html" title="class in org.owasp.html">CssSchema</A></B></TD>
+<TD>Describes the kinds of tokens a CSS property's value can safely contain.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/ElementPolicy.Util.html" title="class in org.owasp.html">ElementPolicy.Util</A></B></TD>
+<TD>Utilities for working with element policies.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/FilterUrlByProtocolAttributePolicy.html" title="class in org.owasp.html">FilterUrlByProtocolAttributePolicy</A></B></TD>
+<TD>An attribute policy for attributes whose values are URLs that requires that
+ the value have no protocol or have an allowed protocol.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlChangeReporter.html" title="class in org.owasp.html">HtmlChangeReporter&lt;T&gt;</A></B></TD>
+<TD>Sits between the HTML parser, and then policy, and the renderer so that it
+ can report dropped elements and attributes to an <A HREF="../../../org/owasp/html/HtmlChangeListener.html" title="interface in org.owasp.html"><CODE>HtmlChangeListener</CODE></A>.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html">HtmlPolicyBuilder</A></B></TD>
+<TD>Conveniences for configuring policies for the <A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><CODE>HtmlSanitizer</CODE></A>.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html">HtmlSanitizer</A></B></TD>
+<TD>Consumes an HTML stream, and dispatches events to a policy object which
+ decides which elements and attributes to allow.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html">HtmlStreamRenderer</A></B></TD>
+<TD>Given a series of HTML tokens, writes valid, normalized HTML to the output.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/PolicyFactory.html" title="class in org.owasp.html">PolicyFactory</A></B></TD>
+<TD>A factory that can be used to link a sanitizer to an output receiver and that
+ provides a convenient <code><A HREF="../../../org/owasp/html/PolicyFactory.html#sanitize(java.lang.String)"><CODE>sanitize</CODE></A></code>
+ method and a <code><A HREF="../../../org/owasp/html/PolicyFactory.html#and(org.owasp.html.PolicyFactory)"><CODE>and</CODE></A></code> method to compose
+ policies.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/Sanitizers.html" title="class in org.owasp.html">Sanitizers</A></B></TD>
+<TD>Pre-packaged HTML sanitizer policies.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/TagBalancingHtmlStreamEventReceiver.html" title="class in org.owasp.html">TagBalancingHtmlStreamEventReceiver</A></B></TD>
+<TD>Wraps an HTML stream event receiver to fill in missing close tags.</TD>
+</TR>
+</TABLE>
+&nbsp;
+
+<P>
+
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Enum Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A></B></TD>
+<TD>From section 8.1.2.6 of http://www.whatwg.org/specs/web-apps/current-work/</TD>
+</TR>
+</TABLE>
+&nbsp;
+
+<P>
+
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Annotation Types Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD WIDTH="15%"><B><A HREF="../../../org/owasp/html/TCB.html" title="annotation in org.owasp.html">TCB</A></B></TD>
+<TD>Indicates that a program element is in the trusted computing base --
+ there exists a security property that could be violated if this code is not
+ correct.</TD>
+</TR>
+</TABLE>
+&nbsp;
+
+<P>
+<A NAME="package_description"><!-- --></A><H2>
+Package org.owasp.html Description
+</H2>
+
+<P>
+An efficient <A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><CODE>HtmlSanitizer</CODE></A>
+ configurable via a flexible
+ <A HREF="../../../org/owasp/html/HtmlPolicyBuilder.html" title="class in org.owasp.html"><CODE>HtmlPolicyBuilder</CODE></A>.
+<P>
+
+<P>
+<DL>
+<DT><B>Author:</B></DT>
+  <DD>Mike Samuel <mikesamuel@gmail.com></DD>
+</DL>
+<HR>
+
+
+<!-- ======= START OF BOTTOM NAVBAR ====== -->
+<A NAME="navbar_bottom"><!-- --></A>
+<A HREF="#skip-navbar_bottom" title="Skip navigation links"></A>
+<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" SUMMARY="">
+<TR>
+<TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
+<A NAME="navbar_bottom_firstrow"><!-- --></A>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
+  <TR ALIGN="center" VALIGN="top">
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Package</B></FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <FONT CLASS="NavBarFont1">Class</FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-use.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
+  </TR>
+</TABLE>
+</TD>
+<TD ALIGN="right" VALIGN="top" ROWSPAN=3><EM>
+<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a></EM>
+</TD>
+</TR>
+
+<TR>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+&nbsp;PREV PACKAGE&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/examples/package-summary.html"><B>NEXT PACKAGE</B></A></FONT></TD>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+  <A HREF="../../../index.html?org/owasp/html/package-summary.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="package-summary.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+&nbsp;<SCRIPT type="text/javascript">
+  <!--
+  if(window==top) {
+    document.writeln('<A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>');
+  }
+  //-->
+</SCRIPT>
+<NOSCRIPT>
+  <A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>
+</NOSCRIPT>
+
+
+</FONT></TD>
+</TR>
+</TABLE>
+<A NAME="skip-navbar_bottom"></A>
+<!-- ======== END OF BOTTOM NAVBAR ======= -->
+
+<HR>
+
+</BODY>
+</HTML>

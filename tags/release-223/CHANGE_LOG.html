@@ -1,0 +1,65 @@
+<!DOCTYPE HTML><html><head>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<title>OWASP Java HTML Sanitizer Change Log</title>
+</head>
+<body>
+<h1>OWASP Java HTML Sanitizer Change Log</h1>
+<ol>
+<li value="218">Fixed bug: case-sensitivity of URL protocols was ignored
+  when a set of protocols other than the standard set was used</li>
+<li value="220"><code>allowWithoutAttributes(true)</code> was being ignored for
+  a subset of elements when policies were ANDED.</li>
+<li value="209">Reworked <code>CssSchema</code> to allow
+  users to extend the default property white-list.</li>
+<li value="198">Replaced CSS sanitizer with one that does token-level
+  filtering, and replaces the old CSS lexer that used regular
+  expressions with one that doesn't back-track, or behave
+  quadratically on crafted inputs.</li>
+<li value="173">Fixed bug: tag balancer allowed
+  <code>&lt;/p&gt;</code> to close a table, so rewrote tag balancer
+  to recognize scoping elements per HTML5.</li>
+<li value="164">Fixed bug: missing bit in HTML schema led to text in
+  <code>&lt;option&gt;</code> elements being elided even when
+  the elements themselves were white-listed.</li>
+<li value="161">Fixed bug: <code>requireRelNoFollowOnLinks()</code> was
+  implicitly allowing the <code>a</code> element.  Changed this to be
+  consistent with document: no elements are allowed that do not appear
+  in a call to <code>allowElements</code>.</li>
+<li value="132">Add methods to policy builder to specify which
+  elements are allowed to contain text and change default to disallow
+  text in CDATA elements whose content is often not plain text.
+  If custom element policies that change the element type fail,
+  make sure the policy allows the output element type.</li>
+<li value="122">Restrict where text-nodes can validly appear in output
+  per HTML5 rules and changed the tag balancer to do better error
+  recovery on misplaced phrasing content.</li>
+<li value="114">Changed rendering to ensure that the output HTML is
+  valid XML when the policy prohibits
+  <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/syntax.html#raw-text-elements">HTML raw text &amp; RCDATA</a>
+  elements as is almost always the case.</li>
+<li value="104">Changed lexer to treat <code>&lt;?&hellip;&gt;</code>
+  using the HTML5 bogus comment state grammar which agrees with XML's
+  processing instruction production.  Previously, the token ended at
+  the first <code>"?>"</code> or end-of-file instead of the first
+  <code>">"</code>.</li>
+<li value="99">Fixed problem with URL protocol white-listing that
+  caused legitimate URLs to be rejected.</li>
+<li value="88">Cleaned up raw-text tag handling. XMP, LISTING,
+  PLAINTEXT now handled by substitution in the renderer and
+  changed NOSCRIPT and friends so they are treated consistently
+  when elided as when present in output.  Added workaround for
+  IE8 innerHTML wierdness.</li>
+<li value="83">Prevent DoS of browsers via extremely deeply nested
+  tags.  In sanitized CSS, allow CSS property
+  <code>background-color</code> and<code>font-size</code>s specified
+  in <code>px</code>.</li>
+<li value="74">Added convenient pre-packaged policies in Sanitizers.
+  Fixed bug in how warnings are reported via the badHtml Handler.</li>
+<li value="50">Better handling of supplementary codepoints to avoid
+  UTF-16/UCS-2 confusion in browsers.</li>
+<li value="48">Added new HTML5 URL attributes to list used to
+  safeguard URL attributes in <code>HtmlPolicyBuilder</code>.</li>
+<li value="42">Changed <code>HtmlSanitizer.sanitize</code> to allow
+  <code>null</code> as a valid value for the HTML snippet.</li>
+</ol>
+</body></html>

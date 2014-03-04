@@ -1,0 +1,302 @@
+<HTML>
+<BODY BGCOLOR="white">
+<PRE>
+<FONT color="green">001</FONT>    // Copyright (c) 2011, Mike Samuel<a name="line.1"></a>
+<FONT color="green">002</FONT>    // All rights reserved.<a name="line.2"></a>
+<FONT color="green">003</FONT>    //<a name="line.3"></a>
+<FONT color="green">004</FONT>    // Redistribution and use in source and binary forms, with or without<a name="line.4"></a>
+<FONT color="green">005</FONT>    // modification, are permitted provided that the following conditions<a name="line.5"></a>
+<FONT color="green">006</FONT>    // are met:<a name="line.6"></a>
+<FONT color="green">007</FONT>    //<a name="line.7"></a>
+<FONT color="green">008</FONT>    // Redistributions of source code must retain the above copyright<a name="line.8"></a>
+<FONT color="green">009</FONT>    // notice, this list of conditions and the following disclaimer.<a name="line.9"></a>
+<FONT color="green">010</FONT>    // Redistributions in binary form must reproduce the above copyright<a name="line.10"></a>
+<FONT color="green">011</FONT>    // notice, this list of conditions and the following disclaimer in the<a name="line.11"></a>
+<FONT color="green">012</FONT>    // documentation and/or other materials provided with the distribution.<a name="line.12"></a>
+<FONT color="green">013</FONT>    // Neither the name of the OWASP nor the names of its contributors may<a name="line.13"></a>
+<FONT color="green">014</FONT>    // be used to endorse or promote products derived from this software<a name="line.14"></a>
+<FONT color="green">015</FONT>    // without specific prior written permission.<a name="line.15"></a>
+<FONT color="green">016</FONT>    // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS<a name="line.16"></a>
+<FONT color="green">017</FONT>    // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT<a name="line.17"></a>
+<FONT color="green">018</FONT>    // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS<a name="line.18"></a>
+<FONT color="green">019</FONT>    // FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE<a name="line.19"></a>
+<FONT color="green">020</FONT>    // COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,<a name="line.20"></a>
+<FONT color="green">021</FONT>    // INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,<a name="line.21"></a>
+<FONT color="green">022</FONT>    // BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;<a name="line.22"></a>
+<FONT color="green">023</FONT>    // LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER<a name="line.23"></a>
+<FONT color="green">024</FONT>    // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT<a name="line.24"></a>
+<FONT color="green">025</FONT>    // LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN<a name="line.25"></a>
+<FONT color="green">026</FONT>    // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE<a name="line.26"></a>
+<FONT color="green">027</FONT>    // POSSIBILITY OF SUCH DAMAGE.<a name="line.27"></a>
+<FONT color="green">028</FONT>    <a name="line.28"></a>
+<FONT color="green">029</FONT>    package org.owasp.html.examples;<a name="line.29"></a>
+<FONT color="green">030</FONT>    <a name="line.30"></a>
+<FONT color="green">031</FONT>    import java.io.IOException;<a name="line.31"></a>
+<FONT color="green">032</FONT>    import java.io.InputStreamReader;<a name="line.32"></a>
+<FONT color="green">033</FONT>    import java.util.regex.Pattern;<a name="line.33"></a>
+<FONT color="green">034</FONT>    <a name="line.34"></a>
+<FONT color="green">035</FONT>    import org.owasp.html.Handler;<a name="line.35"></a>
+<FONT color="green">036</FONT>    import org.owasp.html.HtmlPolicyBuilder;<a name="line.36"></a>
+<FONT color="green">037</FONT>    import org.owasp.html.HtmlSanitizer;<a name="line.37"></a>
+<FONT color="green">038</FONT>    import org.owasp.html.HtmlStreamRenderer;<a name="line.38"></a>
+<FONT color="green">039</FONT>    import org.owasp.html.PolicyFactory;<a name="line.39"></a>
+<FONT color="green">040</FONT>    <a name="line.40"></a>
+<FONT color="green">041</FONT>    import com.google.common.base.Charsets;<a name="line.41"></a>
+<FONT color="green">042</FONT>    import com.google.common.base.Predicate;<a name="line.42"></a>
+<FONT color="green">043</FONT>    import com.google.common.base.Throwables;<a name="line.43"></a>
+<FONT color="green">044</FONT>    import com.google.common.io.CharStreams;<a name="line.44"></a>
+<FONT color="green">045</FONT>    <a name="line.45"></a>
+<FONT color="green">046</FONT>    /**<a name="line.46"></a>
+<FONT color="green">047</FONT>     * Based on the<a name="line.47"></a>
+<FONT color="green">048</FONT>     * &lt;a href="http://www.owasp.org/index.php/Category:OWASP_AntiSamy_Project#Stage_2_-_Choosing_a_base_policy_file"&gt;AntiSamy EBay example&lt;/a&gt;.<a name="line.48"></a>
+<FONT color="green">049</FONT>     * &lt;blockquote&gt;<a name="line.49"></a>
+<FONT color="green">050</FONT>     * eBay (http://www.ebay.com/) is the most popular online auction site in the<a name="line.50"></a>
+<FONT color="green">051</FONT>     * universe, as far as I can tell. It is a public site so anyone is allowed to<a name="line.51"></a>
+<FONT color="green">052</FONT>     * post listings with rich HTML content. It's not surprising that given the<a name="line.52"></a>
+<FONT color="green">053</FONT>     * attractiveness of eBay as a target that it has been subject to a few complex<a name="line.53"></a>
+<FONT color="green">054</FONT>     * XSS attacks. Listings are allowed to contain much more rich content than,<a name="line.54"></a>
+<FONT color="green">055</FONT>     * say, Slashdot- so it's attack surface is considerably larger. The following<a name="line.55"></a>
+<FONT color="green">056</FONT>     * tags appear to be accepted by eBay (they don't publish rules):<a name="line.56"></a>
+<FONT color="green">057</FONT>     * {@code &lt;a&gt;},...<a name="line.57"></a>
+<FONT color="green">058</FONT>     * &lt;/blockquote&gt;<a name="line.58"></a>
+<FONT color="green">059</FONT>     */<a name="line.59"></a>
+<FONT color="green">060</FONT>    public class EbayPolicyExample {<a name="line.60"></a>
+<FONT color="green">061</FONT>    <a name="line.61"></a>
+<FONT color="green">062</FONT>      // Some common regular expression definitions.<a name="line.62"></a>
+<FONT color="green">063</FONT>    <a name="line.63"></a>
+<FONT color="green">064</FONT>      // The 16 colors defined by the HTML Spec (also used by the CSS Spec)<a name="line.64"></a>
+<FONT color="green">065</FONT>      private static final Pattern COLOR_NAME = Pattern.compile(<a name="line.65"></a>
+<FONT color="green">066</FONT>          "(?:aqua|black|blue|fuchsia|gray|grey|green|lime|maroon|navy|olive|purple"<a name="line.66"></a>
+<FONT color="green">067</FONT>          + "|red|silver|teal|white|yellow)");<a name="line.67"></a>
+<FONT color="green">068</FONT>    <a name="line.68"></a>
+<FONT color="green">069</FONT>      // HTML/CSS Spec allows 3 or 6 digit hex to specify color<a name="line.69"></a>
+<FONT color="green">070</FONT>      private static final Pattern COLOR_CODE = Pattern.compile(<a name="line.70"></a>
+<FONT color="green">071</FONT>          "(?:#(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?))");<a name="line.71"></a>
+<FONT color="green">072</FONT>    <a name="line.72"></a>
+<FONT color="green">073</FONT>      private static final Pattern NUMBER_OR_PERCENT = Pattern.compile(<a name="line.73"></a>
+<FONT color="green">074</FONT>          "[0-9]+%?");<a name="line.74"></a>
+<FONT color="green">075</FONT>      private static final Pattern PARAGRAPH = Pattern.compile(<a name="line.75"></a>
+<FONT color="green">076</FONT>          "(?:[\\p{L}\\p{N},'\\.\\s\\-_\\(\\)]|&amp;[0-9]{2};)*");<a name="line.76"></a>
+<FONT color="green">077</FONT>      private static final Pattern HTML_ID = Pattern.compile(<a name="line.77"></a>
+<FONT color="green">078</FONT>          "[a-zA-Z0-9\\:\\-_\\.]+");<a name="line.78"></a>
+<FONT color="green">079</FONT>      // force non-empty with a '+' at the end instead of '*'<a name="line.79"></a>
+<FONT color="green">080</FONT>      private static final Pattern HTML_TITLE = Pattern.compile(<a name="line.80"></a>
+<FONT color="green">081</FONT>          "[\\p{L}\\p{N}\\s\\-_',:\\[\\]!\\./\\\\\\(\\)&amp;]*");<a name="line.81"></a>
+<FONT color="green">082</FONT>      private static final Pattern HTML_CLASS = Pattern.compile(<a name="line.82"></a>
+<FONT color="green">083</FONT>          "[a-zA-Z0-9\\s,\\-_]+");<a name="line.83"></a>
+<FONT color="green">084</FONT>    <a name="line.84"></a>
+<FONT color="green">085</FONT>      private static final Pattern ONSITE_URL = Pattern.compile(<a name="line.85"></a>
+<FONT color="green">086</FONT>          "(?:[\\p{L}\\p{N}\\\\\\.\\#@\\$%\\+&amp;;\\-_~,\\?=/!]+|\\#(\\w)+)");<a name="line.86"></a>
+<FONT color="green">087</FONT>      private static final Pattern OFFSITE_URL = Pattern.compile(<a name="line.87"></a>
+<FONT color="green">088</FONT>          "\\s*(?:(?:ht|f)tps?://|mailto:)[\\p{L}\\p{N}]"<a name="line.88"></a>
+<FONT color="green">089</FONT>          + "[\\p{L}\\p{N}\\p{Zs}\\.\\#@\\$%\\+&amp;;:\\-_~,\\?=/!\\(\\)]*+\\s*");<a name="line.89"></a>
+<FONT color="green">090</FONT>    <a name="line.90"></a>
+<FONT color="green">091</FONT>      private static final Pattern NUMBER = Pattern.compile(<a name="line.91"></a>
+<FONT color="green">092</FONT>          "[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|\\.[0-9]+)");<a name="line.92"></a>
+<FONT color="green">093</FONT>    <a name="line.93"></a>
+<FONT color="green">094</FONT>      private static final Pattern NAME = Pattern.compile("[a-zA-Z0-9\\-_\\$]+");<a name="line.94"></a>
+<FONT color="green">095</FONT>    <a name="line.95"></a>
+<FONT color="green">096</FONT>      private static final Pattern ALIGN = Pattern.compile(<a name="line.96"></a>
+<FONT color="green">097</FONT>          "(?i)center|left|right|justify|char");<a name="line.97"></a>
+<FONT color="green">098</FONT>    <a name="line.98"></a>
+<FONT color="green">099</FONT>      private static final Pattern VALIGN = Pattern.compile(<a name="line.99"></a>
+<FONT color="green">100</FONT>          "(?i)baseline|bottom|middle|top");<a name="line.100"></a>
+<FONT color="green">101</FONT>    <a name="line.101"></a>
+<FONT color="green">102</FONT>      private static final Predicate&lt;String&gt; COLOR_NAME_OR_COLOR_CODE<a name="line.102"></a>
+<FONT color="green">103</FONT>          = new Predicate&lt;String&gt;() {<a name="line.103"></a>
+<FONT color="green">104</FONT>            public boolean apply(String s) {<a name="line.104"></a>
+<FONT color="green">105</FONT>              return COLOR_NAME.matcher(s).matches()<a name="line.105"></a>
+<FONT color="green">106</FONT>                  || COLOR_CODE.matcher(s).matches();<a name="line.106"></a>
+<FONT color="green">107</FONT>            }<a name="line.107"></a>
+<FONT color="green">108</FONT>          };<a name="line.108"></a>
+<FONT color="green">109</FONT>    <a name="line.109"></a>
+<FONT color="green">110</FONT>      private static final Predicate&lt;String&gt; ONSITE_OR_OFFSITE_URL<a name="line.110"></a>
+<FONT color="green">111</FONT>          = new Predicate&lt;String&gt;() {<a name="line.111"></a>
+<FONT color="green">112</FONT>            public boolean apply(String s) {<a name="line.112"></a>
+<FONT color="green">113</FONT>              return ONSITE_URL.matcher(s).matches()<a name="line.113"></a>
+<FONT color="green">114</FONT>                  || OFFSITE_URL.matcher(s).matches();<a name="line.114"></a>
+<FONT color="green">115</FONT>            }<a name="line.115"></a>
+<FONT color="green">116</FONT>          };<a name="line.116"></a>
+<FONT color="green">117</FONT>    <a name="line.117"></a>
+<FONT color="green">118</FONT>      private static final Pattern HISTORY_BACK = Pattern.compile(<a name="line.118"></a>
+<FONT color="green">119</FONT>          "(?:javascript:)?\\Qhistory.go(-1)\\E");<a name="line.119"></a>
+<FONT color="green">120</FONT>    <a name="line.120"></a>
+<FONT color="green">121</FONT>      private static final Pattern ONE_CHAR = Pattern.compile(<a name="line.121"></a>
+<FONT color="green">122</FONT>          ".?", Pattern.DOTALL);<a name="line.122"></a>
+<FONT color="green">123</FONT>    <a name="line.123"></a>
+<FONT color="green">124</FONT>    <a name="line.124"></a>
+<FONT color="green">125</FONT>    <a name="line.125"></a>
+<FONT color="green">126</FONT>      public static final PolicyFactory POLICY_DEFINITION = new HtmlPolicyBuilder()<a name="line.126"></a>
+<FONT color="green">127</FONT>              .allowAttributes("id").matching(HTML_ID).globally()<a name="line.127"></a>
+<FONT color="green">128</FONT>              .allowAttributes("class").matching(HTML_CLASS).globally()<a name="line.128"></a>
+<FONT color="green">129</FONT>              .allowAttributes("lang").matching(Pattern.compile("[a-zA-Z]{2,20}"))<a name="line.129"></a>
+<FONT color="green">130</FONT>                  .globally()<a name="line.130"></a>
+<FONT color="green">131</FONT>              .allowAttributes("title").matching(HTML_TITLE).globally()<a name="line.131"></a>
+<FONT color="green">132</FONT>              .allowStyling()<a name="line.132"></a>
+<FONT color="green">133</FONT>              .allowAttributes("align").matching(ALIGN).onElements("p")<a name="line.133"></a>
+<FONT color="green">134</FONT>              .allowAttributes("for").matching(HTML_ID).onElements("label")<a name="line.134"></a>
+<FONT color="green">135</FONT>              .allowAttributes("color").matching(COLOR_NAME_OR_COLOR_CODE)<a name="line.135"></a>
+<FONT color="green">136</FONT>                  .onElements("font")<a name="line.136"></a>
+<FONT color="green">137</FONT>              .allowAttributes("face")<a name="line.137"></a>
+<FONT color="green">138</FONT>                  .matching(Pattern.compile("[\\w;, \\-]+"))<a name="line.138"></a>
+<FONT color="green">139</FONT>                  .onElements("font")<a name="line.139"></a>
+<FONT color="green">140</FONT>              .allowAttributes("size").matching(NUMBER).onElements("font")<a name="line.140"></a>
+<FONT color="green">141</FONT>              .allowAttributes("href").matching(ONSITE_OR_OFFSITE_URL)<a name="line.141"></a>
+<FONT color="green">142</FONT>                  .onElements("a")<a name="line.142"></a>
+<FONT color="green">143</FONT>              .allowStandardUrlProtocols()<a name="line.143"></a>
+<FONT color="green">144</FONT>              .allowAttributes("nohref").onElements("a")<a name="line.144"></a>
+<FONT color="green">145</FONT>              .allowAttributes("name").matching(NAME).onElements("a")<a name="line.145"></a>
+<FONT color="green">146</FONT>              .allowAttributes(<a name="line.146"></a>
+<FONT color="green">147</FONT>                  "onfocus", "onblur", "onclick", "onmousedown", "onmouseup")<a name="line.147"></a>
+<FONT color="green">148</FONT>                  .matching(HISTORY_BACK).onElements("a")<a name="line.148"></a>
+<FONT color="green">149</FONT>              .requireRelNofollowOnLinks()<a name="line.149"></a>
+<FONT color="green">150</FONT>              .allowAttributes("src").matching(ONSITE_OR_OFFSITE_URL)<a name="line.150"></a>
+<FONT color="green">151</FONT>                  .onElements("img")<a name="line.151"></a>
+<FONT color="green">152</FONT>              .allowAttributes("name").matching(NAME)<a name="line.152"></a>
+<FONT color="green">153</FONT>                  .onElements("img")<a name="line.153"></a>
+<FONT color="green">154</FONT>              .allowAttributes("alt").matching(PARAGRAPH)<a name="line.154"></a>
+<FONT color="green">155</FONT>                  .onElements("img")<a name="line.155"></a>
+<FONT color="green">156</FONT>              .allowAttributes("border", "hspace", "vspace").matching(NUMBER)<a name="line.156"></a>
+<FONT color="green">157</FONT>                  .onElements("img")<a name="line.157"></a>
+<FONT color="green">158</FONT>              .allowAttributes("border", "cellpadding", "cellspacing")<a name="line.158"></a>
+<FONT color="green">159</FONT>                  .matching(NUMBER).onElements("table")<a name="line.159"></a>
+<FONT color="green">160</FONT>              .allowAttributes("bgcolor").matching(COLOR_NAME_OR_COLOR_CODE)<a name="line.160"></a>
+<FONT color="green">161</FONT>                  .onElements("table")<a name="line.161"></a>
+<FONT color="green">162</FONT>              .allowAttributes("background").matching(ONSITE_URL)<a name="line.162"></a>
+<FONT color="green">163</FONT>                  .onElements("table")<a name="line.163"></a>
+<FONT color="green">164</FONT>              .allowAttributes("align").matching(ALIGN)<a name="line.164"></a>
+<FONT color="green">165</FONT>                  .onElements("table")<a name="line.165"></a>
+<FONT color="green">166</FONT>              .allowAttributes("noresize").matching(Pattern.compile("(?i)noresize"))<a name="line.166"></a>
+<FONT color="green">167</FONT>                  .onElements("table")<a name="line.167"></a>
+<FONT color="green">168</FONT>              .allowAttributes("background").matching(ONSITE_URL)<a name="line.168"></a>
+<FONT color="green">169</FONT>                  .onElements("td", "th", "tr")<a name="line.169"></a>
+<FONT color="green">170</FONT>              .allowAttributes("bgcolor").matching(COLOR_NAME_OR_COLOR_CODE)<a name="line.170"></a>
+<FONT color="green">171</FONT>                  .onElements("td", "th")<a name="line.171"></a>
+<FONT color="green">172</FONT>              .allowAttributes("abbr").matching(PARAGRAPH)<a name="line.172"></a>
+<FONT color="green">173</FONT>                  .onElements("td", "th")<a name="line.173"></a>
+<FONT color="green">174</FONT>              .allowAttributes("axis", "headers").matching(NAME)<a name="line.174"></a>
+<FONT color="green">175</FONT>                  .onElements("td", "th")<a name="line.175"></a>
+<FONT color="green">176</FONT>              .allowAttributes("scope")<a name="line.176"></a>
+<FONT color="green">177</FONT>                  .matching(Pattern.compile("(?i)(?:row|col)(?:group)?"))<a name="line.177"></a>
+<FONT color="green">178</FONT>                  .onElements("td", "th")<a name="line.178"></a>
+<FONT color="green">179</FONT>              .allowAttributes("nowrap")<a name="line.179"></a>
+<FONT color="green">180</FONT>                  .onElements("td", "th")<a name="line.180"></a>
+<FONT color="green">181</FONT>              .allowAttributes("height", "width").matching(NUMBER_OR_PERCENT)<a name="line.181"></a>
+<FONT color="green">182</FONT>                  .onElements("table", "td", "th", "tr", "img")<a name="line.182"></a>
+<FONT color="green">183</FONT>              .allowAttributes("align").matching(ALIGN)<a name="line.183"></a>
+<FONT color="green">184</FONT>                  .onElements("thead", "tbody", "tfoot", "img",<a name="line.184"></a>
+<FONT color="green">185</FONT>                                   "td", "th", "tr", "colgroup", "col")<a name="line.185"></a>
+<FONT color="green">186</FONT>              .allowAttributes("valign").matching(VALIGN)<a name="line.186"></a>
+<FONT color="green">187</FONT>                  .onElements("thead", "tbody", "tfoot",<a name="line.187"></a>
+<FONT color="green">188</FONT>                                  "td", "th", "tr", "colgroup", "col")<a name="line.188"></a>
+<FONT color="green">189</FONT>              .allowAttributes("charoff").matching(NUMBER_OR_PERCENT)<a name="line.189"></a>
+<FONT color="green">190</FONT>                  .onElements("td", "th", "tr", "colgroup", "col",<a name="line.190"></a>
+<FONT color="green">191</FONT>                                  "thead", "tbody", "tfoot")<a name="line.191"></a>
+<FONT color="green">192</FONT>              .allowAttributes("char").matching(ONE_CHAR)<a name="line.192"></a>
+<FONT color="green">193</FONT>                  .onElements("td", "th", "tr", "colgroup", "col",<a name="line.193"></a>
+<FONT color="green">194</FONT>                                   "thead", "tbody", "tfoot")<a name="line.194"></a>
+<FONT color="green">195</FONT>              .allowAttributes("colspan", "rowspan").matching(NUMBER)<a name="line.195"></a>
+<FONT color="green">196</FONT>                  .onElements("td", "th")<a name="line.196"></a>
+<FONT color="green">197</FONT>              .allowAttributes("span", "width").matching(NUMBER_OR_PERCENT)<a name="line.197"></a>
+<FONT color="green">198</FONT>                  .onElements("colgroup", "col")<a name="line.198"></a>
+<FONT color="green">199</FONT>              .allowElements(<a name="line.199"></a>
+<FONT color="green">200</FONT>                  "a", "label", "noscript", "h1", "h2", "h3", "h4", "h5", "h6",<a name="line.200"></a>
+<FONT color="green">201</FONT>                  "p", "i", "b", "u", "strong", "em", "small", "big", "pre", "code",<a name="line.201"></a>
+<FONT color="green">202</FONT>                  "cite", "samp", "sub", "sup", "strike", "center", "blockquote",<a name="line.202"></a>
+<FONT color="green">203</FONT>                  "hr", "br", "col", "font", "map", "span", "div", "img",<a name="line.203"></a>
+<FONT color="green">204</FONT>                  "ul", "ol", "li", "dd", "dt", "dl", "tbody", "thead", "tfoot",<a name="line.204"></a>
+<FONT color="green">205</FONT>                  "table", "td", "th", "tr", "colgroup", "fieldset", "legend")<a name="line.205"></a>
+<FONT color="green">206</FONT>              .toFactory();<a name="line.206"></a>
+<FONT color="green">207</FONT>    <a name="line.207"></a>
+<FONT color="green">208</FONT>      public static void main(String[] args) throws IOException {<a name="line.208"></a>
+<FONT color="green">209</FONT>        if (args.length != 0) {<a name="line.209"></a>
+<FONT color="green">210</FONT>          System.err.println("Reads from STDIN and writes to STDOUT");<a name="line.210"></a>
+<FONT color="green">211</FONT>          System.exit(-1);<a name="line.211"></a>
+<FONT color="green">212</FONT>        }<a name="line.212"></a>
+<FONT color="green">213</FONT>        System.err.println("[Reading from STDIN]");<a name="line.213"></a>
+<FONT color="green">214</FONT>        // Fetch the HTML to sanitize.<a name="line.214"></a>
+<FONT color="green">215</FONT>        String html = CharStreams.toString(<a name="line.215"></a>
+<FONT color="green">216</FONT>            new InputStreamReader(System.in, Charsets.UTF_8));<a name="line.216"></a>
+<FONT color="green">217</FONT>        // Set up an output channel to receive the sanitized HTML.<a name="line.217"></a>
+<FONT color="green">218</FONT>        HtmlStreamRenderer renderer = HtmlStreamRenderer.create(<a name="line.218"></a>
+<FONT color="green">219</FONT>            System.out,<a name="line.219"></a>
+<FONT color="green">220</FONT>            // Receives notifications on a failure to write to the output.<a name="line.220"></a>
+<FONT color="green">221</FONT>            new Handler&lt;IOException&gt;() {<a name="line.221"></a>
+<FONT color="green">222</FONT>              public void handle(IOException ex) {<a name="line.222"></a>
+<FONT color="green">223</FONT>                Throwables.propagate(ex);  // System.out suppresses IOExceptions<a name="line.223"></a>
+<FONT color="green">224</FONT>              }<a name="line.224"></a>
+<FONT color="green">225</FONT>            },<a name="line.225"></a>
+<FONT color="green">226</FONT>            // Our HTML parser is very lenient, but this receives notifications on<a name="line.226"></a>
+<FONT color="green">227</FONT>            // truly bizarre inputs.<a name="line.227"></a>
+<FONT color="green">228</FONT>            new Handler&lt;String&gt;() {<a name="line.228"></a>
+<FONT color="green">229</FONT>              public void handle(String x) {<a name="line.229"></a>
+<FONT color="green">230</FONT>                throw new AssertionError(x);<a name="line.230"></a>
+<FONT color="green">231</FONT>              }<a name="line.231"></a>
+<FONT color="green">232</FONT>            });<a name="line.232"></a>
+<FONT color="green">233</FONT>        // Use the policy defined above to sanitize the HTML.<a name="line.233"></a>
+<FONT color="green">234</FONT>        HtmlSanitizer.sanitize(html, POLICY_DEFINITION.apply(renderer));<a name="line.234"></a>
+<FONT color="green">235</FONT>      }<a name="line.235"></a>
+<FONT color="green">236</FONT>    }<a name="line.236"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</PRE>
+</BODY>
+</HTML>

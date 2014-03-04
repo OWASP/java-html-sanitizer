@@ -1,0 +1,291 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--NewPage-->
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<TITLE>
+HtmlSanitizer.Policy (OWASP Java HTML Sanitizer)
+</TITLE>
+
+
+<LINK REL ="stylesheet" TYPE="text/css" HREF="../../../stylesheet.css" TITLE="Style">
+
+<SCRIPT type="text/javascript">
+function windowTitle()
+{
+    if (location.href.indexOf('is-external=true') == -1) {
+        parent.document.title="HtmlSanitizer.Policy (OWASP Java HTML Sanitizer)";
+    }
+}
+</SCRIPT>
+<NOSCRIPT>
+</NOSCRIPT>
+
+</HEAD>
+
+<BODY BGCOLOR="white" onload="windowTitle();">
+<HR>
+
+
+<!-- ========= START OF TOP NAVBAR ======= -->
+<A NAME="navbar_top"><!-- --></A>
+<A HREF="#skip-navbar_top" title="Skip navigation links"></A>
+<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" SUMMARY="">
+<TR>
+<TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
+<A NAME="navbar_top_firstrow"><!-- --></A>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
+  <TR ALIGN="center" VALIGN="top">
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlSanitizer.Policy.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
+  </TR>
+</TABLE>
+</TD>
+<TD ALIGN="right" VALIGN="top" ROWSPAN=3><EM>
+<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a></EM>
+</TD>
+</TR>
+
+<TR>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+  <A HREF="../../../index.html?org/owasp/html/HtmlSanitizer.Policy.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlSanitizer.Policy.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+&nbsp;<SCRIPT type="text/javascript">
+  <!--
+  if(window==top) {
+    document.writeln('<A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>');
+  }
+  //-->
+</SCRIPT>
+<NOSCRIPT>
+  <A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>
+</NOSCRIPT>
+
+
+</FONT></TD>
+</TR>
+<TR>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+DETAIL:&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="skip-navbar_top"></A>
+<!-- ========= END OF TOP NAVBAR ========= -->
+
+<HR>
+<!-- ======== START OF CLASS DATA ======== -->
+<H2>
+<FONT SIZE="-1">
+org.owasp.html</FONT>
+<BR>
+Interface HtmlSanitizer.Policy</H2>
+<DL>
+<DT><B>All Superinterfaces:</B> <DD><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></DD>
+</DL>
+<DL>
+<DT><B>Enclosing class:</B><DD><A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html">HtmlSanitizer</A></DD>
+</DL>
+<HR>
+<DL>
+<DT><PRE>public static interface <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.html#line.53"><B>HtmlSanitizer.Policy</B></A><DT>extends <A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></DL>
+</PRE>
+
+<P>
+Receives events based on the HTML stream, and applies a policy to decide
+ what HTML constructs to allow.
+ Typically, implementations use an <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A> to produce
+ the sanitized output.
+
+ <p>
+ <b>Implementations of this class are in the TCB.</b></p>
+<P>
+
+<P>
+<HR>
+
+<P>
+
+<!-- ========== METHOD SUMMARY =========== -->
+
+<A NAME="method_summary"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="2"><FONT SIZE="+2">
+<B>Method Summary</B></FONT></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;void</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html#closeTag(java.lang.String)">closeTag</A></B>(java.lang.String&nbsp;elementName)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Called when an HTML tag like <code>&lt;/foo&gt;</code> is seen in the input.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;void</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html#openTag(java.lang.String, java.util.List)">openTag</A></B>(java.lang.String&nbsp;elementName,
+               java.util.List&lt;java.lang.String&gt;&nbsp;attrs)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Called when an HTML tag like <code>&lt;foo bar=baz&gt;</code> is seen in the input.</TD>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD ALIGN="right" VALIGN="top" WIDTH="1%"><FONT SIZE="-1">
+<CODE>&nbsp;void</CODE></FONT></TD>
+<TD><CODE><B><A HREF="../../../org/owasp/html/HtmlSanitizer.Policy.html#text(java.lang.String)">text</A></B>(java.lang.String&nbsp;textChunk)</CODE>
+
+<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Called when textual content is seen.</TD>
+</TR>
+</TABLE>
+&nbsp;<A NAME="methods_inherited_from_class_org.owasp.html.HtmlStreamEventReceiver"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#EEEEFF" CLASS="TableSubHeadingColor">
+<TH ALIGN="left"><B>Methods inherited from interface org.owasp.html.<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></B></TH>
+</TR>
+<TR BGCOLOR="white" CLASS="TableRowColor">
+<TD><CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#closeDocument()">closeDocument</A>, <A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#openDocument()">openDocument</A></CODE></TD>
+</TR>
+</TABLE>
+&nbsp;
+<P>
+
+<!-- ============ METHOD DETAIL ========== -->
+
+<A NAME="method_detail"><!-- --></A>
+<TABLE BORDER="1" WIDTH="100%" CELLPADDING="3" CELLSPACING="0" SUMMARY="">
+<TR BGCOLOR="#CCCCFF" CLASS="TableHeadingColor">
+<TH ALIGN="left" COLSPAN="1"><FONT SIZE="+2">
+<B>Method Detail</B></FONT></TH>
+</TR>
+</TABLE>
+
+<A NAME="openTag(java.lang.String, java.util.List)"><!-- --></A><H3>
+openTag</H3>
+<PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.67"><B>openTag</B></A>(java.lang.String&nbsp;elementName,
+             java.util.List&lt;java.lang.String&gt;&nbsp;attrs)</PRE>
+<DL>
+<DD>Called when an HTML tag like <code>&lt;foo bar=baz&gt;</code> is seen in the input.
+<P>
+<DD><DL>
+<DT><B>Specified by:</B><DD><CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#openTag(java.lang.String, java.util.List)">openTag</A></CODE> in interface <CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></DL>
+</DD>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>elementName</CODE> - a normalized (lower-case for non-namespaced names)
+     element name.<DD><CODE>attrs</CODE> - a list of alternating attribute name and value pairs.
+     For efficiency, this list may be mutated by this during this method
+     call, but ownership reverts to the caller on method exit.
+     The values are raw -- HTML entities have been decoded.
+     Specifically, implementations are allowed to use a list iterator
+     and remove all disallowed attributes, add necessary attributes, and
+     then pass the list to an <A HREF="../../../org/owasp/html/HtmlStreamRenderer.html" title="class in org.owasp.html"><CODE>HtmlStreamRenderer</CODE></A>.</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="closeTag(java.lang.String)"><!-- --></A><H3>
+closeTag</H3>
+<PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.75"><B>closeTag</B></A>(java.lang.String&nbsp;elementName)</PRE>
+<DL>
+<DD>Called when an HTML tag like <code>&lt;/foo&gt;</code> is seen in the input.
+<P>
+<DD><DL>
+<DT><B>Specified by:</B><DD><CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#closeTag(java.lang.String)">closeTag</A></CODE> in interface <CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></DL>
+</DD>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>elementName</CODE> - a normalized (lower-case for non-namespaced names)
+     element name.</DL>
+</DD>
+</DL>
+<HR>
+
+<A NAME="text(java.lang.String)"><!-- --></A><H3>
+text</H3>
+<PRE>
+void <A HREF="../../../src-html/org/owasp/html/HtmlSanitizer.Policy.html#line.81"><B>text</B></A>(java.lang.String&nbsp;textChunk)</PRE>
+<DL>
+<DD>Called when textual content is seen.
+<P>
+<DD><DL>
+<DT><B>Specified by:</B><DD><CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html#text(java.lang.String)">text</A></CODE> in interface <CODE><A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html">HtmlStreamEventReceiver</A></CODE></DL>
+</DD>
+<DD><DL>
+<DT><B>Parameters:</B><DD><CODE>textChunk</CODE> - raw content -- HTML entities have been decoded.</DL>
+</DD>
+</DL>
+<!-- ========= END OF CLASS DATA ========= -->
+<HR>
+
+
+<!-- ======= START OF BOTTOM NAVBAR ====== -->
+<A NAME="navbar_bottom"><!-- --></A>
+<A HREF="#skip-navbar_bottom" title="Skip navigation links"></A>
+<TABLE BORDER="0" WIDTH="100%" CELLPADDING="1" CELLSPACING="0" SUMMARY="">
+<TR>
+<TD COLSPAN=2 BGCOLOR="#EEEEFF" CLASS="NavBarCell1">
+<A NAME="navbar_bottom_firstrow"><!-- --></A>
+<TABLE BORDER="0" CELLPADDING="0" CELLSPACING="3" SUMMARY="">
+  <TR ALIGN="center" VALIGN="top">
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../overview-summary.html"><FONT CLASS="NavBarFont1"><B>Overview</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-summary.html"><FONT CLASS="NavBarFont1"><B>Package</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#FFFFFF" CLASS="NavBarCell1Rev"> &nbsp;<FONT CLASS="NavBarFont1Rev"><B>Class</B></FONT>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="class-use/HtmlSanitizer.Policy.html"><FONT CLASS="NavBarFont1"><B>Use</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="package-tree.html"><FONT CLASS="NavBarFont1"><B>Tree</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../deprecated-list.html"><FONT CLASS="NavBarFont1"><B>Deprecated</B></FONT></A>&nbsp;</TD>
+  <TD BGCOLOR="#EEEEFF" CLASS="NavBarCell1">    <A HREF="../../../index-files/index-1.html"><FONT CLASS="NavBarFont1"><B>Index</B></FONT></A>&nbsp;</TD>
+  </TR>
+</TABLE>
+</TD>
+<TD ALIGN="right" VALIGN="top" ROWSPAN=3><EM>
+<a href="http://code.google.com/p/owasp-java-html-sanitizer" target=_top>code.google.com home</a></EM>
+</TD>
+</TR>
+
+<TR>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+&nbsp;<A HREF="../../../org/owasp/html/HtmlSanitizer.html" title="class in org.owasp.html"><B>PREV CLASS</B></A>&nbsp;
+&nbsp;<A HREF="../../../org/owasp/html/HtmlStreamEventReceiver.html" title="interface in org.owasp.html"><B>NEXT CLASS</B></A></FONT></TD>
+<TD BGCOLOR="white" CLASS="NavBarCell2"><FONT SIZE="-2">
+  <A HREF="../../../index.html?org/owasp/html/HtmlSanitizer.Policy.html" target="_top"><B>FRAMES</B></A>  &nbsp;
+&nbsp;<A HREF="HtmlSanitizer.Policy.html" target="_top"><B>NO FRAMES</B></A>  &nbsp;
+&nbsp;<SCRIPT type="text/javascript">
+  <!--
+  if(window==top) {
+    document.writeln('<A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>');
+  }
+  //-->
+</SCRIPT>
+<NOSCRIPT>
+  <A HREF="../../../allclasses-noframe.html"><B>All Classes</B></A>
+</NOSCRIPT>
+
+
+</FONT></TD>
+</TR>
+<TR>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+  SUMMARY:&nbsp;NESTED&nbsp;|&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_summary">METHOD</A></FONT></TD>
+<TD VALIGN="top" CLASS="NavBarCell3"><FONT SIZE="-2">
+DETAIL:&nbsp;FIELD&nbsp;|&nbsp;CONSTR&nbsp;|&nbsp;<A HREF="#method_detail">METHOD</A></FONT></TD>
+</TR>
+</TABLE>
+<A NAME="skip-navbar_bottom"></A>
+<!-- ======== END OF BOTTOM NAVBAR ======= -->
+
+<HR>
+
+</BODY>
+</HTML>
