@@ -148,4 +148,15 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
     return s;
   }
 
+  @Override
+  public boolean equals(Object o) {
+    return o != null && this.getClass() == o.getClass()
+        && protocols.equals(((FilterUrlByProtocolAttributePolicy) o).protocols);
+  }
+
+  @Override
+  public int hashCode() {
+    return protocols.hashCode();
+  }
+
 }

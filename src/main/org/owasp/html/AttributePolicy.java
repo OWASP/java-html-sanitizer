@@ -28,6 +28,11 @@
 
 package org.owasp.html;
 
+import com.google.common.collect.ImmutableList;
+import java.util.Collection;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -60,38 +65,26 @@ import javax.annotation.concurrent.Immutable;
      * An attribute policy equivalent to applying all the given policies in
      * order, failing early if any of them fails.
      */
+    @CheckReturnValue
     public static final AttributePolicy join(AttributePolicy... policies) {
-
-      class PolicyJoiner {
-        AttributePolicy last = null;
-        AttributePolicy out = null;
-
-        void join(AttributePolicy p) {
-          if (REJECT_ALL_ATTRIBUTE_POLICY.equals(p)) {
-            out = p;
-          } else if (!REJECT_ALL_ATTRIBUTE_POLICY.equals(out)) {
-            if (p instanceof JoinedAttributePolicy) {
-              JoinedAttributePolicy jap = (JoinedAttributePolicy) p;
-              join(jap.first);
-              join(jap.second);
-            } else if (p != last) {
-              last = p;
-              if (out == null || IDENTITY_ATTRIBUTE_POLICY.equals(out)) {
-                out = p;
-              } else if (!IDENTITY_ATTRIBUTE_POLICY.equals(p)) {
-                out = new JoinedAttributePolicy(out, p);
-              }
-            }
-          }
+      Set<AttributePolicy> uniq = new LinkedHashSet<AttributePolicy>();
+      for (AttributePolicy p : policies) {
+        if (p instanceof JoinedAttributePolicy) {
+          uniq.addAll(((JoinedAttributePolicy) p).policies);
+        } else if (p != null) {
+          uniq.add(p);
         }
       }
 
-      PolicyJoiner pu = new PolicyJoiner();
-      for (AttributePolicy policy : policies) {
-        if (policy == null) { continue; }
-        pu.join(policy);
+      if (uniq.contains(REJECT_ALL_ATTRIBUTE_POLICY)) {
+        return REJECT_ALL_ATTRIBUTE_POLICY;
       }
-      return pu.out != null ? pu.out : IDENTITY_ATTRIBUTE_POLICY;
+      uniq.remove(IDENTITY_ATTRIBUTE_POLICY);
+      switch (uniq.size()) {
+        case 0:  return IDENTITY_ATTRIBUTE_POLICY;
+        case 1:  return uniq.iterator().next();
+        default: return new JoinedAttributePolicy(uniq);
+      }
     }
   }
 
@@ -116,17 +109,29 @@ import javax.annotation.concurrent.Immutable;
 
 @Immutable
 final class JoinedAttributePolicy implements AttributePolicy {
-  final AttributePolicy first, second;
+  final ImmutableList<AttributePolicy> policies;
 
-  JoinedAttributePolicy(AttributePolicy first, AttributePolicy second) {
-    this.first = first;
-    this.second = second;
+  JoinedAttributePolicy(Collection<? extends AttributePolicy> policies) {
+    this.policies = ImmutableList.copyOf(policies);
   }
 
   public @Nullable String apply(
-      String elementName, String attributeName, String value) {
-    value = first.apply(elementName, attributeName, value);
-    return value != null
-        ? second.apply(elementName, attributeName, value) : null;
+      String elementName, String attributeName, @Nullable String value) {
+    for (AttributePolicy p : policies) {
+      if (value == null) { break; }
+      value = p.apply(elementName, attributeName, value);
+    }
+    return value;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return o != null && this.getClass() == o.getClass()
+        && policies.equals(((JoinedAttributePolicy) o).policies);
+  }
+
+  @Override
+  public int hashCode() {
+    return policies.hashCode();
   }
 }

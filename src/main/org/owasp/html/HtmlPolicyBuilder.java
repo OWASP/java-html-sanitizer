@@ -486,9 +486,10 @@ public class HtmlPolicyBuilder {
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
         textContainers.add(textContainer.getKey());
-  }
+      }
     }
-    return new PolicyFactory(compilePolicies(), textContainers.build());
+    return new PolicyFactory(compilePolicies(), textContainers.build(),
+                             ImmutableMap.copyOf(globalAttrPolicies));
   }
 
   // Speed up subsequent builds by caching the compiled policies.
@@ -597,6 +598,8 @@ public class HtmlPolicyBuilder {
           = ImmutableMap.builder();
       for (Map.Entry<String, AttributePolicy> ape : elAttrPolicies.entrySet()) {
         String attributeName = ape.getKey();
+        // Handle below so we don't end up putting the same key into the map
+        // twice.  ImmutableMap.Builder hates that.
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
         AttributePolicy policy = ape.getValue();
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {

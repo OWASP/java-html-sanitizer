@@ -83,6 +83,18 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testStylesAndFormatting() {
+    PolicyFactory sanitizer = Sanitizers.FORMATTING
+      .and(Sanitizers.BLOCKS).and(Sanitizers.STYLES).and(Sanitizers.LINKS);
+    String input = "<span style=\"font-weight:bold;"
+      + "text-decoration:underline;background-color:yellow\""
+      + ">aaaaaaaaaaaaaaaaaaaaaaa</span>";
+    String got = sanitizer.sanitize(input);
+    String want = input;
+    assertEquals(want, got);
+  }
+
+  @Test
   public static final void testAndIntersects() {
     PolicyFactory restrictedLink = new HtmlPolicyBuilder()
        .allowElements("a")

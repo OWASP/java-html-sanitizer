@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.Map;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -98,4 +99,40 @@ final class ElementAndAttributePolicies {
         joinedAttrPolicies.build(),
         combinedSkipIfEmpty);
   }
+
+  ElementAndAttributePolicies andGlobals(
+      Map<String, AttributePolicy> globalAttrPolicies) {
+    if (globalAttrPolicies.isEmpty()) { return this; }
+    Map<String, AttributePolicy> anded = null;
+    for (Map.Entry<String, AttributePolicy> e : this.attrPolicies.entrySet()) {
+      String attrName = e.getKey();
+      AttributePolicy globalAttrPolicy = globalAttrPolicies.get(attrName);
+      if (globalAttrPolicy != null) {
+        AttributePolicy attrPolicy = e.getValue();
+        AttributePolicy joined = AttributePolicy.Util.join(
+            attrPolicy, globalAttrPolicy);
+        if (!joined.equals(attrPolicy)) {
+          if (anded == null) {
+            anded = Maps.newLinkedHashMap();
+            anded.putAll(this.attrPolicies);
+          }
+          anded.put(attrName, joined);
+        }
+      }
+    }
+    for (Map.Entry<String, AttributePolicy> e : globalAttrPolicies.entrySet()) {
+      String attrName = e.getKey();
+      if (!this.attrPolicies.containsKey(attrName)) {
+        if (anded == null) {
+          anded = Maps.newLinkedHashMap();
+          anded.putAll(this.attrPolicies);
+        }
+        anded.put(attrName, e.getValue());
+      }
+    }
+    if (anded == null) { return this; }
+    return new ElementAndAttributePolicies(
+        elementName, elPolicy, anded, skipIfEmpty);
+  }
+
 }
