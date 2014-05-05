@@ -54,12 +54,16 @@ public final class PolicyFactory
     implements Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> {
 
   private final ImmutableMap<String, ElementAndAttributePolicies> policies;
+  private final ImmutableMap<String, AttributePolicy> globalAttrPolicies;
   private final ImmutableSet<String> textContainers;
 
-  PolicyFactory(ImmutableMap<String, ElementAndAttributePolicies> policies,
-                ImmutableSet<String> textContainers) {
+  PolicyFactory(
+      ImmutableMap<String, ElementAndAttributePolicies> policies,
+      ImmutableSet<String> textContainers,
+      ImmutableMap<String, AttributePolicy> globalAttrPolicies) {
     this.policies = policies;
     this.textContainers = textContainers;
+    this.globalAttrPolicies = globalAttrPolicies;
   }
 
   /** Produces a sanitizer that emits tokens to {@code out}. */
@@ -129,6 +133,7 @@ public final class PolicyFactory
   public PolicyFactory and(PolicyFactory f) {
     ImmutableMap.Builder<String, ElementAndAttributePolicies> b
         = ImmutableMap.builder();
+    // Merge this and f into a map of element names to attribute policies.
     for (Map.Entry<String, ElementAndAttributePolicies> e
         : policies.entrySet()) {
       String elName = e.getKey();
@@ -136,14 +141,21 @@ public final class PolicyFactory
       ElementAndAttributePolicies q = f.policies.get(elName);
       if (q != null) {
         p = p.and(q);
+      } else {
+        // Mix in any globals that are not already taken into account in this.
+        p = p.andGlobals(f.globalAttrPolicies);
       }
       b.put(elName, p);
     }
+    // Handle keys that are in f but not in this.
     for (Map.Entry<String, ElementAndAttributePolicies> e
         : f.policies.entrySet()) {
       String elName = e.getKey();
       if (!policies.containsKey(elName)) {
-        b.put(elName, e.getValue());
+        ElementAndAttributePolicies p = e.getValue();
+        // Mix in any globals that are not already taken into account in this.
+        p = p.andGlobals(f.globalAttrPolicies);
+        b.put(elName, p);
       }
     }
     ImmutableSet<String> textContainers;
@@ -157,6 +169,30 @@ public final class PolicyFactory
         .addAll(f.textContainers)
         .build();
     }
-    return new PolicyFactory(b.build(), textContainers);
+    ImmutableMap<String, AttributePolicy> allGlobalAttrPolicies;
+    if (f.globalAttrPolicies.isEmpty()) {
+      allGlobalAttrPolicies = this.globalAttrPolicies;
+    } else if (this.globalAttrPolicies.isEmpty()) {
+      allGlobalAttrPolicies = f.globalAttrPolicies;
+    } else {
+      ImmutableMap.Builder<String, AttributePolicy> ab = ImmutableMap.builder();
+      for (Map.Entry<String, AttributePolicy> e
+          : this.globalAttrPolicies.entrySet()) {
+        String attrName = e.getKey();
+        ab.put(
+            attrName,
+            AttributePolicy.Util.join(
+                e.getValue(), f.globalAttrPolicies.get(attrName)));
+      }
+      for (Map.Entry<String, AttributePolicy> e
+          : f.globalAttrPolicies.entrySet()) {
+        String attrName = e.getKey();
+        if (!this.globalAttrPolicies.containsKey(attrName)) {
+          ab.put(attrName, e.getValue());
+        }
+      }
+      allGlobalAttrPolicies = ab.build();
+    }
+    return new PolicyFactory(b.build(), textContainers, allGlobalAttrPolicies);
   }
 }

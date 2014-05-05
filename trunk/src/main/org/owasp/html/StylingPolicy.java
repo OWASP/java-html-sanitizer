@@ -216,4 +216,16 @@ final class StylingPolicy implements AttributePolicy {
     }
     return true;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    return o != null && getClass() == o.getClass()
+        && cssSchema.equals(((StylingPolicy) o).cssSchema);
+  }
+
+  @Override
+  public int hashCode() {
+    return cssSchema.hashCode();
+  }
+
 }
