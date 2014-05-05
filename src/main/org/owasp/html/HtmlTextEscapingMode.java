@@ -128,6 +128,9 @@ public enum HtmlTextEscapingMode {
       .put("source", VOID)
       .put("track", VOID)
       .put("wbr", VOID)
+
+       // EMPTY per http://www.w3.org/TR/REC-html32#basefont
+      .put("basefont", VOID)
       .build();
 
 
