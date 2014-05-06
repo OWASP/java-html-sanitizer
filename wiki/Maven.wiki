@@ -17,7 +17,7 @@ Including among your POMs `<dependencies>` this snippet of XML
 
 will make the sanitizer available.
 
-Be sure to change the [http://docs.codehaus.org/display/MAVEN/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges version] is a range suitable to your project.  There are no unstable releases in maven.  Bigger numbers are more recent and the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/CHANGE_LOG.html change log] can shed light on the salient differences.
+Be sure to change the [http://docs.codehaus.org/display/MAVEN/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges version] to a range suitable to your project.  There are no unstable releases in maven.  Bigger numbers are more recent and the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/CHANGE_LOG.html change log] can shed light on the salient differences.
 
 You should be able to build with the HTML sanitizer.  You can peruse the [http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/index.html javadoc], and if you have questions that aren't answered by these wiki pages, you can ask on the [http://groups.google.com/group/owasp-java-html-sanitizer-support mailing list].
 
