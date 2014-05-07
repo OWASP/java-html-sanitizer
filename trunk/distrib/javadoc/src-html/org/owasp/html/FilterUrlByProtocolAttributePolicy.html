@@ -151,7 +151,18 @@
 <FONT color="green">148</FONT>        return s;<a name="line.148"></a>
 <FONT color="green">149</FONT>      }<a name="line.149"></a>
 <FONT color="green">150</FONT>    <a name="line.150"></a>
-<FONT color="green">151</FONT>    }<a name="line.151"></a>
+<FONT color="green">151</FONT>      @Override<a name="line.151"></a>
+<FONT color="green">152</FONT>      public boolean equals(Object o) {<a name="line.152"></a>
+<FONT color="green">153</FONT>        return o != null &amp;&amp; this.getClass() == o.getClass()<a name="line.153"></a>
+<FONT color="green">154</FONT>            &amp;&amp; protocols.equals(((FilterUrlByProtocolAttributePolicy) o).protocols);<a name="line.154"></a>
+<FONT color="green">155</FONT>      }<a name="line.155"></a>
+<FONT color="green">156</FONT>    <a name="line.156"></a>
+<FONT color="green">157</FONT>      @Override<a name="line.157"></a>
+<FONT color="green">158</FONT>      public int hashCode() {<a name="line.158"></a>
+<FONT color="green">159</FONT>        return protocols.hashCode();<a name="line.159"></a>
+<FONT color="green">160</FONT>      }<a name="line.160"></a>
+<FONT color="green">161</FONT>    <a name="line.161"></a>
+<FONT color="green">162</FONT>    }<a name="line.162"></a>
 
 
 
