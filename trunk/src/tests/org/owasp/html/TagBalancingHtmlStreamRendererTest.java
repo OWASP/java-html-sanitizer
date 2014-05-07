@@ -32,12 +32,19 @@ import com.google.common.collect.ImmutableList;
 
 import junit.framework.TestCase;
 
+import org.junit.Test;
+import org.junit.Before;
+
+import static org.owasp.html.TagBalancingHtmlStreamEventReceiver
+              .isInterElementWhitespace;
+
+
 public class TagBalancingHtmlStreamRendererTest extends TestCase {
 
   StringBuilder htmlOutputBuffer;
   TagBalancingHtmlStreamEventReceiver balancer;
 
-  @Override protected void setUp() throws Exception {
+  @Before @Override protected void setUp() throws Exception {
     super.setUp();
     htmlOutputBuffer = new StringBuilder();
     balancer = new TagBalancingHtmlStreamEventReceiver(
@@ -48,6 +55,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         }));
   }
 
+  @Test
   public final void testTagBalancing() {
     balancer.openDocument();
     balancer.openTag("html", ImmutableList.<String>of());
@@ -72,6 +80,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testTagSoupIronedOut() {
     balancer.openDocument();
     balancer.openTag("i", ImmutableList.<String>of());
@@ -87,6 +96,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testListInListDirectly() {
     balancer.openDocument();
     balancer.openTag("ul", ImmutableList.<String>of());
@@ -106,6 +116,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testTextContent() {
     balancer.openDocument();
     balancer.openTag("title", ImmutableList.<String>of());
@@ -152,6 +163,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testMismatchedHeaders() {
     balancer.openDocument();
     balancer.openTag("H1", ImmutableList.<String>of());
@@ -181,6 +193,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testListNesting() {
     balancer.openDocument();
     balancer.openTag("ul", ImmutableList.<String>of());
@@ -204,6 +217,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testTableNesting() {
     balancer.openDocument();
     balancer.openTag("table", ImmutableList.<String>of());
@@ -229,6 +243,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testNestingLimits() {
     // Some browsers can be DoSed by deeply nested structures.
     // See Issue 3, "Deeply nested elements crash FF 8, Chrome 11"
@@ -248,6 +263,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
   public final void testTablesGuarded() {
     // Derived from issue 12.
     balancer.openDocument();
@@ -302,6 +318,23 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         + "</tr></tbody></table></p>\n"
         + "<p>x</p></body></html>",
         htmlOutputBuffer.toString());
+  }
+
+  @Test
+  public final void testIsInterElementWhitespace() {
+    assertFalse(isInterElementWhitespace("foo"));
+    assertTrue(isInterElementWhitespace(""));
+    assertTrue(isInterElementWhitespace(" "));
+    assertTrue(isInterElementWhitespace("\t"));
+    assertTrue(isInterElementWhitespace("\n"));
+    assertTrue(isInterElementWhitespace(" \n"));
+    assertTrue(isInterElementWhitespace("\r\n"));
+    assertTrue(isInterElementWhitespace("\r"));
+    assertTrue(isInterElementWhitespace(" "));
+    assertTrue(isInterElementWhitespace(" \t "));
+    assertFalse(isInterElementWhitespace(" foo "));
+    assertFalse(isInterElementWhitespace("\u00A0"));
+    assertFalse(isInterElementWhitespace("\u0000"));
   }
 
 }
