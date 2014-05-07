@@ -57,112 +57,148 @@
 <FONT color="green">054</FONT>        implements Function&lt;HtmlStreamEventReceiver, HtmlSanitizer.Policy&gt; {<a name="line.54"></a>
 <FONT color="green">055</FONT>    <a name="line.55"></a>
 <FONT color="green">056</FONT>      private final ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies;<a name="line.56"></a>
-<FONT color="green">057</FONT>      private final ImmutableSet&lt;String&gt; textContainers;<a name="line.57"></a>
-<FONT color="green">058</FONT>    <a name="line.58"></a>
-<FONT color="green">059</FONT>      PolicyFactory(ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies,<a name="line.59"></a>
-<FONT color="green">060</FONT>                    ImmutableSet&lt;String&gt; textContainers) {<a name="line.60"></a>
-<FONT color="green">061</FONT>        this.policies = policies;<a name="line.61"></a>
-<FONT color="green">062</FONT>        this.textContainers = textContainers;<a name="line.62"></a>
-<FONT color="green">063</FONT>      }<a name="line.63"></a>
-<FONT color="green">064</FONT>    <a name="line.64"></a>
-<FONT color="green">065</FONT>      /** Produces a sanitizer that emits tokens to {@code out}. */<a name="line.65"></a>
-<FONT color="green">066</FONT>      public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {<a name="line.66"></a>
-<FONT color="green">067</FONT>        return new ElementAndAttributePolicyBasedSanitizerPolicy(<a name="line.67"></a>
-<FONT color="green">068</FONT>            out, policies, textContainers);<a name="line.68"></a>
-<FONT color="green">069</FONT>      }<a name="line.69"></a>
-<FONT color="green">070</FONT>    <a name="line.70"></a>
-<FONT color="green">071</FONT>      /**<a name="line.71"></a>
-<FONT color="green">072</FONT>       * Produces a sanitizer that emits tokens to {@code out} and that notifies<a name="line.72"></a>
-<FONT color="green">073</FONT>       * any {@code listener} of any dropped tags and attributes.<a name="line.73"></a>
-<FONT color="green">074</FONT>       * @param out a renderer that receives approved tokens only.<a name="line.74"></a>
-<FONT color="green">075</FONT>       * @param listener if non-null, receives notifications of tags and attributes<a name="line.75"></a>
-<FONT color="green">076</FONT>       *     that were rejected by the policy.  This may tie into intrusion<a name="line.76"></a>
-<FONT color="green">077</FONT>       *     detection systems.<a name="line.77"></a>
-<FONT color="green">078</FONT>       * @param context if {@code (listener != null)} then the context value passed<a name="line.78"></a>
-<FONT color="green">079</FONT>       *     with notifications.  This can be used to let the listener know from<a name="line.79"></a>
-<FONT color="green">080</FONT>       *     which connection or request the questionable HTML was received.<a name="line.80"></a>
-<FONT color="green">081</FONT>       */<a name="line.81"></a>
-<FONT color="green">082</FONT>      public &lt;CTX&gt; HtmlSanitizer.Policy apply(<a name="line.82"></a>
-<FONT color="green">083</FONT>          HtmlStreamEventReceiver out, @Nullable HtmlChangeListener&lt;CTX&gt; listener,<a name="line.83"></a>
-<FONT color="green">084</FONT>          @Nullable CTX context) {<a name="line.84"></a>
-<FONT color="green">085</FONT>        if (listener == null) {<a name="line.85"></a>
-<FONT color="green">086</FONT>          return apply(out);<a name="line.86"></a>
-<FONT color="green">087</FONT>        } else {<a name="line.87"></a>
-<FONT color="green">088</FONT>          HtmlChangeReporter&lt;CTX&gt; r = new HtmlChangeReporter&lt;CTX&gt;(<a name="line.88"></a>
-<FONT color="green">089</FONT>              out, listener, context);<a name="line.89"></a>
-<FONT color="green">090</FONT>          r.setPolicy(apply(r.getWrappedRenderer()));<a name="line.90"></a>
-<FONT color="green">091</FONT>          return r.getWrappedPolicy();<a name="line.91"></a>
-<FONT color="green">092</FONT>        }<a name="line.92"></a>
-<FONT color="green">093</FONT>      }<a name="line.93"></a>
-<FONT color="green">094</FONT>    <a name="line.94"></a>
-<FONT color="green">095</FONT>      /** A convenience function that sanitizes a string of HTML. */<a name="line.95"></a>
-<FONT color="green">096</FONT>      public String sanitize(@Nullable String html) {<a name="line.96"></a>
-<FONT color="green">097</FONT>        return sanitize(html, null, null);<a name="line.97"></a>
-<FONT color="green">098</FONT>      }<a name="line.98"></a>
-<FONT color="green">099</FONT>    <a name="line.99"></a>
-<FONT color="green">100</FONT>      /**<a name="line.100"></a>
-<FONT color="green">101</FONT>       * A convenience function that sanitizes a string of HTML and reports<a name="line.101"></a>
-<FONT color="green">102</FONT>       * the names of rejected element and attributes to listener.<a name="line.102"></a>
-<FONT color="green">103</FONT>       * @param html the string of HTML to sanitize.<a name="line.103"></a>
-<FONT color="green">104</FONT>       * @param listener if non-null, receives notifications of tags and attributes<a name="line.104"></a>
-<FONT color="green">105</FONT>       *     that were rejected by the policy.  This may tie into intrusion<a name="line.105"></a>
-<FONT color="green">106</FONT>       *     detection systems.<a name="line.106"></a>
-<FONT color="green">107</FONT>       * @param context if {@code (listener != null)} then the context value passed<a name="line.107"></a>
-<FONT color="green">108</FONT>       *     with notifications.  This can be used to let the listener know from<a name="line.108"></a>
-<FONT color="green">109</FONT>       *     which connection or request the questionable HTML was received.<a name="line.109"></a>
-<FONT color="green">110</FONT>       * @return a string of HTML that complies with this factory's policy.<a name="line.110"></a>
-<FONT color="green">111</FONT>       */<a name="line.111"></a>
-<FONT color="green">112</FONT>      public &lt;CTX&gt; String sanitize(<a name="line.112"></a>
-<FONT color="green">113</FONT>          @Nullable String html,<a name="line.113"></a>
-<FONT color="green">114</FONT>          @Nullable HtmlChangeListener&lt;CTX&gt; listener, @Nullable CTX context) {<a name="line.114"></a>
-<FONT color="green">115</FONT>        if (html == null) { return ""; }<a name="line.115"></a>
-<FONT color="green">116</FONT>        StringBuilder out = new StringBuilder(html.length());<a name="line.116"></a>
-<FONT color="green">117</FONT>        HtmlSanitizer.sanitize(<a name="line.117"></a>
-<FONT color="green">118</FONT>            html,<a name="line.118"></a>
-<FONT color="green">119</FONT>            apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING),<a name="line.119"></a>
-<FONT color="green">120</FONT>                  listener, context));<a name="line.120"></a>
-<FONT color="green">121</FONT>        return out.toString();<a name="line.121"></a>
-<FONT color="green">122</FONT>      }<a name="line.122"></a>
-<FONT color="green">123</FONT>    <a name="line.123"></a>
-<FONT color="green">124</FONT>      /**<a name="line.124"></a>
-<FONT color="green">125</FONT>       * Produces a factory that allows the union of the grants, and intersects<a name="line.125"></a>
-<FONT color="green">126</FONT>       * policies where they overlap on a particular granted attribute or element<a name="line.126"></a>
-<FONT color="green">127</FONT>       * name.<a name="line.127"></a>
-<FONT color="green">128</FONT>       */<a name="line.128"></a>
-<FONT color="green">129</FONT>      public PolicyFactory and(PolicyFactory f) {<a name="line.129"></a>
-<FONT color="green">130</FONT>        ImmutableMap.Builder&lt;String, ElementAndAttributePolicies&gt; b<a name="line.130"></a>
-<FONT color="green">131</FONT>            = ImmutableMap.builder();<a name="line.131"></a>
-<FONT color="green">132</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.132"></a>
-<FONT color="green">133</FONT>            : policies.entrySet()) {<a name="line.133"></a>
-<FONT color="green">134</FONT>          String elName = e.getKey();<a name="line.134"></a>
-<FONT color="green">135</FONT>          ElementAndAttributePolicies p = e.getValue();<a name="line.135"></a>
-<FONT color="green">136</FONT>          ElementAndAttributePolicies q = f.policies.get(elName);<a name="line.136"></a>
-<FONT color="green">137</FONT>          if (q != null) {<a name="line.137"></a>
-<FONT color="green">138</FONT>            p = p.and(q);<a name="line.138"></a>
-<FONT color="green">139</FONT>          }<a name="line.139"></a>
-<FONT color="green">140</FONT>          b.put(elName, p);<a name="line.140"></a>
-<FONT color="green">141</FONT>        }<a name="line.141"></a>
-<FONT color="green">142</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.142"></a>
-<FONT color="green">143</FONT>            : f.policies.entrySet()) {<a name="line.143"></a>
-<FONT color="green">144</FONT>          String elName = e.getKey();<a name="line.144"></a>
-<FONT color="green">145</FONT>          if (!policies.containsKey(elName)) {<a name="line.145"></a>
-<FONT color="green">146</FONT>            b.put(elName, e.getValue());<a name="line.146"></a>
+<FONT color="green">057</FONT>      private final ImmutableMap&lt;String, AttributePolicy&gt; globalAttrPolicies;<a name="line.57"></a>
+<FONT color="green">058</FONT>      private final ImmutableSet&lt;String&gt; textContainers;<a name="line.58"></a>
+<FONT color="green">059</FONT>    <a name="line.59"></a>
+<FONT color="green">060</FONT>      PolicyFactory(<a name="line.60"></a>
+<FONT color="green">061</FONT>          ImmutableMap&lt;String, ElementAndAttributePolicies&gt; policies,<a name="line.61"></a>
+<FONT color="green">062</FONT>          ImmutableSet&lt;String&gt; textContainers,<a name="line.62"></a>
+<FONT color="green">063</FONT>          ImmutableMap&lt;String, AttributePolicy&gt; globalAttrPolicies) {<a name="line.63"></a>
+<FONT color="green">064</FONT>        this.policies = policies;<a name="line.64"></a>
+<FONT color="green">065</FONT>        this.textContainers = textContainers;<a name="line.65"></a>
+<FONT color="green">066</FONT>        this.globalAttrPolicies = globalAttrPolicies;<a name="line.66"></a>
+<FONT color="green">067</FONT>      }<a name="line.67"></a>
+<FONT color="green">068</FONT>    <a name="line.68"></a>
+<FONT color="green">069</FONT>      /** Produces a sanitizer that emits tokens to {@code out}. */<a name="line.69"></a>
+<FONT color="green">070</FONT>      public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {<a name="line.70"></a>
+<FONT color="green">071</FONT>        return new ElementAndAttributePolicyBasedSanitizerPolicy(<a name="line.71"></a>
+<FONT color="green">072</FONT>            out, policies, textContainers);<a name="line.72"></a>
+<FONT color="green">073</FONT>      }<a name="line.73"></a>
+<FONT color="green">074</FONT>    <a name="line.74"></a>
+<FONT color="green">075</FONT>      /**<a name="line.75"></a>
+<FONT color="green">076</FONT>       * Produces a sanitizer that emits tokens to {@code out} and that notifies<a name="line.76"></a>
+<FONT color="green">077</FONT>       * any {@code listener} of any dropped tags and attributes.<a name="line.77"></a>
+<FONT color="green">078</FONT>       * @param out a renderer that receives approved tokens only.<a name="line.78"></a>
+<FONT color="green">079</FONT>       * @param listener if non-null, receives notifications of tags and attributes<a name="line.79"></a>
+<FONT color="green">080</FONT>       *     that were rejected by the policy.  This may tie into intrusion<a name="line.80"></a>
+<FONT color="green">081</FONT>       *     detection systems.<a name="line.81"></a>
+<FONT color="green">082</FONT>       * @param context if {@code (listener != null)} then the context value passed<a name="line.82"></a>
+<FONT color="green">083</FONT>       *     with notifications.  This can be used to let the listener know from<a name="line.83"></a>
+<FONT color="green">084</FONT>       *     which connection or request the questionable HTML was received.<a name="line.84"></a>
+<FONT color="green">085</FONT>       */<a name="line.85"></a>
+<FONT color="green">086</FONT>      public &lt;CTX&gt; HtmlSanitizer.Policy apply(<a name="line.86"></a>
+<FONT color="green">087</FONT>          HtmlStreamEventReceiver out, @Nullable HtmlChangeListener&lt;CTX&gt; listener,<a name="line.87"></a>
+<FONT color="green">088</FONT>          @Nullable CTX context) {<a name="line.88"></a>
+<FONT color="green">089</FONT>        if (listener == null) {<a name="line.89"></a>
+<FONT color="green">090</FONT>          return apply(out);<a name="line.90"></a>
+<FONT color="green">091</FONT>        } else {<a name="line.91"></a>
+<FONT color="green">092</FONT>          HtmlChangeReporter&lt;CTX&gt; r = new HtmlChangeReporter&lt;CTX&gt;(<a name="line.92"></a>
+<FONT color="green">093</FONT>              out, listener, context);<a name="line.93"></a>
+<FONT color="green">094</FONT>          r.setPolicy(apply(r.getWrappedRenderer()));<a name="line.94"></a>
+<FONT color="green">095</FONT>          return r.getWrappedPolicy();<a name="line.95"></a>
+<FONT color="green">096</FONT>        }<a name="line.96"></a>
+<FONT color="green">097</FONT>      }<a name="line.97"></a>
+<FONT color="green">098</FONT>    <a name="line.98"></a>
+<FONT color="green">099</FONT>      /** A convenience function that sanitizes a string of HTML. */<a name="line.99"></a>
+<FONT color="green">100</FONT>      public String sanitize(@Nullable String html) {<a name="line.100"></a>
+<FONT color="green">101</FONT>        return sanitize(html, null, null);<a name="line.101"></a>
+<FONT color="green">102</FONT>      }<a name="line.102"></a>
+<FONT color="green">103</FONT>    <a name="line.103"></a>
+<FONT color="green">104</FONT>      /**<a name="line.104"></a>
+<FONT color="green">105</FONT>       * A convenience function that sanitizes a string of HTML and reports<a name="line.105"></a>
+<FONT color="green">106</FONT>       * the names of rejected element and attributes to listener.<a name="line.106"></a>
+<FONT color="green">107</FONT>       * @param html the string of HTML to sanitize.<a name="line.107"></a>
+<FONT color="green">108</FONT>       * @param listener if non-null, receives notifications of tags and attributes<a name="line.108"></a>
+<FONT color="green">109</FONT>       *     that were rejected by the policy.  This may tie into intrusion<a name="line.109"></a>
+<FONT color="green">110</FONT>       *     detection systems.<a name="line.110"></a>
+<FONT color="green">111</FONT>       * @param context if {@code (listener != null)} then the context value passed<a name="line.111"></a>
+<FONT color="green">112</FONT>       *     with notifications.  This can be used to let the listener know from<a name="line.112"></a>
+<FONT color="green">113</FONT>       *     which connection or request the questionable HTML was received.<a name="line.113"></a>
+<FONT color="green">114</FONT>       * @return a string of HTML that complies with this factory's policy.<a name="line.114"></a>
+<FONT color="green">115</FONT>       */<a name="line.115"></a>
+<FONT color="green">116</FONT>      public &lt;CTX&gt; String sanitize(<a name="line.116"></a>
+<FONT color="green">117</FONT>          @Nullable String html,<a name="line.117"></a>
+<FONT color="green">118</FONT>          @Nullable HtmlChangeListener&lt;CTX&gt; listener, @Nullable CTX context) {<a name="line.118"></a>
+<FONT color="green">119</FONT>        if (html == null) { return ""; }<a name="line.119"></a>
+<FONT color="green">120</FONT>        StringBuilder out = new StringBuilder(html.length());<a name="line.120"></a>
+<FONT color="green">121</FONT>        HtmlSanitizer.sanitize(<a name="line.121"></a>
+<FONT color="green">122</FONT>            html,<a name="line.122"></a>
+<FONT color="green">123</FONT>            apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING),<a name="line.123"></a>
+<FONT color="green">124</FONT>                  listener, context));<a name="line.124"></a>
+<FONT color="green">125</FONT>        return out.toString();<a name="line.125"></a>
+<FONT color="green">126</FONT>      }<a name="line.126"></a>
+<FONT color="green">127</FONT>    <a name="line.127"></a>
+<FONT color="green">128</FONT>      /**<a name="line.128"></a>
+<FONT color="green">129</FONT>       * Produces a factory that allows the union of the grants, and intersects<a name="line.129"></a>
+<FONT color="green">130</FONT>       * policies where they overlap on a particular granted attribute or element<a name="line.130"></a>
+<FONT color="green">131</FONT>       * name.<a name="line.131"></a>
+<FONT color="green">132</FONT>       */<a name="line.132"></a>
+<FONT color="green">133</FONT>      public PolicyFactory and(PolicyFactory f) {<a name="line.133"></a>
+<FONT color="green">134</FONT>        ImmutableMap.Builder&lt;String, ElementAndAttributePolicies&gt; b<a name="line.134"></a>
+<FONT color="green">135</FONT>            = ImmutableMap.builder();<a name="line.135"></a>
+<FONT color="green">136</FONT>        // Merge this and f into a map of element names to attribute policies.<a name="line.136"></a>
+<FONT color="green">137</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.137"></a>
+<FONT color="green">138</FONT>            : policies.entrySet()) {<a name="line.138"></a>
+<FONT color="green">139</FONT>          String elName = e.getKey();<a name="line.139"></a>
+<FONT color="green">140</FONT>          ElementAndAttributePolicies p = e.getValue();<a name="line.140"></a>
+<FONT color="green">141</FONT>          ElementAndAttributePolicies q = f.policies.get(elName);<a name="line.141"></a>
+<FONT color="green">142</FONT>          if (q != null) {<a name="line.142"></a>
+<FONT color="green">143</FONT>            p = p.and(q);<a name="line.143"></a>
+<FONT color="green">144</FONT>          } else {<a name="line.144"></a>
+<FONT color="green">145</FONT>            // Mix in any globals that are not already taken into account in this.<a name="line.145"></a>
+<FONT color="green">146</FONT>            p = p.andGlobals(f.globalAttrPolicies);<a name="line.146"></a>
 <FONT color="green">147</FONT>          }<a name="line.147"></a>
-<FONT color="green">148</FONT>        }<a name="line.148"></a>
-<FONT color="green">149</FONT>        ImmutableSet&lt;String&gt; textContainers;<a name="line.149"></a>
-<FONT color="green">150</FONT>        if (this.textContainers.containsAll(f.textContainers)) {<a name="line.150"></a>
-<FONT color="green">151</FONT>          textContainers = this.textContainers;<a name="line.151"></a>
-<FONT color="green">152</FONT>        } else if (f.textContainers.containsAll(this.textContainers)) {<a name="line.152"></a>
-<FONT color="green">153</FONT>          textContainers = f.textContainers;<a name="line.153"></a>
-<FONT color="green">154</FONT>        } else {<a name="line.154"></a>
-<FONT color="green">155</FONT>          textContainers = ImmutableSet.&lt;String&gt;builder()<a name="line.155"></a>
-<FONT color="green">156</FONT>            .addAll(this.textContainers)<a name="line.156"></a>
-<FONT color="green">157</FONT>            .addAll(f.textContainers)<a name="line.157"></a>
-<FONT color="green">158</FONT>            .build();<a name="line.158"></a>
-<FONT color="green">159</FONT>        }<a name="line.159"></a>
-<FONT color="green">160</FONT>        return new PolicyFactory(b.build(), textContainers);<a name="line.160"></a>
-<FONT color="green">161</FONT>      }<a name="line.161"></a>
-<FONT color="green">162</FONT>    }<a name="line.162"></a>
+<FONT color="green">148</FONT>          b.put(elName, p);<a name="line.148"></a>
+<FONT color="green">149</FONT>        }<a name="line.149"></a>
+<FONT color="green">150</FONT>        // Handle keys that are in f but not in this.<a name="line.150"></a>
+<FONT color="green">151</FONT>        for (Map.Entry&lt;String, ElementAndAttributePolicies&gt; e<a name="line.151"></a>
+<FONT color="green">152</FONT>            : f.policies.entrySet()) {<a name="line.152"></a>
+<FONT color="green">153</FONT>          String elName = e.getKey();<a name="line.153"></a>
+<FONT color="green">154</FONT>          if (!policies.containsKey(elName)) {<a name="line.154"></a>
+<FONT color="green">155</FONT>            ElementAndAttributePolicies p = e.getValue();<a name="line.155"></a>
+<FONT color="green">156</FONT>            // Mix in any globals that are not already taken into account in this.<a name="line.156"></a>
+<FONT color="green">157</FONT>            p = p.andGlobals(f.globalAttrPolicies);<a name="line.157"></a>
+<FONT color="green">158</FONT>            b.put(elName, p);<a name="line.158"></a>
+<FONT color="green">159</FONT>          }<a name="line.159"></a>
+<FONT color="green">160</FONT>        }<a name="line.160"></a>
+<FONT color="green">161</FONT>        ImmutableSet&lt;String&gt; textContainers;<a name="line.161"></a>
+<FONT color="green">162</FONT>        if (this.textContainers.containsAll(f.textContainers)) {<a name="line.162"></a>
+<FONT color="green">163</FONT>          textContainers = this.textContainers;<a name="line.163"></a>
+<FONT color="green">164</FONT>        } else if (f.textContainers.containsAll(this.textContainers)) {<a name="line.164"></a>
+<FONT color="green">165</FONT>          textContainers = f.textContainers;<a name="line.165"></a>
+<FONT color="green">166</FONT>        } else {<a name="line.166"></a>
+<FONT color="green">167</FONT>          textContainers = ImmutableSet.&lt;String&gt;builder()<a name="line.167"></a>
+<FONT color="green">168</FONT>            .addAll(this.textContainers)<a name="line.168"></a>
+<FONT color="green">169</FONT>            .addAll(f.textContainers)<a name="line.169"></a>
+<FONT color="green">170</FONT>            .build();<a name="line.170"></a>
+<FONT color="green">171</FONT>        }<a name="line.171"></a>
+<FONT color="green">172</FONT>        ImmutableMap&lt;String, AttributePolicy&gt; allGlobalAttrPolicies;<a name="line.172"></a>
+<FONT color="green">173</FONT>        if (f.globalAttrPolicies.isEmpty()) {<a name="line.173"></a>
+<FONT color="green">174</FONT>          allGlobalAttrPolicies = this.globalAttrPolicies;<a name="line.174"></a>
+<FONT color="green">175</FONT>        } else if (this.globalAttrPolicies.isEmpty()) {<a name="line.175"></a>
+<FONT color="green">176</FONT>          allGlobalAttrPolicies = f.globalAttrPolicies;<a name="line.176"></a>
+<FONT color="green">177</FONT>        } else {<a name="line.177"></a>
+<FONT color="green">178</FONT>          ImmutableMap.Builder&lt;String, AttributePolicy&gt; ab = ImmutableMap.builder();<a name="line.178"></a>
+<FONT color="green">179</FONT>          for (Map.Entry&lt;String, AttributePolicy&gt; e<a name="line.179"></a>
+<FONT color="green">180</FONT>              : this.globalAttrPolicies.entrySet()) {<a name="line.180"></a>
+<FONT color="green">181</FONT>            String attrName = e.getKey();<a name="line.181"></a>
+<FONT color="green">182</FONT>            ab.put(<a name="line.182"></a>
+<FONT color="green">183</FONT>                attrName,<a name="line.183"></a>
+<FONT color="green">184</FONT>                AttributePolicy.Util.join(<a name="line.184"></a>
+<FONT color="green">185</FONT>                    e.getValue(), f.globalAttrPolicies.get(attrName)));<a name="line.185"></a>
+<FONT color="green">186</FONT>          }<a name="line.186"></a>
+<FONT color="green">187</FONT>          for (Map.Entry&lt;String, AttributePolicy&gt; e<a name="line.187"></a>
+<FONT color="green">188</FONT>              : f.globalAttrPolicies.entrySet()) {<a name="line.188"></a>
+<FONT color="green">189</FONT>            String attrName = e.getKey();<a name="line.189"></a>
+<FONT color="green">190</FONT>            if (!this.globalAttrPolicies.containsKey(attrName)) {<a name="line.190"></a>
+<FONT color="green">191</FONT>              ab.put(attrName, e.getValue());<a name="line.191"></a>
+<FONT color="green">192</FONT>            }<a name="line.192"></a>
+<FONT color="green">193</FONT>          }<a name="line.193"></a>
+<FONT color="green">194</FONT>          allGlobalAttrPolicies = ab.build();<a name="line.194"></a>
+<FONT color="green">195</FONT>        }<a name="line.195"></a>
+<FONT color="green">196</FONT>        return new PolicyFactory(b.build(), textContainers, allGlobalAttrPolicies);<a name="line.196"></a>
+<FONT color="green">197</FONT>      }<a name="line.197"></a>
+<FONT color="green">198</FONT>    }<a name="line.198"></a>
 
 
 

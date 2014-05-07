@@ -402,7 +402,7 @@ with the specified name
 <A NAME="getModeForTag(java.lang.String)"><!-- --></A><H3>
 getModeForTag</H3>
 <PRE>
-public static <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.137"><B>getModeForTag</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+public static <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title="enum in org.owasp.html">HtmlTextEscapingMode</A> <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.140"><B>getModeForTag</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
 <DL>
 <DD>The mode used for content following a start tag with the given name.
 <P>
@@ -415,7 +415,7 @@ public static <A HREF="../../../org/owasp/html/HtmlTextEscapingMode.html" title=
 <A NAME="allowsEscapingTextSpan(java.lang.String)"><!-- --></A><H3>
 allowsEscapingTextSpan</H3>
 <PRE>
-public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.147"><B>allowsEscapingTextSpan</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.150"><B>allowsEscapingTextSpan</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
 <DL>
 <DD>True iff the content following the given tag allows escaping text
  spans: <code>&lt;!--&amp;hellip;--&gt;</code> that escape even things that might
@@ -430,7 +430,7 @@ public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscaping
 <A NAME="isTagFollowedByLiteralContent(java.lang.String)"><!-- --></A><H3>
 isTagFollowedByLiteralContent</H3>
 <PRE>
-public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.159"><B>isTagFollowedByLiteralContent</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.162"><B>isTagFollowedByLiteralContent</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
 <DL>
 <DD>True if content immediately following the start tag must be treated as
  special CDATA so that &lt;'s are not treated as starting tags, comments
@@ -445,7 +445,7 @@ public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscaping
 <A NAME="isVoidElement(java.lang.String)"><!-- --></A><H3>
 isVoidElement</H3>
 <PRE>
-public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.168"><B>isVoidElement</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
+public static boolean <A HREF="../../../src-html/org/owasp/html/HtmlTextEscapingMode.html#line.171"><B>isVoidElement</B></A>(java.lang.String&nbsp;canonTagName)</PRE>
 <DL>
 <DD>True iff the tag cannot contain any content -- will an HTML parser consider
  the element to have ended immediately after the start tag.
