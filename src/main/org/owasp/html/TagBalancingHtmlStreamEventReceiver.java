@@ -212,17 +212,27 @@ public class TagBalancingHtmlStreamEventReceiver
     }
   }
 
-  private static final int HTML_SPACE_CHAR_BITMASK =
-      (1 << ' ') | (1 << '\t') | (1 << '\n') | (1 << '\u000c') | (1 << '\r');
+  private static final long HTML_SPACE_CHAR_BITMASK =
+      (1L << ' ')
+    | (1L << '\t')
+    | (1L << '\n')
+    | (1L << '\u000c')
+    | (1L << '\r');
 
-  public void text(String text) {
+  public static boolean isInterElementWhitespace(String text) {
     int n = text.length();
     for (int i = 0; i < n; ++i) {
       int ch = text.charAt(i);
-      if (ch > 0x20 || (HTML_SPACE_CHAR_BITMASK & (1 << ch)) == 0) {
-        prepareForContent(ElementContainmentRelationships.CHARACTER_DATA_ONLY);
-        break;
+      if (ch > 0x20 || (HTML_SPACE_CHAR_BITMASK & (1L << ch)) == 0) {
+        return false;
       }
+    }
+    return true;
+  }
+
+  public void text(String text) {
+    if (!isInterElementWhitespace(text)) {
+      prepareForContent(ElementContainmentRelationships.CHARACTER_DATA_ONLY);
     }
 
     if (openElements.size() < nestingLimit) {
