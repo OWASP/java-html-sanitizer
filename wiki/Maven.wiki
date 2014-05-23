@@ -3,7 +3,7 @@
 
 = Using with Maven =
 
-The HTML Sanitizer is available from [http://search.maven.org/#browse%7C84770979 Maven Central]
+The HTML Sanitizer is available from [https://search.maven.org/#browse%7C84770979 Maven Central]
 
 Including among your POMs `<dependencies>` this snippet of XML
 
