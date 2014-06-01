@@ -154,7 +154,7 @@ public final class PolicyFactory
       if (!policies.containsKey(elName)) {
         ElementAndAttributePolicies p = e.getValue();
         // Mix in any globals that are not already taken into account in this.
-        p = p.andGlobals(f.globalAttrPolicies);
+        p = p.andGlobals(globalAttrPolicies);
         b.put(elName, p);
       }
     }
