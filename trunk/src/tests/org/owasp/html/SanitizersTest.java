@@ -30,7 +30,14 @@ package org.owasp.html;
 
 import org.junit.Test;
 
+import java.util.BitSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+
 import junit.framework.TestCase;
+
+import com.google.common.collect.Lists;
 
 public class SanitizersTest extends TestCase {
 
@@ -283,5 +290,119 @@ public class SanitizersTest extends TestCase {
     String want = "text<textarea disabled=\"disabled\"></textarea>"
         + "<div><span>Styled by span</span></div>";
     assertEquals(want, policy.sanitize(input));
+  }
+
+  @Test
+  public static final void testAndOrdering() {
+    String input = ""
+        + "xss<a href=\"http://www.google.de\" style=\"color:red;\""
+        + " onmouseover=alert(1) onmousemove=\"alert(2)\" onclick=alert(3)>"
+        + "g"
+        + "<img src=\"http://example.org\"/>oogle</a>";
+    String want = ""
+        + "xss<a href=\"http://www.google.de\" style=\"color:red\""
+        + " rel=\"nofollow\">"
+        + "g"
+        + "<img src=\"http://example.org\" />oogle</a>";
+
+    for (List<PolicyFactory> permutation :
+         new Permutations<PolicyFactory>(
+             Sanitizers.BLOCKS,
+             Sanitizers.IMAGES,
+             Sanitizers.STYLES,
+             Sanitizers.LINKS
+         )) {
+      PolicyFactory policyFactory = permutation.get(0);
+      for (PolicyFactory p : permutation.subList(1, permutation.size())) {
+        policyFactory = policyFactory.and(p);
+      }
+      String got = policyFactory.sanitize(input);
+      assertEquals(permutation.toString(), want, got);
+    }
+  }
+
+  private static int fac(int n) {
+    int ifac = 1;
+    for (int i = 1; i <= n; ++i) {
+      int ifacp = ifac * i;
+      if (ifacp < ifac) { throw new IllegalArgumentException("undeflow"); }
+      ifac = ifacp;
+    }
+    return ifac;
+  }
+
+  /**
+   * An iterable over the length k partial permutations of elements where all
+   * elements are assumed distinct.
+   */
+  private static class Permutations<T> implements Iterable<List<T>> {
+    private final List<T> elements;
+    /** Permutation size. */
+    private final int k;
+
+    Permutations(T... elements) {
+      this(elements.length, elements);
+    }
+
+    Permutations(int k, T... elements) {
+      this.k = k;
+      this.elements = Lists.<T>newArrayList(elements);
+    }
+
+    public Iterator<List<T>> iterator() {
+      return new Iterator<List<T>>() {
+        private int i;
+        private final int limit;
+        private final BitSet mask;
+        private List<T> pending;
+
+        {
+          this.limit = fac(elements.size()) / fac(elements.size() - k);
+          this.mask = new BitSet(k);
+        }
+
+        public void remove() { throw new UnsupportedOperationException(); }
+
+        public boolean hasNext() {
+          fill();
+          return pending != null;
+        }
+
+        public List<T> next() {
+          fill();
+          List<T> result = pending;
+          if (result == null) { throw new NoSuchElementException(); }
+          pending = null;
+          return result;
+        }
+
+        private void fill() {
+          if (pending != null || i == limit) { return; }
+
+          List<T> permutation = Lists.newArrayListWithCapacity(k);
+          mask.clear();
+
+          for (int j = 0, p = i; j < k; ++j) {
+            int m = k - j;  // Number of remaining elements.
+            int x = p % m;
+            p /= m;
+
+            // x is now an index into an els but without any elements indexed by
+            // indices[0:j] so find the x-th unfilled spot.
+            int unfilled = -1;
+            while (true) {
+              unfilled = mask.nextClearBit(unfilled + 1);
+              if (x == 0) { break; }
+              --x;
+            }
+            mask.set(unfilled);
+
+            permutation.add(elements.get(unfilled));
+          }
+          pending = permutation;
+          ++i;
+        }
+      };
+    }
   }
 }
