@@ -1,0 +1,71 @@
+<!-- See http://maven.apache.org/ref/3.0.3/maven-model/maven.html for details
+  - of the meanings of various elements.
+  - See the README in the maven directory for an explanation of the
+  - strange syntactic features in this file.
+  -->
+<project
+  xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <artifactId>owasp-java-html-sanitizer</artifactId>
+  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+  <version>r239</version> <!--##REPLACE##<version>+++version+++</version>##END##-->
+  <packaging>jar</packaging>
+  <name>OWASP Java HTML Sanitizer</name>
+  <description>
+   A fast and easy to configure HTML Sanitizer written in Java which
+   lets you include HTML authored by third-parties in your web
+   application while protecting against XSS.
+  </description>
+  <url>http://code.google.com/p/owasp-java-html-sanitizer</url>
+  <organization>
+    <name>OWASP</name>
+    <url>http://www.owasp.org/</url>
+  </organization>
+  <licenses>
+    <license>
+      <name>New BSD License</name>
+      <url>http://www.opensource.org/licenses/bsd-license.php</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <scm>
+    <url>https://code.google.com/p/owasp-java-html-sanitizer/source/browse</url>
+    <connection>scm:https://owasp-java-html-sanitizer.googlecode.com/svn/trunk/</connection>
+  </scm>
+  <developers>
+    <developer>
+      <id>mikesamuel</id>
+      <name>Mike Samuel</name>
+      <email>mikesamuel@gmail.com</email>
+      <timezone>-5</timezone>
+    </developer>
+  </developers>
+  <mailingLists>
+    <mailingList>
+      <name>User Support</name>
+      <archive>http://groups.google.com/group/owasp-java-html-sanitizer-support</archive>
+    </mailingList>
+    <mailingList>
+      <name>Announcements</name>
+      <archive>http://groups.google.com/group/owasp-java-html-sanitizer-announce</archive>
+    </mailingList>
+  </mailingLists>
+  <dependencies>
+    <dependency>
+      <!-- http://repo2.maven.org/maven2/com/google/guava/guava/ -->
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <!-- We depend on 11 because it is the last which works with JDK 5
+           which we want to link against. -->
+      <version>[11.0,)</version>
+    </dependency>
+    <dependency>
+      <!-- http://code.google.com/p/findbugs/ -->
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <version>[1.3.9,)</version>
+    </dependency>
+  </dependencies>
+</project>
