@@ -134,47 +134,48 @@
 <FONT color="green">131</FONT>    <a name="line.131"></a>
 <FONT color="green">132</FONT>           // EMPTY per http://www.w3.org/TR/REC-html32#basefont<a name="line.132"></a>
 <FONT color="green">133</FONT>          .put("basefont", VOID)<a name="line.133"></a>
-<FONT color="green">134</FONT>          .build();<a name="line.134"></a>
-<FONT color="green">135</FONT>    <a name="line.135"></a>
+<FONT color="green">134</FONT>          .put("isindex", VOID)<a name="line.134"></a>
+<FONT color="green">135</FONT>          .build();<a name="line.135"></a>
 <FONT color="green">136</FONT>    <a name="line.136"></a>
-<FONT color="green">137</FONT>      /**<a name="line.137"></a>
-<FONT color="green">138</FONT>       * The mode used for content following a start tag with the given name.<a name="line.138"></a>
-<FONT color="green">139</FONT>       */<a name="line.139"></a>
-<FONT color="green">140</FONT>      public static HtmlTextEscapingMode getModeForTag(String canonTagName) {<a name="line.140"></a>
-<FONT color="green">141</FONT>        HtmlTextEscapingMode mode = ESCAPING_MODES.get(canonTagName);<a name="line.141"></a>
-<FONT color="green">142</FONT>        return mode != null ? mode : PCDATA;<a name="line.142"></a>
-<FONT color="green">143</FONT>      }<a name="line.143"></a>
-<FONT color="green">144</FONT>    <a name="line.144"></a>
-<FONT color="green">145</FONT>      /**<a name="line.145"></a>
-<FONT color="green">146</FONT>       * True iff the content following the given tag allows escaping text<a name="line.146"></a>
-<FONT color="green">147</FONT>       * spans: {@code &lt;!--&amp;hellip;--&gt;} that escape even things that might<a name="line.147"></a>
-<FONT color="green">148</FONT>       * be an end tag for the corresponding open tag.<a name="line.148"></a>
-<FONT color="green">149</FONT>       */<a name="line.149"></a>
-<FONT color="green">150</FONT>      public static boolean allowsEscapingTextSpan(String canonTagName) {<a name="line.150"></a>
-<FONT color="green">151</FONT>        // &lt;xmp&gt; and &lt;plaintext&gt; do not admit escaping text spans.<a name="line.151"></a>
-<FONT color="green">152</FONT>        return "style".equals(canonTagName) || "script".equals(canonTagName)<a name="line.152"></a>
-<FONT color="green">153</FONT>            || "noembed".equals(canonTagName) || "noscript".equals(canonTagName)<a name="line.153"></a>
-<FONT color="green">154</FONT>            || "noframes".equals(canonTagName);<a name="line.154"></a>
-<FONT color="green">155</FONT>      }<a name="line.155"></a>
-<FONT color="green">156</FONT>    <a name="line.156"></a>
-<FONT color="green">157</FONT>      /**<a name="line.157"></a>
-<FONT color="green">158</FONT>       * True if content immediately following the start tag must be treated as<a name="line.158"></a>
-<FONT color="green">159</FONT>       * special CDATA so that &amp;lt;'s are not treated as starting tags, comments<a name="line.159"></a>
-<FONT color="green">160</FONT>       * or directives.<a name="line.160"></a>
-<FONT color="green">161</FONT>       */<a name="line.161"></a>
-<FONT color="green">162</FONT>      public static boolean isTagFollowedByLiteralContent(String canonTagName) {<a name="line.162"></a>
-<FONT color="green">163</FONT>        HtmlTextEscapingMode mode = getModeForTag(canonTagName);<a name="line.163"></a>
-<FONT color="green">164</FONT>        return mode != PCDATA &amp;&amp; mode != VOID;<a name="line.164"></a>
-<FONT color="green">165</FONT>      }<a name="line.165"></a>
-<FONT color="green">166</FONT>    <a name="line.166"></a>
-<FONT color="green">167</FONT>      /**<a name="line.167"></a>
-<FONT color="green">168</FONT>       * True iff the tag cannot contain any content -- will an HTML parser consider<a name="line.168"></a>
-<FONT color="green">169</FONT>       * the element to have ended immediately after the start tag.<a name="line.169"></a>
-<FONT color="green">170</FONT>       */<a name="line.170"></a>
-<FONT color="green">171</FONT>      public static boolean isVoidElement(String canonTagName) {<a name="line.171"></a>
-<FONT color="green">172</FONT>        return getModeForTag(canonTagName) == VOID;<a name="line.172"></a>
-<FONT color="green">173</FONT>      }<a name="line.173"></a>
-<FONT color="green">174</FONT>    }<a name="line.174"></a>
+<FONT color="green">137</FONT>    <a name="line.137"></a>
+<FONT color="green">138</FONT>      /**<a name="line.138"></a>
+<FONT color="green">139</FONT>       * The mode used for content following a start tag with the given name.<a name="line.139"></a>
+<FONT color="green">140</FONT>       */<a name="line.140"></a>
+<FONT color="green">141</FONT>      public static HtmlTextEscapingMode getModeForTag(String canonTagName) {<a name="line.141"></a>
+<FONT color="green">142</FONT>        HtmlTextEscapingMode mode = ESCAPING_MODES.get(canonTagName);<a name="line.142"></a>
+<FONT color="green">143</FONT>        return mode != null ? mode : PCDATA;<a name="line.143"></a>
+<FONT color="green">144</FONT>      }<a name="line.144"></a>
+<FONT color="green">145</FONT>    <a name="line.145"></a>
+<FONT color="green">146</FONT>      /**<a name="line.146"></a>
+<FONT color="green">147</FONT>       * True iff the content following the given tag allows escaping text<a name="line.147"></a>
+<FONT color="green">148</FONT>       * spans: {@code &lt;!--&amp;hellip;--&gt;} that escape even things that might<a name="line.148"></a>
+<FONT color="green">149</FONT>       * be an end tag for the corresponding open tag.<a name="line.149"></a>
+<FONT color="green">150</FONT>       */<a name="line.150"></a>
+<FONT color="green">151</FONT>      public static boolean allowsEscapingTextSpan(String canonTagName) {<a name="line.151"></a>
+<FONT color="green">152</FONT>        // &lt;xmp&gt; and &lt;plaintext&gt; do not admit escaping text spans.<a name="line.152"></a>
+<FONT color="green">153</FONT>        return "style".equals(canonTagName) || "script".equals(canonTagName)<a name="line.153"></a>
+<FONT color="green">154</FONT>            || "noembed".equals(canonTagName) || "noscript".equals(canonTagName)<a name="line.154"></a>
+<FONT color="green">155</FONT>            || "noframes".equals(canonTagName);<a name="line.155"></a>
+<FONT color="green">156</FONT>      }<a name="line.156"></a>
+<FONT color="green">157</FONT>    <a name="line.157"></a>
+<FONT color="green">158</FONT>      /**<a name="line.158"></a>
+<FONT color="green">159</FONT>       * True if content immediately following the start tag must be treated as<a name="line.159"></a>
+<FONT color="green">160</FONT>       * special CDATA so that &amp;lt;'s are not treated as starting tags, comments<a name="line.160"></a>
+<FONT color="green">161</FONT>       * or directives.<a name="line.161"></a>
+<FONT color="green">162</FONT>       */<a name="line.162"></a>
+<FONT color="green">163</FONT>      public static boolean isTagFollowedByLiteralContent(String canonTagName) {<a name="line.163"></a>
+<FONT color="green">164</FONT>        HtmlTextEscapingMode mode = getModeForTag(canonTagName);<a name="line.164"></a>
+<FONT color="green">165</FONT>        return mode != PCDATA &amp;&amp; mode != VOID;<a name="line.165"></a>
+<FONT color="green">166</FONT>      }<a name="line.166"></a>
+<FONT color="green">167</FONT>    <a name="line.167"></a>
+<FONT color="green">168</FONT>      /**<a name="line.168"></a>
+<FONT color="green">169</FONT>       * True iff the tag cannot contain any content -- will an HTML parser consider<a name="line.169"></a>
+<FONT color="green">170</FONT>       * the element to have ended immediately after the start tag.<a name="line.170"></a>
+<FONT color="green">171</FONT>       */<a name="line.171"></a>
+<FONT color="green">172</FONT>      public static boolean isVoidElement(String canonTagName) {<a name="line.172"></a>
+<FONT color="green">173</FONT>        return getModeForTag(canonTagName) == VOID;<a name="line.173"></a>
+<FONT color="green">174</FONT>      }<a name="line.174"></a>
+<FONT color="green">175</FONT>    }<a name="line.175"></a>
 
 
 
