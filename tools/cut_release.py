@@ -9,6 +9,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import zipfile
 import xml.dom.minidom
 
 def mime_type_from_path(path):
@@ -153,9 +155,48 @@ if "__main__" == __name__:
     version_template_directory_path,
     "owasp-java-html-sanitizer-+++version+++-javadoc.jar")
 
-  shutil.copyfile(jar_path, versioned_jar_path)
-  shutil.copyfile(src_jar_path, versioned_src_jar_path)
-  shutil.copyfile(doc_jar_path, versioned_doc_jar_path)
+  def copy_jar_to_maven_and_versionstamp(source, target):
+    """
+    Copies a jar to a target directory and makes sure its manifest includes
+    package version information consistent with the 
+    """
+    print >>sys.stderr, "copying %s %s" % (source, target)
+    shutil.copyfile(source, target)
+    # Add the version to the manifest.
+    version = entry_element.getAttribute("revision")
+    manifest_temp_fd, manifest_temp_file_path = tempfile.mkstemp(
+        suffix='.MF', prefix='MANIFEST', text=True)
+    print >>sys.stderr, "opening %s" % manifest_temp_file_path
+    manifest_temp_file_ptr = os.fdopen(manifest_temp_fd, 'w')
+    try:
+#     zf = zipfile.ZipFile(target, compression=zipfile.ZIP_DEFLATED)
+#     try:
+#       manifest_content = zf.read('META-INF/MANIFEST.MF')
+#     finally:
+#       zf.close()
+#     print >>sys.stderr, "manifest content\n'''\n%s\n'''" % manifest_content
+      # Add package information including the Maven version identifier to the
+      # manifest file per
+      # http://docs.oracle.com/javase/tutorial/deployment/jar/packageman.html
+      manifest_temp_file_ptr.write('''
+Name: org/owasp/html/sanitizer/
+Implementation-Title: org.owasp.html.sanitizer
+Implementation-Version: %s
+''' % version)
+    finally:
+      manifest_temp_file_ptr.close()
+    # The m flag to jar merges entries into any existing manifest instead of
+    # replacing the existing manifest file, so we don't need to specify things
+    # like Manifest-Version or Created-By above.
+    jar_update_cmd = ["jar", "ufm", target, manifest_temp_file_path]
+    print >>sys.stderr, "running %s" % (' '.join(jar_update_cmd))
+    jar_update_retcode = subprocess.Popen(jar_update_cmd).wait()
+    assert jar_update_retcode == 0, "%r" % jar_update_command
+    os.unlink(manifest_temp_file_path)
+
+  copy_jar_to_maven_and_versionstamp(jar_path, versioned_jar_path)
+  copy_jar_to_maven_and_versionstamp(src_jar_path, versioned_src_jar_path)
+  copy_jar_to_maven_and_versionstamp(doc_jar_path, versioned_doc_jar_path)
   ok = False
   version_directory_path = None
   try:
