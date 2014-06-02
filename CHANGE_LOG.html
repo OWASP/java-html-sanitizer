@@ -5,6 +5,9 @@
 <body>
 <h1>OWASP Java HTML Sanitizer Change Log</h1>
 <ol>
+<li value="239">Fixed bug: r239 fix was order dependant.  Maven jar manifests
+  now include the <tt>Implementation-Version</tt> property and related
+  properties.</li>
 <li value="231">Fixed bug: <code>Sanitizers.STYLES.and(...)</code> dropped
   <code>style="..."</code> attributes.</li>
 <li value="220"><code>allowWithoutAttributes(true)</code> was being ignored for
