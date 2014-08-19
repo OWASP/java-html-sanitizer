@@ -293,6 +293,28 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testIssue30() {
+    String test = "&nbsp;&gt;";
+
+    PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.BLOCKS)
+      .and(Sanitizers.STYLES);
+    String safeHTML = policy.sanitize(test);
+
+    assertEquals(test, "\u00a0&gt;", safeHTML);
+  }
+
+  @Test
+  public static final void testScriptInTable() {
+    String input = "<table>Hallo\r\n<script>SCRIPT</script>\nEnde\n\r";
+    PolicyFactory pf = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+      .and(Sanitizers.LINKS)
+      .and(Sanitizers.STYLES)
+      .and(Sanitizers.IMAGES)
+      .and(Sanitizers.TABLES);
+    assertEquals("<table></table>Hallo\r\n\nEnde\n\r", pf.sanitize(input));
+  }
+
+  @Test
   public static final void testAndOrdering() {
     String input = ""
         + "xss<a href=\"http://www.google.de\" style=\"color:red;\""

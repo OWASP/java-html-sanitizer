@@ -79,6 +79,23 @@ public final class Sanitizers {
       .allowAttributes("href").onElements("a").requireRelNofollowOnLinks()
       .toFactory();
 
+  /**
+   * Allows common table elements.
+   */
+  public static final PolicyFactory TABLES = new HtmlPolicyBuilder()
+    .allowStandardUrlProtocols()
+    .allowElements(
+                   "table", "tr", "td", "th",
+                   "colgroup", "caption", "col",
+                   "thead", "tbody", "tfoot")
+    .allowAttributes("summary").onElements("table")
+    .allowAttributes("align", "valign")
+    .onElements("table", "tr", "td", "th",
+                "colgroup", "col",
+                "thead", "tbody", "tfoot")
+    .allowTextIn("table")  // WIDGY
+    .toFactory();
+
   private static final AttributePolicy INTEGER = new AttributePolicy() {
     public String apply(
         String elementName, String attributeName, String value) {
