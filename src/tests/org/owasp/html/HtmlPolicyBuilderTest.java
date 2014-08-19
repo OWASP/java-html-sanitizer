@@ -282,6 +282,17 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<select>\n  <option>1</option>\n  <option>2</option>\n</select>"));
   }
 
+  @Test
+  public static final void testEntities() throws Exception {
+    assertEquals(
+        "(Foo)\u00a0(Bar)\u2666\u2666\u2666\u2666(Baz)"
+        + "&#x14834;&#x14834;&#x14834;(Boo)",
+        apply(
+            new HtmlPolicyBuilder(),
+            "(Foo)&nbsp;(Bar)&diams;&#9830;&#x2666;&#X2666;(Baz)"
+            + "\ud812\udc34&#x14834;&#x014834;(Boo)"));
+  }
+
   private static String apply(HtmlPolicyBuilder b) throws Exception {
     return apply(b, EXAMPLE);
   }
