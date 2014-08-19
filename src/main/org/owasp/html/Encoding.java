@@ -167,7 +167,7 @@ final class Encoding {
     int pos = 0;
     for (int i = 0; i < n; ++i) {
       char ch = plainText.charAt(i);
-      if (ch < REPLACEMENTS.length) {
+      if (ch < REPLACEMENTS.length) {  // Handles all ASCII.
         String repl = REPLACEMENTS[ch];
         if (repl != null) {
           output.append(plainText, pos, i).append(repl);
@@ -192,17 +192,27 @@ final class Encoding {
             // Elide the orphaned surrogate.
             pos = i + 1;
           }
-        } else if (0xff00 <= ch) {
+        } else if (0xfe60 <= ch) {
+          // Is a control character or possible full-width version of a
+          // special character, a BOM, or one of the FE60 block that might
+          // be elided or normalized to an HTML special character.
+          // Running
+          //   cat NormalizationText.txt \
+          //     | perl -pe 's/ ?#.*//' \
+          //     | egrep '(;003C(;|$)|003E|0026|0022|0027|0060)'
+          // dumps a list of code-points that can normalize to HTML special
+          // characters.
           output.append(plainText, pos, i);
           pos = i + 1;
-          // Is a control character or possible full-width version of a
-          // special character.
           if ((ch & 0xfffe) == 0xfffe) {
             // Elide since not an the XML Character.
           } else {
             appendNumericEntity(ch, output);
           }
         }
+      } else if (ch == '\u1FEF') {  // Normalizes to backtick.
+        output.append(plainText, pos, i).append("&#8175;");
+        pos = i + 1;
       }
     }
     output.append(plainText, pos, n);
@@ -211,28 +221,27 @@ final class Encoding {
   @TCB
   static void appendNumericEntity(int codepoint, Appendable output)
       throws IOException {
+    output.append("&#");
     if (codepoint < 100) {
       // TODO: is this dead code due to REPLACEMENTS above.
-      output.append("&#");
       if (codepoint < 10) {
         output.append((char) ('0' + codepoint));
       } else {
         output.append((char) ('0' + (codepoint / 10)));
         output.append((char) ('0' + (codepoint % 10)));
       }
-      output.append(";");
     } else {
       int nDigits = (codepoint < 0x1000
                      ? codepoint < 0x100 ? 2 : 3
                      : (codepoint < 0x10000 ? 4
                         : codepoint < 0x100000 ? 5 : 6));
-      output.append("&#x");
+      output.append('x');
       for (int digit = nDigits; --digit >= 0;) {
         int hexDigit = (codepoint >>> (digit << 2)) & 0xf;
         output.append(HEX_NUMERAL[hexDigit]);
       }
-      output.append(";");
     }
+    output.append(";");
   }
 
   private static final char[] HEX_NUMERAL = {
@@ -241,7 +250,7 @@ final class Encoding {
   };
 
   /** Maps ASCII chars that need to be encoded to an equivalent HTML entity. */
-  static final String[] REPLACEMENTS = new String[0x61];
+  static final String[] REPLACEMENTS = new String[0x80];
   static {
     for (int i = 0; i < ' '; ++i) {
       // We elide control characters so that we can ensure that our output is
