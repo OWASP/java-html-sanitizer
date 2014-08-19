@@ -222,7 +222,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder allowCommonInlineFormattingElements() {
     return allowElements(
         "b", "i", "font", "s", "u", "o", "sup", "sub", "ins", "del", "strong",
-        "strike", "tt", "code", "big", "small", "br", "span");
+        "strike", "tt", "code", "big", "small", "br", "span", "em");
   }
 
   /**
