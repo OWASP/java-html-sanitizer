@@ -14,4 +14,4 @@
   c. mvn release:perform
 
   You may have to enter your GPG passphrase for steps (b) and (c) or
-  add -Dgpg.passphrase=... at the command line.
+  add -Dgpg.passphrase=... at the command line with HISTSIZE=0.
