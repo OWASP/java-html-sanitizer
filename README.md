@@ -1,4 +1,4 @@
-# OWASP Java HTML Sanitizer
+# OWASP Java HTML Sanitizer 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
 you include HTML authored by third-parties in your web application while
@@ -9,25 +9,20 @@ are only needed by the test suite.  The JSR 305 dependency is a
 compile-only dependency, only needed for annotations. 
 
 This code was written with security best practices in mind, has an
-extensive test suite, and has undergone
-[adversarial security review](https://rawgit.com/OWASP/java-html-sanitizer/master/docs/attack_review_ground_rules.html).
+extensive test suite, and has undergone [adversarial security review](AttackReviewGroundRules).
 
 ----
 
-[Getting Started](https://rawgit.com/OWASP/java-html-sanitizer/master/docs/getting_started.html)
-includes instructions on how to get started with or without Maven.
+[Getting Started](GettingStarted) includes instructions on how to get started with or without Maven.
 
-You can use
-[prepackaged policies](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/Sanitizers.html):
+You can use [prepackaged policies](http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
 String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
-or the [tests](https://rawgit.com/OWASP/java-html-sanitizer/master/src/tests/org/owasp/html/HtmlPolicyBuilderTest.java)
-show how to configure your own
-[policy](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/HtmlPolicyBuilder.html):
+or the [tests](http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/src/tests/org/owasp/html/HtmlPolicyBuilderTest.java) show how to configure your own [policy](http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -39,9 +34,7 @@ PolicyFactory policy = new HtmlPolicyBuilder()
 String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
-or you can write
-[custom policies](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/ElementPolicy.html)
-to do things like changing `h1`s to `div`s with a certain class:
+or you can write [custom policies](http://owasp-java-html-sanitizer.googlecode.com/svn/trunk/distrib/javadoc/org/owasp/html/ElementPolicy.html) to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -60,13 +53,8 @@ String safeHTML = policy.sanitize(untrustedHTML);
 
 ----
 
-Subscribe to the
-[mailing list](http://groups.google.com/group/owasp-java-html-sanitizer-support)
-to be notified of known [Vulnerabilities](https://rawgit.com/OWASP/java-html-sanitizer/master/docs/vulnerabilities.html).
-
-If you wish to report a vulnerability, please see
-[AttackReviewGroundRules](https://rawgit.com/OWASP/java-html-sanitizer/master/docs/attack_review_ground_rules.html).
+Subscribe to the [mailing list](http://groups.google.com/group/owasp-java-html-sanitizer-support) to be notified of known [Vulnerabilities](Vulnerabilities).  If you wish to report a vulnerability, please see [AttackReviewGroundRules](AttackReviewGroundRules).
 
 ----
 
-[Thanks to everyone who has helped with criticism and code](https://rawgit.com/OWASP/java-html-sanitizer/master/docs/credits.html)
+[Thanks to everyone who has helped with criticism and code](Credits)
