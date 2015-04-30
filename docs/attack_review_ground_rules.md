@@ -3,7 +3,7 @@
 
 # Attack Review Ground Rules 
 
-Please take a look at [http://canyouxssthis.com/HTMLSanitizer](http://canyouxssthis.com/HTMLSanitizer).  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [Ebay policy example](http://code.google.com/p/owasp-java-html-sanitizer/source/browse/trunk/src/main/org/owasp/html/examples/EbayPolicyExample.java).
+Please take a look at [http://canyouxssthis.com/HTMLSanitizer](http://canyouxssthis.com/HTMLSanitizer).  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [Ebay policy example](https://github.com/OWASP/java-html-sanitizer/tree/master/src/main/org/owasp/html/examples/EbayPolicyExample.java).
 
 Enter an attack payload in that form, and it will be reflected back to you.  For example, if you enter `<b>Hello</b>, <i>World!</i>` you should see "**Hello**, _World!_" upon submitting the form.  If you want to see the actual HTML produced, just view source.
 
@@ -25,10 +25,10 @@ If you are the first to provide me with a payload that does any of the following
 
 This is not an exhaustive list and creative attacks are welcome.
 
-If you find the web interface cumbersome, feel free to download and test the sanitizer directly.  See [GettingStarted](GettingStarted) for instructions.
+If you find the web interface cumbersome, feel free to download and test the sanitizer directly.  See [GettingStarted](getting_started.md) for instructions.
 
 ## Reporting Vulnerabilities 
-Please report successful attacks with example input via [the issue tracker](http://code.google.com/p/owasp-java-html-sanitizer/issues/entry).
+Please report successful attacks with example input via [the issue tracker](https://github.com/OWASP/java-html-sanitizer/issues/new).
 
 If you believe the issue might affect production systems, please file the issue with the label `Private`.
 

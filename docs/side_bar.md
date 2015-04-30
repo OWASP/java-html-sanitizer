@@ -1,2 +1,2 @@
-  * [GettingStarted](GettingStarted)
-  * [Maven](Maven)
+  * [GettingStarted](getting_started.md)
+  * [Maven](maven.md)
