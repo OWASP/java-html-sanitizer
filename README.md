@@ -9,11 +9,11 @@ are only needed by the test suite.  The JSR 305 dependency is a
 compile-only dependency, only needed for annotations. 
 
 This code was written with security best practices in mind, has an
-extensive test suite, and has undergone [adversarial security review](tree/master/docs/attack_review_ground_rules.md).
+extensive test suite, and has undergone [adversarial security review](attack_review_ground_rules.md).
 
 ----
 
-[Getting Started](tree/master/docs/getting_started.md) includes instructions on how to get started with or without Maven.
+[Getting Started](getting_started.md) includes instructions on how to get started with or without Maven.
 
 You can use [prepackaged policies](https://rawgit.com/OWASP/java-html-sanitizer/tree/master/distrib/javadoc/org/owasp/html/Sanitizers.html):
 
@@ -53,8 +53,8 @@ String safeHTML = policy.sanitize(untrustedHTML);
 
 ----
 
-Subscribe to the [mailing list](http://groups.google.com/group/owasp-java-html-sanitizer-support) to be notified of known [Vulnerabilities](tree/master/docs/vulnerabilities.md).  If you wish to report a vulnerability, please see [AttackReviewGroundRules](tree/master/docs/attack_review_ground_rules.md).
+Subscribe to the [mailing list](http://groups.google.com/group/owasp-java-html-sanitizer-support) to be notified of known [Vulnerabilities](vulnerabilities.md).  If you wish to report a vulnerability, please see [AttackReviewGroundRules](attack_review_ground_rules.md).
 
 ----
 
-[Thanks to everyone who has helped with criticism and code](tree/master/docs/credits.md)
+[Thanks to everyone who has helped with criticism and code](credits.md)
