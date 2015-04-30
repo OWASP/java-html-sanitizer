@@ -60,7 +60,7 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
 
   public final void testFuzzHtmlParser() throws Exception {
     String html = Resources.toString(
-        Resources.getResource("Yahoo!.html"), Charsets.UTF_8);
+        Resources.getResource("benchmark-data/Yahoo!.html"), Charsets.UTF_8);
     int length = html.length();
 
     char[] fuzzyHtml0 = new char[length];
