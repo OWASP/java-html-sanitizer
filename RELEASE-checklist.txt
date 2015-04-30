@@ -1,0 +1,17 @@
+1. Run all tests via `mvn clean test`.
+
+2. Run findbugs via `mvn compile site` and check
+   target/site/findbugs.html to see if there are any warnings.
+
+3. Run `mvn javadoc:jar` to make sure there are no doc warnings.
+
+4. Make sure all changes are committed and pushed.
+
+5. Follow https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide#SonatypeOSSMavenRepositoryUsageGuide-7a.3.StageaRelease
+
+  a. mvn release:clean
+  b. mvn release:prepare
+  c. mvn release:perform
+
+  You may have to enter your GPG passphrase for steps (b) and (c) or
+  add -Dgpg.passphrase=... at the command line.
