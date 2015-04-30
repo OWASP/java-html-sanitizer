@@ -78,7 +78,7 @@ out/examples.tstamp: out/classes.tstamp src/main/org/owasp/html/examples/*.java
 
 # Depends on all java files under tests.
 tests: out/tests.tstamp
-out/tests.tstamp: out/classes.tstamp out/genfiles.tstamp out/examples.tstamp src/tests/org/owasp/html/*.java
+out/tests.tstamp: out/classes.tstamp out/genfiles.tstamp out/examples.tstamp src/test/org/owasp/html/*.java
 	javac -g ${JAVAC_FLAGS} \
           -classpath out/classes:out/genfiles:${TEST_CLASSPATH} \
 	  -d out/classes \
@@ -88,7 +88,7 @@ out/tests.tstamp: out/classes.tstamp out/genfiles.tstamp out/examples.tstamp src
 
 out/genfiles.tstamp: out/genfiles/org/owasp/html/AllExamples.java out/genfiles/org/owasp/html/AllTests.java
 	touch out/genfiles.tstamp
-out/genfiles/org/owasp/html/AllTests.java: src/tests/org/owasp/html/*Test.java
+out/genfiles/org/owasp/html/AllTests.java: src/test/org/owasp/html/*Test.java
 	mkdir -p "$$(dirname $@)"
 	(echo 'package org.owasp.html;'; \
          echo 'import junit.framework.Test;'; \
@@ -118,7 +118,7 @@ out/genfiles/org/owasp/html/AllExamples.java: src/main/org/owasp/html/examples/*
 
 runtests: tests
 	java ${TURKEYTEST} ${JASSERTS} \
-	    -classpath out/classes:src/tests:${TEST_CLASSPATH} \
+	    -classpath out/classes:src/test:${TEST_CLASSPATH} \
 	    ${TEST_RUNNER} org.owasp.html.AllTests
 
 coverage: tests
@@ -127,8 +127,8 @@ coverage: tests
 	  -Demma.report.out.encoding=UTF-8 \
 	  emmarun \
 	  -r html \
-	  -cp out/classes:src/tests:lib/junit/junit.jar \
-	  -sp src/main:src/tests:out/genfiles \
+	  -cp out/classes:src/test:lib/junit/junit.jar \
+	  -sp src/main:src/test:out/genfiles \
 	  -f \
 	  -ix '-junit.*' \
 	  -ix '-org.junit.*' \
