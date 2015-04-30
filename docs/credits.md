@@ -1,6 +1,3 @@
-#summary People who have helped improve this project.
-#labels Featured
-
 #Credits
 
  * agustin.lucchetti

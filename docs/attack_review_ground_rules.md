@@ -1,7 +1,5 @@
-#summary how our fail can be your win
-#labels Phase-QA
-
 # Attack Review Ground Rules 
+### how our fail can be your win
 
 Please take a look at [http://canyouxssthis.com/HTMLSanitizer](http://canyouxssthis.com/HTMLSanitizer).  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [Ebay policy example](https://github.com/OWASP/java-html-sanitizer/tree/master/src/main/org/owasp/html/examples/EbayPolicyExample.java).
 
