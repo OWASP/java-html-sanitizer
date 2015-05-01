@@ -35,11 +35,78 @@ application while protecting against XSS.
     Sonatype+OSS+Maven+Repository+Usage+Guide
     #SonatypeOSSMavenRepositoryUsageGuide-7a.1.POMandsettingsconfig
   -->
-  <parent>
+  <!--parent>
     <groupId>org.sonatype.oss</groupId>
     <artifactId>oss-parent</artifactId>
     <version>7</version>
-  </parent>
+    </parent-->
+
+  <!-- http://central.sonatype.org/pages/apache-maven.html -->
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
+  <build>
+    <plugins>
+      <plugin>
+	<groupId>org.sonatype.plugins</groupId>
+	<artifactId>nexus-staging-maven-plugin</artifactId>
+	<version>[1.6.5,)</version>
+	<extensions>true</extensions>
+	<configuration>
+          <serverId>ossrh</serverId>
+          <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
+	</configuration>
+      </plugin>
+      <!-- For building the source jar. -->
+      <plugin>
+	<groupId>org.apache.maven.plugins</groupId>
+	<artifactId>maven-source-plugin</artifactId>
+	<version>2.2.1</version>
+	<executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+	</executions>
+      </plugin>
+      <!-- For building the javadoc jar. -->
+      <plugin>
+	<groupId>org.apache.maven.plugins</groupId>
+	<artifactId>maven-javadoc-plugin</artifactId>
+	<version>2.9.1</version>
+	<executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+	</executions>
+      </plugin>
+      <!-- Sign all the components sent to ossrh
+           The credentials are pulled from ~/.m2/settings.xml -->
+      <plugin>
+	<groupId>org.apache.maven.plugins</groupId>
+	<artifactId>maven-gpg-plugin</artifactId>
+	<version>1.5</version>
+	<executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+	</executions>
+      </plugin>
+    </plugins>
+  </build>
 
   <developers>
     <developer>

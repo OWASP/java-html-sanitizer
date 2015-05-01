@@ -1,17 +1,33 @@
 1. Run all tests via `mvn clean test`.
 
-2. Run findbugs via `mvn compile site` and check
-   target/site/findbugs.html to see if there are any warnings.
+2. Run findbugs via `mvn compile site`
+
+   a. check target/site/findbugs.html to see if there are any warnings
 
 3. Run `mvn javadoc:jar` to make sure there are no doc warnings.
 
 4. Make sure all changes are committed and pushed.
 
-5. Follow https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide#SonatypeOSSMavenRepositoryUsageGuide-7a.3.StageaRelease
+5. Check http://central.sonatype.org/pages/apache-maven.html
+         #nexus-staging-maven-plugin-for-deployment-and-release
+   and make sure you have the relevant credentials in your ~/.m2/settings.xml
 
-  a. mvn release:clean
-  b. mvn release:prepare
-  c. mvn release:perform
+6. Follow http://central.sonatype.org/pages/releasing-the-deployment.html
 
-  You may have to enter your GPG passphrase for steps (b) and (c) or
-  add -Dgpg.passphrase=... at the command line with HISTSIZE=0.
+7. Remove the -SNAPSHOT suffix from the <version> in pom.xml
+
+8. `mvn clean deploy`
+
+9. Log into nexus and inspect the repository.
+
+10. Deploy by running `mvn nexus-staging:release`
+    or drop the unsuccessful release by running `mvn nexus-staging.drop`
+
+11. Once the release has succeeded,
+    http://central.sonatype.org/pages/apache-maven.html
+        #performing-a-release-deployment
+    increment the <version> in pom.xml and add the -SNAPSHOT suffix back.
+
+12. Update CHANGE_LOG.html with an entry for the new version.
+
+13. git commit&push pom.xml and CHANGE_LOG.html.
