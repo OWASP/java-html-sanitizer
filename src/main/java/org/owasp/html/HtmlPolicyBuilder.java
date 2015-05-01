@@ -525,20 +525,7 @@ public class HtmlPolicyBuilder {
       }
       elPolicies.put(
           "a",
-          ElementPolicy.Util.join(
-              linkPolicy,
-              new ElementPolicy() {
-                public String apply(String elementName, List<String> attrs) {
-                  for (int i = 0, n = attrs.size(); i < n; i += 2) {
-                    if ("href".equals(attrs.get(i))) {
-                      attrs.add("rel");
-                      attrs.add("nofollow");
-                      break;
-                    }
-                  }
-                  return elementName;
-                }
-              }));
+          ElementPolicy.Util.join(linkPolicy, RelNofollowPolicy.INSTANCE));
     }
 
     // Implement protocol policies.
@@ -739,6 +726,22 @@ public class HtmlPolicyBuilder {
       }
       return HtmlPolicyBuilder.this.allowAttributesOnElements(
           policy, attributeNames, b.build());
+    }
+  }
+
+
+  private static final class RelNofollowPolicy implements ElementPolicy {
+    static final RelNofollowPolicy INSTANCE = new RelNofollowPolicy();
+
+    public String apply(String elementName, List<String> attrs) {
+      for (int i = 0, n = attrs.size(); i < n; i += 2) {
+        if ("href".equals(attrs.get(i))) {
+          attrs.add("rel");
+          attrs.add("nofollow");
+          break;
+        }
+      }
+      return elementName;
     }
   }
 }
