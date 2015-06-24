@@ -34,7 +34,7 @@ PolicyFactory policy = new HtmlPolicyBuilder()
 String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
-or you can write [custom policies](https://rawgit.com/OWASP/java-html-sanitizer/tree/master/distrib/javadoc/org/owasp/html/ElementPolicy.html) to do things like changing `h1`s to `div`s with a certain class:
+or you can write [custom policies](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/ElementPolicy.html) to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
