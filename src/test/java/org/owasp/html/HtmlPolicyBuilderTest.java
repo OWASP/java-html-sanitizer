@@ -36,6 +36,7 @@ import com.google.common.base.Joiner;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public class HtmlPolicyBuilderTest extends TestCase {
 
   static final String EXAMPLE = Joiner.on('\n').join(
@@ -53,7 +54,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
       "");
 
   @Test
-  public static final void testTextFilter() throws Exception {
+  public static final void testTextFilter() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -68,7 +69,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testCannedFormattingTagFilter() throws Exception {
+  public static final void testCannedFormattingTagFilter() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -84,8 +85,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testCannedFormattingTagFilterNoItalics()
-      throws Exception {
+  public static final void testCannedFormattingTagFilterNoItalics() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -102,7 +102,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testSimpleTagFilter() throws Exception {
+  public static final void testSimpleTagFilter() {
     assertEquals(
         Joiner.on('\n').join(
             "<h1>Header</h1>",
@@ -118,7 +118,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testLinksAllowed() throws Exception {
+  public static final void testLinksAllowed() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -136,7 +136,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testExternalLinksAllowed() throws Exception {
+  public static final void testExternalLinksAllowed() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -156,7 +156,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testLinksWithNofollow() throws Exception {
+  public static final void testLinksWithNofollow() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -175,7 +175,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testImagesAllowed() throws Exception {
+  public static final void testImagesAllowed() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -194,7 +194,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testStyleFiltering() throws Exception {
+  public static final void testStyleFiltering() {
     assertEquals(
         Joiner.on('\n').join(
             "<h1>Header</h1>",
@@ -215,7 +215,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testElementTransforming() throws Exception {
+  public static final void testElementTransforming() {
     assertEquals(
         Joiner.on('\n').join(
             "<div class=\"header-h1\">Header</div>",
@@ -240,7 +240,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testAllowUrlProtocols() throws Exception {
+  public static final void testAllowUrlProtocols() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -259,7 +259,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testPossibleFalloutFromIssue5() throws Exception {
+  public static final void testPossibleFalloutFromIssue5() {
     assertEquals(
         "Bad",
         apply(
@@ -272,7 +272,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testTextInOption() throws Exception {
+  public static final void testTextInOption() {
     assertEquals(
         "<select><option>1</option><option>2</option></select>",
         apply(
@@ -283,7 +283,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testEntities() throws Exception {
+  public static final void testEntities() {
     assertEquals(
         "(Foo)\u00a0(Bar)\u2666\u2666\u2666\u2666(Baz)"
         + "&#x14834;&#x14834;&#x14834;(Boo)",
@@ -293,12 +293,11 @@ public class HtmlPolicyBuilderTest extends TestCase {
             + "\ud812\udc34&#x14834;&#x014834;(Boo)"));
   }
 
-  private static String apply(HtmlPolicyBuilder b) throws Exception {
+  private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
 
-  private static String apply(HtmlPolicyBuilder b, String src)
-      throws Exception {
+  private static String apply(HtmlPolicyBuilder b, String src) {
     StringBuilder sb = new StringBuilder();
     HtmlSanitizer.Policy policy = b.build(HtmlStreamRenderer.create(sb,
         new Handler<String>() {

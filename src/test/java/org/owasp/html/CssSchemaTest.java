@@ -34,6 +34,7 @@ import org.junit.Test;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public final class CssSchemaTest extends TestCase {
 
   @Test

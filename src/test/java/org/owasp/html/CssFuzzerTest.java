@@ -38,6 +38,7 @@ import org.owasp.html.CssTokens.TokenType;
 
 import com.google.common.collect.Maps;
 
+@SuppressWarnings("javadoc")
 public class CssFuzzerTest extends FuzzyTestCase {
 
   private static final String[] TOKEN_PARTS = new String[] {
@@ -65,9 +66,7 @@ public class CssFuzzerTest extends FuzzyTestCase {
         try {
           while (true) {
             this.wait(1000 /* ms = 1s */);
-            String input = this.input;
             if (input == null) { break; }  // Done
-            long started = this.started;
             long now = System.nanoTime();
             if (now - started >= 1000000000L /* ns = 1s */) {
               System.err.println(
@@ -76,6 +75,7 @@ public class CssFuzzerTest extends FuzzyTestCase {
           }
         } catch (InterruptedException ex) {
           // Done
+          ignore(ex);
         }
       }
     }
@@ -302,5 +302,10 @@ public class CssFuzzerTest extends FuzzyTestCase {
       }
     }
     return sb.toString();
+  }
+
+  /** @param o ignored */
+  static void ignore(Object o) {
+    // Do nothing.
   }
 }

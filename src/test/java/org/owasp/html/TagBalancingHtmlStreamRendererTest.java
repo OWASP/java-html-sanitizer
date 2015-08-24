@@ -39,6 +39,7 @@ import static org.owasp.html.TagBalancingHtmlStreamEventReceiver
               .isInterElementWhitespace;
 
 
+@SuppressWarnings("javadoc")
 public class TagBalancingHtmlStreamRendererTest extends TestCase {
 
   StringBuilder htmlOutputBuffer;
@@ -321,7 +322,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
   }
 
   @Test
-  public final void testIsInterElementWhitespace() {
+  public static final void testIsInterElementWhitespace() {
     assertFalse(isInterElementWhitespace("foo"));
     assertTrue(isInterElementWhitespace(""));
     assertTrue(isInterElementWhitespace(" "));

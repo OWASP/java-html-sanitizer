@@ -38,7 +38,7 @@ import junit.framework.TestCase;
  * If you see a failure, please report it along with the seed from the output.
  * If you want to repeat a failure, set the system property "junit.seed".
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 abstract class FuzzyTestCase extends TestCase {
 

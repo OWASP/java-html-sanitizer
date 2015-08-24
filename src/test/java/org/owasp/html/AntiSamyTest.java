@@ -46,6 +46,7 @@ import junit.framework.TestSuite;
  * @author Arshan Dabirsiaghi
  *
  */
+@SuppressWarnings("javadoc")
 public class AntiSamyTest extends TestCase {
 
   static final boolean RUN_KNOWN_FAILURES = false;
@@ -132,7 +133,7 @@ public class AntiSamyTest extends TestCase {
     return suite;
   }
 
-  public void testCompareSpeeds() throws Exception {
+  public static void testCompareSpeeds() throws Exception {
     if (DISABLE_INTERNETS) { return; }
 
     long totalTime = 0;
@@ -193,7 +194,7 @@ public class AntiSamyTest extends TestCase {
    * Test basic XSS cases.
    */
 
-  public void testScriptAttacks() throws Exception {
+  public static void testScriptAttacks() {
     assertSanitizedDoesNotContain("test<script>alert(document.cookie)</script>", "script");
     assertSanitizedDoesNotContain("test<script>alert(document.cookie)</script>", "script");
 
@@ -222,7 +223,7 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("<a onblur=\"alert(secret)\" href=\"http://www.google.com\">Google</a>", "alert");
   }
 
-  public void testImgAttacks() throws Exception {
+  public static void testImgAttacks() {
     assertSanitizedDoesContain("<img src=\"http://www.myspace.com/img.gif\"/>", "<img");
     assertSanitizedDoesContain("<img src=\"http://www.myspace.com/img.gif\"/>", "<img");
 
@@ -259,7 +260,7 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("<BGSOUND SRC=\"javascript:alert('XSS');\">", "javascript");
   }
 
-  public void testHrefAttacks() throws Exception {
+  public static void testHrefAttacks() {
     assertSanitizedDoesNotContain("<LINK REL=\"stylesheet\" HREF=\"javascript:alert('XSS');\">", "href");
     assertSanitizedDoesNotContain("<LINK REL=\"stylesheet\" HREF=\"javascript:alert('XSS');\">", "href");
 
@@ -365,7 +366,7 @@ public class AntiSamyTest extends TestCase {
    * Test CSS protections.
    */
 
-  public void testCssAttacks() throws Exception {
+  public static void testCssAttacks() {
 
     assertSanitizedDoesNotContain("<div style=\"position:absolute\">", "position");
     assertSanitizedDoesNotContain("<div style=\"position:absolute\">", "position");
@@ -384,7 +385,7 @@ public class AntiSamyTest extends TestCase {
    * Test a bunch of strings that have tweaked the XML parsing capabilities of
    * NekoHTML.
    */
-  public void testIllegalXML() throws Exception {
+  public static void testIllegalXML() throws Exception {
     for (int i = 0; i < BASE64_BAD_XML_STRINGS.length; i++) {
       String testStr = new String(
           Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i]),
@@ -404,7 +405,7 @@ public class AntiSamyTest extends TestCase {
     assertTrue(sanitize("<style>") != null);
   }
 
-  public void testPreviousBugs() throws Exception {
+  public static void testPreviousBugs() {
 
     /*
      * issues 12 (and 36, which was similar). empty tags cause display
@@ -696,7 +697,7 @@ public class AntiSamyTest extends TestCase {
    * Tests cases dealing with nofollowAnchors directive. Assumes anchor tags
    * have an action set to "validate" (may be implicit) in the policy file.
    */
-  public void testNofollowAnchors() throws Exception {
+  public static void testNofollowAnchors() {
     // adds when not present
     assertSanitized("<a href=\"blah\">link</a>", "<a href=\"blah\" rel=\"nofollow\">link</a>");
 
@@ -716,7 +717,7 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("a href=\"blah\">link</a>", "nofollow");
   }
 
-  public void testValidateParamAsEmbed() throws Exception {
+  public static void testValidateParamAsEmbed() {
     // let's start with a YouTube embed
     String input = "<object width=\"560\" height=\"340\"><param name=\"movie\" value=\"http://www.youtube.com/v/IyAyd4WnvhU&hl=en&fs=1&\"></param><param name=\"allowFullScreen\" value=\"true\"></param><param name=\"allowscriptaccess\" value=\"always\"></param><embed src=\"http://www.youtube.com/v/IyAyd4WnvhU&hl=en&fs=1&\" type=\"application/x-shockwave-flash\" allowscriptaccess=\"always\" allowfullscreen=\"true\" width=\"560\" height=\"340\"></embed></object>";
     String expectedOutput = "<object height=\"340\" width=\"560\"><param name=\"movie\" value=\"http://www.youtube.com/v/IyAyd4WnvhU&amp;hl=en&amp;fs=1&amp;\" /><param name=\"allowFullScreen\" value=\"true\" /><param name=\"allowscriptaccess\" value=\"always\" /><embed allowfullscreen=\"true\" allowscriptaccess=\"always\" height=\"340\" src=\"http://www.youtube.com/v/IyAyd4WnvhU&amp;hl=en&amp;fs=1&amp;\" type=\"application/x-shockwave-flash\" width=\"560\" /></object>";

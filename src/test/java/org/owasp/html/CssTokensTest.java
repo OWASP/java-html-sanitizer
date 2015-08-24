@@ -40,6 +40,7 @@ import com.google.common.collect.Lists;
 
 import static org.owasp.html.CssTokens.TokenType.*;
 
+@SuppressWarnings({ "javadoc" })
 public class CssTokensTest extends TestCase {
 
   private static CssTokens lex(String s) {
@@ -81,7 +82,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testStringEscaping() throws Exception {
+  public static final void testStringEscaping() {
     // input                         golden
     String[] tests = {
         "''",                          "''",
@@ -89,7 +90,7 @@ public class CssTokensTest extends TestCase {
         "\"\\a\"",                     "'\\a'",
         "\"\\0d\\0a\"",                "'\\d\\a'",
         "'\\000000d'",                 "'\\0 d'",   // too many hex digits
-        "'\\1fffff'",                  "'\ufffd'",  // exceeeds max codepoint
+        "'\\1fffff'",                  "'\ufffd'",  // exceeds max codepoint
         "\"'\"",                       "'\\27'",
         "\"\\\"\"",                    "'\\22'",
         "'\\\\'",                      "'\\\\'",
@@ -128,7 +129,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testComments() throws Exception {
+  public static final void testComments() {
     assertEquals(
         "a b c d e f g h",
         lex(
@@ -137,12 +138,12 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testNonCommentSlash() throws Exception {
+  public static final void testNonCommentSlash() {
     assertEquals("foo/ bar/", lex("foo/bar/").normalizedCss);
   }
 
   @Test
-  public static final void testCdoCdc() throws Exception {
+  public static final void testCdoCdc() {
     assertEquals(
         "|| and are ignorable||",
         lex("||<!-- and --> are ignorable||").normalizedCss);
@@ -152,7 +153,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testIdentReencoding() throws Exception {
+  public static final void testIdentReencoding() {
     // input                         golden
     String[] tests = {
         "\\",                        null,
@@ -222,12 +223,12 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testOrphanedCloseBrackets() throws Exception {
+  public static final void testOrphanedCloseBrackets() {
     assertEquals("{foo bar}", lex("{foo]bar").normalizedCss);
   }
 
   @Test
-  public static final void testAtDirectives() throws Exception {
+  public static final void testAtDirectives() {
     assertTokens(
         "@import \"foo/bar\"; @ at, @34",
         "@import:AT", " ", "'foo/bar':STRING", ";:SEMICOLON",
@@ -236,7 +237,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testHash() throws Exception {
+  public static final void testHash() {
     assertTokens(
         "#fff #foo #-moz-foo #abcd #abcdef #012f34 #888 #42foo # #",
         "#fff:HASH_UNRESTRICTED", " ",
@@ -251,7 +252,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testSignsAndDots() throws Exception {
+  public static final void testSignsAndDots() {
     assertTokens(
         "- . + +1 + 1 (1 + 1)--> .5 -.5 +.5 ++.5 .foo -",
         "-:IDENT", " ", ".:DELIM", " ", "+:DELIM", " ", "1:NUMBER", " ",
@@ -262,7 +263,7 @@ public class CssTokensTest extends TestCase {
     // TODO: is a single "-" an IDENT or a DELIM?  "--"?  "---"?
   }
 
-  public static final void testMultiCharPunctuation() throws Exception {
+  public static final void testMultiCharPunctuation() {
     assertTokens(
         "|| ~= === |= =^= $= *= = : % & ~",
         "||:COLUMN", " ", "~=:MATCH", " ", "=:DELIM", "=:DELIM", "=:DELIM", " ",
@@ -272,13 +273,13 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testNul() throws Exception {
+  public static final void testNul() {
     assertTokens("\u0000");
     assertTokens("\u0000x\u0000", "x:IDENT");
   }
 
   @Test
-  public static final void testNumbers() throws Exception {
+  public static final void testNumbers() {
     assertTokens(
         "0 -0 +0 0.0 -0.0 -.0 0e12 0e-12 0e+12",
         "0:NUMBER", " ",
@@ -314,7 +315,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testUrls() throws Exception {
+  public static final void testUrls() {
     assertTokens(
         "url() url('..')url( \"foo\" ) URL( f\"/(bar'\\\\baz ) url('foo \\a b')"
         + "Url( \u0080\u1234\ud801\udc02\\110000)",
@@ -328,7 +329,7 @@ public class CssTokensTest extends TestCase {
   }
 
   @Test
-  public static final void testFunctions() throws Exception {
+  public static final void testFunctions() {
     assertTokens("( rgb(0,0,0) rgba(0,50%,0,100%)",
         "(:LEFT_PAREN",
         " ",

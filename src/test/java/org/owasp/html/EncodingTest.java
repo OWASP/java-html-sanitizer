@@ -32,7 +32,8 @@ import org.junit.Test;
 
 import junit.framework.TestCase;
 
-public class EncodingTest extends TestCase {
+@SuppressWarnings("javadoc")
+public final class EncodingTest extends TestCase {
 
   @Test
   public static final void testDecodeHtml() {

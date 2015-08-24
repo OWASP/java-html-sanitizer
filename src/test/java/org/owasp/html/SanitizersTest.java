@@ -37,8 +37,10 @@ import java.util.NoSuchElementException;
 
 import junit.framework.TestCase;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
+@SuppressWarnings("javadoc")
 public class SanitizersTest extends TestCase {
 
   @Test
@@ -343,7 +345,7 @@ public class SanitizersTest extends TestCase {
     }
   }
 
-  private static int fac(int n) {
+  static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
       int ifacp = ifac * i;
@@ -358,9 +360,9 @@ public class SanitizersTest extends TestCase {
    * elements are assumed distinct.
    */
   private static class Permutations<T> implements Iterable<List<T>> {
-    private final List<T> elements;
+    final ImmutableList<T> elements;
     /** Permutation size. */
-    private final int k;
+    final int k;
 
     Permutations(T... elements) {
       this(elements.length, elements);
@@ -368,7 +370,7 @@ public class SanitizersTest extends TestCase {
 
     Permutations(int k, T... elements) {
       this.k = k;
-      this.elements = Lists.<T>newArrayList(elements);
+      this.elements = ImmutableList.copyOf(elements);
     }
 
     public Iterator<List<T>> iterator() {

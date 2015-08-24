@@ -35,10 +35,11 @@ import junit.framework.TestCase;
 import org.junit.Test;
 import org.owasp.html.examples.UrlTextExample;
 
-public class UrlTextExampleTest extends TestCase {
+@SuppressWarnings("javadoc")
+public final class UrlTextExampleTest extends TestCase {
 
   @Test
-  public void testExample() throws IOException {
+  public static void testExample() throws IOException {
     StringBuilder out = new StringBuilder();
     UrlTextExample.run(
         out,

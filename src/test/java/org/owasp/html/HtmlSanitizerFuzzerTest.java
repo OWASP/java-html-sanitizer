@@ -43,11 +43,12 @@ import com.google.common.io.Resources;
  * If you see a failure, please report it along with the seed from the output.
  * If you want to repeat a failure, set the system property "junit.seed".
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
+@SuppressWarnings("javadoc")
 public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
 
-  private static final HtmlSanitizer.Policy DO_NOTHING_POLICY
+  static final HtmlSanitizer.Policy DO_NOTHING_POLICY
       = new HtmlSanitizer.Policy() {
         public void openDocument() { /* do nothing */ }
         public void closeDocument() { /* do nothing */ }

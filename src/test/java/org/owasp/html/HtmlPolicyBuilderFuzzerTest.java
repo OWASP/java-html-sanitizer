@@ -51,8 +51,9 @@ import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
  * If you see a failure, please report it along with the seed from the output.
  * If you want to repeat a failure, set the system property "junit.seed".
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
+@SuppressWarnings("javadoc")
 public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyFactory

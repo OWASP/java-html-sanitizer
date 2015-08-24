@@ -41,8 +41,16 @@ import com.google.common.io.Files;
 
 import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 
+/**
+ * An executable that benchmarks the sanitizer against an alternative.
+ */
 public class Benchmark {
 
+  /**
+   * By default times all alternatives.
+   * If there is an input of the form {@code /[hsp]+/} then each letter
+   * specifies a benchmark to run and unspecified ones are not run.
+   */
   public static void main(String[] args) throws Exception {
     String html = Files.toString(new File(args[0]), Charsets.UTF_8);
 
@@ -129,7 +137,7 @@ public class Benchmark {
     return System.identityHashCode(node) >> 24;
   }
 
-  private static String sanitize(String html) throws Exception {
+  private static String sanitize(String html) {
     StringBuilder sb = new StringBuilder(html.length());
 
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -181,8 +189,7 @@ public class Benchmark {
 
   private static HtmlPolicyBuilder policyBuilder;
 
-  private static String sanitizeUsingPolicyBuilder(String html)
-      throws Exception {
+  private static String sanitizeUsingPolicyBuilder(String html) {
     if (policyBuilder == null) {
       policyBuilder = new HtmlPolicyBuilder()
           .allowStandardUrlProtocols()

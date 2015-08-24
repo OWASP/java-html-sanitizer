@@ -32,6 +32,7 @@ import org.junit.Test;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public class HtmlChangeReporterTest extends TestCase {
 
   static class Context {

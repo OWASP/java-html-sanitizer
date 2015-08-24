@@ -39,6 +39,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.io.Resources;
 
+@SuppressWarnings("javadoc")
 public class HtmlLexerTest extends TestCase {
 
   @Test
@@ -60,7 +61,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testEofInTag() throws Exception {
+  public static final void testEofInTag() {
     assertTokens("<div", "TAGBEGIN: <div");
     assertTokens("</div", "TAGBEGIN: </div");
     assertTokens("<div\n", "TAGBEGIN: <div");
@@ -72,7 +73,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testPartialTagInCData() throws Exception {
+  public static final void testPartialTagInCData() {
     assertTokens(
         "<script>w('</b')</script>",
         "TAGBEGIN: <script",
@@ -83,8 +84,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testUrlEndingInSlashOutsideQuotes()
-      throws Exception {
+  public static final void testUrlEndingInSlashOutsideQuotes() {
     assertTokens(
         "<a href=http://foo.com/>Clicky</a>",
         "TAGBEGIN: <a",
@@ -97,7 +97,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testShortTags() throws Exception {
+  public static final void testShortTags() {
     // See comments in html-sanitizer-test.js as to why we don't bother with
     // short tags.  In short, they are not in HTML5 and not implemented properly
     // in existing HTML4 clients.

@@ -34,6 +34,7 @@ import org.junit.Test;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public class StylingPolicyTest extends TestCase {
   @Test
   public static final void testNothingToOutput() {
@@ -210,7 +211,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testUrls() throws Exception {
+  public static final void testUrls() {
     // Test that a long URL does not blow out the stack or consume quadratic
     // amounts of processor as when the CSS lexer was implemented as a bunch of
     // regular expressions.

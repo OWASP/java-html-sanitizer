@@ -41,6 +41,7 @@ import org.owasp.html.examples.EbayPolicyExample;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public class ExamplesTest extends TestCase {
   @Test
   public static final void testExamplesRun() throws Exception {

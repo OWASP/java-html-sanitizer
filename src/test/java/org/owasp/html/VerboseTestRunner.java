@@ -42,6 +42,7 @@ import junit.textui.TestRunner;
 public class VerboseTestRunner extends TestRunner {
   final PrintStream out;
 
+  /** */
   public VerboseTestRunner() {
     out = System.out;
     setPrinter(new VerboseResultPrinter(out));

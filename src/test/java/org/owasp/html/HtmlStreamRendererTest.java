@@ -36,6 +36,7 @@ import com.google.common.collect.Lists;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public class HtmlStreamRendererTest extends TestCase {
 
   private final List<String> errors = Lists.newArrayList();
@@ -43,6 +44,8 @@ public class HtmlStreamRendererTest extends TestCase {
   private final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
       rendered, new Handler<String>() {
         public void handle(String errorMessage) {
+          @SuppressWarnings({"hiding", "synthetic-access"})
+          List<String> errors = HtmlStreamRendererTest.this.errors;
           errors.add(errorMessage);
         }
       });
@@ -290,7 +293,9 @@ public class HtmlStreamRendererTest extends TestCase {
     }
   }
 
-  private String normalize(String htmlInput) throws Exception {
+  private String normalize(String htmlInput) {
+    @SuppressWarnings("hiding")
+    final HtmlStreamRenderer renderer = this.renderer;
     // Use a permissive sanitizer to generate the events.
     HtmlSanitizer.sanitize(htmlInput, new HtmlSanitizer.Policy() {
       public void openTag(String elementName, List<String> attrs) {

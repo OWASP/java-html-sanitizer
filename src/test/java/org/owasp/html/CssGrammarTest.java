@@ -37,9 +37,10 @@ import com.google.common.collect.Lists;
 
 import junit.framework.TestCase;
 
+@SuppressWarnings("javadoc")
 public class CssGrammarTest extends TestCase {
   @Test
-  public static final void testLex() throws Exception {
+  public static final void testLex() {
     CssTokens tokens = CssTokens.lex(Joiner.on('\n').join(
         "/* A comment */",
         "words with-dashes #hashes .dots. -and-leading-dashes",

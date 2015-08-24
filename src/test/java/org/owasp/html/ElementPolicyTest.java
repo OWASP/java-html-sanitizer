@@ -16,6 +16,7 @@ import static org.owasp.html.ElementPolicy.REJECT_ALL_ELEMENT_POLICY;
 import static org.owasp.html.ElementPolicy.IDENTITY_ELEMENT_POLICY;
 import static org.owasp.html.ElementPolicy.Util.join;
 
+@SuppressWarnings("javadoc")
 public final class ElementPolicyTest extends TestCase {
 
   static class HasCharElementPolicy implements ElementPolicy {
