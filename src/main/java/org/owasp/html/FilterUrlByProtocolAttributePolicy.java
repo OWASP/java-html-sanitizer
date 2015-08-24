@@ -52,12 +52,15 @@ import com.google.common.collect.ImmutableSet;
  * do not look like they contain an authority portion.
  * </p>
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @TCB
 public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
   private final ImmutableSet<String> protocols;
 
+  /**
+   * @param protocols lower-case protocol names without any trailing colon (":")
+   */
   public FilterUrlByProtocolAttributePolicy(
       Iterable<? extends String> protocols) {
     this.protocols = ImmutableSet.copyOf(protocols);

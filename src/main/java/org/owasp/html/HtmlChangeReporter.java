@@ -55,6 +55,9 @@ public final class HtmlChangeReporter<T> {
   private final OutputChannel output;
   private final InputChannel<T> input;
 
+  /**
+   * @param context forwarded to listener along with any reports.
+   */
   public HtmlChangeReporter(
       HtmlStreamEventReceiver renderer,
       HtmlChangeListener<? super T> listener, @Nullable T context) {
@@ -70,8 +73,14 @@ public final class HtmlChangeReporter<T> {
     this.input.policy = policy;
   }
 
+  /**
+   * The underlying renderer.
+   */
   public HtmlStreamEventReceiver getWrappedRenderer() { return output; }
 
+  /**
+   * The underlying policy.
+   */
   public HtmlSanitizer.Policy getWrappedPolicy() { return input; }
 
   private static final class InputChannel<T> implements HtmlSanitizer.Policy {
@@ -133,6 +142,8 @@ public final class HtmlChangeReporter<T> {
     public void text(String textChunk) {
       policy.text(textChunk);
     }
+
+    private static final String[] ZERO_STRINGS = new String[0];
   }
 
   private static final class OutputChannel implements HtmlStreamEventReceiver {
@@ -170,6 +181,4 @@ public final class HtmlChangeReporter<T> {
       renderer.text(text);
     }
   }
-
-  private static final String[] ZERO_STRINGS = new String[0];
 }

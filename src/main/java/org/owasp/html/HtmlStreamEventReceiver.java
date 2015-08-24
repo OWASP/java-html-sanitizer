@@ -35,17 +35,23 @@ import java.util.List;
  */
 public interface HtmlStreamEventReceiver {
 
+  /** Called first to indicate that events follow. */
   public void openDocument();
 
+  /** Called first to indicate that no more events will be received. */
   public void closeDocument();
 
   /**
+   * Called to specify a tag with the given name and attributes.
+   *
    * @param attrs alternating attribute names and values.
    */
   public void openTag(String elementName, List<String> attrs);
 
+  /** Called to specify an end tag like {@code </elementName>}. */
   public void closeTag(String elementName);
 
+  /** Called to specify a text node. */
   public void text(String text);
 
 }

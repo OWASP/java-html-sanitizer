@@ -35,7 +35,7 @@ import javax.annotation.concurrent.Immutable;
 
 /**
  * Encapsulates all the information needed by the
- * {@link ElementAndAttributePolicyBasedSanitizerPolicy} to sanitize one kind
+ * {@link ElementAndAttributePolicySanitizerPolicy} to sanitize one kind
  * of element.
  */
 @Immutable

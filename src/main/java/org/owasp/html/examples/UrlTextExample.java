@@ -117,7 +117,10 @@ public class UrlTextExample {
     }
   }
 
-  public static void run(Appendable out, String... argv) throws IOException {
+  /**
+   * Sanitizes inputs to out.
+   */
+  public static void run(Appendable out, String... inputs) throws IOException {
     PolicyFactory policyBuilder = new HtmlPolicyBuilder()
       .allowAttributes("src").onElements("img")
       .allowAttributes("href").onElements("a")
@@ -145,13 +148,17 @@ public class UrlTextExample {
         )
     );
 
-    for (String input : argv) {
+    for (String input : inputs) {
       HtmlSanitizer.sanitize(input, policy);
     }
 
     out.append(htmlOut);
   }
 
+  /**
+   * Sanitizes each of its inputs (argv) and writes them to stdout with a
+   * line-break after each one.
+   */
   public static void main(String... argv) throws IOException {
     run(System.out, argv);
     System.out.println();
@@ -160,9 +167,9 @@ public class UrlTextExample {
 
   /**
    * The domain (actually authority component) of an HTML5 URL.
-   * If the input is not hierarchical, then this has undefined behavior.
+   * If the input is not hierarchical, then the return value is undefined.
    */
-  private static String domainOf(String url) {
+  static String domainOf(String url) {
     int start = -1;
     if (url.startsWith("//")) {
       start = 2;

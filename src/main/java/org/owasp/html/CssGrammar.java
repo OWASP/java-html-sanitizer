@@ -180,6 +180,7 @@ final class CssGrammar {
         try {
           codepoint = Integer.parseInt(token.substring(esc + 1, end), 16);
         } catch (RuntimeException ex) {
+          ignore(ex);
           codepoint = 0xfffd;  // Unknown codepoint.
         }
         if (end < n) {
@@ -215,4 +216,8 @@ final class CssGrammar {
     void endProperty();
   }
 
+  /** @param o ignored */
+  private static void ignore(Object o) {
+    // Do nothing
+  }
 }

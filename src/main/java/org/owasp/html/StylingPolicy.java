@@ -43,7 +43,7 @@ import com.google.common.collect.Lists;
 @TCB
 final class StylingPolicy implements AttributePolicy {
 
-  private final CssSchema cssSchema;
+  final CssSchema cssSchema;
 
   StylingPolicy(CssSchema cssSchema) {
     this.cssSchema = cssSchema;
@@ -103,11 +103,11 @@ final class StylingPolicy implements AttributePolicy {
         sanitizedCss.append(propertyName).append(':');
       }
 
-      public void startFunction(String token) {
+      public void startFunction(String uncanonToken) {
         closeQuotedIdents();
         if (cssProperties == null) { cssProperties = Lists.newArrayList(); }
         cssProperties.add(cssProperty);
-        token = Strings.toLowerCase(token);
+        String token = Strings.toLowerCase(uncanonToken);
         String key = cssProperty.fnKeys.get(token);
         cssProperty = key != null
             ? cssSchema.forKey(key)
@@ -158,8 +158,8 @@ final class StylingPolicy implements AttributePolicy {
 
       private static final int IDENT_TO_STRING =
           CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_STRING;
-      public void identifier(String token) {
-        token = Strings.toLowerCase(token);
+      public void identifier(String uncanonToken) {
+        String token = Strings.toLowerCase(uncanonToken);
         if (cssProperty.literals.contains(token)) {
           emitToken(token);
         } else if ((cssProperty.bits & IDENT_TO_STRING) == IDENT_TO_STRING) {
@@ -198,7 +198,7 @@ final class StylingPolicy implements AttributePolicy {
     return sanitizedCss.length() == 0 ? null : sanitizedCss.toString();
   }
 
-  private static boolean isAlphanumericOrSpace(
+  static boolean isAlphanumericOrSpace(
       String token, int start, int end) {
     for (int i = start; i < end; ++i) {
       char ch = token.charAt(i);

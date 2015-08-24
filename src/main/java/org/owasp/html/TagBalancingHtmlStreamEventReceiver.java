@@ -41,7 +41,7 @@ import com.google.common.collect.Lists;
  * If the balancer is given the HTML {@code <p>1<p>2}, the wrapped receiver will
  * see events equivalent to {@code <p>1</p><p>2</p>}.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @TCB
 public class TagBalancingHtmlStreamEventReceiver
@@ -51,11 +51,19 @@ public class TagBalancingHtmlStreamEventReceiver
   private final List<ElementContainmentInfo> openElements
       = Lists.newArrayList();
 
+  /**
+   * @param underlying An event receiver that should receive a stream of
+   *     balanced events that is as close as possible to the stream of events
+   *     received by this.
+   */
   public TagBalancingHtmlStreamEventReceiver(
       HtmlStreamEventReceiver underlying) {
     this.underlying = underlying;
   }
 
+  /**
+   * Set the maximum element nesting depth.
+   */
   public void setNestingLimit(int limit) {
     if (openElements.size() > limit) {
       throw new IllegalStateException();
@@ -219,6 +227,15 @@ public class TagBalancingHtmlStreamEventReceiver
     | (1L << '\u000c')
     | (1L << '\r');
 
+  /**
+   * True if text is the value of an inter-element whitespace text node as
+   * defined by HTML5.
+   * <p>
+   * This is the kind of text that is often inserted by
+   * HTML authors to nicely indent their HTML documents and which
+   * (modulo unconventional use of {@code white-space:pre}) are not apparent
+   * to the end-user.
+   */
   public static boolean isInterElementWhitespace(String text) {
     int n = text.length();
     for (int i = 0; i < n; ++i) {
@@ -292,9 +309,9 @@ public class TagBalancingHtmlStreamEventReceiver
 
   static final ImmutableMap<String, ElementContainmentInfo>
       ELEMENT_CONTAINMENT_RELATIONSHIPS
-      = new ElementContainmentRelationships().toMap();
+      = ElementContainmentRelationships.make().toMap();
 
-  private static class ElementContainmentRelationships {
+  private static final class ElementContainmentRelationships {
     private enum ElementGroup {
       BLOCK,
       INLINE,
@@ -333,6 +350,10 @@ public class TagBalancingHtmlStreamEventReceiver
       ;
 
       static final int ALL = (1 << values().length) - 1;
+    }
+
+    static ElementContainmentRelationships make() {
+      return new ElementContainmentRelationships();
     }
 
     private static int elementGroupBits(ElementGroup a) {
@@ -399,7 +420,7 @@ public class TagBalancingHtmlStreamEventReceiver
       return info;
     }
 
-    private ImmutableMap<String, ElementContainmentInfo> toMap() {
+    ImmutableMap<String, ElementContainmentInfo> toMap() {
       return definitions.build();
     }
 
@@ -979,7 +1000,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
     }
 
-    private static final ElementContainmentInfo CHARACTER_DATA_ONLY
+    static final ElementContainmentInfo CHARACTER_DATA_ONLY
         = new ElementContainmentInfo(
             "#text", false,
             elementGroupBits(

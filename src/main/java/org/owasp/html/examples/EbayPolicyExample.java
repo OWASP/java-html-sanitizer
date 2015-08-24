@@ -100,20 +100,10 @@ public class EbayPolicyExample {
       "(?i)baseline|bottom|middle|top");
 
   private static final Predicate<String> COLOR_NAME_OR_COLOR_CODE
-      = new Predicate<String>() {
-        public boolean apply(String s) {
-          return COLOR_NAME.matcher(s).matches()
-              || COLOR_CODE.matcher(s).matches();
-        }
-      };
+      = matchesEither(COLOR_NAME, COLOR_CODE);
 
   private static final Predicate<String> ONSITE_OR_OFFSITE_URL
-      = new Predicate<String>() {
-        public boolean apply(String s) {
-          return ONSITE_URL.matcher(s).matches()
-              || OFFSITE_URL.matcher(s).matches();
-        }
-      };
+      = matchesEither(ONSITE_URL, OFFSITE_URL);
 
   private static final Pattern HISTORY_BACK = Pattern.compile(
       "(?:javascript:)?\\Qhistory.go(-1)\\E");
@@ -122,7 +112,10 @@ public class EbayPolicyExample {
       ".?", Pattern.DOTALL);
 
 
-
+  /**
+   * A policy that can be used to produce policies that sanitize to HTML sinks
+   * via {@link PolicyFactory#apply}.
+   */
   public static final PolicyFactory POLICY_DEFINITION = new HtmlPolicyBuilder()
           .allowAttributes("id").matching(HTML_ID).globally()
           .allowAttributes("class").matching(HTML_CLASS).globally()
@@ -205,6 +198,10 @@ public class EbayPolicyExample {
               "table", "td", "th", "tr", "colgroup", "fieldset", "legend")
           .toFactory();
 
+  /**
+   * A test-bed that reads HTML from stdin and writes sanitized content to
+   * stdout.
+   */
   public static void main(String[] args) throws IOException {
     if (args.length != 0) {
       System.err.println("Reads from STDIN and writes to STDOUT");
@@ -232,5 +229,14 @@ public class EbayPolicyExample {
         });
     // Use the policy defined above to sanitize the HTML.
     HtmlSanitizer.sanitize(html, POLICY_DEFINITION.apply(renderer));
+  }
+
+  private static Predicate<String> matchesEither(
+      final Pattern a, final Pattern b) {
+    return new Predicate<String>() {
+      public boolean apply(String s) {
+        return a.matcher(s).matches()|| b.matcher(s).matches();
+      }
+    };
   }
 }

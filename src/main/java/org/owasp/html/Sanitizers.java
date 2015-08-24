@@ -48,7 +48,7 @@ package org.owasp.html;
  * {@link HtmlPolicyBuilder}.
  * </p>
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 public final class Sanitizers {
 

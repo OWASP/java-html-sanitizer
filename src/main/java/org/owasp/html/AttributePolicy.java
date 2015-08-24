@@ -40,7 +40,7 @@ import javax.annotation.concurrent.Immutable;
  * A policy that can be applied to an HTML attribute to decide whether or not to
  * allow it in the output, possibly after transforming its value.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  * @see HtmlPolicyBuilder.AttributeBuilder#matching(AttributePolicy)
  */
 @TCB public interface AttributePolicy {
@@ -88,7 +88,7 @@ import javax.annotation.concurrent.Immutable;
     }
   }
 
-
+  /** An attribute policy that returns the value unchanged. */
   public static final AttributePolicy IDENTITY_ATTRIBUTE_POLICY
       = new AttributePolicy() {
         public String apply(
@@ -97,6 +97,7 @@ import javax.annotation.concurrent.Immutable;
         }
       };
 
+  /** An attribute policy that rejects all values. */
   public static final AttributePolicy REJECT_ALL_ATTRIBUTE_POLICY
       = new AttributePolicy() {
         public @Nullable String apply(
@@ -116,7 +117,8 @@ final class JoinedAttributePolicy implements AttributePolicy {
   }
 
   public @Nullable String apply(
-      String elementName, String attributeName, @Nullable String value) {
+      String elementName, String attributeName, @Nullable String rawValue) {
+    String value = rawValue;
     for (AttributePolicy p : policies) {
       if (value == null) { break; }
       value = p.apply(elementName, attributeName, value);

@@ -89,6 +89,7 @@ final class CssTokens implements Iterable<String> {
   }
 
   /** A cursor into a list of tokens. */
+  @SuppressWarnings("synthetic-access")
   public final class TokenIterator implements Iterator<String> {
     private int tokenIndex = 0;
     private final int limit;
@@ -152,8 +153,8 @@ final class CssTokens implements Iterable<String> {
       return tokenTypes[tokenIndex];
     }
 
-    public void seek(int tokenIndex) {
-      this.tokenIndex = tokenIndex;
+    public void seek(int newTokenIndex) {
+      this.tokenIndex = newTokenIndex;
     }
 
     public void advance() {
@@ -249,7 +250,7 @@ final class CssTokens implements Iterable<String> {
      */
     private final int[] brackets;
 
-    private Brackets(int[] brackets) {
+    Brackets(int[] brackets) {
       this.brackets = brackets;
     }
 
@@ -290,6 +291,7 @@ final class CssTokens implements Iterable<String> {
   /**
    * Tokenizes according to section 4 of http://dev.w3.org/csswg/css-syntax/
    */
+  @SuppressWarnings("synthetic-access")
   private static final class Lexer {
     private final String css;
     private final StringBuilder sb;
@@ -427,7 +429,9 @@ final class CssTokens implements Iterable<String> {
 
       tokenTypes = new ArrayList<TokenType>();
 
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
       while (pos < cssLimit) {
         assert this.tokenBreaksLimit == this.tokenTypes.size()
@@ -687,7 +691,9 @@ final class CssTokens implements Iterable<String> {
     }
 
     private boolean consumeIgnorable() {
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
       int posBefore = pos;
       while (pos < cssLimit) {
@@ -772,6 +778,7 @@ final class CssTokens implements Iterable<String> {
     }
 
     private void consumeIdent(boolean allowFirstDigit) {
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
       int last = -1, nCodepoints = 0;
       int sbAtStart = sb.length();
@@ -824,7 +831,9 @@ final class CssTokens implements Iterable<String> {
 
 
     private int consumeAndDecodeEscapeSequence() {
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
       assert css.charAt(pos) == '\\';
       if (pos + 1 >= cssLimit) { return -1; }
@@ -907,7 +916,9 @@ final class CssTokens implements Iterable<String> {
     }
 
     private TokenType consumeNumberOrPercentageOrDimension() {
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
       boolean isZero = true;
       int intStart = pos;
@@ -1057,7 +1068,9 @@ final class CssTokens implements Iterable<String> {
     }
 
     private TokenType consumeString() {
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
 
       char delim = css.charAt(pos);
@@ -1129,7 +1142,9 @@ final class CssTokens implements Iterable<String> {
     }
 
     private boolean consumeUnicodeRange() {
+      @SuppressWarnings("hiding")  // final
       final String css = this.css;
+      @SuppressWarnings("hiding")  // final
       final int cssLimit = this.cssLimit;
 
       assert pos < cssLimit && (css.charAt(pos) | 32) == 'u';
@@ -1246,7 +1261,9 @@ final class CssTokens implements Iterable<String> {
     }
 
     private boolean consumeUrlValue() {
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
+      @SuppressWarnings("hiding")  // final
       int cssLimit = this.cssLimit;
       if (pos == cssLimit || css.charAt(pos) != '(') { return false; }
       ++pos;
@@ -1355,6 +1372,7 @@ final class CssTokens implements Iterable<String> {
      * unit.
      */
     private int readCodepoint() {
+      @SuppressWarnings("hiding")  // final
       String css = this.css;
       char ch = css.charAt(pos);
       if (Character.isHighSurrogate(ch) && pos + 1 < cssLimit) {

@@ -45,7 +45,7 @@ import com.google.common.collect.ImmutableSet;
  * method and a <code>{@link PolicyFactory#and and}</code> method to compose
  * policies.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @ThreadSafe
 @Immutable
@@ -158,13 +158,13 @@ public final class PolicyFactory
         b.put(elName, p);
       }
     }
-    ImmutableSet<String> textContainers;
+    ImmutableSet<String> allTextContainers;
     if (this.textContainers.containsAll(f.textContainers)) {
-      textContainers = this.textContainers;
+      allTextContainers = this.textContainers;
     } else if (f.textContainers.containsAll(this.textContainers)) {
-      textContainers = f.textContainers;
+      allTextContainers = f.textContainers;
     } else {
-      textContainers = ImmutableSet.<String>builder()
+      allTextContainers = ImmutableSet.<String>builder()
         .addAll(this.textContainers)
         .addAll(f.textContainers)
         .build();
@@ -193,6 +193,6 @@ public final class PolicyFactory
       }
       allGlobalAttrPolicies = ab.build();
     }
-    return new PolicyFactory(b.build(), textContainers, allGlobalAttrPolicies);
+    return new PolicyFactory(b.build(), allTextContainers, allGlobalAttrPolicies);
   }
 }

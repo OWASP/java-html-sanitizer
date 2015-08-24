@@ -31,7 +31,7 @@ package org.owasp.html;
 /**
  * Types of HTML tokens.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 enum HtmlTokenType {
   /**

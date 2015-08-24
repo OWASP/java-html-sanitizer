@@ -89,6 +89,10 @@ public class SlashdotPolicyExample {
           .allowElements("quote", "ecode")
           .toFactory();
 
+  /**
+   * A test-bed that reads HTML from stdin and writes sanitized content to
+   * stdout.
+   */
   public static void main(String[] args) throws IOException {
     if (args.length != 0) {
       System.err.println("Reads from STDIN and writes to STDOUT");

@@ -40,7 +40,7 @@ import javax.annotation.concurrent.NotThreadSafe;
  * A flexible lexer for HTML.
  * This is hairy code, but it is outside the TCB for the HTML sanitizer.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @NotThreadSafe
 final class HtmlLexer extends AbstractTokenStream {
@@ -440,7 +440,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
           } else if ('"' == ch || '\'' == ch) {
             if (end + 1 < limit) {
               char ch2 = input.charAt(end + 1);
-              if (ch2 >= 0 && Character.isWhitespace(ch2)
+              if (Character.isWhitespace(ch2)
                   || ch2 == '>' || ch2 == '/') {
                 ++end;
                 break;
@@ -710,7 +710,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
 /**
  * A TokenStream that lazily fetches one token at a time.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 abstract class AbstractTokenStream implements TokenStream {
   private HtmlToken tok;

@@ -49,7 +49,7 @@ import javax.annotation.Nullable;
  * Strings.toUpperCase(s).equals(Strings.toUpperCase(Strings.toLowerCase(s)))
  * </code>.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 final class Strings {
   public static boolean equalsIgnoreCase(

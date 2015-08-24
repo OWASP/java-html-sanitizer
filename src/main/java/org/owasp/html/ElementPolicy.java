@@ -41,7 +41,7 @@ import javax.annotation.concurrent.Immutable;
  * {@link AttributePolicy attribute policies} so
  * they can be used to add extra attributes.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  * @see HtmlPolicyBuilder#allowElements(ElementPolicy, String...)
  */
 @TCB public interface ElementPolicy {
@@ -100,6 +100,7 @@ import javax.annotation.concurrent.Immutable;
 
   }
 
+  /** An element policy that returns the element unchanged. */
   public static final ElementPolicy IDENTITY_ELEMENT_POLICY
       = new ElementPolicy() {
     public String apply(String elementName, List<String> attrs) {
@@ -107,6 +108,7 @@ import javax.annotation.concurrent.Immutable;
     }
   };
 
+  /** An element policy that rejects all elements. */
   public static final ElementPolicy REJECT_ALL_ELEMENT_POLICY
       = new ElementPolicy() {
     public @Nullable String apply(String elementName, List<String> attrs) {
@@ -126,7 +128,9 @@ final class JoinedElementPolicy implements ElementPolicy {
   }
 
   public @Nullable String apply(String elementName, List<String> attrs) {
-    elementName = first.apply(elementName, attrs);
-    return elementName != null ? second.apply(elementName, attrs) : null;
+    String filteredElementName = first.apply(elementName, attrs);
+    return filteredElementName != null
+        ? second.apply(filteredElementName, attrs)
+        : null;
   }
 }

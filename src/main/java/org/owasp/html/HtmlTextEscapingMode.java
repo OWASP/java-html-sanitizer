@@ -34,11 +34,11 @@ import com.google.common.collect.ImmutableMap;
  * From section 8.1.2.6 of http://www.whatwg.org/specs/web-apps/current-work/
  * <p>
  * The text in CDATA and RCDATA elements must not contain any
- * occurrences of the string "</" (U+003C LESS-THAN SIGN, U+002F
+ * occurrences of the string {@code "</"} (U+003C LESS-THAN SIGN, U+002F
  * SOLIDUS) followed by characters that case-insensitively match the
  * tag name of the element followed by one of U+0009 CHARACTER
  * TABULATION, U+000A LINE FEED (LF), U+000B LINE TABULATION, U+000C
- * FORM FEED (FF), U+0020 SPACE, U+003E GREATER-THAN SIGN (>), or
+ * FORM FEED (FF), U+0020 SPACE, U+003E GREATER-THAN SIGN ({@code >}), or
  * U+002F SOLIDUS (/), unless that string is part of an escaping
  * text span.
  * </p>
@@ -49,7 +49,7 @@ import com.google.common.collect.ImmutableMap;
  * for the elements which fall in each category.
  * </p>
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 public enum HtmlTextEscapingMode {
   /**

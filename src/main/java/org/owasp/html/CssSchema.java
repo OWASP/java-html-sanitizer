@@ -53,7 +53,7 @@ public final class CssSchema {
      */
     final ImmutableMap<String, String> fnKeys;
 
-    private Property(
+    Property(
         int bits, ImmutableSet<String> literals,
         ImmutableMap<String, String> fnKeys) {
       this.bits = bits;
@@ -126,13 +126,13 @@ public final class CssSchema {
 
   /** The schema for the named property or function key. */
   Property forKey(String propertyName) {
-    propertyName = Strings.toLowerCase(propertyName);
-    Property property = properties.get(propertyName);
+    String propertyNameCanon = Strings.toLowerCase(propertyName);
+    Property property = properties.get(propertyNameCanon);
     if (property != null) { return property; }
-    int n = propertyName.length();
-    if (n != 0 && propertyName.charAt(0) == '-') {
-      String barePropertyName = stripVendorPrefix(propertyName);
-      property = properties.get(barePropertyName);
+    int n = propertyNameCanon.length();
+    if (n != 0 && propertyNameCanon.charAt(0) == '-') {
+      String barePropertyNameCanon = stripVendorPrefix(propertyNameCanon);
+      property = properties.get(barePropertyNameCanon);
       if (property != null) { return property; }
     }
     return DISALLOWED;

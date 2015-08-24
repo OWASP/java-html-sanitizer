@@ -33,10 +33,15 @@ import com.google.common.base.Throwables;
 /**
  * Receives notification of problems.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @param <T> the type of the problem.
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 public interface Handler<T> {
 
+  /**
+   * Called to handle x.
+   * @param x the problem.
+   */
   void handle(T x);
 
   /** A handler that does nothing given any input. */

@@ -39,7 +39,7 @@ import java.util.TreeMap;
  * characters by preferring the longest punctuation string possible in a
  * greedy left-to-right scan.
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 final class Trie {
   private final char[] childMap;
@@ -69,15 +69,16 @@ final class Trie {
   private Trie(
       List<Map.Entry<String, Integer>> elements, int depth,
       int start, int end) {
-    this.terminal = depth == elements.get(start).getKey().length();
+    int pos = start;
+    this.terminal = depth == elements.get(pos).getKey().length();
     if (this.terminal) {
-      this.value = elements.get(start).getValue();
-      if (start + 1 == end) {  // base case
+      this.value = elements.get(pos).getValue();
+      if (pos + 1 == end) {  // base case
         this.childMap = ZERO_CHARS;
         this.children = ZERO_TRIES;
         return;
       } else {
-        ++start;
+        ++pos;
       }
     } else {
       this.value = Integer.MAX_VALUE;
@@ -85,7 +86,7 @@ final class Trie {
     int childCount = 0;
     {
       int last = -1;
-      for (int i = start; i < end; ++i) {
+      for (int i = pos; i < end; ++i) {
         char ch = elements.get(i).getKey().charAt(depth);
         if (ch != last) {
           ++childCount;
@@ -95,10 +96,10 @@ final class Trie {
     }
     this.childMap = new char[childCount];
     this.children = new Trie[childCount];
-    int childStart = start;
+    int childStart = pos;
     int childIndex = 0;
-    char lastCh = elements.get(start).getKey().charAt(depth);
-    for (int i = start + 1; i < end; ++i) {
+    char lastCh = elements.get(pos).getKey().charAt(depth);
+    for (int i = pos + 1; i < end; ++i) {
       char ch = elements.get(i).getKey().charAt(depth);
       if (ch != lastCh) {
         childMap[childIndex] = lastCh;
@@ -178,14 +179,14 @@ final class Trie {
 
   private void toStringBuilder(int depth, StringBuilder sb) {
     sb.append(terminal ? "terminal" : "nonterminal");
-    ++depth;
+    int childDepth = depth + 1;
     for (int i = 0; i < childMap.length; ++i) {
       sb.append('\n');
-      for (int d = 0; d < depth; ++d) {
+      for (int d = 0; d < childDepth; ++d) {
         sb.append('\t');
       }
       sb.append('\'').append(childMap[i]).append("' ");
-      children[i].toStringBuilder(depth, sb);
+      children[i].toStringBuilder(childDepth, sb);
     }
   }
 }

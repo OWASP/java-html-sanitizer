@@ -73,6 +73,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (output instanceof Closeable) {
       return new CloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
+    } else if (output instanceof AutoCloseable) {
+      return new AutoCloseableHtmlStreamRenderer(
+          output, ioExHandler, badHtmlHandler);
     } else {
       return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
     }
@@ -134,6 +137,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
+  /**
+   * True if {@link #openDocument()} has been called and
+   * {@link #closeDocument()} has not subsequently been called.
+   */
   public final boolean isDocumentOpen() {
     return open;
   }
@@ -146,10 +153,11 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
-  private void writeOpenTag(String elementName, List<? extends String> attrs)
+  private void writeOpenTag(
+      String unsafeElementName, List<? extends String> attrs)
       throws IOException {
     if (!open) { throw new IllegalStateException(); }
-    elementName = safeName(elementName);
+    String elementName = safeName(unsafeElementName);
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
@@ -219,10 +227,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
-  private final void writeCloseTag(String elementName)
+  private final void writeCloseTag(String uncanonElementName)
       throws IOException {
     if (!open) { throw new IllegalStateException(); }
-    elementName = HtmlLexer.canonicalName(elementName);
+    String elementName = HtmlLexer.canonicalName(uncanonElementName);
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
@@ -368,8 +376,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * Canonicalizes the element name and possibly substitutes an alternative
    * that has more consistent semantics.
    */
-  static String safeName(String elementName) {
-    elementName = HtmlLexer.canonicalName(elementName);
+  static String safeName(String unsafeElementName) {
+    String elementName = HtmlLexer.canonicalName(unsafeElementName);
 
     // Substitute a reliably non-raw-text element for raw-text and
     // plain-text elements.
@@ -391,6 +399,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       implements Closeable {
     private final Closeable closeable;
 
+    @SuppressWarnings("synthetic-access")
     CloseableHtmlStreamRenderer(
         @WillCloseWhenClosed
         Appendable output, Handler<? super IOException> errorHandler,
@@ -400,6 +409,25 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
 
     public void close() throws IOException {
+      if (isDocumentOpen()) { closeDocument(); }
+      closeable.close();
+    }
+  }
+
+  static class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
+  implements AutoCloseable {
+    private final AutoCloseable closeable;
+
+    @SuppressWarnings("synthetic-access")
+    AutoCloseableHtmlStreamRenderer(
+        @WillCloseWhenClosed
+        Appendable output, Handler<? super IOException> errorHandler,
+        Handler<? super String> badHtmlHandler) {
+      super(output, errorHandler, badHtmlHandler);
+      this.closeable = (AutoCloseable) output;
+    }
+
+    public void close() throws Exception {
       if (isDocumentOpen()) { closeDocument(); }
       closeable.close();
     }

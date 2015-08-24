@@ -103,7 +103,7 @@ import com.google.common.collect.Sets;
  * new HtmlPolicyBuilder()
  *   .allowElement(
  *     new ElementPolicy() {
- *       public String apply(String elementName, List&lt;String> attributes) {
+ *       public String apply(String elementName, List&lt;String&gt; attributes){
  *         attributes.add("class");
  *         attributes.add("header-" + elementName);
  *         return "div";
@@ -148,7 +148,7 @@ import com.google.common.collect.Sets;
  * binding policies to output channels is cheap so there's no need.
  * </p>
  *
- * @author Mike Samuel <mikesamuel@gmail.com>
+ * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @TCB
 @NotThreadSafe
@@ -254,6 +254,16 @@ public class HtmlPolicyBuilder {
     return this;
   }
 
+  /**
+   * Disallows text in elements with the given name.
+   * <p>
+   * This is useful when an element contains text that is not meant to be
+   * displayed to the end-user.
+   * Typically these elements are styled {@code display:none} in browsers'
+   * default stylesheets, or, like {@code <template>} contain text nodes that
+   * are eventually for human consumption, but which are created in a separate
+   * document fragment.
+   */
   public HtmlPolicyBuilder disallowTextIn(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
@@ -481,14 +491,14 @@ public class HtmlPolicyBuilder {
    * each backed by a different output channel.
    */
   public PolicyFactory toFactory() {
-    ImmutableSet.Builder<String> textContainers = ImmutableSet.builder();
+    ImmutableSet.Builder<String> textContainerSet = ImmutableSet.builder();
     for (Map.Entry<String, Boolean> textContainer
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
-        textContainers.add(textContainer.getKey());
+        textContainerSet.add(textContainer.getKey());
       }
     }
-    return new PolicyFactory(compilePolicies(), textContainers.build(),
+    return new PolicyFactory(compilePolicies(), textContainerSet.build(),
                              ImmutableMap.copyOf(globalAttrPolicies));
   }
 
@@ -505,16 +515,20 @@ public class HtmlPolicyBuilder {
     if (compiledPolicies != null) { return compiledPolicies; }
 
     // Copy maps before normalizing in case builder is reused.
+    @SuppressWarnings("hiding")
     Map<String, ElementPolicy> elPolicies
         = Maps.newLinkedHashMap(this.elPolicies);
+    @SuppressWarnings("hiding")
     Map<String, Map<String, AttributePolicy>> attrPolicies
         = Maps.newLinkedHashMap(this.attrPolicies);
     for (Map.Entry<String, Map<String, AttributePolicy>> e :
          attrPolicies.entrySet()) {
       e.setValue(Maps.newLinkedHashMap(e.getValue()));
     }
+    @SuppressWarnings("hiding")
     Map<String, AttributePolicy> globalAttrPolicies
         = Maps.newLinkedHashMap(this.globalAttrPolicies);
+    @SuppressWarnings("hiding")
     Set<String> allowedProtocols = ImmutableSet.copyOf(this.allowedProtocols);
 
     // Implement requireRelNofollowOnLinks
@@ -633,8 +647,8 @@ public class HtmlPolicyBuilder {
      * receive the value in order, each seeing the value after any
      * transformation by a previous policy.
      */
-    public AttributeBuilder matching(AttributePolicy policy) {
-      this.policy = AttributePolicy.Util.join(this.policy, policy);
+    public AttributeBuilder matching(AttributePolicy attrPolicy) {
+      this.policy = AttributePolicy.Util.join(this.policy, attrPolicy);
       return this;
     }
 
@@ -691,8 +705,10 @@ public class HtmlPolicyBuilder {
       final ImmutableSet<String> allowed = ImmutableSet.copyOf(allowedValues);
       return matching(new AttributePolicy() {
         public @Nullable String apply(
-            String elementName, String attributeName, String value) {
-          if (ignoreCase) { value = Strings.toLowerCase(value); }
+            String elementName, String attributeName, String uncanonValue) {
+          String value = ignoreCase
+              ? Strings.toLowerCase(uncanonValue)
+              : uncanonValue;
           return allowed.contains(value) ? value : null;
         }
       });
@@ -710,6 +726,7 @@ public class HtmlPolicyBuilder {
      * <code>&lt;a&gt;</code> because in the former, they have an effect without
      * user interaction and can change the behavior of the current page.
      */
+    @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder globally() {
       return HtmlPolicyBuilder.this.allowAttributesGlobally(
           policy, attributeNames);
@@ -719,6 +736,7 @@ public class HtmlPolicyBuilder {
      * Allows the named attributes on the given elements but filters the
      * attributes' values based on previous calls to {@code matching(...)}.
      */
+    @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder onElements(String... elementNames) {
       ImmutableList.Builder<String> b = ImmutableList.builder();
       for (String elementName : elementNames) {
