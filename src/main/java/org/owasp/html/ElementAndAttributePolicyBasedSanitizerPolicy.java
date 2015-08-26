@@ -182,7 +182,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   void deferOpenTag(String elementName) {
-    if (HtmlTextEscapingMode.isVoidElement(elementName)) {
+    if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
       openElementStack.add(elementName);
       openElementStack.add(null);
     }

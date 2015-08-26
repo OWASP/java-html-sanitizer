@@ -341,6 +341,22 @@ public class HtmlSanitizerTest extends TestCase {
             + "</iframe>"));
   }
 
+  @Test
+  public static final void testBalancingOfEmptyTags() {
+    assertEquals(
+        "<span style=\"color:rgb( 72 , 72 , 72 );font-family:&#39;helveticaneue&#39;\">"
+        + " "
+        + "my \u00A0"
+        + " list of style names or a "
+        + "</span>",
+        sanitize(
+            "<span style=\"color:rgb(72, 72, 72); font-family:helveticaneue\">"
+            + " "
+            + "<span>my &nbsp;</span>"
+            + " list of style names or a "
+            + "</span>"));
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -373,6 +389,7 @@ public class HtmlSanitizerTest extends TestCase {
             }
            })
        .globally()
+       .allowStyling()
        // Don't throw out useless <img> and <input> elements to ease debugging.
        .allowWithoutAttributes("img", "input")
        .build(renderer);
