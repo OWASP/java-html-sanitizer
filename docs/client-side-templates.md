@@ -12,6 +12,24 @@ Many client-side templates look for special constructs in text nodes.  Often, us
 | ----------------- | --------- | ------- | ----- |
 | Angular           | `{{`...`}}` | [`{{buttonText}}`](https://docs.angularjs.org/guide/templates) | 
 | Polymer           | `{{`...`}}` | [`{{arrayOfFriends | startsWith('M')}}`](expressions) |
+| CanJS             | `<%`...`%>` | [`<% alert(0) %>`] | |
+| Underscore        | `<%`...`%>` | [`<% alert(0) %>`] | |
+| Ember             | `{{`...`}}` | [`{{#view tagName=script}}alert(2){{/view}}`] | |
+| Ractive           | `{{`...`}}` | [`{{#1..constructor.constructor('alert(1)')():num}}`] | |
+| JsRenderer        | `{{`...`}}` | [`{{:constructor.constructor('alert(2)')()}}`] | |
+| KendoUI           | `#`...`#`   | [`# alert(1) #`] | |
+
+## Client side template / expression attributes
+
+When filtering client-side templates, it should also be considered to fully cover attributes containing expressions and parseable information that might cause damage or lead to arbitary JavaScript execution.
+
+| Template Language | Attrbutes | Notes |
+|-------------------|-----------|-------|
+| Angular           | `ng-xxx`, `ng:xxx`, `data-ng-xxx`, `x-ng-xxx`          | Angular normalizes attribute names before parsing their contents, making it impossible to work with blacklists. Further, Angular allows to e.g. fetch imports form within a class attribute. This means, we should also consider filtering contents.      |
+| Vue               | `v-xxx`   |       |
+| Knockout          | `data-xxx` |      |
+| Ember             | `data-xxx` |      |
+
 
 ## Escaping of sensitive constructs
 
