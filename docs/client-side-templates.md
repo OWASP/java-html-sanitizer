@@ -12,12 +12,13 @@ Many client-side templates look for special constructs in text nodes.  Often, us
 | ----------------- | --------- | ------- | ----- |
 | Angular           | `{{`...`}}` | [`{{buttonText}}`](https://docs.angularjs.org/guide/templates) | 
 | Polymer           | `{{`...`}}` | [`{{arrayOfFriends | startsWith('M')}}`](https://www.polymer-project.org/0.5/docs/polymer/expressions.html) |
-| CanJS             | `<%`...`%>` | `<% alert(0) %>` | |
-| Underscore        | `<%`...`%>` | `<% alert(0) %>` | |
+| CanJS             | `<%`...`%>` | `<% alert(1) %>` | |
+| Underscore        | `<%`...`%>` | `<% alert(1) %>` | |
 | Ember             | `{{`...`}}` | `{{#view tagName=script}}alert(2){{/view}}` | |
 | Ractive           | `{{`...`}}` | `{{#1..constructor.constructor('alert(1)')():num}}` | |
 | JsRenderer        | `{{`...`}}` | `{{:constructor.constructor('alert(2)')()}}` | |
 | KendoUI           | `#`...`#`   | `# alert(1) #` | |
+| Vanilla ES6       | `` `${``...``}` ``  | `` `${alert(1)}` `` | | 
 
 ## Client side template / expression attributes
 
