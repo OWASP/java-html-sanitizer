@@ -11,13 +11,13 @@ Many client-side templates look for special constructs in text nodes.  Often, us
 | Template Language | Construct | Example | Notes |
 | ----------------- | --------- | ------- | ----- |
 | Angular           | `{{`...`}}` | [`{{buttonText}}`](https://docs.angularjs.org/guide/templates) | 
-| Polymer           | `{{`...`}}` | [`{{arrayOfFriends | startsWith('M')}}`](expressions) |
-| CanJS             | `<%`...`%>` | [`<% alert(0) %>`] | |
-| Underscore        | `<%`...`%>` | [`<% alert(0) %>`] | |
-| Ember             | `{{`...`}}` | [`{{#view tagName=script}}alert(2){{/view}}`] | |
-| Ractive           | `{{`...`}}` | [`{{#1..constructor.constructor('alert(1)')():num}}`] | |
-| JsRenderer        | `{{`...`}}` | [`{{:constructor.constructor('alert(2)')()}}`] | |
-| KendoUI           | `#`...`#`   | [`# alert(1) #`] | |
+| Polymer           | `{{`...`}}` | `{{arrayOfFriends | startsWith('M')}}`](expressions) |
+| CanJS             | `<%`...`%>` | `<% alert(0) %>` | |
+| Underscore        | `<%`...`%>` | `<% alert(0) %>` | |
+| Ember             | `{{`...`}}` | `{{#view tagName=script}}alert(2){{/view}}` | |
+| Ractive           | `{{`...`}}` | `{{#1..constructor.constructor('alert(1)')():num}}` | |
+| JsRenderer        | `{{`...`}}` | `{{:constructor.constructor('alert(2)')()}}` | |
+| KendoUI           | `#`...`#`   | `# alert(1) #` | |
 
 ## Client side template / expression attributes
 
