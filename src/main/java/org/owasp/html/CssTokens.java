@@ -103,6 +103,7 @@ final class CssTokens implements Iterable<String> {
     }
 
     public String next() {
+      if (!hasToken()) { throw new NoSuchElementException(); }
       String token = token();
       advance();
       return token;
