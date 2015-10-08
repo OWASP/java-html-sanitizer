@@ -217,11 +217,25 @@ public final class EncodingTest extends TestCase {
          sb.toString());
 
     StringBuilder out = new StringBuilder();
-    Encoding.encodeHtmlOnto(cps.toString(), out);
+    Encoding.encodeHtmlAttribOnto(cps.toString(), out);
     assertEquals(
         " \t \n &#64; \u0080 \u00ff \u0100 \u0fff \u1000 "
         + "\u123a  &#x10000; &#x10ffff; ",
         out.toString());
+  }
+
+  @Test
+  public static final void testAngularJsBracesInTextNode() throws Exception {
+    StringBuilder sb = new StringBuilder();
+
+    Encoding.encodePcdataOnto("{{angularVariable}}", sb);
+    assertEquals("{<!-- -->{angularVariable}}", sb.toString());
+
+    sb.setLength(0);
+
+    Encoding.encodePcdataOnto("{", sb);
+    Encoding.encodePcdataOnto("{angularVariable}}", sb);
+    assertEquals("{<!-- -->{angularVariable}}", sb.toString());
   }
 
   private static final void assertStripped(String stripped, String orig) {

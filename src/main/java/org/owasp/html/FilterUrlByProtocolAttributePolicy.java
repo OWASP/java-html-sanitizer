@@ -102,53 +102,57 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
         case '/': case '#': case '?': case ':':
           colonsIrrelevant = true;
           break;
-        case '(': case ')': case '\uff1a':
-          StringBuilder sb = new StringBuilder(n + 16);
-          int pos = 0;
-          for (; i < n; ++i) {
-            ch = s.charAt(i);
-            switch (ch) {
-              case '(':
-                sb.append(s, pos, i).append("%28");
-                pos = i + 1;
-                break;
-              case ')':
-                sb.append(s, pos, i).append("%29");
-                pos = i + 1;
-                break;
-              default:
-                if (ch > 0x100 && !colonsIrrelevant) {
-                  // Other colon like characters.
-                  // TODO: do we need to encode non-colon characters if we're
-                  // not dealing with URLs that haven't been copy/pasted into
-                  // the URL bar?
-                  // Is it safe to assume UTF-8 here?
-                  switch (ch) {
-                    case '\u0589':
-                      sb.append(s, pos, i).append("%d6%89");
-                      pos = i + 1;
-                      break;
-                    case '\u05c3':
-                      sb.append(s, pos, i).append("%d7%83");
-                      pos = i + 1;
-                      break;
-                    case '\u2236':
-                      sb.append(s, pos, i).append("%e2%88%b6");
-                      pos = i + 1;
-                      break;
-                    case '\uff1a':
-                      sb.append(s, pos, i).append("%ef%bc%9a");
-                      pos = i + 1;
-                      break;
-                  }
-                }
-                break;
-            }
+        case '(': case ')':
+        case '{': case '}':
+          return normalizeUriFrom(s, i, colonsIrrelevant);
+        case '\u0589':
+        case '\u05c3':
+        case '\u2236':
+        case '\uff1a':
+          if (!colonsIrrelevant) {
+            return normalizeUriFrom(s, i, false);
           }
-          return sb.append(s, pos, n).toString();
+          break;
       }
     }
     return s;
+  }
+
+  private static String normalizeUriFrom(
+      String s, int start, boolean colonsIrrelevant) {
+    int n = s.length();
+    StringBuilder sb = new StringBuilder(n + 16);
+    int pos = 0;
+    for (int i = start; i < n; ++i) {
+      char ch = s.charAt(i);
+      String repl = null;
+      switch (ch) {
+        case '(': repl = "%28"; break;
+        case ')': repl = "%29"; break;
+        case '{': repl = "%7b"; break;
+        case '}': repl = "%7d"; break;
+        default:
+          if (ch >= 0x100 && !colonsIrrelevant) {
+            // Other colon like characters.
+            // TODO: do we need to encode non-colon characters if we're
+            // not dealing with URLs that haven't been copy/pasted into
+            // the URL bar?
+            // Is it safe to assume UTF-8 here?
+            switch (ch) {
+              case '\u0589': repl = "%d6%89";    break;
+              case '\u05c3': repl = "%d7%83";    break;
+              case '\u2236': repl = "%e2%88%b6"; break;
+              case '\uff1a': repl = "%ef%bc%9a"; break;
+            }
+          }
+          break;
+      }
+      if (repl != null) {
+        sb.append(s, pos, i).append(repl);
+        pos = i + 1;
+      }
+    }
+    return sb.append(s, pos, n).toString();
   }
 
   @Override

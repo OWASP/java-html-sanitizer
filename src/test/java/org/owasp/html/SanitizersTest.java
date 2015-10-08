@@ -345,6 +345,45 @@ public class SanitizersTest extends TestCase {
     }
   }
 
+  @Test
+  public static final void testAngularBindingsInSanitizedCode() {
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowElements("a", "b", "title")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("title").globally()
+        .allowStandardUrlProtocols()
+        .toFactory();
+
+    String unsafe = (
+        ""
+        + "<title>\n"
+        + "Prevent Side Effects Due to {{expressions}} in angle brackets\n"
+        + "</title>\n"
+        + "<b>Also in {{regularTextNodes}}</b>\n"
+        + "<b>Text nodes can be {<!-- split -->{Sneaky}}</b>\n"
+        + "<b>Elided {<tags>{CanSplitToo}<span></span>}</b>\n"
+        + "<a href='/{{path}}'>link</a>\n"
+        + "<b title='{{title}}'>tag with title</b>\n"
+        );
+
+    String sanitized = s.sanitize(unsafe);
+
+    String safe = (
+        ""
+        + "<title>\n"
+        + "Prevent Side Effects Due to"
+        + " {\u200B{expressions}} in angle brackets\n"
+        + "</title>\n"
+        + "<b>Also in {<!-- -->{regularTextNodes}}</b>\n"
+        + "<b>Text nodes can be {<!-- -->{Sneaky}}</b>\n"
+        + "<b>Elided {<!-- -->{CanSplitToo}}</b>\n"
+        + "<a href=\"/%7b%7bpath%7d%7d\">link</a>\n"
+        + "<b title=\"{\u200B{title}}\">tag with title</b>\n"
+        );
+
+    assertEquals(safe, sanitized);
+  }
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {

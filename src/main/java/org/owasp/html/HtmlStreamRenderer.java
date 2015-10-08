@@ -55,6 +55,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final Handler<? super String> badHtmlHandler;
   private String lastTagOpened;
   private StringBuilder pendingUnescaped;
+  private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
 
   /**
@@ -167,7 +168,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return;
     }
 
-    switch (HtmlTextEscapingMode.getModeForTag(elementName)) {
+    escapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+
+    switch (escapingMode) {
       case CDATA_SOMETIMES:
       case CDATA:
       case PLAIN_TEXT:
@@ -175,6 +178,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         pendingUnescaped = new StringBuilder();
         break;
       default:
+        break;
     }
 
     output.append('<').append(elementName);
@@ -189,7 +193,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         continue;
       }
       output.append(' ').append(name).append('=').append('"');
-      Encoding.encodeHtmlOnto(value, output);
+      Encoding.encodeHtmlAttribOnto(value, output);
       if (value.indexOf('`') != -1) {
         // Apparently, in quirks mode, IE8 does a poor job producing innerHTML
         // values.  Given
@@ -274,7 +278,11 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (pendingUnescaped != null) {
       pendingUnescaped.append(text);
     } else {
-      Encoding.encodeHtmlOnto(text, output);  // Works for RCDATA.
+      if (this.escapingMode == HtmlTextEscapingMode.RCDATA) {
+        Encoding.encodeRcdataOnto(text, output);
+      } else {
+        Encoding.encodePcdataOnto(text, output);
+      }
     }
   }
 

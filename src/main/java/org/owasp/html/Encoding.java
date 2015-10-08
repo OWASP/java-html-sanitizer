@@ -30,6 +30,8 @@ package org.owasp.html;
 
 import java.io.IOException;
 
+import javax.annotation.Nullable;
+
 import com.google.common.annotations.VisibleForTesting;
 
 /** Encoders and decoders for HTML. */
@@ -152,6 +154,31 @@ final class Encoding {
     return -1;
   }
 
+  static void encodeHtmlAttribOnto(String plainText, Appendable output)
+      throws IOException {
+    encodeHtmlOnto(plainText, output, "{\u200B");
+  }
+
+  static void encodePcdataOnto(String plainText, Appendable output)
+      throws IOException {
+    // Avoid problems with client-side template languages like
+    // Angular & Polymer which attach special significance to text like
+    // {{...}}.
+    // We split brackets so that these template languages don't end up
+    // executing expressions in sanitized text.
+    encodeHtmlOnto(plainText, output, "{<!-- -->");
+  }
+
+  static void encodeRcdataOnto(String plainText, Appendable output)
+      throws IOException {
+    // Avoid problems with client-side template languages like
+    // Angular & Polymer which attach special significance to text like
+    // {{...}}.
+    // We split brackets so that these template languages don't end up
+    // executing expressions in sanitized text.
+    encodeHtmlOnto(plainText, output, "{\u200B");
+  }
+
   /**
    * Writes the HTML equivalent of the given plain text to output.
    * For example, {@code escapeHtmlOnto("1 < 2", w)},
@@ -161,14 +188,20 @@ final class Encoding {
    * @see <a href="http://www.w3.org/TR/2008/REC-xml-20081126/#charsets">XML Ch. 2.2 - Characters</a>
    */
   @TCB
-  static void encodeHtmlOnto(String plainText, Appendable output)
-      throws IOException {
+  private static void encodeHtmlOnto(
+      String plainText, Appendable output, @Nullable String braceReplacement)
+          throws IOException {
     int n = plainText.length();
     int pos = 0;
     for (int i = 0; i < n; ++i) {
       char ch = plainText.charAt(i);
       if (ch < REPLACEMENTS.length) {  // Handles all ASCII.
         String repl = REPLACEMENTS[ch];
+        if (ch == '{' && repl == null) {
+          if (i + 1 == n || plainText.charAt(i + 1) == '{') {
+            repl = braceReplacement;
+          }
+        }
         if (repl != null) {
           output.append(plainText, pos, i).append(repl);
           pos = i + 1;
