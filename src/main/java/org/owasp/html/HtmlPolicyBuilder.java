@@ -288,7 +288,28 @@ public class HtmlPolicyBuilder {
     }
     return this;
   }
-
+  	
+  /**
+   * Disallows the given element from appearing without the given attribute.
+   */
+  public HtmlPolicyBuilder disallowWithoutAttribute(String elementName, final String attributeName) {
+    invalidateCompiledState();
+    elementName = HtmlLexer.canonicalName(elementName);
+    ElementPolicy policy = new ElementPolicy() {
+      public @Nullable String apply(String elementName, List<String> attrs) {
+        for(int i=0; i<attrs.size(); i+=2) {
+          if(attrs.get(i).equals(attributeName)){
+            return elementName;
+          }
+        }
+        return null;
+      }
+    };
+    ElementPolicy newPolicy = ElementPolicy.Util.join(elPolicies.get(elementName), policy);
+    elPolicies.put(elementName, newPolicy);
+    return this;
+  }
+	
   /**
    * Disallows the given elements from appearing without attributes.
    *
@@ -714,6 +735,32 @@ public class HtmlPolicyBuilder {
       });
     }
 
+	/**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * NOT matching the pattern. This is a convenience method, as inverting
+     * certain patterns can otherwise be quite complex.
+     */
+    public AttributeBuilder notMatching(final Pattern pattern) {
+      return matching(new AttributePolicy() {
+        public @Nullable String apply(String elementName, String attributeName, String value) {
+          return !pattern.matcher(value).matches() ? value : null;
+        }
+      });
+    }
+
+    /**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * that are not only whitespace or an empty string. Can be combined 
+	 * with calls to {@code matching} or {@code notMatching}.
+     */
+    public AttributeBuilder notEmptyOrWhitespace() {
+      return matching(new AttributePolicy() {
+        public @Nullable String apply(String elementName, String attributeName, String value) {
+          return value.trim().length() > 0 ? value : null;
+        }
+      });
+    }
+	
     /**
      * Allows the given attributes on any elements but filters the
      * attributes' values based on previous calls to {@code matching(...)}.
