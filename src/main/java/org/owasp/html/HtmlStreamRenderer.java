@@ -74,9 +74,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (output instanceof Closeable) {
       return new CloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
-    } else if (output instanceof AutoCloseable) {
-      return new AutoCloseableHtmlStreamRenderer(
-          output, ioExHandler, badHtmlHandler);
     } else {
       return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
     }
@@ -417,25 +414,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
 
     public void close() throws IOException {
-      if (isDocumentOpen()) { closeDocument(); }
-      closeable.close();
-    }
-  }
-
-  static class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
-  implements AutoCloseable {
-    private final AutoCloseable closeable;
-
-    @SuppressWarnings("synthetic-access")
-    AutoCloseableHtmlStreamRenderer(
-        @WillCloseWhenClosed
-        Appendable output, Handler<? super IOException> errorHandler,
-        Handler<? super String> badHtmlHandler) {
-      super(output, errorHandler, badHtmlHandler);
-      this.closeable = (AutoCloseable) output;
-    }
-
-    public void close() throws Exception {
       if (isDocumentOpen()) { closeDocument(); }
       closeable.close();
     }
