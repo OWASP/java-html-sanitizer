@@ -9,7 +9,7 @@ Including among your POMs `<dependencies>` this snippet of XML
 <dependency>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>owasp-java-html-sanitizer</artifactId>
-    <version>[r239,)</version>
+    <version>1.1</version>
 </dependency>
 ```
 
