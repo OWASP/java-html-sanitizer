@@ -16,7 +16,7 @@
    and make sure that the current POM release number is max.
 
 7. Check that it builds clean and the reports are ok.
-   $ mvn3 clean release:clean package
+   $ mvn3 clean release:clean package site
    Browse to file://$PWD/target/site and check the findbugs and jacoco reports.
 
 8. Prepare a release which will check that the release plugin can
