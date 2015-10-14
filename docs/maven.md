@@ -19,7 +19,7 @@ Be sure to change the
 [version](http://docs.codehaus.org/display/MAVEN/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges)
 to a range suitable to your project.  There are no unstable releases
 in maven.
-Bigger numbers are more recent and the [change log](https://rawgit.com/OWASP/java-html-sanitizer/master/CHANGE_LOG.html)
+Bigger numbers are more recent and the [change log](../change_log.md)
 can shed light on the salient differences.
 
 You should be able to build with the HTML sanitizer.  You can read the

@@ -48,5 +48,5 @@
 
 13. Check for the release email.
 
-14. Update CHANGE_LOG.html with an entry for the new version.
-    git commit&push CHANGE_LOG.html.
+14. Update change_log.md with an entry for the new version.
+    git commit&push change_log.md.
