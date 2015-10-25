@@ -1,7 +1,5 @@
 # OWASP Java HTML Sanitizer Change Log
 
-## OWASP Java HTML Sanitizer Change Log
-
 Most recent at top.
 
   * 1.1.  Fixed bug that was causing end tags that matched dropped open tags to be mismatched.
