@@ -190,6 +190,38 @@ or that cannot be implemented by keeping the unsanitized input around.
 
 ## Use Cases
 
+### Filtering request parameters
+
+Some web applications want a way to reject query parameters that probably
+contain XSS payloads before those values make it into the output.
+
+Between unpacking the request and generating an HTML response, they need
+to use those values as keys into other systems which expect plain text.
+
+Having a *validity* check that recognizes HTML payloads with a very
+low false-negative rate and that doesn't reject legitimate keys to
+other systems allows a defense-in-depth that is agnostic to the kinds
+of parameters so has a low maintenance overhead as the web
+application's API changes.
+
+If keys are
+[URL Safe](https://docs.python.org/2/library/base64.html#base64.urlsafe_b64encode)
+then this is possible by just sanitizing all inputs, but some inputs
+like email addresses use HTML meta-characters :
+`John Doe <jdoe@machine.example>` so will generate many false-negatives.
+
+Trying to sanitize or filter inputs without taking into account their
+type before using them is a very difficult problem.  I am skeptical that
+there is an expansive definition of *valid* HTML that does not reject
+many valid email addresses, and other forms of structured data.
+
+The problem is likely to get worse.
+There are emerging threats related to
+[client side templates](client-side-templates.md) that might require
+increasing the set of escaped characters beyond just those characters
+that have a special meaning within HTML.
+
+
 ### Don't break my heart.
 
 MySpace, an early social networking site, had a lot of users who'd
@@ -222,3 +254,4 @@ boolean violatedPolicy = !normalizedButNotFiltered.equals(filtered);
 
 and those two can be structurally compared to narrow down the
 problematic part.
+
