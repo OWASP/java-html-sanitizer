@@ -2,21 +2,23 @@
 
 ## Background
 
-A sanitizer takes in a string in a language and puts out a *safe* version.
+A sanitizer takes in a string in a language and puts out a *safe*
+version.
 
 Occasionally people ask for a function, that instead of returning a
 safe version of the input, just labels the input as *safe* or
 *unsafe*.
 
-Herein I address why I think the latter is a bad idea for HTML specifically.
-Hopefully this will prompt a discussion, and I'm interested why people want
-validators.  Please let me know why, and under use-cases maybe we can
-definitively answer whether a sanitizer and a validator beats just a sanitizer.
+Herein I address why I think the latter is a bad idea for HTML
+specifically.  Hopefully this will prompt a discussion, and I'm
+interested why people want validators.  Please let me know your
+thoughts on use cases and how that relates to the definition of
+*valid*.
 
 ## Defining "Valid"
 
-The sanitizer promises that it's output can be safely embedded in a larger
-document.
+The sanitizer promises that it's output can be safely embedded in a
+larger document.
 
 It seems to me that any *valid* input should also have this property.
 
@@ -27,7 +29,8 @@ One na&iuml;ve way to define *valid* is thus:
 > A valid input is any input such that `input.equals(sanitized(input))`.
 
 This is sound, but not very useful.  Intuitively, it seems that there
-must be a lot of inputs that don't have this property but are not unsafe.
+must be a lot of inputs that don't have this property but are not
+unsafe.
 
 For example, maybe the sanitizer takes as an input
 
@@ -56,8 +59,8 @@ browsers parse it, **not** the way the sanitizer parses it.
 <!--if[true]> <script>alert(1337)</script> -->
 ```
 
-contains a script tag when served to Internet Explorer, but contains no
-tags at all when served to other browsers.
+contains a script tag when served to Internet Explorer, but contains
+no tags at all when served to other browsers.
 
 If the sanitizer interprets all comments as ignorable content, then
 the policy never sees the `<script>` tag, so no policy violation is
@@ -127,7 +130,8 @@ String safe4 = sanitize(">");
 String allSafe = safe1 + safe2 + safe3 + safe4;
 ```
 
-but it is not the case that
+but all browsers will parse the `<` as a document fragment to a single
+case, yet it is not the case that
 
 ```java
 boolean isValid1 = isValid("<");
@@ -140,7 +144,7 @@ boolean areAllValid = isValid1 && isValid2 && isValid3 && isValid4;
 The larger the *valid* grammar, the more we risk shooting ourselves in
 our feet by overlooking how *valid* outputs are used.
 
-If we go with a minimal grammar we are back to *valid* <->
+If we go with a minimal grammar we are back to *valid* &harr;
 *sanitizer is idempotent*.
 
 Maybe there is a happy medium between
@@ -168,20 +172,20 @@ I'm open to concrete proposals though.
 
 ### Validity is unstable in the face of emerging threats.
 
-If a new hack is discovered, I can roll out a fix to a sanitizer, clients
-update, and now the output of the sanitizer can be safely included in a
-larger document.
+If a new hack is discovered, I can roll out a fix to a sanitizer,
+clients update, and now the output of the sanitizer can be safely
+included in a larger document.
 
-If a new hack is discovered, I can roll out a fix to a validator that marks
-previously valid inputs *invalid*.  What is a client to do?
-They could run the sanitizer, but that means that the validator is only
-valuable in conjunction with a sanitizer.
+If a new hack is discovered, I can roll out a fix to a validator that
+marks previously valid inputs *invalid*.  What is a client to do?
+They could run the sanitizer, but that means that the validator is
+only valuable in conjunction with a sanitizer.
 
 ### Even if *valid* had a meaning it would not be useful by itself.
 
-I haven't catalogued all the reasons people ask for validity, but I haven't
-seen any that don't involve sanitizing at least as a fallback, or that cannot
-be implemented by keeping the unsanitized input around.
+I haven't catalogued all the reasons people ask for validity, but I
+haven't seen any that don't involve sanitizing at least as a fallback,
+or that cannot be implemented by keeping the unsanitized input around.
 
 
 ## Use Cases
@@ -198,8 +202,11 @@ I <3 Poniez!
 and would get bug reports when the HTML appeared broken in the browser
 and "View Source" showed the `<` changed to `&lt;`.
 
-One use case for validation seems to be to allow an edit window to warn
-about markup that would violate a policy.
+One use case for validation seems to be to allow an edit window to
+warn about markup that would violate a policy instead of dumping a
+sanitized output on them and asking them to look past cosmetic
+differences like changes in case, quotes, spacing, and entity
+encoding.
 
 Knowing that an input is invalid does not help narrow down the
 problematic part of the input.
@@ -211,5 +218,4 @@ policyThatAllowsEverything.sanitize(input)
    .equals(policy.sanitize(input))
 ```
 
-It can also be addressed by keeping the unsanitized input around to
-repopulate the editor.
+and those two can be structurally compared.
