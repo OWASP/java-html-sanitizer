@@ -67,7 +67,7 @@ recorded.
 <![CDATA[ <!-- ]]> <script>alert(1337)</script> <!-- -->
 ```
 
-contains a `<script> element when executed in an HTML
+contains a `<script>` element when executed in an HTML
 [foreign content context](http://www.w3.org/TR/html5/syntax.html#cdata-sections),
 but not when included in a normal HTML context.
 
