@@ -199,14 +199,15 @@ write HTML like
 I <3 Poniez!
 ```
 
-and would get bug reports when the HTML appeared broken in the browser
-and "View Source" showed the `<` changed to `&lt;`.
+when their HTML appeared broken in the browser for an unrelated
+reason, they would "View Source", notice that the `<3` changed to
+`&lt;3` and fixate on that difference instead of looking for the root
+cause.
 
-One use case for validation seems to be to allow an edit window to
-warn about markup that would violate a policy instead of dumping a
+One use case for validation seems to be to allow a comment edit window
+to warn about markup that violates a policy instead of dumping a
 sanitized output on them and asking them to look past cosmetic
-differences like changes in case, quotes, spacing, and entity
-encoding.
+differences like changes in case and entity encoding.
 
 Knowing that an input is invalid does not help narrow down the
 problematic part of the input.
@@ -214,8 +215,10 @@ problematic part of the input.
 This use case seems to be addressable via
 
 ```java
-policyThatAllowsEverything.sanitize(input)
-   .equals(policy.sanitize(input))
+String normalizedButNotFiltered = policyThatAllowsEverything.sanitize(input);
+String filtered = policy.sanitize(input);
+boolean violatedPolicy = !normalizedButNotFiltered.equals(filtered);
 ```
 
-and those two can be structurally compared.
+and those two can be structurally compared to narrow down the
+problematic part.
