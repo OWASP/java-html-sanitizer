@@ -46,6 +46,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
        + " <a href='http://outside.org/'>out</a></p>"),
       ("<p><img src=canary.png alt=local-canary>" +
        "<img src='http://canaries.org/canary.png'></p>"),
+       "<p><img alt='' /></p>",
       "<p><b style=font-size:bigger>Fancy</b> with <i><b>soupy</i> tags</b>.",
       "<p style='color: expression(foo()); text-align: center;",
       "          /* direction: ltr */; font-weight: bold'>Stylish Para 1</p>",
@@ -60,6 +61,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Header",
             "Paragraph 1",
             "Click me out",
+            "",
             "",
             "Fancy with soupy tags.",
             "Stylish Para 1",
@@ -76,6 +78,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click me out",
             "",
+            "",
             "<b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
@@ -91,6 +94,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Header",
             "Paragraph 1",
             "Click me out",
+            "",
             "",
             "<b>Fancy</b> with <b>soupy</b><b> tags</b>.",
             "Stylish Para 1",
@@ -109,6 +113,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click me out",
             "",
+            "",
             "Fancy with <i>soupy</i> tags.",
             "Stylish Para 1",
             "Stylish Para 2",
@@ -125,6 +130,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             // We haven't allowed any protocols so only relative URLs are OK.
             "Click <a href=\"foo.html\">me</a> out",
+            "",
             "",
             "Fancy with soupy tags.",
             "Stylish Para 1",
@@ -143,6 +149,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click <a href=\"foo.html\">me</a>"
             + " <a href=\"http://outside.org/\">out</a>",
+            "",
             "",
             "Fancy with soupy tags.",
             "Stylish Para 1",
@@ -163,6 +170,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click <a href=\"foo.html\" rel=\"nofollow\">me</a> out",
             "",
+            "",
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
@@ -182,6 +190,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Paragraph 1",
             "Click me out",
             "<img src=\"canary.png\" alt=\"local-canary\" />",
+            "<img alt=\"\" />",
             // HTTP img not output because only HTTPS allowed.
             "Fancy with soupy tags.",
             "Stylish Para 1",
@@ -200,6 +209,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<h1>Header</h1>",
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
+            "<p></p>",
             "<p></p>",
             "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             ("</p><p style=\"text-align:center;font-weight:bold\">"
@@ -221,6 +231,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<div class=\"header-h1\">Header</div>",
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
+            "<p></p>",
             "<p></p>",
             "<p>Fancy with soupy tags.",
             "</p><p>Stylish Para 1</p>",
@@ -248,6 +259,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Click me out",
             "<img src=\"canary.png\" alt=\"local-canary\" />"
             + "<img src=\"http://canaries.org/canary.png\" />",
+            "<img alt=\"\" />",
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
@@ -256,6 +268,27 @@ public class HtmlPolicyBuilderTest extends TestCase {
             .allowElements("img")
             .allowAttributes("src", "alt").onElements("img")
             .allowUrlProtocols("http")));
+  }
+
+  @Test
+  public static final void testImgDisallowMissingSrc() {
+    assertEquals(
+        Joiner.on('\n').join(
+            "Header",
+            "Paragraph 1",
+            "Click me out",
+            "<img src=\"canary.png\" alt=\"local-canary\" />"
+            + "<img src=\"http://canaries.org/canary.png\" />",
+            "",
+            "Fancy with soupy tags.",
+            "Stylish Para 1",
+            "Stylish Para 2",
+            ""),
+            apply(new HtmlPolicyBuilder()
+            .allowElements("img")
+	        .allowAttributes("src", "alt").onElements("img")
+            .allowUrlProtocols("http")
+	        .disallowWithoutAttribute("img", "src")));
   }
 
   @Test
