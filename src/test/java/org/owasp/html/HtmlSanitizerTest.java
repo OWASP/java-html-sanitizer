@@ -357,6 +357,14 @@ public class HtmlSanitizerTest extends TestCase {
             + "</span>"));
   }
 
+  @Test
+  public static final void testDuplicateAttributes() {
+    assertEquals(
+        sanitize("<br id=\"foo\">"),
+        sanitize("<br id=foo id=bar>"));
+
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

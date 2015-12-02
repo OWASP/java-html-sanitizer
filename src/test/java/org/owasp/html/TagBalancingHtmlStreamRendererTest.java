@@ -248,7 +248,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
   public final void testNestingLimits() {
     // Some browsers can be DoSed by deeply nested structures.
     // See Issue 3, "Deeply nested elements crash FF 8, Chrome 11"
-    // @ http://code.google.com/p/owasp-java-html-sanitizer/issues/detail?id=3
+    // @ https://github.com/OWASP/java-html-sanitizer/issues/3
 
     balancer.setNestingLimit(10);
     balancer.openDocument();

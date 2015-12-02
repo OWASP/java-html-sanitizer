@@ -293,6 +293,43 @@ public class HtmlPolicyBuilderTest extends TestCase {
             + "\ud812\udc34&#x14834;&#x014834;(Boo)"));
   }
 
+  @Test
+  public static final void testDuplicateAttributesDoNotReachElementPolicy() {
+    final int[] idCount = new int[1];
+    assertEquals(
+        // The id that is emitted is the first that passes the attribute
+        // starts-with-b filter.
+        // The attribute policy sees 3 id elements, hence id-count=3.
+        // The element policy sees 2 attributes, one "id" and one "href",
+        // hence attr-count=2.
+        "<a href=\"foo\" id=\"bar\" attr-count=\"2\" id-count=\"3\">link</a>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements(
+                new ElementPolicy() {
+                  public String apply(String elementName, List<String> attrs) {
+                    int nAttrs = attrs.size() / 2;
+                    attrs.add("attr-count");
+                    attrs.add("" + nAttrs);
+                    attrs.add("id-count");
+                    attrs.add("" + idCount[0]);
+                    return elementName;
+                  }
+                },
+                "a"
+            )
+            .allowAttributes("id").matching(new AttributePolicy() {
+              public String apply(
+                  String elementName, String attributeName, String value) {
+                ++idCount[0];
+                return value.startsWith("b") ? value : null;
+              }
+            }).onElements("a")
+            .allowAttributes("href").onElements("a"),
+            "<a href=\"foo\" id='far' id=\"bar\" href=baz id=boo>link</a>")
+        );
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
