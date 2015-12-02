@@ -25,10 +25,6 @@
 package org.owasp.html;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.net.URLConnection;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
@@ -50,7 +46,6 @@ import junit.framework.TestSuite;
 public class AntiSamyTest extends TestCase {
 
   static final boolean RUN_KNOWN_FAILURES = false;
-  static final boolean DISABLE_INTERNETS = false;
 
   private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -90,7 +85,7 @@ public class AntiSamyTest extends TestCase {
         .build(renderer);
   }
 
-  private static String sanitize(String html) {
+  static String sanitize(String html) {
     StringBuilder sb = new StringBuilder();
 
     HtmlSanitizer.sanitize(html, makePolicy(sb));
@@ -131,63 +126,6 @@ public class AntiSamyTest extends TestCase {
   public static Test suite() {
     TestSuite suite = new TestSuite(AntiSamyTest.class);
     return suite;
-  }
-
-  public static void testCompareSpeeds() throws Exception {
-    if (DISABLE_INTERNETS) { return; }
-
-    long totalTime = 0;
-    long averageTime = 0;
-
-    int testReps = 15;
-
-    for (String url : new String[] {
-            "http://slashdot.org/", "http://www.fark.com/",
-            "http://www.cnn.com/", "http://google.com/",
-            "http://www.microsoft.com/en/us/default.aspx",
-            "http://deadspin.com/",
-        }) {
-      URLConnection conn = new URL(url).openConnection();
-      String ct = guessCharsetFromContentType(conn.getContentType());
-      InputStreamReader in = new InputStreamReader(conn.getInputStream(), ct);
-      StringBuilder out = new StringBuilder();
-      char[] buffer = new char[5000];
-      int read = 0;
-      do {
-        read = in.read(buffer, 0, buffer.length);
-        if (read > 0) {
-          out.append(buffer, 0, read);
-        }
-      } while (read >= 0);
-
-      in.close();
-
-      String html = out.toString();
-
-      System.out.println("About to scan: " + url + " size: " + html.length());
-      if (html.length() > 640000) {
-        System.out.println("   -Maximum input size 640000 exceeded. SKIPPING.");
-        continue;
-      }
-
-      long startTime = 0;
-      long endTime = 0;
-
-      for (int j = 0; j < testReps; j++) {
-        startTime = System.nanoTime();
-        sanitize(html);
-        endTime = System.nanoTime();
-
-        System.out.println(
-            "    Took " + ((endTime - startTime) / 1000000) + " ms");
-        totalTime = totalTime + (endTime - startTime);
-      }
-
-      averageTime = totalTime / testReps;
-    }
-
-    System.out.println("Total time ms: " + totalTime/1000000L);
-    System.out.println("Average time per rep ms: " + averageTime/1000000L);
   }
 
   /*
@@ -795,18 +733,5 @@ public class AntiSamyTest extends TestCase {
 
   private static void assertSanitized(String html, String sanitized) {
     assertEquals(sanitized, sanitize(html));
-  }
-
-  private static String guessCharsetFromContentType(String contentType) {
-    Matcher m = Pattern.compile(";\\s*charset=(?:\"([^\"]*)\"|([^\\s;]*))")
-      .matcher(contentType);
-    if (m.find()) {
-      String ct;
-      ct = m.group(1);
-      if (ct != null) { return ct; }
-      ct = m.group(2);
-      if (ct != null) { return ct; }
-    }
-    return "UTF-8";
   }
 }
