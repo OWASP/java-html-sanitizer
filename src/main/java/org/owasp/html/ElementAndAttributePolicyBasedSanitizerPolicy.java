@@ -204,7 +204,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * names are an ASCII case-insensitive match for each other.
    * </blockquote>
    * <p>
-   * Empirically,
+   * Empirically, given
    * {@code
    * <!doctype html><html><body>
    * <script id="first" id="last">
@@ -212,7 +212,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * document.body.appendChild(
    *   document.createTextNode(scriptElement.getAttribute('id')));
    * </script>}
-   * all show "first" so we eliminate from the right.
+   * Firefox, Safari and Chrome all show "first" so we eliminate from the right.
    */
   private static void removeDuplicateAttributes(List<String> attrs) {
     int firstLetterMask = 0;
