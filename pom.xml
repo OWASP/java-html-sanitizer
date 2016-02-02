@@ -54,6 +54,24 @@ application while protecting against XSS.
   <build>
     <plugins>
       <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.10</version>
+        <executions>
+          <!-- This is a horrible hack.  We need to support AutoCloseable
+               which is @since 1.7 but also need to compile on 1.6. -->
+          <execution>
+            <phase>generate-sources</phase>
+            <goals><goal>add-source</goal></goals>
+            <configuration>
+              <sources>
+                <source>src/main/java-${java.vm.specification.version}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>external.atlassian.jgitflow</groupId>
         <artifactId>jgitflow-maven-plugin</artifactId>
         <version>1.0-m5.1</version>
@@ -238,14 +256,14 @@ application while protecting against XSS.
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>[3.8.1,)</version>
+      <version>4.12</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>nu.validator.htmlparser</groupId>
       <artifactId>htmlparser</artifactId>
-      <version>[1.2.1,)</version>
+      <version>1.4</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
