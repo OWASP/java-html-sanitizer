@@ -193,7 +193,7 @@ application while protecting against XSS.
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.3</version>
         <configuration>
-          <source>1.6</source>
+          <!--source>1.6</source-->
           <!--target>1.6</target-->
         </configuration>
       </plugin>
