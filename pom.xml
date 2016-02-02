@@ -194,7 +194,7 @@ application while protecting against XSS.
         <version>3.3</version>
         <configuration>
           <source>1.6</source>
-          <target>1.6</target>
+          <!--target>1.6</target-->
         </configuration>
       </plugin>
     </plugins>
