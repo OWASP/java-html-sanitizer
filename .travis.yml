@@ -8,8 +8,6 @@ jdk:
   # - oraclejdk9  # Not yet available on travis-ci.com
 # Additionally pass -Dgpg.skip to suppress signing instead of trying to provision
 # Travis's containers with keys.
-install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true -B -v
+install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true -B -V
 # Older versions of Javadoc don't recognize the -Xdoclint flag.
-script: "mvn verify -Dgpg.skip=true -Dmaven.javadoc.skip=$(echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]' && echo -n true || echo -n false) -B -v"
-# For some reason the -v is necessary because without it mvn3 using openjdk6 does not correctly set
-# the property java.vm.specification.version.
+script: "mvn verify -Dgpg.skip=true -Dmaven.javadoc.skip=$(echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]' && echo -n true || echo -n false) -B -V"
