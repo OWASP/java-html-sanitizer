@@ -162,7 +162,7 @@ application while protecting against XSS.
         </executions>
       </plugin>
 
-            <!-- http://www.javaworld.com/article/2074515/core-java/
+      <!-- http://www.javaworld.com/article/2074515/core-java/
            unit-test-code-coverage-with-maven-and-jacoco.html -->
       <plugin>
         <groupId>org.jacoco</groupId>
