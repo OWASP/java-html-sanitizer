@@ -10,4 +10,4 @@ jdk:
 # Travis's containers with keys.
 install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true -B -v
 # Older versions of Javadoc don't recognize the -Xdoclint flag.
-script: "mvn verify -Dgpg.skip=true -Dmaven.javadoc.skip=$(echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]' && echo -n true || echo -n false) -B -q"
+script: "mvn verify -Dgpg.skip=true -Dmaven.javadoc.skip=$(echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]' && echo -n true || echo -n false) -B -v"
