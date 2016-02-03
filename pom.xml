@@ -76,7 +76,8 @@ application while protecting against XSS.
         <artifactId>jgitflow-maven-plugin</artifactId>
         <version>1.0-m5.1</version>
         <configuration>
-          <!-- see goals wiki page for configuration options -->
+          <pushReleases>true</pushReleases>
+          <enableSshAgent>true</enableSshAgent>
         </configuration>
       </plugin>
       <plugin>
