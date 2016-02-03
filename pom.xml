@@ -8,7 +8,7 @@
     When the version ends with "-SNAPSHOT", then `mvn deploy` moves it to
     the snapshot directory instead of into staging proper.
    -->
-  <version>20151202.2</version>
+  <version>20160203.2-SNAPSHOT</version>
   <name>OWASP Java HTML Sanitizer</name>
   <description>
 A fast and easy to configure HTML Sanitizer written in Java which
