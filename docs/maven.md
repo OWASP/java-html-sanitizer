@@ -16,7 +16,7 @@ Including among your POMs `<dependencies>` this snippet of XML
 will make the sanitizer available.
 
 Be sure to change the
-[version](http://docs.codehaus.org/display/MAVEN/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges)
+[version](https://cwiki.apache.org/confluence/display/MAVENOLD/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges)
 to a range suitable to your project.  There are no unstable releases
 in maven.
 Bigger numbers are more recent and the [change log](../change_log.md)
