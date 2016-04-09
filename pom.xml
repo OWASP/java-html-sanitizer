@@ -142,22 +142,6 @@ application while protecting against XSS.
           <additionalparam>-Xdoclint:-missing</additionalparam>
         </configuration>
       </plugin>
-      <!-- Sign all the components sent to ossrh
-           The credentials are pulled from ~/.m2/settings.xml -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>1.5</version>
-        <executions>
-          <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
 
       <!-- http://www.javaworld.com/article/2074515/core-java/
            unit-test-code-coverage-with-maven-and-jacoco.html -->
@@ -291,4 +275,34 @@ application while protecting against XSS.
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>release-sign-artifact</id>
+      <activation>
+        <property>
+          <name>performRelease</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
