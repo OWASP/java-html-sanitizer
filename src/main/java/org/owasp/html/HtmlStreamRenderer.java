@@ -407,7 +407,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       implements Closeable {
     private final Closeable closeable;
 
-    @SuppressWarnings("synthetic-access")
     CloseableHtmlStreamRenderer(
         @WillCloseWhenClosed
         Appendable output, Handler<? super IOException> errorHandler,
