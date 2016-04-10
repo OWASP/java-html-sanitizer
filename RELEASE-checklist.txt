@@ -21,24 +21,13 @@
 
 8. Prepare a release which will check that the release plugin can
    do its job and sanity check by running unit-tests.
-   $ mvn3 release:prepare
+   $ mvn3 jgitflow:release-start
 
 9. Perform the release which creates a commit in github for the release
    and updates master to the new development snapshot version.
-   $ mvn3 release:perform
+   $ mvn3 jgitflow:release-finish
 
-10. Checkout the release branch being sure to use the appropriate release
-    version tag.
-   $ export VERSION=1.1
-   $ cd ..
-   $ git clone --branch java-html-sanitizer-$VERSION \
-     git@github.com:OWASP/java-html-sanitizer.git java-html-sanitizer-release
-   $ cd java-html-sanitizer-release
-
-11. Deploy to nexus
-   $ mvn3 deploy
-
-12. Log in to https://oss.sonatype.org/ then close and release.
+10. Log in to https://oss.sonatype.org/ then close and release.
   a. Click "Staging Repositories" in the left hand bar.
   b. Scroll to the bottom and find the staging repo which should look like
      comgooglecodeowasp-java-html-sanitizer-1007
@@ -46,7 +35,7 @@
   d. Refresh the repo list.
   e. Release the staging repo.
 
-13. Check for the release email.
+11. Check for the release email.
 
-14. Update change_log.md with an entry for the new version.
-    git commit&push change_log.md.
+12. Update change_log.md with an entry for the new version.
+    git commit & push change_log.md.
