@@ -429,7 +429,7 @@ public class TagBalancingHtmlStreamEventReceiver
           "a", false, elementGroupBits(
               ElementGroup.INLINE
           ), elementGroupBits(
-              ElementGroup.INLINE_MINUS_A
+              ElementGroup.BLOCK, ElementGroup.INLINE_MINUS_A
           ));
       defineElement(
           "abbr", true, elementGroupBits(
