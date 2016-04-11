@@ -162,12 +162,21 @@ public class TagBalancingHtmlStreamEventReceiver
     // in the current element which allows us to prune the search.
     int transparencyAllowed = childTypes
         & (top.transparentToContents & ~contents);
-    for (int containerIndex = topIndex - 1;
-         transparencyAllowed != 0 && containerIndex >= 0;
+    for (int containerIndex = topIndex - 1; transparencyAllowed != 0;
         --containerIndex) {
+      if (containerIndex < 0) {
+        // When the element stack is empty, we don't check containment.
+        // This is effectively assuming, by omission, that any element can
+        // appear at the root of the document fragment.
+
+        // Allow transparent elements to contain any content that could be
+        // contained by any container of the document fragment.
+        // Revisit this decision if we start constraining what can be top-level.
+        contents |= transparencyAllowed;
+        break;
+      }
       ElementContainmentInfo container = openElements.get(containerIndex);
       contents |= transparencyAllowed & container.contents;
-      //System.err.println("\tcontainer=" + container.elementName);
       transparencyAllowed =
           transparencyAllowed & container.transparentToContents & ~contents;
     }

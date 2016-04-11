@@ -34,6 +34,7 @@ import junit.framework.TestCase;
 
 import org.junit.Test;
 import org.junit.Before;
+import org.junit.Ignore;
 
 import static org.owasp.html.TagBalancingHtmlStreamEventReceiver
               .isInterElementWhitespace;
@@ -414,10 +415,10 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
   }
 
 
+  // TODO: Double check this test and handle nested anchors properly.
   @Test
-  public final void testAnchorInAnchorIndirectly() {
-    // TODO: Double check this test and handle nested anchors properly.
-    if (true) { return; }
+  @Ignore
+  public final void failingtestAnchorInAnchorIndirectly() {
     ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
     balancer.openDocument();
     balancer.openTag("div", ImmutableList.<String>of());
@@ -436,9 +437,10 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  // TODO: Handle media elements properly
+  @Ignore
   @Test
-  public final void testInteractiveInAnchorIndirectly() {
-    if (true) { return; }  // TODO: Handle media elements properly
+  public final void failingtestInteractiveInAnchorIndirectly() {
     ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
     balancer.openDocument();
     balancer.openTag("div", ImmutableList.<String>of());
@@ -450,10 +452,23 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeTag("a");
     balancer.closeTag("div");
     balancer.closeDocument();
-
     assertEquals(
         "<div><a href=\"\"><div></div></a><video></video></div>",
         htmlOutputBuffer.toString());
   }
 
+  @Test
+  public final void testAnchorWithBlockAtTopLevel() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.text("...");
+    balancer.closeTag("div");
+    balancer.closeTag("a");
+    balancer.closeDocument();
+    assertEquals(
+        "<a href=\"\"><div>...</div></a>",
+        htmlOutputBuffer.toString());
+  }
 }
