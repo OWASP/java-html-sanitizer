@@ -28,6 +28,8 @@
 
 package org.owasp.html;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -50,6 +52,9 @@ public class TagBalancingHtmlStreamEventReceiver
   private int nestingLimit = Integer.MAX_VALUE;
   private final List<ElementContainmentInfo> openElements
       = Lists.newArrayList();
+  private final Deque<ElementContainmentInfo> toResumeInReverse
+      = new ArrayDeque<ElementContainmentInfo>();
+
 
   /**
    * @param underlying An event receiver that should receive a stream of
@@ -80,6 +85,7 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(openElements.get(i).elementName);
     }
     openElements.clear();
+    toResumeInReverse.clear();
     underlying.closeDocument();
   }
 
@@ -123,7 +129,6 @@ public class TagBalancingHtmlStreamEventReceiver
       }
 
       // Close all the elements that cannot contain the element to open.
-      List<ElementContainmentInfo> toResumeInReverse = null;
       while (true) {
         if (canContain(elInfo, top, nOpen - 1)) {
           break;
@@ -133,17 +138,28 @@ public class TagBalancingHtmlStreamEventReceiver
         }
         openElements.remove(--nOpen);
         if (top.resumable) {
-          if (toResumeInReverse == null) {
-            toResumeInReverse = Lists.newArrayList();
-          }
           toResumeInReverse.add(top);
         }
         if (nOpen == 0) { break; }
         top = openElements.get(nOpen - 1);
       }
+    }
 
-      if (toResumeInReverse != null) {
-        resume(toResumeInReverse);
+    while (!toResumeInReverse.isEmpty()) {
+      ElementContainmentInfo toResume = toResumeInReverse.getLast();
+      // If toResume can contain elInfo AND the top of the stack can contain
+      // toResume, then we push toResume.
+      nOpen = openElements.size();
+      if ((nOpen == 0
+          || canContain(toResume, openElements.get(nOpen - 1), nOpen))
+          && canContain(elInfo, toResume, nOpen)) {
+        toResumeInReverse.removeLast();
+        if (openElements.size() < nestingLimit) {
+          underlying.openTag(toResume.elementName, Lists.<String>newArrayList());
+        }
+        openElements.add(toResume);
+      } else {
+        break;
       }
     }
   }
@@ -225,16 +241,12 @@ public class TagBalancingHtmlStreamEventReceiver
 
     int last = openElements.size();
     // Close all the elements that cannot contain the element to open.
-    List<ElementContainmentInfo> toResumeInReverse = null;
     while (--last > index) {
       ElementContainmentInfo unclosed = openElements.remove(last);
       if (last + 1 < nestingLimit) {
         underlying.closeTag(unclosed.elementName);
       }
       if (unclosed.resumable) {
-        if (toResumeInReverse == null) {
-          toResumeInReverse = Lists.newArrayList();
-        }
         toResumeInReverse.add(unclosed);
       }
     }
@@ -242,21 +254,6 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(elInfo.elementName);
     }
     openElements.remove(index);
-    if (toResumeInReverse != null) {
-      resume(toResumeInReverse);
-    }
-  }
-
-  private void resume(List<ElementContainmentInfo> toResumeInReverse) {
-    for (ElementContainmentInfo toResume : toResumeInReverse) {
-      // TODO: If resuming of things other than plain formatting tags like <b>
-      // and <i>, then we need to store the attributes for resumable tags so
-      // that we can resume with the appropriate attributes.
-      if (openElements.size() < nestingLimit) {
-        underlying.openTag(toResume.elementName, Lists.<String>newArrayList());
-      }
-      openElements.add(toResume);
-    }
   }
 
   private static final long HTML_SPACE_CHAR_BITMASK =

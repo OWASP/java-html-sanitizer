@@ -314,9 +314,9 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     assertEquals(
         "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>\n"
         + "<p><table><tbody><tr>"
-        + "<td><b><font><font></font></font></b><b><p>Cell</p></b>\n</td>"
+        + "<td><b><font><font></font></font></b><p><b>Cell</b></p>\n</td>"
         // The close </p> tag does not close the whole table.
-        + "<td><b><font><font></font></font></b><b><p>Cell</p></b>\n</td>"
+        + "<td><b><font><font></font></font></b><p><b>Cell</b></p>\n</td>"
         + "</tr></tbody></table></p>\n"
         + "<p>x</p></body></html>",
         htmlOutputBuffer.toString());
@@ -469,6 +469,23 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeDocument();
     assertEquals(
         "<a href=\"\"><div>...</div></a>",
+        htmlOutputBuffer.toString());
+  }
+
+  @Test
+  public final void testResumedElementsAllowedWhereResumed() {
+    balancer.openDocument();
+    balancer.openTag("b", ImmutableList.<String>of());
+    balancer.text("foo");
+    balancer.openTag("i", ImmutableList.<String>of());
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.text("bar");
+    balancer.closeTag("div");
+    balancer.closeTag("i");
+    balancer.closeTag("b");
+    balancer.closeDocument();
+    assertEquals(
+        "<b>foo<i></i></b><div><b><i>bar</i></b></div>",
         htmlOutputBuffer.toString());
   }
 }
