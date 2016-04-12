@@ -1,0 +1,251 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+  <artifactId>parent</artifactId>
+  <packaging>pom</packaging>
+
+  <version>20160203.2-SNAPSHOT</version>
+  <name>OWASP Java HTML Sanitizer</name>
+  <description>
+A fast and easy to configure HTML Sanitizer written in Java which
+lets you include HTML authored by third-parties in your web
+application while protecting against XSS.
+  </description>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git://github.com/OWASP/java-html-sanitizer.git</connection>
+    <developerConnection>scm:git:git://github.com/OWASP/java-html-sanitizer.git</developerConnection>
+    <url>https://github.com/OWASP/java-html-sanitizer</url>
+  </scm>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/OWASP/java-html-sanitizer/issues</url>
+  </issueManagement>
+
+  <organization>
+    <name>OWASP</name>
+    <url>https://owasp.org</url>
+  </organization>
+
+  <developers>
+    <developer>
+      <id>mikesamuel</id>
+      <name>Mike Samuel</name>
+      <email>mikesamuel@gmail.com</email>
+    </developer>
+  </developers>
+
+  <mailingLists>
+    <mailingList>
+      <name>User Support List</name>
+      <subscribe>owasp-java-html-sanitizer-support+subscribe@googlegroups.com</subscribe>
+      <unsubscribe>owasp-java-html-sanitizer-support+unsubscribe@googlegroups.com</unsubscribe>
+      <archive>https://groups.google.com/forum/#!forum/owasp-java-html-sanitizer-support</archive>
+    </mailingList>
+  </mailingLists>
+
+  <reporting>
+    <plugins>
+      <!-- `mvn compile site` will generate target/site/findbugs.html -->
+      <!-- http://gleclaire.github.io/findbugs-maven-plugin/dependency-info.html -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+        <version>3.0.2</version>
+        <configuration>
+          <!--
+            Enables analysis which takes more memory but finds more bugs.
+            If you run out of memory, changes the value of the effort element
+            to 'Low'.
+          -->
+          <effort>Max</effort>
+          <!-- Reports all bugs (other values are medium and max) -->
+          <threshold>Low</threshold>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>external.atlassian.jgitflow</groupId>
+          <artifactId>jgitflow-maven-plugin</artifactId>
+          <version>1.0-m5.1</version>
+          <configuration>
+            <pushReleases>true</pushReleases>
+            <enableSshAgent>true</enableSshAgent>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.sonatype.plugins</groupId>
+          <artifactId>nexus-staging-maven-plugin</artifactId>
+          <version>1.6.3</version>
+          <extensions>true</extensions>
+          <configuration>
+            <serverId>ossrh</serverId>
+            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+            <!-- This staging profile ID gleaned by logging in to
+                 oss.sonatype.org, clicking "Staging Profiles" on the left,
+                 selecting "com.googlecode.owasp-java-html-sanitizer",
+                 and extracting the most hexy looking bit from the URL which
+                 looks like
+                 https://oss.sonatype.org/#stagingProfiles;5fd62edf6679f6
+            -->
+            <stagingProfileId>199eb0ec1ec380</stagingProfileId>
+            <executions>
+              <execution>
+                <id>default-deploy</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>deploy</goal>
+                </goals>
+              </execution>
+            </executions>
+          </configuration>
+        </plugin>
+        <!-- For building the source jar. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>2.2.1</version>
+          <executions>
+            <execution>
+              <id>attach-sources</id>
+              <goals>
+                <goal>jar-no-fork</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <!-- For building the javadoc jar. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>2.9.1</version>
+          <executions>
+            <execution>
+              <id>attach-javadocs</id>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <nohelp>true</nohelp>
+            <show>public</show>
+            <charset>UTF-8</charset>
+            <doctitle>OWASP HTML Sanitizer</doctitle>
+            <excludePackageNames>*.example</excludePackageNames>
+            <!-- The Javadoc that ships with JDK 8 is spammy.
+                 http://docs.oracle.com/javase/8/docs/technotes/tools/unix/javadoc.html#BEJEFABE -->
+            <additionalparam>-Xdoclint:-missing</additionalparam>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.3</version>
+          <configuration>
+            <source>1.5</source>
+            <target>1.5</target>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <!--
+            We depend on 11 because it is the last which works with JDK 5
+            which we want to link against.
+        -->
+        <version>[11.0,)</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-codec</groupId>
+        <artifactId>commons-codec</artifactId>
+        <version>[1.4,)</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>[2.0.1,)</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>annotations</artifactId>
+        <version>[2.0.1,)</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.12</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <profiles>
+    <profile>
+      <id>release-sign-artifact</id>
+      <activation>
+        <property>
+          <name>performRelease</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

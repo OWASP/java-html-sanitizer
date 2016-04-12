@@ -1,0 +1,65 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <artifactId>html-types</artifactId>
+  <packaging>jar</packaging>
+  <parent>
+    <relativePath>../parent</relativePath>
+    <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+    <artifactId>parent</artifactId>
+    <version>20160203.2-SNAPSHOT</version>
+  </parent>
+
+  <name>OWASP Java HTML Sanitizer Safe HTML Compatibility</name>
+  <description>
+    Wraps the sanitizer to produces safe HTML
+    (github.com/google/safe-html-types) in a way that is compatible
+    with Fences (github.com/mikesamuel/fences-maven-enforcer-rule).
+  </description>
+
+  <build>
+    <plugins>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+      <artifactId>owasp-java-html-sanitizer</artifactId>
+      <version>20160203.2-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.common.html.types</groupId>
+      <artifactId>types</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>annotations</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+        <version>3.0.2</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Low</threshold>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
+</project>
