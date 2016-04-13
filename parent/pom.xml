@@ -2,9 +2,10 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>parent</artifactId>
+  <version>20160203.2-SNAPSHOT</version>
+
   <packaging>pom</packaging>
 
-  <version>20160203.2-SNAPSHOT</version>
   <name>OWASP Java HTML Sanitizer Project Parent</name>
   <description>
 A fast and easy to configure HTML Sanitizer written in Java which

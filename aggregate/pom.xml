@@ -3,6 +3,7 @@
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>aggregate</artifactId>
   <packaging>pom</packaging>
+  <version>20160203.2-SNAPSHOT</version>
   <parent>
     <relativePath>../parent</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
