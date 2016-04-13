@@ -12,5 +12,6 @@
   <modules>
     <module>..</module>
     <module>../html-types</module>
+    <module>../parent</module>
   </modules>
 </project>
