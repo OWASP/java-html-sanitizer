@@ -34,6 +34,7 @@ import junit.framework.TestCase;
 
 import org.junit.Test;
 import org.junit.Before;
+import org.junit.Ignore;
 
 import static org.owasp.html.TagBalancingHtmlStreamEventReceiver
               .isInterElementWhitespace;
@@ -313,9 +314,9 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     assertEquals(
         "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>\n"
         + "<p><table><tbody><tr>"
-        + "<td><b><font><font></font></font></b><b><p>Cell</p></b>\n</td>"
+        + "<td><b><font><font></font></font></b><p><b>Cell</b></p>\n</td>"
         // The close </p> tag does not close the whole table.
-        + "<td><b><font><font></font></font></b><b><p>Cell</p></b>\n</td>"
+        + "<td><b><font><font></font></font></b><p><b>Cell</b></p>\n</td>"
         + "</tr></tbody></table></p>\n"
         + "<p>x</p></body></html>",
         htmlOutputBuffer.toString());
@@ -338,4 +339,153 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     assertFalse(isInterElementWhitespace("\u0000"));
   }
 
+  @Test
+  public final void testAnchorTransparentToBlock() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.text("...");
+    balancer.closeTag("div");
+    balancer.closeTag("a");
+    balancer.closeTag("div");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<div><a href=\"\"><div>...</div></a></div>",
+        htmlOutputBuffer.toString());
+  }
+
+
+  @Test
+  public final void testAnchorTransparentToSpans() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("span", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("span", ImmutableList.<String>of());
+    balancer.text("...");
+    balancer.closeTag("span");
+    balancer.closeTag("a");
+    balancer.closeTag("span");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<span><a href=\"\"><span>...</span></a></span>",
+        htmlOutputBuffer.toString());
+  }
+
+
+  @Test
+  public final void testAnchorWithInlineInBlock() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("span", ImmutableList.<String>of());
+    balancer.text("...");
+    balancer.closeTag("span");
+    balancer.closeTag("a");
+    balancer.closeTag("div");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<div><a href=\"\"><span>...</span></a></div>",
+        htmlOutputBuffer.toString());
+  }
+
+
+  @Test
+  public final void testAnchorClosedWhenBlockInInline() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("span", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.text("...");
+    balancer.closeTag("div");
+    balancer.closeTag("a");
+    balancer.closeTag("span");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<span><a href=\"\"></a></span><div>...</div>",
+        htmlOutputBuffer.toString());
+  }
+
+
+  // TODO: Double check this test and handle nested anchors properly.
+  @Test
+  @Ignore
+  public final void failingtestAnchorInAnchorIndirectly() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.text("...");
+    balancer.closeTag("a");
+    balancer.closeTag("div");
+    balancer.closeTag("a");
+    balancer.closeTag("div");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<div><a href=\"\"><div></div></a><a href=\"\">...</a></a>",
+        htmlOutputBuffer.toString());
+  }
+
+  // TODO: Handle media elements properly
+  @Ignore
+  @Test
+  public final void failingtestInteractiveInAnchorIndirectly() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("video", ImmutableList.<String>of());
+    balancer.closeTag("video");
+    balancer.closeTag("div");
+    balancer.closeTag("a");
+    balancer.closeTag("div");
+    balancer.closeDocument();
+    assertEquals(
+        "<div><a href=\"\"><div></div></a><video></video></div>",
+        htmlOutputBuffer.toString());
+  }
+
+  @Test
+  public final void testAnchorWithBlockAtTopLevel() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.text("...");
+    balancer.closeTag("div");
+    balancer.closeTag("a");
+    balancer.closeDocument();
+    assertEquals(
+        "<a href=\"\"><div>...</div></a>",
+        htmlOutputBuffer.toString());
+  }
+
+  @Test
+  public final void testResumedElementsAllowedWhereResumed() {
+    balancer.openDocument();
+    balancer.openTag("b", ImmutableList.<String>of());
+    balancer.text("foo");
+    balancer.openTag("i", ImmutableList.<String>of());
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.text("bar");
+    balancer.closeTag("div");
+    balancer.closeTag("i");
+    balancer.closeTag("b");
+    balancer.closeDocument();
+    assertEquals(
+        "<b>foo<i></i></b><div><b><i>bar</i></b></div>",
+        htmlOutputBuffer.toString());
+  }
 }
