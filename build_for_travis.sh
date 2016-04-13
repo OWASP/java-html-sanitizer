@@ -6,12 +6,12 @@ set -e
 
 export COMMON_FLAGS="-Dgpg.skip=true -B -V"
 
-if echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[6789]'; then
+if echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]'; then
+    # The main library only uses jdk6 incompatible dependencies,
+    # and older versions of javadoc barf on -Xdoclint flags used
+    # to configure the maven-javadoc-plugin.
+    exec mvn verify -Dmaven.javadoc.skip=true $COMMON_FLAGS
+else
     # Build the whole kit-n-kaboodle.
     exec mvn -f aggregate verify $COMMON_FLAGS
-else
-    # The main library only uses jdk5 compatible dependencies,
-    # and the javadoc for java 5 doesn't barfs on the
-    # -Xdoclint flags we use.
-    exec mvn verify -Dmaven.javadoc.skip=true $COMMON_FLAGS
 fi
