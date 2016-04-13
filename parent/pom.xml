@@ -101,6 +101,8 @@ application while protecting against XSS.
           <configuration>
             <pushReleases>true</pushReleases>
             <enableSshAgent>true</enableSshAgent>
+            <autoVersionSubmodules>true</autoVersionSubmodules>
+            <updateDependencies>true</updateDependencies>
           </configuration>
         </plugin>
         <plugin>
