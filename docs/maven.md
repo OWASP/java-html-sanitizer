@@ -3,7 +3,7 @@
 The HTML Sanitizer is available from
 [Maven Central](https://search.maven.org/#browse%7C84770979)
 
-Including among your POMs `<dependencies>` this snippet of XML
+Including among your POMs `<dependencies>` this snippet of XML...
 
 ```Java
 <dependency>
@@ -13,7 +13,7 @@ Including among your POMs `<dependencies>` this snippet of XML
 </dependency>
 ```
 
-will make the sanitizer available.
+...will make the sanitizer available.
 
 Be sure to change the
 [version](https://cwiki.apache.org/confluence/display/MAVENOLD/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges)
