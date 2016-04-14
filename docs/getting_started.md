@@ -4,7 +4,7 @@
 
 If you are using Maven then follow the [maven](maven.md) directions to
 add a dependency.  Otherwise,
-[download prebuilt jars](https://search.maven.org/#browse%7C-1545181754)
+[download prebuilt jars](https://search.maven.org/#artifactdetails%7Ccom.googlecode.owasp-java-html-sanitizer%7Cowasp-java-html-sanitizer%7C20160413.1%7Cjar)
 or `git clone git@github.com:OWASP/java-html-sanitizer.git` and build
 the latest source.
 
