@@ -1,10 +1,4 @@
 # Attack Review Ground Rules 
-### how our fail can be your win
-
-Please take a look at [http://canyouxssthis.com/HTMLSanitizer](http://canyouxssthis.com/HTMLSanitizer).  That page includes a form that allows you to try out attacks against a sanitizer that implements the AntiSAMY [Ebay policy example](https://github.com/OWASP/java-html-sanitizer/tree/master/src/main/org/owasp/html/examples/EbayPolicyExample.java).
-
-Enter an attack payload in that form, and it will be reflected back to you.  For example, if you enter `<b>Hello</b>, <i>World!</i>` you should see "**Hello**, _World!_" upon submitting the form.  If you want to see the actual HTML produced, just view source.
-
 ## How to win 
 There are many ways we might have failed.
 
