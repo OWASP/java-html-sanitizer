@@ -60,7 +60,8 @@ mvn -f aggregate clean source:jar javadoc:jar verify \
 
 # Commit and tag
 git commit -am "Release candidate $NEW_VERSION"
-git tag -m "Release $NEW_VERSION" -s "$NEW_VERSION"
+git tag -m "Release $NEW_VERSION" -s "release-$NEW_VERSION"
+git push origin "release-$NEW_VERSION"
 
 # Actually deploy.
 mvn -f aggregate clean source:jar javadoc:jar verify deploy:deploy \
