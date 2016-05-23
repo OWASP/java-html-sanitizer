@@ -8,7 +8,7 @@ set -e
 
 
 # Make sure the build is ok via
-mvn -f aggregate clean verify site javadoc:jar
+mvn -f aggregate clean verify site javadoc:jar source:jar
 
 echo
 echo Browse to
@@ -47,6 +47,9 @@ mvn -f aggregate \
 find . -name pom.xml \
     | xargs perl -i.placeholder -pe "s/$VERSION_PLACEHOLDER/$NEW_VERSION/g"
 
+# Make sure there's no snapshots left in any poms.
+find . -name pom.xml | xargs grep -SNAPSHOT
+
 # Make sure the change log is up-to-date.
 perl -i.bak \
      -pe 'if (m/^  [*] / && !$added) { $_ = qq(  * Release $ENV{"NEW_VERSION"}\n$_); $added = 1; }' \
@@ -68,10 +71,11 @@ mvn -f aggregate clean source:jar javadoc:jar verify deploy:deploy \
     -DperformRelease=true
 
 # Bump the development version.
-find . -name pom.xml.placeholder -exec 
+for f in $(find . -name pom.xml.placeholder); do
+    mv "$f" "$(dirname "$f")"/"$(basename "$f" .placeholder)"
+done
 find . -name pom.xml \
-    | xargs perl -i.placeholder \
-            -pe "s/99999999999999-SNAPSHOT/$NEW_DEV_VERSION/"
+    | xargs perl -i -pe "s/$VERSION_PLACEHOLDER/$NEW_DEV_VERSION/"
 
 git commit -am "Bumped dev version"
 
