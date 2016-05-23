@@ -384,6 +384,21 @@ public class SanitizersTest extends TestCase {
     assertEquals(safe, sanitized);
   }
 
+  @Test public static final void testIssue46() {
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowWithoutAttributes("span")
+        .allowElements("span")
+        .toFactory();
+
+    String unsafe = "<span onclick=alert(1337)>Foo</span>";
+
+    String safe = "<span>Foo</span>";
+
+    String sanitized = s.sanitize(unsafe);
+
+    assertEquals(safe, sanitized);
+  }
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
