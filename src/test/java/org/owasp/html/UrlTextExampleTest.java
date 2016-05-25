@@ -51,8 +51,10 @@ public final class UrlTextExampleTest extends TestCase {
         ""
         + "<a href=\"//www.example.com/\">Examples<br /> like this</a>"
         + " - www.example.com are fun!\n"
+        + "\n"
         + "<img src=\"https://www.example.com/example.png\" />"
         + " - www.example.com are fun!\n"
+        + "\n"
         + "<a href=\"www.google.com\">This</a> is not a link to google!",
         out.toString());
   }

@@ -172,6 +172,10 @@ public class HtmlPolicyBuilder {
   private final Set<String> skipIfEmpty = Sets.newLinkedHashSet(
       DEFAULT_SKIP_IF_EMPTY);
   private final Map<String, Boolean> textContainers = Maps.newLinkedHashMap();
+  private HtmlStreamEventProcessor postprocessor =
+      HtmlStreamEventProcessor.Processors.IDENTITY;
+  private HtmlStreamEventProcessor preprocessor =
+      HtmlStreamEventProcessor.Processors.IDENTITY;
   private boolean requireRelNofollowOnLinks;
 
   /**
@@ -446,6 +450,34 @@ public class HtmlPolicyBuilder {
   }
 
   /**
+   * Inserts a pre-processor into the pipeline between the lexer and the policy.
+   * Pre-processors receive HTML events before the policy, so the policy will
+   * be applied to anything they add.
+   * Pre-processors are not in the TCB since they cannot bypass the policy.
+   */
+  public HtmlPolicyBuilder withPreprocessor(HtmlStreamEventProcessor pp) {
+    this.preprocessor = HtmlStreamEventProcessor.Processors.compose(
+        this.preprocessor, pp);
+    return this;
+  }
+
+  /**
+   * Inserts a post-processor into the pipeline between the policy and the
+   * output sink.
+   * Post-processors can insert events into the stream that are not vetted
+   * by the policy, so they are in the TCB.
+   * <p>
+   * Try doing what you want with a pre-processor instead of a post-processor
+   * but if you're thinking of doing search/replace on a sanitized string, then
+   * definitely use either a pre or post-processor instead.
+   */
+  public HtmlPolicyBuilder withPostprocessor(HtmlStreamEventProcessor pp) {
+    this.postprocessor = HtmlStreamEventProcessor.Processors.compose(
+        this.postprocessor, pp);
+    return this;
+  }
+
+  /**
    * Names of attributes from HTML 4 whose values are URLs.
    * Other attributes, e.g. <code>style</code> may contain URLs even though
    * there values are not URLs.
@@ -499,7 +531,8 @@ public class HtmlPolicyBuilder {
       }
     }
     return new PolicyFactory(compilePolicies(), textContainerSet.build(),
-                             ImmutableMap.copyOf(globalAttrPolicies));
+                             ImmutableMap.copyOf(globalAttrPolicies),
+                             preprocessor, postprocessor);
   }
 
   // Speed up subsequent builds by caching the compiled policies.

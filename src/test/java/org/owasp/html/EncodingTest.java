@@ -266,4 +266,31 @@ public final class EncodingTest extends TestCase {
     assertStripped("foo\ud834\udd1e", "foo\ud834\udd1e");
     assertStripped("\uffef\ufffd", "\uffef\ufffd\ufffe\uffff");
   }
+
+  @Test
+  public static final
+  void testBadlyDonePostProcessingWillnotAllowInsertingNonceAttributes()
+  throws Exception {
+    // Some clients do ad-hoc post processing of the output.
+    // String replace of {{...}} shouldn't turn
+    //   <span title="{{">}} <br class="a nonce=xyz "></span>
+    // into
+    //   <span title="x <br class="a nonce=xyz "></span>
+    // which contains CSP directives.
+    // We prevent this by being strict about quotes to prevent ending an
+    // attribute with quotes about strict mode, and being strict about equals
+    // signs to prevent text nodes or attribute values from introducing an
+    // attribute with a value.
+    StringBuilder pcdata = new StringBuilder();
+    Encoding.encodePcdataOnto("\" nonce=xyz", pcdata);
+    assertEquals("&#34; nonce&#61;xyz", pcdata.toString());
+
+    StringBuilder rcdata = new StringBuilder();
+    Encoding.encodeRcdataOnto("\" nonce=xyz", rcdata);
+    assertEquals("&#34; nonce&#61;xyz", rcdata.toString());
+
+    StringBuilder attrib = new StringBuilder();
+    Encoding.encodeHtmlAttribOnto("a nonce=xyz ", attrib);
+    assertEquals("a nonce&#61;xyz ", attrib.toString());
+  }
 }

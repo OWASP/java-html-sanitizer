@@ -29,6 +29,7 @@
 package org.owasp.html;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.junit.Test;
 
@@ -330,17 +331,164 @@ public class HtmlPolicyBuilderTest extends TestCase {
         );
   }
 
+  @Test
+  public static final void testPreprocessors() {
+    String input =
+        "<h1 title='foo'>one</h1> <h2>Two!</h2> <h3>three</h3>"
+        + " <h4>Four</h4> <h5>5</h5> <h6>seis</h6>";
+    // We upper-case all text nodes and increment all header elements.
+    // Since h7 is not white-listed, the incremented version of <h6> is dropped.
+    // The title attribute value is not upper-cased.
+    String expected =
+        "<h2 title=\"foo\">ONE</h2> <h3>TWO!</h3> <h4>THREE</h4>"
+        + " <h5>FOUR</h5> <h6>5</h6> SEIS";
+    assertEquals(
+        expected,
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("h1", "h2", "h3", "h4", "h5", "h6")
+            .allowAttributes("title").globally()
+            .withPreprocessor(new HtmlStreamEventProcessor() {
+              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
+                return new HtmlStreamEventReceiverWrapper(r) {
+                  @Override
+                  public void text(String s) {
+                    underlying.text(s.toUpperCase(Locale.ROOT));
+                  }
+                  @Override
+                  public String toString() {
+                    return "shouty-text";
+                  }
+                };
+              }
+            })
+            .withPreprocessor(new HtmlStreamEventProcessor() {
+              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
+                return new HtmlStreamEventReceiverWrapper(r) {
+                  @Override
+                  public void openTag(String elementName, List<String> attrs) {
+                    underlying.openTag(incr(elementName), attrs);
+                  }
+
+                  @Override
+                  public void closeTag(String elementName) {
+                    underlying.closeTag(incr(elementName));
+                  }
+
+                  String incr(String en) {
+                    if (en.length() == 2) {
+                      char c0 = en.charAt(0);
+                      char c1 = en.charAt(1);
+                      if ((c0 == 'h' || c0 == 'H')
+                          && '0' <= c1 && c1 <= '6') {
+                        // h1 -> h2, h2 -> h3, etc.
+                        return "h" + (c1 - '0' + 1);
+                      }
+                    }
+                    return en;
+                  }
+
+                  @Override
+                  public String toString() {
+                    return "incr-headers";
+                  }
+                };
+              }
+            }),
+
+            input));
+  }
+
+
+  @Test
+  public static final void testPostprocessors() {
+    String input =
+        "<h1 title='foo'>one</h1> <h2>TWO!</h2> <h3>three</h3>"
+        + " <h4>Four</h4> <h5>5</h5> <h6>seis</h6>";
+    // We upper-case the first letter of each text nodes and increment all
+    // header elements.
+    // Since post-processors run after the policy, they can insert elements like
+    // <h7> which are not white-listed.
+    String expected =
+        "<h2 title=\"foo\">One</h2> <h3>TWO!</h3> <h4>Three</h4>"
+        + " <h5>Four</h5> <h6>5</h6> <h7>Seis</h7>";
+    assertEquals(
+        expected,
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("h1", "h2", "h3", "h4", "h5", "h6")
+            .allowAttributes("title").globally()
+            .withPostprocessor(new HtmlStreamEventProcessor() {
+              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
+                return new HtmlStreamEventReceiverWrapper(r) {
+                  @Override
+                  public void text(String s) {
+                    if (!s.isEmpty()) {
+                      int cp0 = s.codePointAt(0);
+                      underlying.text(
+                          new StringBuilder(s.length())
+                          .appendCodePoint(Character.toUpperCase(cp0))
+                          .append(s, Character.charCount(cp0), s.length())
+                          .toString());
+                    }
+                  }
+                  @Override
+                  public String toString() {
+                    return "shouty-text";
+                  }
+                };
+              }
+            })
+            .withPostprocessor(new HtmlStreamEventProcessor() {
+              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
+                return new HtmlStreamEventReceiverWrapper(r) {
+                  @Override
+                  public void openTag(String elementName, List<String> attrs) {
+                    underlying.openTag(incr(elementName), attrs);
+                  }
+
+                  @Override
+                  public void closeTag(String elementName) {
+                    underlying.closeTag(incr(elementName));
+                  }
+
+                  String incr(String en) {
+                    if (en.length() == 2) {
+                      char c0 = en.charAt(0);
+                      char c1 = en.charAt(1);
+                      if ((c0 == 'h' || c0 == 'H')
+                          && '0' <= c1 && c1 <= '6') {
+                        // h1 -> h2, h2 -> h3, etc.
+                        return "h" + (c1 - '0' + 1);
+                      }
+                    }
+                    return en;
+                  }
+
+                  @Override
+                  public String toString() {
+                    return "incr-headers";
+                  }
+                };
+              }
+            }),
+
+            input));
+
+  }
+
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
 
   private static String apply(HtmlPolicyBuilder b, String src) {
-    StringBuilder sb = new StringBuilder();
-    HtmlSanitizer.Policy policy = b.build(HtmlStreamRenderer.create(sb,
+    return b.toFactory().sanitize(
+        src, null,
         new Handler<String>() {
           public void handle(String x) { fail(x); }
-        }));
-    HtmlSanitizer.sanitize(src, policy);
-    return sb.toString();
+        });
   }
 }

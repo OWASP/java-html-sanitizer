@@ -56,20 +56,26 @@ public final class PolicyFactory
   private final ImmutableMap<String, ElementAndAttributePolicies> policies;
   private final ImmutableMap<String, AttributePolicy> globalAttrPolicies;
   private final ImmutableSet<String> textContainers;
+  private final HtmlStreamEventProcessor preprocessor;
+  private final HtmlStreamEventProcessor postprocessor;
 
   PolicyFactory(
       ImmutableMap<String, ElementAndAttributePolicies> policies,
       ImmutableSet<String> textContainers,
-      ImmutableMap<String, AttributePolicy> globalAttrPolicies) {
+      ImmutableMap<String, AttributePolicy> globalAttrPolicies,
+      HtmlStreamEventProcessor preprocessor,
+      HtmlStreamEventProcessor postprocessor) {
     this.policies = policies;
     this.textContainers = textContainers;
     this.globalAttrPolicies = globalAttrPolicies;
+    this.preprocessor = preprocessor;
+    this.postprocessor = postprocessor;
   }
 
   /** Produces a sanitizer that emits tokens to {@code out}. */
   public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {
     return new ElementAndAttributePolicyBasedSanitizerPolicy(
-        out, policies, textContainers);
+        postprocessor.wrap(out), policies, textContainers);
   }
 
   /**
@@ -120,8 +126,11 @@ public final class PolicyFactory
     StringBuilder out = new StringBuilder(html.length());
     HtmlSanitizer.sanitize(
         html,
-        apply(HtmlStreamRenderer.create(out, Handler.DO_NOTHING),
-              listener, context));
+        apply(
+            HtmlStreamRenderer.create(out, Handler.DO_NOTHING),
+            listener,
+            context),
+        preprocessor);
     return out.toString();
   }
 
@@ -193,6 +202,14 @@ public final class PolicyFactory
       }
       allGlobalAttrPolicies = ab.build();
     }
-    return new PolicyFactory(b.build(), allTextContainers, allGlobalAttrPolicies);
+    HtmlStreamEventProcessor compositionOfPreprocessors
+        = HtmlStreamEventProcessor.Processors.compose(
+            this.preprocessor, f.preprocessor);
+    HtmlStreamEventProcessor compositionOfPostprocessors
+        = HtmlStreamEventProcessor.Processors.compose(
+            this.postprocessor, f.postprocessor);
+    return new PolicyFactory(
+        b.build(), allTextContainers, allGlobalAttrPolicies,
+        compositionOfPreprocessors, compositionOfPostprocessors);
   }
 }

@@ -32,14 +32,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.owasp.html.Handler;
 import org.owasp.html.HtmlPolicyBuilder;
-import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamEventReceiver;
-import org.owasp.html.HtmlStreamRenderer;
+import org.owasp.html.HtmlStreamEventReceiverWrapper;
 import org.owasp.html.HtmlTextEscapingMode;
 import org.owasp.html.PolicyFactory;
-import org.owasp.html.TagBalancingHtmlStreamEventReceiver;
+import org.owasp.html.HtmlStreamEventProcessor;
+
+import com.google.common.base.Joiner;
 
 /**
  * Uses a custom event receiver to emit the domain of a link or inline image
@@ -48,20 +48,14 @@ import org.owasp.html.TagBalancingHtmlStreamEventReceiver;
 public class UrlTextExample {
 
   /** An event receiver that emits the domain of a link or image after it. */
-  static class AppendDomainAfterText implements HtmlStreamEventReceiver {
-    final HtmlStreamEventReceiver underlying;
+  static class AppendDomainAfterText extends HtmlStreamEventReceiverWrapper {
     private final List<String> pendingText = new ArrayList<String>();
 
     AppendDomainAfterText(HtmlStreamEventReceiver underlying) {
-      this.underlying = underlying;
+      super(underlying);
     }
 
-    public void openDocument() {
-      underlying.openDocument();
-    }
-    public void closeDocument() {
-      underlying.closeDocument();
-    }
+    @Override
     public void openTag(String elementName, List<String> attribs) {
       underlying.openTag(elementName, attribs);
 
@@ -101,6 +95,7 @@ public class UrlTextExample {
         pendingText.add(trailingText);
       }
     }
+    @Override
     public void closeTag(String elementName) {
       underlying.closeTag(elementName);
       // Pull the trailing text for the recently closed element off the stack.
@@ -111,9 +106,6 @@ public class UrlTextExample {
           text(trailingText);
         }
       }
-    }
-    public void text(String text) {
-      underlying.text(text);
     }
   }
 
@@ -133,26 +125,16 @@ public class UrlTextExample {
           "hr", "br", "col", "font", "span", "div", "img",
           "ul", "ol", "li", "dd", "dt", "dl", "tbody", "thead", "tfoot",
           "table", "td", "th", "tr", "colgroup", "fieldset", "legend"
+      )
+      .withPostprocessor(
+          new HtmlStreamEventProcessor() {
+            public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver sink) {
+              return new AppendDomainAfterText(sink);
+            }
+          }
       ).toFactory();
 
-    StringBuilder htmlOut = new StringBuilder();
-    HtmlSanitizer.Policy policy = policyBuilder.apply(
-        // The tag balancer passes events to AppendDomainAfterText which
-        // assumes that openTag and closeTag events line up with one-another.
-        new TagBalancingHtmlStreamEventReceiver(
-            // The domain appender forwards events to the HTML renderer,
-            new AppendDomainAfterText(
-                // which puts tags and text onto the output buffer.
-                HtmlStreamRenderer.create(htmlOut, Handler.DO_NOTHING)
-            )
-        )
-    );
-
-    for (String input : inputs) {
-      HtmlSanitizer.sanitize(input, policy);
-    }
-
-    out.append(htmlOut);
+    out.append(policyBuilder.sanitize(Joiner.on('\n').join(inputs)));
   }
 
   /**

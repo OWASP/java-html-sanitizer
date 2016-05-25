@@ -99,33 +99,41 @@ public final class HtmlSanitizer {
    *     {@link HtmlStreamRenderer} after filtering.
    *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
    */
-  public static void sanitize(@Nullable String html, final Policy policy) {
+  public static void sanitize(
+      @Nullable String html, final Policy policy) {
+    sanitize(html, policy, HtmlStreamEventProcessor.Processors.IDENTITY);
+  }
+
+  /**
+   * Sanitizes the given HTML by applying the given policy to it.
+   *
+   * <p>
+   * This method is not in the TCB.
+   *
+   * <p>
+   * This method has no return value since policies are assumed to render things
+   * they accept and do nothing on things they reject.
+   * Use {@link HtmlStreamRenderer} to render content to an output buffer.
+   *
+   * @param html A snippet of HTML to sanitize.  {@code null} is treated as the
+   *     empty string and will not result in a {@code NullPointerException}.
+   * @param policy The Policy that will receive events based on the tokens in
+   *     HTML.  Typically, this policy ends up routing the events to an
+   *     {@link HtmlStreamRenderer} after filtering.
+   *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
+   * @param preprocessor A processor that may wrap the policy to reinterpret
+   *     parse events.
+   *     Since the policy encapsulates its output buffer, this is not in the
+   *     policy's TCB.
+   */
+  public static void sanitize(
+      @Nullable String html, final Policy policy,
+      HtmlStreamEventProcessor preprocessor) {
     if (html == null) { html = ""; }
 
-    TagBalancingHtmlStreamEventReceiver balancer
-        = new TagBalancingHtmlStreamEventReceiver(policy);
+    HtmlStreamEventReceiver receiver = initializePolicy(policy, preprocessor);
 
-    // According to Opera the maximum table nesting depth seen in the wild is
-    // 795, but 99.99% of documents have a table nesting depth of less than 22.
-    // Since each table has a nesting depth of 4 (incl. TBODY), this leads to a
-    // document depth of 90 (incl. HTML & BODY).
-    // Obviously table nesting depth is not the same as whole document depth,
-    // but it is the best proxy I have available.
-    // See http://devfiles.myopera.com/articles/590/maxtabledepth-url.htm for
-    // the original data.
-
-    // Webkit defines the maximum HTML parser tree depth as 512.
-    // http://trac.webkit.org/browser/trunk/Source/WebCore/page/Settings.h#L408
-    // static const unsigned defaultMaximumHTMLParserDOMTreeDepth = 512;
-
-    // The first number gives us a lower bound on the nesting depth we allow,
-    // 90, and the second gives us an upper bound: 512.
-    // We do not want to bump right up against that limit.
-    // 256 is substantially larger than the lower bound and well clear of the
-    // upper bound.
-    balancer.setNestingLimit(256);
-
-    balancer.openDocument();
+    receiver.openDocument();
 
     HtmlLexer lexer = new HtmlLexer(html);
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
@@ -135,16 +143,16 @@ public final class HtmlSanitizer {
       HtmlToken token = lexer.next();
       switch (token.type) {
         case TEXT:
-          balancer.text(
+          receiver.text(
               Encoding.decodeHtml(html.substring(token.start, token.end)));
           break;
         case UNESCAPED:
-          balancer.text(Encoding.stripBannedCodeunits(
+          receiver.text(Encoding.stripBannedCodeunits(
               html.substring(token.start, token.end)));
           break;
         case TAGBEGIN:
           if (html.charAt(token.start + 1) == '/') {  // A close tag.
-            balancer.closeTag(HtmlLexer.canonicalName(
+            receiver.closeTag(HtmlLexer.canonicalName(
                 html.substring(token.start + 2, token.end)));
             while (lexer.hasNext()
                    && lexer.next().type != HtmlTokenType.TAGEND) {
@@ -182,7 +190,7 @@ public final class HtmlSanitizer {
             if (!attrsReadyForName) {
               attrs.add(attrs.getLast());
             }
-            balancer.openTag(
+            receiver.openTag(
                 HtmlLexer.canonicalName(
                     html.substring(token.start + 1, token.end)),
                 attrs);
@@ -195,7 +203,7 @@ public final class HtmlSanitizer {
       }
     }
 
-    balancer.closeDocument();
+    receiver.closeDocument();
   }
 
   private static String stripQuotes(String encodedAttributeValue) {
@@ -216,4 +224,31 @@ public final class HtmlSanitizer {
     return encodedAttributeValue;
   }
 
+
+  private static HtmlStreamEventReceiver initializePolicy(
+      Policy policy, HtmlStreamEventProcessor preprocessor) {
+    TagBalancingHtmlStreamEventReceiver balancer
+        = new TagBalancingHtmlStreamEventReceiver(policy);
+
+    // According to Opera the maximum table nesting depth seen in the wild is
+    // 795, but 99.99% of documents have a table nesting depth of less than 22.
+    // Since each table has a nesting depth of 4 (incl. TBODY), this leads to a
+    // document depth of 90 (incl. HTML & BODY).
+    // Obviously table nesting depth is not the same as whole document depth,
+    // but it is the best proxy I have available.
+    // See http://devfiles.myopera.com/articles/590/maxtabledepth-url.htm for
+    // the original data.
+
+    // Webkit defines the maximum HTML parser tree depth as 512.
+    // http://trac.webkit.org/browser/trunk/Source/WebCore/page/Settings.h#L408
+    // static const unsigned defaultMaximumHTMLParserDOMTreeDepth = 512;
+
+    // The first number gives us a lower bound on the nesting depth we allow,
+    // 90, and the second gives us an upper bound: 512.
+    // We do not want to bump right up against that limit.
+    // 256 is substantially larger than the lower bound and well clear of the
+    // upper bound.
+    balancer.setNestingLimit(256);
+    return preprocessor.wrap(balancer);
+  }
 }
