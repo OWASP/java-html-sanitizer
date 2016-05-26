@@ -2,6 +2,10 @@
 
 Most recent at top.
 
+  * Release 20160526.1
+    * Added support for pre-processors and post-processors so that there
+      is no need for clients to do textual search/replace on the
+      untrusted input or the trusted output.
   * Release 20160413.1
     * Integrated support for Safe HTML Types and the Fences enforcer to allow
       the sanitizer to produce safe-contract-types.
