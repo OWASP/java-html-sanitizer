@@ -256,13 +256,6 @@ public class TagBalancingHtmlStreamEventReceiver
     openElements.remove(index);
   }
 
-  private static final long HTML_SPACE_CHAR_BITMASK =
-      (1L << ' ')
-    | (1L << '\t')
-    | (1L << '\n')
-    | (1L << '\u000c')
-    | (1L << '\r');
-
   /**
    * True if text is the value of an inter-element whitespace text node as
    * defined by HTML5.
@@ -275,8 +268,7 @@ public class TagBalancingHtmlStreamEventReceiver
   public static boolean isInterElementWhitespace(String text) {
     int n = text.length();
     for (int i = 0; i < n; ++i) {
-      int ch = text.charAt(i);
-      if (ch > 0x20 || (HTML_SPACE_CHAR_BITMASK & (1L << ch)) == 0) {
+      if (!Strings.isHtmlSpace(text.charAt(i))) {
         return false;
       }
     }

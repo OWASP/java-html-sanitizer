@@ -144,5 +144,35 @@ final class Strings {
     return s;
   }
 
+
+  private static final long HTML_SPACE_CHAR_BITMASK =
+      (1L << ' ')
+    | (1L << '\t')
+    | (1L << '\n')
+    | (1L << '\u000c')
+    | (1L << '\r');
+
+  static boolean isHtmlSpace(int ch) {
+    return ch <= 0x20 && (HTML_SPACE_CHAR_BITMASK & (1L << ch)) != 0;
+  }
+
+  static String stripHtmlSpaces(String s) {
+    int i = 0, n = s.length();
+    for (; n > i; --n) {
+      if (!isHtmlSpace(s.charAt(n - 1))) {
+        break;
+      }
+    }
+    for (; i < n; ++i) {
+      if (!isHtmlSpace(s.charAt(i))) {
+        break;
+      }
+    }
+    if (i == 0 && n == s.length()) {
+      return s;
+    }
+    return s.substring(i, n);
+  }
+
   private Strings() { /* uninstantiable */ }
 }

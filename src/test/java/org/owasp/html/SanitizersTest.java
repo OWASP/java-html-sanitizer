@@ -399,6 +399,22 @@ public class SanitizersTest extends TestCase {
     assertEquals(safe, sanitized);
   }
 
+  @Test
+  public static final void testSpacesAroundURLAttributeValues() {
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowStandardUrlProtocols()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .toFactory();
+
+    String unsafe = "<a href=\" http://example.com/ foo \t \">text</a>";
+    String safe = "<a href=\"http://example.com/%20foo\">text</a>";
+
+    String sanitized = s.sanitize(unsafe);
+
+    assertEquals(safe, sanitized);
+  }
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
