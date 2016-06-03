@@ -27,6 +27,9 @@ echo and make sure that the current POM release number is max.
 export DATE_STAMP="$(date +'%Y%m%d')"
 export NEW_VERSION="$DATE_STAMP"".1"
 export NEW_DEV_VERSION="$DATE_STAMP"".2-SNAPSHOT"
+echo DATE_STAMP="$DATE_STAMP"
+echo NEW_VERSION="$NEW_VERSION"
+echo NEW_DEV_VERSION="$NEW_DEV_VERSION"
 
 cd ~/work
 export RELEASE_CLONE="$PWD/html-san-release"
@@ -48,14 +51,14 @@ find . -name pom.xml \
     | xargs perl -i.placeholder -pe "s/$VERSION_PLACEHOLDER/$NEW_VERSION/g"
 
 # Make sure there's no snapshots left in any poms.
-find . -name pom.xml | xargs grep -SNAPSHOT
+find . -name pom.xml | xargs grep -- -SNAPSHOT
 
 # Make sure the change log is up-to-date.
 perl -i.bak \
      -pe 'if (m/^  [*] / && !$added) { $_ = qq(  * Release $ENV{"NEW_VERSION"}\n$_); $added = 1; }' \
      change_log.md
 
-"$EDITOR" change_log.md
+$EDITOR change_log.md
 
 # A dry run.
 mvn -f aggregate clean source:jar javadoc:jar verify \
