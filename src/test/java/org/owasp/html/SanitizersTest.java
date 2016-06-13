@@ -324,7 +324,7 @@ public class SanitizersTest extends TestCase {
         + "g"
         + "<img src=\"http://example.org\"/>oogle</a>";
     String want = ""
-        + "xss<a href=\"http://www.google.de\" style=\"color:red\""
+        + "xss<a href=\"http://www.google.de\" style=\"color:red;\""
         + " rel=\"nofollow\">"
         + "g"
         + "<img src=\"http://example.org\" />oogle</a>";

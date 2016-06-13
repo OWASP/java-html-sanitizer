@@ -32,6 +32,8 @@ import javax.annotation.Nullable;
 
 import org.junit.Test;
 
+import com.google.common.base.Function;
+
 import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
@@ -65,8 +67,10 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss(null, "color: 000");
     assertSanitizedCss(null, "background-color: 000");
     // Not colors.
-    assertSanitizedCss(null, "background: \"pwned.jpg\"");
-    assertSanitizedCss(null, "background: url(pwned.jpg)");
+    assertSanitizedCss(
+        "background:url('pic.jpg#sanitized')", "background: \"pic.jpg\"");
+    assertSanitizedCss(
+        "background:url('pic.jpg#sanitized')", "background: url(pic.jpg)");
     assertSanitizedCss(null, "color:#urlabc");
     assertSanitizedCss(null, "color:#urlabcd");
   }
@@ -211,7 +215,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testUrls() {
+  public static final void testLongUrls() {
     // Test that a long URL does not blow out the stack or consume quadratic
     // amounts of processor as when the CSS lexer was implemented as a bunch of
     // regular expressions.
@@ -291,9 +295,42 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss(null, longUrl);
   }
 
+  @Test
+  public static final void testUrls() {
+    assertSanitizedCss(
+        "background-image:url('foo.gif#sanitized')",
+        "background-image: \"foo.gif\"");
+    assertSanitizedCss(
+        "background-image:url('foo.gif#sanitized')",
+        "background-image: 'foo.gif'");
+    assertSanitizedCss(
+        "background-image:url('foo.gif#sanitized')",
+        "background-image:url(foo.gif)");
+    assertSanitizedCss(
+        "background-image:url('foo.gif#sanitized')",
+        "background-image : url( foo.gif )");
+    assertSanitizedCss(
+        "background-image:url('foo.gif#sanitized')",
+        "background-image: url('foo.gif')");
+    assertSanitizedCss(
+        "background-image:url('foo.gif#sanitized')",
+        "background-image: URL( \"foo.gif\" )");
+  }
+
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
-    StylingPolicy stylingPolicy = new StylingPolicy(CssSchema.DEFAULT);
+    StylingPolicy stylingPolicy = new StylingPolicy(
+        CssSchema.DEFAULT,
+        new Function<String, String>() {
+          public String apply(String url) {
+            String safeUrl =
+                StandardUrlAttributePolicy.INSTANCE.apply("img", "src", url);
+            if (safeUrl != null) {
+              return safeUrl + "#sanitized";
+            }
+            return null;
+          }
+        });
     assertEquals(expectedCss, stylingPolicy.sanitizeCssProperties(css));
   }
 }

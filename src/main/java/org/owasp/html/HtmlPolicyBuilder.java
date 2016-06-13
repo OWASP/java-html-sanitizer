@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -176,6 +177,9 @@ public class HtmlPolicyBuilder {
       HtmlStreamEventProcessor.Processors.IDENTITY;
   private HtmlStreamEventProcessor preprocessor =
       HtmlStreamEventProcessor.Processors.IDENTITY;
+  private CssSchema stylingPolicySchema = null;
+  private AttributePolicy styleUrlPolicy =
+      AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY;
   private boolean requireRelNofollowOnLinks;
 
   /**
@@ -444,8 +448,34 @@ public class HtmlPolicyBuilder {
    */
   public HtmlPolicyBuilder allowStyling(CssSchema whitelist) {
     invalidateCompiledState();
-    allowAttributesGlobally(
-        new StylingPolicy(whitelist), ImmutableList.of("style"));
+
+    // Allow the style attribute, and then we will fix it up later.  This allows
+    // us to attach the final URL policy to the style attribute policy, while
+    // still not allowing styles when allowStyling is followed by a call to
+    // disallowAttributesGlobally("style").
+    this.allowAttributesGlobally(
+        AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, ImmutableList.of("style"));
+
+    this.stylingPolicySchema =
+        this.stylingPolicySchema == null
+        ? whitelist
+        : CssSchema.union(stylingPolicySchema, whitelist);
+    return this;
+  }
+
+  /**
+   * Allow URLs in CSS styles.
+   * URLs in CSS are typically loaded without user-interaction, the way links
+   * are, so a greater degree of scrutiny is warranted.
+   *
+   * @param newStyleUrlPolicy receives URLs from the CSS that pass the allowed
+   *     protocol policies, and may return null to veto the URL or the URL
+   *     to use.  URLs will be reported as content in {@code <img src=...>}.
+   */
+  public HtmlPolicyBuilder allowUrlsInStyles(
+      AttributePolicy newStyleUrlPolicy) {
+    this.invalidateCompiledState();
+    this.styleUrlPolicy = newStyleUrlPolicy;
     return this;
   }
 
@@ -583,8 +613,9 @@ public class HtmlPolicyBuilder {
     // allowing the attribute "href" globally with the identity policy but
     // not white-listing any protocols, effectively disallows the "href"
     // attribute globally.
+    StylingPolicy stylingPolicy = null;
     {
-      AttributePolicy urlAttributePolicy;
+      final AttributePolicy urlAttributePolicy;
       if (allowedProtocols.size() == 3
           && allowedProtocols.contains("mailto")
           && allowedProtocols.contains("http")
@@ -594,6 +625,19 @@ public class HtmlPolicyBuilder {
         urlAttributePolicy = new FilterUrlByProtocolAttributePolicy(
             allowedProtocols);
       }
+
+      if (this.stylingPolicySchema != null) {
+        final AttributePolicy styleUrlPolicyFinal = AttributePolicy.Util.join(
+            styleUrlPolicy, urlAttributePolicy);
+        stylingPolicy = new StylingPolicy(
+            stylingPolicySchema,
+            new Function<String, String>() {
+              public String apply(String url) {
+                return styleUrlPolicyFinal.apply("img", "src", url);
+              }
+            });
+      }
+
       Set<String> toGuard = Sets.newLinkedHashSet(URL_ATTRIBUTE_NAMES);
       for (String urlAttributeName : URL_ATTRIBUTE_NAMES) {
         if (globalAttrPolicies.containsKey(urlAttributeName)) {
@@ -636,6 +680,9 @@ public class HtmlPolicyBuilder {
         // twice.  ImmutableMap.Builder hates that.
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
         AttributePolicy policy = ape.getValue();
+        if ("style".equals(attributeName)) {
+          policy = AttributePolicy.Util.join(policy, stylingPolicy);
+        }
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
           attrs.put(attributeName, policy);
         }
@@ -645,6 +692,9 @@ public class HtmlPolicyBuilder {
         String attributeName = ape.getKey();
         AttributePolicy policy = AttributePolicy.Util.join(
             elAttrPolicies.get(attributeName), ape.getValue());
+        if ("style".equals(attributeName)) {
+          policy = AttributePolicy.Util.join(policy, stylingPolicy);
+        }
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
           attrs.put(attributeName, policy);
         }

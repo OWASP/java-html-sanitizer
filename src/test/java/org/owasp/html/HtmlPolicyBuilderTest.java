@@ -479,6 +479,95 @@ public class HtmlPolicyBuilderTest extends TestCase {
 
   }
 
+  @Test
+  public static final void testBackgroundImageWithUrl() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowStandardUrlProtocols()
+        .allowStyling()
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowElements("div")
+        .toFactory();
+    String unsafeHtml = policy.sanitize(
+        "<html><head><title>test</title></head><body>" +
+        "<div style='"
+        + "color: red; background-image: "
+        + "url(http://example.com/foo.png)" +
+        "'>div content" +
+        "</div></body></html>");
+    String safeHtml = policy.sanitize(unsafeHtml);
+    String expected =
+        "<div style=\""
+        + "color:red;background-image:"
+        + "url(&#39;http://example.com/foo.png&#39;)"
+        + "\">div content</div>";
+    assertEquals(expected, safeHtml);
+  }
+
+  @Test
+  public static final void testBackgroundImageWithImageFunction() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowStandardUrlProtocols()
+        .allowStyling()
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowElements("div")
+        .toFactory();
+    String unsafeHtml = policy.sanitize(
+        "<html><head><title>test</title></head><body>" +
+        "<div style='" +
+        "color: red; background-image: " +
+        "image(\"blue sky.png\", blue)'>" +
+        "div content" +
+        "</div></body></html>");
+    String safeHtml = policy.sanitize(unsafeHtml);
+    String expected =
+        "<div style=\""
+        + "color:red;background-image:"
+        + "image( url(&#39;blue%20sky.png&#39;) , blue )"
+        + "\">div content</div>";
+    assertEquals(expected, safeHtml);
+  }
+
+  @Test
+  public static final void testBackgroundWithUrls() {
+    HtmlPolicyBuilder builder = new HtmlPolicyBuilder()
+        .allowStandardUrlProtocols()
+        .allowStyling()
+        .allowElements("div");
+
+    PolicyFactory noUrlsPolicy = builder.toFactory();
+    PolicyFactory urlsPolicy = builder
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .toFactory();
+
+    String unsafeHtml =
+        "<div style=\"background:&quot;//evil.org/foo.png&quot;\"></div>";
+
+    String safeWithUrls =
+        "<div style=\"background:url(&#39;//evil.org/foo.png&#39;)\"></div>";
+    String safeWithoutUrls = "<div></div>";
+
+    assertEquals(safeWithoutUrls, noUrlsPolicy.sanitize(unsafeHtml));
+    assertEquals(safeWithUrls, urlsPolicy.sanitize(unsafeHtml));
+  }
+
+  @Test
+  public static final void testBackgroundsThatViolateGlobalUrlPolicy() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowStandardUrlProtocols()
+        .allowStyling()
+        .allowElements("div")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .toFactory();
+
+    String unsafeHtml =
+        "<div style=\"background:'javascript:alert(1337)'\"></div>";
+    String safeHtml = "<div></div>";
+
+    assertEquals(safeHtml, policy.sanitize(unsafeHtml));
+
+  }
+
+
 
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);

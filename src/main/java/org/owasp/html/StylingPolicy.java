@@ -33,6 +33,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 
 /**
@@ -44,9 +45,11 @@ import com.google.common.collect.Lists;
 final class StylingPolicy implements AttributePolicy {
 
   final CssSchema cssSchema;
+  final Function<String, String> urlRewriter;
 
-  StylingPolicy(CssSchema cssSchema) {
+  StylingPolicy(CssSchema cssSchema, Function<String, String> urlRewriter) {
     this.cssSchema = cssSchema;
+    this.urlRewriter = urlRewriter;
   }
 
   public @Nullable String apply(
@@ -85,11 +88,27 @@ final class StylingPolicy implements AttributePolicy {
         }
       }
 
+      private void sanitizeAndAppendUrl(String urlContent) {
+        if (urlContent.length() < 1024) {
+          String rewrittenUrl = urlRewriter.apply(urlContent);
+          if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
+            if (hasTokens) { sanitizedCss.append(' '); }
+            sanitizedCss.append("url('").append(rewrittenUrl).append("')");
+            hasTokens = true;
+          }
+        }
+      }
+
       public void url(String token) {
         closeQuotedIdents();
-        //if ((schema.bits & CssSchema.BIT_URL) != 0) {
-        // TODO: sanitize the URL.
-        //}
+        if (cssProperty != null) {
+          if ((cssProperty.bits & CssSchema.BIT_URL) != 0) {
+            String urlContent = CssGrammar.cssContent(
+                Strings.stripHtmlSpaces(  // TODO: css spaces
+                    token.substring(4, token.length() - 1)));
+            sanitizeAndAppendUrl(urlContent);
+          }
+        }
       }
 
       public void startProperty(String propertyName) {
@@ -134,7 +153,7 @@ final class StylingPolicy implements AttributePolicy {
             emitToken(Strings.toLowerCase(token));
           } else if (meaning == CssSchema.BIT_URL) {
             // convert to a URL token and hand-off to the appropriate method
-            // url("url(" + token + ")");  // TODO: %-encode properly
+            sanitizeAndAppendUrl(CssGrammar.cssContent(token));
           }
         }
       }
@@ -227,5 +246,4 @@ final class StylingPolicy implements AttributePolicy {
   public int hashCode() {
     return cssSchema.hashCode();
   }
-
 }
