@@ -465,6 +465,9 @@ public class HtmlPolicyBuilder {
 
   /**
    * Allow URLs in CSS styles.
+   * For example,
+   * {@code <span style="background-image: url(http://example.com/image.png)">}.
+   * <p>
    * URLs in CSS are typically loaded without user-interaction, the way links
    * are, so a greater degree of scrutiny is warranted.
    *
