@@ -6,7 +6,7 @@
     <relativePath>parent</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
-    <version>20160526.2-SNAPSHOT</version>
+    <version>20160614.1</version>
   </parent>
 
   <name>OWASP Java HTML Sanitizer</name>

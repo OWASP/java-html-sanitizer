@@ -2,6 +2,8 @@
 
 Most recent at top.
 
+  * Release 20160614.1
+    * URLs are allowed in style="..." via HtmlPolicyBuilder.allowUrlsInStyles
   * Release 20160526.1
     * Added support for pre-processors and post-processors so that there
       is no need for clients to do textual search/replace on the
