@@ -76,7 +76,9 @@ final class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
       try {
         METHOD_CLOSE.invoke(closeable, ZERO_OBJECTS);
       } catch (IllegalAccessException ex) {
-        throw new AssertionError("close not public", ex);
+        AssertionError ae = new AssertionError("close not public");
+        ae.initCause(ex);
+        throw ae;
       } catch (InvocationTargetException ex) {
         Throwable tgt = ex.getTargetException();
         if (tgt instanceof IOException) {
