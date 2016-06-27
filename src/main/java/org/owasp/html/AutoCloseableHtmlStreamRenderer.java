@@ -19,7 +19,7 @@ final class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
   static {
     Class<?> classAutoCloseable = null;
     for (Class<?> superInterface : Closeable.class.getInterfaces()) {
-      if ("java.lang.Autocloseable".equals(superInterface.getName())) {
+      if ("java.lang.AutoCloseable".equals(superInterface.getName())) {
         classAutoCloseable = superInterface;
         break;
       }

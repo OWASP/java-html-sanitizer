@@ -46,7 +46,7 @@ public class AutoCloseableHtmlStreamRendererTest extends TestCase {
     // JDK6 so that our tests are portable.
     Class<?> autoCloseableClass;
     try {
-      autoCloseableClass = Class.forName("java/lang/AutoCloseable");
+      autoCloseableClass = Class.forName("java.lang.AutoCloseable");
     } catch (@SuppressWarnings("unused") ClassNotFoundException ex) {
       // OK on JDK 6.
       return;
@@ -61,11 +61,11 @@ public class AutoCloseableHtmlStreamRendererTest extends TestCase {
           public Object invoke(Object proxy, Method method, Object[] args)
           throws Throwable {
             if ("close".equals(method.getName())) {
-              assertTrue(args.length == 0);
+              assertTrue(args == null || args.length == 0);
               closed.put(proxy, true);
               return null;
             } else {
-              throw new AssertionError(method.getName());
+              return method.invoke(new Object());
             }
           }
         });
