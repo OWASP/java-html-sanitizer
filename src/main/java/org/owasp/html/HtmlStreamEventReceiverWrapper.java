@@ -9,7 +9,10 @@ import java.util.List;
  * be overridden to do additional work.
  */
 public abstract class HtmlStreamEventReceiverWrapper
-implements HtmlStreamEventReceiver, Closeable {
+implements HtmlStreamEventReceiver,
+// Not AutoCloseable for JDK 6 compatibility but will close AutoCloseable
+// underlying streams when closed.
+    Closeable {
 
   protected final HtmlStreamEventReceiver underlying;
 
@@ -41,8 +44,6 @@ implements HtmlStreamEventReceiver, Closeable {
   }
 
   public void close() throws IOException {
-    if (underlying instanceof Closeable) {
-      ((Closeable) underlying).close();
-    }
+    AutoCloseableHtmlStreamRenderer.closeIfAnyCloseable(underlying);
   }
 }
