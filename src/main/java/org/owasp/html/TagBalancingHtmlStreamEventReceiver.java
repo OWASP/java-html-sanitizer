@@ -975,7 +975,16 @@ public class TagBalancingHtmlStreamEventReceiver
           .define();
       defineElement("style")
           .types(
-              ElementGroup.INLINE, ElementGroup.HEAD_CONTENT)
+              ElementGroup.BLOCK, ElementGroup.INLINE,
+              ElementGroup.INLINE_MINUS_A, ElementGroup.MIXED,
+              ElementGroup.TABLE_CONTENT, ElementGroup.HEAD_CONTENT,
+              ElementGroup.TOP_CONTENT, ElementGroup.AREA_ELEMENT,
+              ElementGroup.FORM_ELEMENT, ElementGroup.LEGEND_ELEMENT,
+              ElementGroup.LI_ELEMENT, ElementGroup.DL_PART,
+              ElementGroup.P_ELEMENT, ElementGroup.OPTIONS_ELEMENT,
+              ElementGroup.OPTION_ELEMENT, ElementGroup.PARAM_ELEMENT,
+              ElementGroup.TABLE_ELEMENT, ElementGroup.TR_ELEMENT,
+              ElementGroup.TD_ELEMENT, ElementGroup.COL_ELEMENT)
           .contents(
               ElementGroup.CHARACTER_DATA)
           .define();
