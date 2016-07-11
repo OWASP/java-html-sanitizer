@@ -36,7 +36,7 @@ PolicyFactory policy = new HtmlPolicyBuilder()
     .allowUrlProtocols("https")
     .allowAttributes("href").onElements("a")
     .requireRelNofollowOnLinks()
-    .build();
+    .toFactory();
 String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
@@ -54,8 +54,8 @@ PolicyFactory policy = new HtmlPolicyBuilder()
             attrs.add("header-" + elementName);
             return "div";
           }
-        }, "h1", "h2", "h3", "h4", "h5", "h6"))
-    .build();
+        }, "h1", "h2", "h3", "h4", "h5", "h6")
+    .toFactory();
 String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
