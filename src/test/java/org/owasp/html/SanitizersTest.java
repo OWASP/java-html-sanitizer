@@ -422,6 +422,13 @@ public class SanitizersTest extends TestCase {
     assertEquals("<table><tr><td>Foo</td></tr><tr><td>Bar</td></tr></table>", pf.sanitize(input));
   }
 
+  @Test
+  public static final void testMissingTrInTable() {
+    String input = "<table><tbody><tr><td><table><tbody><tr><td>Foo</td></tr><td>Bar</td></tr></tbody></table></td></tr></tbody></table>";
+    PolicyFactory pf = Sanitizers.BLOCKS.and(Sanitizers.TABLES);
+    assertEquals("<table><tbody><tr><td><table><tbody><tr><td>Foo</td></tr><tr><td>Bar</td></tr></tbody></table></td></tr></tbody></table>", pf.sanitize(input));
+  }
+  
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {

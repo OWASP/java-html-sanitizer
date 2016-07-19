@@ -133,6 +133,11 @@ public class TagBalancingHtmlStreamEventReceiver
         if (canContain(elInfo, top, nOpen - 1)) {
           break;
         }
+
+        if (elInfo.blockContainerParent != null && canContain(elInfo.blockContainerParent, top, nOpen - 1)) {
+          underlying.openTag(elInfo.blockContainerParent.elementName, Lists.<String>newArrayList());
+          break;
+        }
         if (openElements.size() < nestingLimit) {
           underlying.closeTag(top.elementName);
         }
@@ -318,12 +323,14 @@ public class TagBalancingHtmlStreamEventReceiver
     final int blockedByScopes;
     /** A bit set of scopes groups into which this element falls. */
     final int inScopes;
+    /** A legal parent of this node */
+    @Nullable ElementContainmentInfo blockContainerParent;
 
     ElementContainmentInfo(
         String elementName, boolean resumable, int types, int contents,
         int transparentToContents,
         @Nullable ElementContainmentInfo blockContainerChild,
-        int inScopes) {
+        int inScopes, @Nullable ElementContainmentInfo blockContainerParent) {
       this.elementName = elementName;
       this.resumable = resumable;
       this.types = types;
@@ -335,6 +342,7 @@ public class TagBalancingHtmlStreamEventReceiver
       this.blockedByScopes =
           ElementContainmentRelationships.CloseTagScope.ALL & ~inScopes;
       this.inScopes = inScopes;
+      this.blockContainerParent = blockContainerParent;
     }
 
     @Override public String toString() {
@@ -422,6 +430,7 @@ public class TagBalancingHtmlStreamEventReceiver
       private int transparentToContents;
       private ElementContainmentInfo blockContainerChild = null;
       private int inScopes = 0;
+      private ElementContainmentInfo blockContainerParent;
 
       ElementContainmentInfoBuilder(String elementName) {
         this.elementName = elementName;
@@ -468,10 +477,15 @@ public class TagBalancingHtmlStreamEventReceiver
         return this;
       }
 
+      ElementContainmentInfoBuilder blockContainerParent(@Nullable ElementContainmentInfo p) {
+    	this.blockContainerParent = p;
+    	return this;
+      }
+
       ElementContainmentInfo define() {
         ElementContainmentInfo info = new ElementContainmentInfo(
             elementName, resumable, types, contents, transparentToContents,
-            blockContainerChild, inScopes);
+            blockContainerChild, inScopes, blockContainerParent);
         definitions.put(elementName, info);
         return info;
       }
@@ -1036,7 +1050,7 @@ public class TagBalancingHtmlStreamEventReceiver
               ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,
               ElementGroup.TD_ELEMENT)
           .define();
-      defineElement("th")
+      ElementContainmentInfo TH = defineElement("th")
           .types(
               ElementGroup.TD_ELEMENT)
           .contents(
@@ -1056,13 +1070,15 @@ public class TagBalancingHtmlStreamEventReceiver
           .types(ElementGroup.HEAD_CONTENT)
           .contents(ElementGroup.CHARACTER_DATA)
           .define();
-      defineElement("tr")
+      ElementContainmentInfo TR = defineElement("tr")
           .types(
               ElementGroup.TABLE_CONTENT, ElementGroup.TR_ELEMENT)
           .contents(
               ElementGroup.FORM_ELEMENT, ElementGroup.TD_ELEMENT)
           .blockContainerChild(TD)
           .define();
+      TD.blockContainerParent = TR;
+      TH.blockContainerParent = TR;
       defineElement("tt")
           .resumable()
           .types(
@@ -1113,7 +1129,7 @@ public class TagBalancingHtmlStreamEventReceiver
             elementGroupBits(
                 ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,
                 ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),
-            0, 0, null, 0);
+            0, 0, null, 0, null);
   }
 
   static boolean allowsPlainTextualContent(String canonElementName) {
