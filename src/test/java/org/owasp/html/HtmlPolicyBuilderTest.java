@@ -566,6 +566,19 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals(safeHtml, policy.sanitize(unsafeHtml));
 
   }
+  
+  @Test
+  public static final void testSpanTagFilter() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("span")
+        .toFactory();
+    String unsafeHtml = policy.sanitize(
+        "<span>test1</span>");
+    String safeHtml = policy.sanitize(unsafeHtml);
+    String expected =
+        "<span>test1</span>";
+    assertEquals(expected, safeHtml);
+  }
 
 
 
