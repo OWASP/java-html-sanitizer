@@ -60,7 +60,9 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
 ```
-Please note that the elements "a", "font", "img", "input" and "span" need to be explicitly whitelisted using the `allowWithoutAttributes()` method if you want them to be allowed through the filter when these elements do not include any attributes.
+Please note that the elements "a", "font", "img", "input" and "span" need to be explicitly whitelisted 
+using the `allowWithoutAttributes()` method if you want them to be allowed through the filter when 
+these elements do not include any attributes.
 ```
 ----
 
