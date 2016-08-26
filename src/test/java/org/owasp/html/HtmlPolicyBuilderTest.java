@@ -304,6 +304,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
         // The element policy sees 2 attributes, one "id" and one "href",
         // hence attr-count=2.
         "<a href=\"foo\" id=\"bar\" attr-count=\"2\" id-count=\"3\">link</a>",
+
         apply(
             new HtmlPolicyBuilder()
             .allowElements(
@@ -566,11 +567,12 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals(safeHtml, policy.sanitize(unsafeHtml));
 
   }
-  
+
   @Test
   public static final void testSpanTagFilter() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowElements("span")
+        .allowWithoutAttributes("span")
         .toFactory();
     String unsafeHtml = policy.sanitize(
         "<span>test1</span>");
@@ -580,7 +582,103 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals(expected, safeHtml);
   }
 
+  @Test
+  public static final void testLinkRels() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols();
 
+    PolicyFactory defaultLinkPolicy = b.toFactory();
+    PolicyFactory externalLinkPolicy = b
+        .requireRelsOnLinks("external")
+        .toFactory();
+    PolicyFactory noNoFollowPolicy = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        //.allowAttributes("rel").onElements("a")
+        .allowStandardUrlProtocols()
+        .allowAttributes("target").onElements("a")
+        .skipRelsOnLinks("noreferrer")
+        .toFactory();
+
+    PolicyFactory and0 = externalLinkPolicy.and(noNoFollowPolicy);
+    PolicyFactory and1 = noNoFollowPolicy.and(externalLinkPolicy);
+
+    String link = "<a target=T href=http://example.com/>eg</a>";
+
+    assertEquals(
+        "<a target=\"T\" href=\"http://example.com/\""
+        + " rel=\"noopener noreferrer\">eg</a>",
+        defaultLinkPolicy.sanitize(link));
+    assertEquals(
+        "<a target=\"T\" href=\"http://example.com/\""
+        + " rel=\"external noopener noreferrer\">eg</a>",
+        externalLinkPolicy.sanitize(link));
+    assertEquals(
+        "<a target=\"T\" href=\"http://example.com/\""
+        + " rel=\"noopener\">eg</a>",
+        noNoFollowPolicy.sanitize(link));
+    assertEquals(
+        "<a target=\"T\" href=\"http://example.com/\""
+        + " rel=\"external noopener\">eg</a>",
+        and0.sanitize(link));
+    assertEquals(
+        "<a target=\"T\" href=\"http://example.com/\""
+        + " rel=\"external noopener\">eg</a>",
+        and1.sanitize(link));
+  }
+
+  @Test
+  public static final void testLinkRelsWhenRelPresent() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols()
+        .requireRelNofollowOnLinks()
+        .toFactory();
+
+    assertEquals(
+        ""
+        + "<a rel=\"external nofollow noopener noreferrer\""
+        + " target=\"_blank\" href=\"http://example.com/\">eg</a>",
+
+        pf.sanitize(
+            "<a rel=external target=_blank href=http://example.com/>eg</a>"));
+
+    assertEquals(
+        ""
+        + "<a rel=\"external nofollow noopener noreferrer\""
+        + " target=\"windowname\" href=\"//example.com/\">eg</a>",
+
+        pf.sanitize(
+            "<A REL=external TARGET=windowname HREF=//example.com/ >eg</A>"
+            ));
+  }
+
+  @Test
+  public static final void testFailFastOnSpaceSeparatedStrings() {
+    boolean failed;
+    try {
+      // Should be ("nofollow", "noreferrer")
+      new HtmlPolicyBuilder().requireRelsOnLinks("nofollow noreferrer");
+      failed = false;
+    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+      failed = true;
+    }
+    assertTrue(failed);
+    try {
+      new HtmlPolicyBuilder().skipRelsOnLinks("nofollow noreferrer");
+      failed = false;
+    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+      failed = true;
+    }
+    assertTrue(failed);
+  }
 
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);

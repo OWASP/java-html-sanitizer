@@ -36,7 +36,11 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import org.owasp.html.ElementPolicy.JoinableElementPolicy;
+
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -164,6 +168,22 @@ public class HtmlPolicyBuilder {
   public static final ImmutableSet<String> DEFAULT_SKIP_IF_EMPTY
       = ImmutableSet.of("a", "font", "img", "input", "span");
 
+  /**
+   * These
+   * <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types"
+   * >{@code rel}</a> attribute values leaking information to the linked site,
+   * and prevents the linked page from redirecting your page to a phishing site
+   * when opened from a third-party link from your site.
+   *
+   * @see <a href="https://mathiasbynens.github.io/rel-noopener/"
+   *      >About rel=noopener</a>
+   */
+  public static final ImmutableSet<String> DEFAULT_RELS_ON_TARGETTED_LINKS
+      = ImmutableSet.of("noopener", "noreferrer");
+
+  static final String DEFAULT_RELS_ON_TARGETTED_LINKS_STR
+      = Joiner.on(' ').join(DEFAULT_RELS_ON_TARGETTED_LINKS);
+
   private final Map<String, ElementPolicy> elPolicies = Maps.newLinkedHashMap();
   private final Map<String, Map<String, AttributePolicy>> attrPolicies
       = Maps.newLinkedHashMap();
@@ -180,7 +200,8 @@ public class HtmlPolicyBuilder {
   private CssSchema stylingPolicySchema = null;
   private AttributePolicy styleUrlPolicy =
       AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY;
-  private boolean requireRelNofollowOnLinks;
+  private Set<String> extraRelsForLinks;
+  private Set<String> skipRelsForLinks;
 
   /**
    * Allows the named elements.
@@ -376,12 +397,65 @@ public class HtmlPolicyBuilder {
   }
 
   /**
-   * Adds <a href="http://en.wikipedia.org/wiki/Nofollow"><code>rel=nofollow</code></a>
+   * Adds
+   * <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types"
+   * >{@code rel=nofollow}</a>
    * to links.
+   *
+   * @see #DEFAULT_RELS_ON_TARGETTED_LINKS
+   * @see #skipRelsOnLinks
    */
   public HtmlPolicyBuilder requireRelNofollowOnLinks() {
-    invalidateCompiledState();
-    this.requireRelNofollowOnLinks = true;
+    return requireRelsOnLinks("nofollow");
+  }
+
+  /**
+   * Adds
+   * <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types"
+   * >{@code rel="..."}</a> to {@code <a href="...">} tags beyond those in
+   * {@link #DEFAULT_RELS_ON_TARGETTED_LINKS}.
+   * <p>
+   * @see #skipRelsOnLinks
+   */
+  public HtmlPolicyBuilder requireRelsOnLinks(String... linkValues) {
+    this.invalidateCompiledState();
+    if (this.extraRelsForLinks == null) {
+      this.extraRelsForLinks = Sets.newLinkedHashSet();
+    }
+    for (String linkValue : linkValues) {
+      linkValue = HtmlLexer.canonicalName(linkValue);
+      Preconditions.checkArgument(
+          !Strings.containsHtmlSpace(linkValue),
+          "spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
+      this.extraRelsForLinks.add(linkValue);
+    }
+    if (this.skipRelsForLinks != null) {
+      this.skipRelsForLinks.removeAll(this.extraRelsForLinks);
+    }
+    return this;
+  }
+
+  /**
+   * Opts out of some of the {@link #DEFAULT_RELS_ON_TARGETTED_LINKS} from being added
+   * to links, and reverses pre
+   *
+   * @see #requireRelsOnLinks
+   */
+  public HtmlPolicyBuilder skipRelsOnLinks(String... linkValues) {
+    this.invalidateCompiledState();
+    if (this.skipRelsForLinks == null) {
+      this.skipRelsForLinks = Sets.newLinkedHashSet();
+    }
+    for (String linkValue : linkValues) {
+      linkValue = HtmlLexer.canonicalName(linkValue);
+      Preconditions.checkArgument(
+          !Strings.containsHtmlSpace(linkValue),
+          "spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
+      this.skipRelsForLinks.add(linkValue);
+    }
+    if (this.extraRelsForLinks != null) {
+      this.extraRelsForLinks.removeAll(this.skipRelsForLinks);
+    }
     return this;
   }
 
@@ -597,15 +671,19 @@ public class HtmlPolicyBuilder {
     @SuppressWarnings("hiding")
     Set<String> allowedProtocols = ImmutableSet.copyOf(this.allowedProtocols);
 
-    // Implement requireRelNofollowOnLinks
-    if (requireRelNofollowOnLinks) {
+    // Implement requireRelsOnLinks & skip...
+    {
       ElementPolicy linkPolicy = elPolicies.get("a");
-      if (linkPolicy == null) {
-        linkPolicy = ElementPolicy.REJECT_ALL_ELEMENT_POLICY;
+      if (linkPolicy != null) {
+        RelsOnLinksPolicy relsOnLinksPolicy = RelsOnLinksPolicy.create(
+            this.extraRelsForLinks != null
+            ? this.extraRelsForLinks : ImmutableSet.<String>of(),
+            this.skipRelsForLinks != null
+            ? this.skipRelsForLinks : ImmutableSet.<String>of());
+        elPolicies.put(
+            "a",
+            ElementPolicy.Util.join(linkPolicy, relsOnLinksPolicy));
       }
-      elPolicies.put(
-          "a",
-          ElementPolicy.Util.join(linkPolicy, RelNofollowPolicy.INSTANCE));
     }
 
     // Implement protocol policies.
@@ -834,18 +912,103 @@ public class HtmlPolicyBuilder {
   }
 
 
-  private static final class RelNofollowPolicy implements ElementPolicy {
-    static final RelNofollowPolicy INSTANCE = new RelNofollowPolicy();
+  private static final class RelsOnLinksPolicy
+      implements ElementPolicy.JoinableElementPolicy {
+    final ImmutableSet<String> extra;
+    final ImmutableSet<String> skip;
+    final ImmutableSet<String> whenTargetPresent;
+
+    static final RelsOnLinksPolicy EMPTY = new RelsOnLinksPolicy(
+        ImmutableSet.<String>of(), ImmutableSet.<String>of());
+
+    static RelsOnLinksPolicy create(
+        Set<? extends String> extra,
+        Set<? extends String> skip) {
+      if (extra.isEmpty() && skip.isEmpty()) { return EMPTY; }
+      return new RelsOnLinksPolicy(extra, skip);
+    }
+
+    RelsOnLinksPolicy(
+        Set<? extends String> extra,
+        Set<? extends String> skip) {
+      this.extra = ImmutableSet.copyOf(extra);
+      this.skip = ImmutableSet.copyOf(skip);
+      Set<String> targetOnly = Sets.newLinkedHashSet();
+      targetOnly.addAll(DEFAULT_RELS_ON_TARGETTED_LINKS);
+      targetOnly.removeAll(extra);
+      targetOnly.removeAll(skip);
+      this.whenTargetPresent = ImmutableSet.copyOf(targetOnly);
+    }
+
+    private static int indexOfAttributeValue(
+        String canonAttrName, List<String> attrs) {
+      for (int i = 0, n = attrs.size(); i < n; i += 2) {
+        if (canonAttrName.equals(attrs.get(i))) {
+          return i + 1;
+        }
+      }
+      return -1;
+    }
 
     public String apply(String elementName, List<String> attrs) {
-      for (int i = 0, n = attrs.size(); i < n; i += 2) {
-        if ("href".equals(attrs.get(i))) {
-          attrs.add("rel");
-          attrs.add("nofollow");
-          break;
+      if (indexOfAttributeValue("href", attrs) >= 0) {
+        // It's a link.
+        boolean hasTarget = indexOfAttributeValue("target", attrs) >= 0;
+        if (hasTarget || !extra.isEmpty()) {
+          int relIndex = indexOfAttributeValue("rel", attrs);
+          String relValue;
+          if (relIndex < 0 && hasTarget && extra.isEmpty() && skip.isEmpty()) {
+            relValue = DEFAULT_RELS_ON_TARGETTED_LINKS_STR;
+          } else {
+            StringBuilder sb = new StringBuilder();
+            if (relIndex >= 0) {
+              sb.append(attrs.get(relIndex)).append(' ');
+            }
+            for (String s : extra) {
+              sb.append(s).append(' ');
+            }
+            if (hasTarget) {
+              for (String s : whenTargetPresent) {
+                sb.append(s).append(' ');
+              }
+            }
+            relValue = sb.substring(0, sb.length() - 1);
+          }
+          if (relIndex < 0) {
+            attrs.add("rel");
+            attrs.add(relValue);
+          } else {
+            attrs.set(relIndex, relValue);
+          }
         }
       }
       return elementName;
     }
+
+    public Joinable.JoinStrategy<JoinableElementPolicy>
+    getJoinStrategy() {
+      return JoinRelsOnLinksPolicies.INSTANCE;
+    }
+  }
+
+  static final class JoinRelsOnLinksPolicies
+  implements Joinable.JoinStrategy<JoinableElementPolicy> {
+
+    static final JoinRelsOnLinksPolicies INSTANCE
+        = new JoinRelsOnLinksPolicies();
+
+    public JoinableElementPolicy join(
+        Iterable<? extends JoinableElementPolicy> toJoin) {
+      Set<String> extra = Sets.newLinkedHashSet();
+      Set<String> skip = Sets.newLinkedHashSet();
+      for (JoinableElementPolicy ep : toJoin) {
+        RelsOnLinksPolicy p = (RelsOnLinksPolicy) ep;
+        extra.addAll(p.extra);
+        skip.addAll(p.skip);
+      }
+      extra.removeAll(skip);
+      return RelsOnLinksPolicy.create(extra, skip);
+    }
   }
 }
+

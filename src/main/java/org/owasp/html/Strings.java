@@ -156,6 +156,13 @@ final class Strings {
     return ch <= 0x20 && (HTML_SPACE_CHAR_BITMASK & (1L << ch)) != 0;
   }
 
+  static boolean containsHtmlSpace(String s) {
+    for (int i = 0, n = s.length(); i < n; ++i) {
+      if (isHtmlSpace(s.charAt(i))) { return true; }
+    }
+    return false;
+  }
+
   static String stripHtmlSpaces(String s) {
     int i = 0, n = s.length();
     for (; n > i; --n) {

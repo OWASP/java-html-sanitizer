@@ -95,7 +95,8 @@ public class ExamplesTest extends TestCase {
   public static final void testTextAllowedInLinks() {
     String input = "<a href=\"../good.html\">click here</a>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
-    assertEquals("<a href=\"../good.html\" rel=\"nofollow\">click here</a>",
-                 sanitized);
+    assertEquals(
+        "<a href=\"../good.html\" rel=\"nofollow\">click here</a>",
+        sanitized);
   }
 }
