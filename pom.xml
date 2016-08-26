@@ -10,6 +10,11 @@
   </parent>
 
   <name>OWASP Java HTML Sanitizer</name>
+  <description>
+    Takes third-party HTML and produces HTML that is safe to embed in
+    your web application.
+    Fast and easy to configure.
+  </description>
 
   <build>
     <plugins>

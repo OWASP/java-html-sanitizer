@@ -200,6 +200,7 @@ application while protecting against XSS.
             which we want to link against.
         -->
         <version>[11.0,)</version>
+        <scope>provided</scope>
       </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
