@@ -2,6 +2,13 @@
 
 Most recent at top.
 
+  * SNAPSHOT
+    * When `target="..."` is present on a link, add `rel="noopener noreferrer"`
+      to prevent linked pages from using the JavaScript `window.opener` to
+      redirect to phishing pages.
+    * No longer depends on an obsolete guava via a transitive dependency and
+      the explicit guava dependency is now `<scope>provided</scope>` for
+      greater compatibility.
   * Release 20160614.1
     * URLs are allowed in style="..." via HtmlPolicyBuilder.allowUrlsInStyles
   * Release 20160526.1
