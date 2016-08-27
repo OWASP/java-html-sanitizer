@@ -2,7 +2,7 @@
 
 Most recent at top.
 
-  * SNAPSHOT
+  * Release 20160827.1
     * When `target="..."` is present on a link, add `rel="noopener noreferrer"`
       to prevent linked pages from using the JavaScript `window.opener` to
       redirect to phishing pages.
