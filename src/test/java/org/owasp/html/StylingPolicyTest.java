@@ -129,6 +129,9 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss(
         "font-family:'arial bold' , , , 'helvetica' , sans-serif",
         "font-family: 'Arial Bold',,\"\",Helvetica,sans-serif");
+    assertSanitizedCss(
+        "font:'chalkboardse-light' , 'helvetica' , monospace",
+        "FONT: \"ChalkboardSE-Light\", Helvetica, monospace");
   }
 
   @Test
@@ -151,6 +154,7 @@ public class StylingPolicyTest extends TestCase {
         null, "font: rgb(\"expression(alert(1337))//\")");
     assertSanitizedCss("font-size:smaller", "font-size: smaller");
     assertSanitizedCss("font:smaller", "font: smaller");
+    assertSanitizedCss("font:'chalkboardse-light'", "font: 'ChalkboardSE-Light'");
   }
 
   @Test
