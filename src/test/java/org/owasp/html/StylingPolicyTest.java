@@ -317,6 +317,19 @@ public class StylingPolicyTest extends TestCase {
         "background-image: URL( \"foo.gif\" )");
   }
 
+  @Test
+  public static final void testImportant() {
+    assertSanitizedCss(
+        "color:blue !important",
+        "color:blue !important");
+    assertSanitizedCss(
+        "color:red !important",
+        "color:red ! IMPORTANT");
+    assertSanitizedCss(
+        "color:purple",
+        "color:purple !foo(bar) important");
+  }
+
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(

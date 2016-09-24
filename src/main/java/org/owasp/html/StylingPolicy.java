@@ -73,6 +73,7 @@ final class StylingPolicy implements AttributePolicy {
       int propertyStart = 0;
       boolean hasTokens;
       boolean inQuotedIdents;
+      String lastToken = null;
 
       private void emitToken(String token) {
         closeQuotedIdents();
@@ -109,6 +110,7 @@ final class StylingPolicy implements AttributePolicy {
             sanitizeAndAppendUrl(urlContent);
           }
         }
+        lastToken = token;
       }
 
       public void startProperty(String propertyName) {
@@ -134,6 +136,7 @@ final class StylingPolicy implements AttributePolicy {
         if (cssProperty != CssSchema.DISALLOWED) {
           emitToken(token);
         }
+        lastToken = token;
       }
 
       public void quotedString(String token) {
@@ -156,6 +159,7 @@ final class StylingPolicy implements AttributePolicy {
             sanitizeAndAppendUrl(CssGrammar.cssContent(token));
           }
         }
+        lastToken = token;
       }
 
       public void quantity(String token) {
@@ -166,6 +170,7 @@ final class StylingPolicy implements AttributePolicy {
             || cssProperty.literals.contains(token)) {
           emitToken(token);
         }
+        lastToken = token;
       }
 
       public void punctuation(String token) {
@@ -173,13 +178,16 @@ final class StylingPolicy implements AttributePolicy {
         if (cssProperty.literals.contains(token)) {
           emitToken(token);
         }
+        lastToken = token;
       }
 
       private static final int IDENT_TO_STRING =
           CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_STRING;
       public void identifier(String uncanonToken) {
         String token = Strings.toLowerCase(uncanonToken);
-        if (cssProperty.literals.contains(token)) {
+        if ("!".equals(lastToken) && "important".equals(token)) {
+          emitToken("!important");
+        } else if (cssProperty.literals.contains(token)) {
           emitToken(token);
         } else if ((cssProperty.bits & IDENT_TO_STRING) == IDENT_TO_STRING) {
           if (!inQuotedIdents) {
@@ -192,6 +200,7 @@ final class StylingPolicy implements AttributePolicy {
           }
           sanitizedCss.append(Strings.toLowerCase(token));
         }
+        lastToken = token;
       }
 
       public void hash(String token) {
@@ -199,6 +208,7 @@ final class StylingPolicy implements AttributePolicy {
         if ((cssProperty.bits & CssSchema.BIT_HASH_VALUE) != 0) {
           emitToken(Strings.toLowerCase(token));
         }
+        lastToken = token;
       }
 
       public void endProperty() {
@@ -207,11 +217,13 @@ final class StylingPolicy implements AttributePolicy {
         } else {
           closeQuotedIdents();
         }
+        lastToken = null;
       }
 
       public void endFunction(String token) {
         if (cssProperty != CssSchema.DISALLOWED) { emitToken(")"); }
         cssProperty = cssProperties.remove(cssProperties.size() - 1);
+        lastToken = ")";
       }
     });
     return sanitizedCss.length() == 0 ? null : sanitizedCss.toString();
