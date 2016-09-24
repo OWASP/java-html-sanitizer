@@ -2,6 +2,8 @@
 
 Most recent at top.
 
+  * Release 20160924.1
+    * Allow !important in style attributes when styling is allowed.
   * Release 20160827.1
     * When `target="..."` is present on a link, add `rel="noopener noreferrer"`
       to prevent linked pages from using the JavaScript `window.opener` to
