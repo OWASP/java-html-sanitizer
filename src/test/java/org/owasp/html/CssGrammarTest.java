@@ -49,6 +49,7 @@ public class CssGrammarTest extends TestCase {
         "[ url( http://example.com )",
         "rgb(255, 127, 127)",
         "'strings' \"oh \\\"my\" 'foo bar'",
+        "color:blue!important",
         ""));
 
     List<String> actualTokens = Lists.newArrayList();
@@ -96,7 +97,12 @@ public class CssGrammarTest extends TestCase {
             "'strings':STRING",
             "'oh \\22my':STRING",
             "'foo bar':STRING",
-            "]:RIGHT_SQUARE"
+            "color:IDENT",
+            "::COLON",
+            "blue:IDENT",
+            "!:DELIM",
+            "important:IDENT",
+            "]:RIGHT_SQUARE"  // Manufactured due to unmatched '['.
             ),
         Joiner.on('\n').join(actualTokens));
   }
