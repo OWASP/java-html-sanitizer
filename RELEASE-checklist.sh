@@ -46,7 +46,7 @@ export VERSION_PLACEHOLDER=99999999999999-SNAPSHOT
 mvn -f aggregate \
     release:update-versions \
     -DautoVersionSubmodules=true \
-    -DdevelopmentVersion="$VERSION_PLACEHOLDER"
+    -DdevelopmentVersion="$VERSION_PLACEHOLDER" && \
 find . -name pom.xml \
     | xargs perl -i.placeholder -pe "s/$VERSION_PLACEHOLDER/$NEW_VERSION/g"
 
