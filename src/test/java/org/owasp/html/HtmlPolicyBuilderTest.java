@@ -295,6 +295,33 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testImageTag() {
+    assertEquals(
+        ""
+        + "<img src=\"http://example.com/foo.png\" />"
+        + "<img src=\"http://example.com/bar.png\" />"
+        + "<img />",  // OK if this isn't here too.
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowElements(
+                new ElementPolicy() {
+
+                  public String apply(String elementName, List<String> attrs) {
+                    return "img";
+                  }
+
+                }, "image")
+            .allowAttributes("src").onElements("img", "image")
+            .allowStandardUrlProtocols(),
+            ""
+            + "<image src=\"http://example.com/foo.png\" />"
+            + "<Image src=\"http://example.com/bar.png\">"
+            + "<IMAGE>"));
+  }
+
+  @Test
   public static final void testDuplicateAttributesDoNotReachElementPolicy() {
     final int[] idCount = new int[1];
     assertEquals(

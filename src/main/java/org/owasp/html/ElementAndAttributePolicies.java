@@ -41,7 +41,6 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 final class ElementAndAttributePolicies {
   final String elementName;
-  final boolean isVoid;
   final ElementPolicy elPolicy;
   final ImmutableMap<String, AttributePolicy> attrPolicies;
   final boolean skipIfEmpty;
@@ -53,7 +52,6 @@ final class ElementAndAttributePolicies {
         attrPolicies,
       boolean skipIfEmpty) {
     this.elementName = elementName;
-    this.isVoid = HtmlTextEscapingMode.isVoidElement(elementName);
     this.elPolicy = elPolicy;
     this.attrPolicies = ImmutableMap.copyOf(attrPolicies);
     this.skipIfEmpty = skipIfEmpty;

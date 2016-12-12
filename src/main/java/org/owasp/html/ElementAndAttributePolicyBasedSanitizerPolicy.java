@@ -143,6 +143,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       removeDuplicateAttributes(attrs);
 
       adjustedElementName = policies.elPolicy.apply(elementName, attrs);
+      if (adjustedElementName != null) {
+        adjustedElementName = HtmlLexer.canonicalName(adjustedElementName);
+      }
     } else {
       adjustedElementName = null;
     }
@@ -178,7 +181,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   void writeOpenTag(
       ElementAndAttributePolicies policies, String adjustedElementName,
       List<String> attrs) {
-    if (!policies.isVoid) {
+    if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
       openElementStack.add(policies.elementName);
       openElementStack.add(adjustedElementName);
       skipText = !allowedTextContainers.contains(adjustedElementName);
