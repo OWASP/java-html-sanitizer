@@ -199,8 +199,7 @@ application while protecting against XSS.
             We depend on 11 because it is the last which works with JDK 5
             which we want to link against.
         -->
-        <version>[11.0,)</version>
-        <scope>provided</scope>
+        <version>19.0</version>
       </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
