@@ -195,10 +195,6 @@ application while protecting against XSS.
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <!--
-            We depend on 11 because it is the last which works with JDK 5
-            which we want to link against.
-        -->
         <version>19.0</version>
       </dependency>
       <dependency>
