@@ -100,7 +100,7 @@ function runExperiment(makeHtmlString, checkDom, initialResult, onResult,
       advance();
     }
 
-    if (htmlString == null) { 
+    if (htmlString == null) {
       var endTime = Date.now();
       console.log('experiment took %d millis for %d runs',
                   (endTime - startTime), nRuns);
