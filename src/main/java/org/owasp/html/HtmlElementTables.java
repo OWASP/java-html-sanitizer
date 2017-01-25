@@ -753,7 +753,8 @@ public final class HtmlElementTables implements Serializable {
   static final Comparator<int[]> COMPARE_BY_ZEROTH =
       new Comparator<int[]>() {
         public int compare(int[] a, int[] b) {
-          return Integer.compare(a[0], b[0]);
+          // Integer.compare is @since JDK 7
+          return a[0] - b[0];
         }
       };
 }
