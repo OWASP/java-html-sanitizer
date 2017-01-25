@@ -410,9 +410,13 @@ public final class HtmlElementTables implements Serializable {
           in.close();
         }
       } catch (IOException ex) {
-        throw new AssertionError("Could not load HTML metadata", ex);
+        throw (AssertionError)
+            new AssertionError("Could not load HTML metadata")
+            .initCause(ex);
       } catch (ClassNotFoundException ex) {
-        throw new AssertionError("Could not load HTML metadata", ex);
+        throw (AssertionError)
+            new AssertionError("Could not load HTML metadata")
+            .initCause(ex);
       }
       INSTANCE = Preconditions.checkNotNull(t);
     }
