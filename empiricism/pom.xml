@@ -1,0 +1,48 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+  <artifactId>html-types</artifactId>
+  <version>20160924.2-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <parent>
+    <relativePath>../parent</relativePath>
+    <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+    <artifactId>parent</artifactId>
+    <version>20160924.2-SNAPSHOT</version>
+  </parent>
+
+  <name>empiricism</name>
+  <description>
+    HTML metadata derived by interrogating a browser's HTML parser
+  </description>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+      <artifactId>owasp-java-html-sanitizer</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.json</groupId>
+      <artifactId>javax.json-api</artifactId>
+      <version>1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish</groupId>
+      <artifactId>javax.json</artifactId>
+      <version>1.0.4</version>
+    </dependency>
+  </dependencies>
+</project>

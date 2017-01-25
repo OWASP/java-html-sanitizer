@@ -52,18 +52,18 @@ var elementNames =
   'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'element',
   'em', 'embed', 'fieldset', 'figcaption', 'figure', 'font', 'footer',
   'form', 'frame', 'frameset', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'image',
-  'img', 'input', 'ins', 'isindex', 'kbd', 'keygen', 'label',
-  'legend', 'li', 'link', 'listing', 'main', 'map', 'mark', 'marquee',
-  'menu', 'menuitem', 'meta', 'meter', 'multicol', 'nav', 'nobr',
-  'noembed', 'noframes', 'noscript', 'object', 'ol', 'optgroup',
-  'option', 'output', 'p', 'param', 'picture', 'plaintext', 'pre',
-  'progress', 'q', 'rp', 'rt', 'rtc', 'ruby', 's', 'samp', 'script',
-  'section', 'select', 'shadow', 'slot', 'small', 'source', 'spacer',
-  'span', 'strike', 'strong', 'style', 'sub', 'summary', 'sup',
-  'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th',
-  'thead', 'time', 'title', 'tr', 'track', 'tt', 'u', 'ul', 'var',
-  'video', 'wbr', 'xmp',
+  'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img',
+  'input', 'ins', 'isindex', 'kbd', 'keygen', 'label', 'legend', 'li',
+  'link', 'listing', 'main', 'map', 'mark', 'marquee', 'menu',
+  'menuitem', 'meta', 'meter', 'multicol', 'nav', 'nobr', 'noembed',
+  'noframes', 'noscript', 'object', 'ol', 'optgroup', 'option',
+  'output', 'p', 'param', 'picture', 'plaintext', 'pre', 'progress',
+  'q', 'rp', 'rt', 'rtc', 'ruby', 's', 'samp', 'script', 'section',
+  'select', 'shadow', 'slot', 'small', 'source', 'spacer', 'span',
+  'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'table',
+  'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead',
+  'time', 'title', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video',
+  'wbr', 'xmp',
 
   'xcustom'
 ];
@@ -130,6 +130,7 @@ to answer the following questions about how HTML browsers parse tag soup:</p>
   <li><a href="#explicit-closers">Which open tags close which other elements?</a></li>
   <li><a href="#closed-by-close">Which close tags close which elements?</a></li>
   <li><a href="#closed-by-open">Which open tags close which elements?</a></li>
+  <li><a href="#resumable">Which inline tags are resumed after misnested tags?</a></li>
 </ul>
 
 <p>A <a href="#result-dump">JSON dump</a>
@@ -252,6 +253,11 @@ function tagStackToHtml(stack, body) {
   function containmentStackMaker(canAppearIn) {
     var memoTable = newBlankObject();
     return function (elementName, opt_exclusions) {
+      if (elementName == 'body') {
+        // The experiment framework passes the body element so there's no
+        // need for an explicit body tag on the stack.
+        return [];
+      }
       var memoKey = opt_exclusions
           ? elementName + ' ' + opt_exclusions.join(' / ') : elementName;
 
@@ -302,7 +308,8 @@ function tagStackToHtml(stack, body) {
     }
 
     function checkCanContain(outer, inner, body, canContain) {
-      var outerEls = body.getElementsByTagName(outer);
+      var outerEls = outer == 'body'
+          ? [body] : body.getElementsByTagName(outer);
       if (outerEls.length) {
         var containees = getOwn(canContain, outer) || [];
         canContain[outer] = containees;
@@ -354,6 +361,18 @@ function tagStackToHtml(stack, body) {
     var toSatisfy = canContain;
     if (toSatisfy instanceof Promise) {
       canContain = sortedMultiMap(result);
+      // A limitation of our experimental framework is that it passes the body
+      // of the document to the result function which means we can't really
+      // test the relationship between the HTML and HEAD elements, for example.
+      //
+      // To work around that limitation, we hard code some canContain
+      // relationships here.
+      canContain['html'] = ['body', 'frameset', 'head'];
+      canContain['head'] = [
+          'base', 'command', 'link', 'meta', 'noscript', 'script', 'style',
+          'title'];
+      canContain['frameset'] = ['frame', 'frameset', 'noframes'];
+      // TODO: do the same for the text content model.
       toSatisfy.satisfy();
     }
     displayJson(canContain, document.getElementById('can-contain-json'));
@@ -452,6 +471,11 @@ var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
         default:
           console.log('unexpected text `%s` in %s', text, elementName);
       }
+      if (model.text) {
+        if (elementName != 'script' && elementName != 'style') {
+          model.plain_text = true;
+        }
+      }
       result[elementName] = sortedMultiMap(model);
       return result;
     }
@@ -491,6 +515,7 @@ var impliedElements = getOwn(cannedData, 'impliedElements') || new Promise();
 (function () {
   // Generates HTML for the experiment.
   function nestElements(elementNameA, elementNameB) {
+    if (elementNameA === 'html') { return ''; }  // Everything opens body.
     return (
         '<' + elementNameA + '>'
         + '<' + elementNameB + ' id="inner-implied-el">'
@@ -627,7 +652,6 @@ var explicitClosers = getOwn(cannedData, 'explicitClosers') || new Promise();
 }());
 </script>
 
-
 <h3 id="closed-by-open">Open tags close which elements</h3>
 <p>Which open tags close the element when embedded between it and content it
    could otherwise contain?</p>
@@ -744,6 +768,51 @@ var closedOnClose = getOwn(cannedData, 'closedOnClose') || new Promise();
 }());
 </script>
 
+<h2 id="resumable">Resumable</h2>
+<p>If misnested with an inline tag, does the tag resume after the misnesting.
+<code>&lt;x&gt;</code> is resumable when
+<code>&lt;i&gt;&lt;x&gt;foo&lt;/i&gt;bar&lt;/x&gt;</code>
+</p>
+<pre id="resumable-json" class="json"></pre>
+<script>
+var resumable = getOwn(cannedData, 'resumable') || new Promise();
+(function () {
+  // Generates HTML for the experiment.
+  function misnest(elementName) {
+    var inline = elementName === 'i' ? 'b' : 'i';
+    return ('<' + inline + '><' + elementName + '>before</'
+        + inline + '>after</' + elementName + '>');
+  }
+  // Examines the resulting body to fold a single experiment into the result.
+  function isResumable(elementName, body, result) {
+    //result[elementName] = false;  // until proven otherwise
+    var els = body.getElementsByTagName(elementName);
+    for (var i = 0, n = els.length; i < n; ++i) {
+      if ('after' == els[i].textContent) {
+        result[elementName] = true;
+        break;
+      }
+    }
+    return result;
+  }
+  // When the experiment is finished, replace the promise so that we can
+  // kick off experiments that depend on the result of this experiment.
+  function finish(result) {
+    var toSatisfy = resumable;
+    if (toSatisfy instanceof Promise) {
+      resumable = result;
+      toSatisfy.satisfy();
+    }
+    displayJson(result, document.getElementById('resumable-json'))
+  }
+  if (resumable instanceof Promise) {
+    runExperiment(misnest, isResumable, newBlankObject(), finish);
+  } else {
+    finish(resumable);
+  }
+}());
+</script>
+
 <h2 id="result-dump">JSON Dump</h2>
 <p id="working"><em>working</em></p>
 <script>
@@ -757,6 +826,7 @@ var fullJson = {
   "elementNames":        elementNames,
   "explicitClosers":     explicitClosers,
   "impliedElements":     impliedElements,
+  "resumable":           resumable,
   "textContentModel":    textContentModel
 };
 
@@ -765,10 +835,7 @@ var fullJson = {
   function run() {
     for (var k in fullJson) {
       if (fullJson.hasOwnProperty(k)) {
-        var v = fullJson[k];
-        if (v instanceof Promise) {
-          fullJson[k] = v.satisfy();
-        }
+        fullJson[k] = window[k];
       }
     }
 

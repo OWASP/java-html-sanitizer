@@ -32,6 +32,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -138,6 +139,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -244,6 +246,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -350,6 +353,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -455,6 +459,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -561,6 +566,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -667,6 +673,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -772,6 +779,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -877,6 +885,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -983,6 +992,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1089,6 +1099,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1122,6 +1133,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -1195,6 +1207,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1301,6 +1314,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1407,6 +1421,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1513,6 +1528,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1619,6 +1635,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1725,6 +1742,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1831,6 +1849,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -1937,6 +1956,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2026,6 +2046,9 @@ var cannedData = {
       "video",
       "xcustom"
     ],
+    "body": [
+      "html"
+    ],
     "br": [
       "a",
       "abbr",
@@ -2042,6 +2065,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2148,6 +2172,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "canvas",
       "caption",
       "center",
@@ -2253,6 +2278,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2362,6 +2388,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2467,6 +2494,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2573,6 +2601,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2686,6 +2715,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2719,6 +2749,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -2792,6 +2823,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -2898,6 +2930,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3004,6 +3037,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3110,6 +3144,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3216,6 +3251,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3319,6 +3355,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3425,6 +3462,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3530,6 +3568,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3636,6 +3675,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3742,6 +3782,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3847,6 +3888,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -3952,6 +3994,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4057,6 +4100,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4160,6 +4204,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4266,6 +4311,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4372,6 +4418,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4478,6 +4525,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4583,6 +4631,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4688,6 +4737,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4793,6 +4843,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -4899,6 +4950,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5004,6 +5056,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5097,6 +5150,13 @@ var cannedData = {
       "video",
       "xcustom"
     ],
+    "frame": [
+      "frameset"
+    ],
+    "frameset": [
+      "frameset",
+      "html"
+    ],
     "h1": [
       "a",
       "abbr",
@@ -5113,6 +5173,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5212,6 +5273,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5311,6 +5373,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5410,6 +5473,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5509,6 +5573,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5608,6 +5673,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5691,6 +5757,9 @@ var cannedData = {
       "video",
       "xcustom"
     ],
+    "head": [
+      "html"
+    ],
     "header": [
       "a",
       "abbr",
@@ -5707,6 +5776,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5812,6 +5882,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -5917,6 +5988,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6022,6 +6094,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6128,6 +6201,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6234,6 +6308,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6340,6 +6415,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6446,6 +6522,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6552,6 +6629,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6658,6 +6736,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6764,6 +6843,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6870,6 +6950,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -6976,6 +7057,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7082,6 +7164,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7186,6 +7269,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7219,6 +7303,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -7292,6 +7377,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7397,6 +7483,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7502,6 +7589,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7608,6 +7696,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7714,6 +7803,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7820,6 +7910,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -7925,6 +8016,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8031,6 +8123,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8064,6 +8157,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -8137,6 +8231,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8243,6 +8338,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8349,6 +8445,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8454,6 +8551,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8559,6 +8657,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8665,6 +8764,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8692,6 +8792,7 @@ var cannedData = {
       "font",
       "footer",
       "form",
+      "frameset",
       "h1",
       "h2",
       "h3",
@@ -8771,6 +8872,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8804,6 +8906,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -8877,6 +8980,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -8983,6 +9087,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9088,6 +9193,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9194,6 +9300,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9300,6 +9407,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9406,6 +9514,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9511,6 +9620,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9617,6 +9727,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9723,6 +9834,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9828,6 +9940,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -9933,6 +10046,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10039,6 +10153,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10145,6 +10260,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10251,6 +10367,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10357,6 +10474,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10463,6 +10581,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10569,6 +10688,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10675,6 +10795,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10781,6 +10902,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10814,6 +10936,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -10893,6 +11016,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -10998,6 +11122,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11104,6 +11229,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11210,6 +11336,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11316,6 +11443,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11422,6 +11550,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11528,6 +11657,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11634,6 +11764,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11740,6 +11871,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11846,6 +11978,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11952,6 +12085,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -11985,6 +12119,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -12063,6 +12198,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12169,6 +12305,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12274,6 +12411,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12380,6 +12518,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12495,6 +12634,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12608,6 +12748,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12727,6 +12868,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12833,6 +12975,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -12866,6 +13009,7 @@ var cannedData = {
       "h4",
       "h5",
       "h6",
+      "head",
       "header",
       "hgroup",
       "i",
@@ -12945,6 +13089,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13051,6 +13196,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13157,6 +13303,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13263,6 +13410,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13368,6 +13516,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13474,6 +13623,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13580,6 +13730,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13686,6 +13837,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13792,6 +13944,7 @@ var cannedData = {
       "big",
       "blink",
       "blockquote",
+      "body",
       "button",
       "canvas",
       "caption",
@@ -13950,7 +14103,6 @@ var cannedData = {
     "html": false,
     "i": true,
     "iframe": true,
-    "image": false,
     "img": true,
     "input": true,
     "ins": true,
@@ -15897,6 +16049,139 @@ var cannedData = {
       "xmp"
     ],
     "blockquote": [
+      "a",
+      "abbr",
+      "acronym",
+      "address",
+      "applet",
+      "area",
+      "article",
+      "aside",
+      "audio",
+      "b",
+      "base",
+      "basefont",
+      "bb",
+      "bdi",
+      "bdo",
+      "bgsound",
+      "big",
+      "blink",
+      "blockquote",
+      "br",
+      "button",
+      "canvas",
+      "center",
+      "cite",
+      "code",
+      "command",
+      "content",
+      "data",
+      "datagrid",
+      "datalist",
+      "dd",
+      "del",
+      "details",
+      "dfn",
+      "dialog",
+      "dir",
+      "div",
+      "dl",
+      "dt",
+      "element",
+      "em",
+      "embed",
+      "fieldset",
+      "figcaption",
+      "figure",
+      "font",
+      "footer",
+      "form",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "header",
+      "hgroup",
+      "hr",
+      "i",
+      "iframe",
+      "img",
+      "input",
+      "ins",
+      "isindex",
+      "kbd",
+      "keygen",
+      "label",
+      "legend",
+      "li",
+      "link",
+      "listing",
+      "main",
+      "map",
+      "mark",
+      "marquee",
+      "menu",
+      "menuitem",
+      "meta",
+      "meter",
+      "multicol",
+      "nav",
+      "nobr",
+      "noembed",
+      "noframes",
+      "noscript",
+      "object",
+      "ol",
+      "optgroup",
+      "option",
+      "output",
+      "p",
+      "param",
+      "picture",
+      "plaintext",
+      "pre",
+      "progress",
+      "q",
+      "rp",
+      "rt",
+      "rtc",
+      "ruby",
+      "s",
+      "samp",
+      "script",
+      "section",
+      "select",
+      "shadow",
+      "slot",
+      "small",
+      "source",
+      "spacer",
+      "span",
+      "strike",
+      "strong",
+      "style",
+      "sub",
+      "summary",
+      "sup",
+      "table",
+      "template",
+      "textarea",
+      "time",
+      "title",
+      "track",
+      "tt",
+      "u",
+      "ul",
+      "var",
+      "video",
+      "wbr",
+      "xcustom",
+      "xmp"
+    ],
+    "body": [
       "a",
       "abbr",
       "acronym",
@@ -19622,6 +19907,11 @@ var cannedData = {
       "xcustom",
       "xmp"
     ],
+    "frameset": [
+      "frame",
+      "frameset",
+      "noframes"
+    ],
     "h1": [
       "a",
       "abbr",
@@ -20384,6 +20674,16 @@ var cannedData = {
       "xcustom",
       "xmp"
     ],
+    "head": [
+      "base",
+      "command",
+      "link",
+      "meta",
+      "noscript",
+      "script",
+      "style",
+      "title"
+    ],
     "header": [
       "a",
       "abbr",
@@ -20651,6 +20951,11 @@ var cannedData = {
       "xmp"
     ],
     "hr": [],
+    "html": [
+      "body",
+      "frameset",
+      "head"
+    ],
     "i": [
       "a",
       "abbr",
@@ -37843,7 +38148,6 @@ var cannedData = {
     "html",
     "i",
     "iframe",
-    "image",
     "img",
     "input",
     "ins",
@@ -37988,7 +38292,6 @@ var cannedData = {
       "hr",
       "i",
       "iframe",
-      "image",
       "img",
       "input",
       "ins",
@@ -38121,401 +38424,6 @@ var cannedData = {
     ]
   },
   "impliedElements": {
-    "html": {
-      "a": [
-        "body"
-      ],
-      "abbr": [
-        "body"
-      ],
-      "acronym": [
-        "body"
-      ],
-      "address": [
-        "body"
-      ],
-      "applet": [
-        "body"
-      ],
-      "area": [
-        "body"
-      ],
-      "article": [
-        "body"
-      ],
-      "aside": [
-        "body"
-      ],
-      "audio": [
-        "body"
-      ],
-      "b": [
-        "body"
-      ],
-      "base": [
-        "body"
-      ],
-      "basefont": [
-        "body"
-      ],
-      "bb": [
-        "body"
-      ],
-      "bdi": [
-        "body"
-      ],
-      "bdo": [
-        "body"
-      ],
-      "bgsound": [
-        "body"
-      ],
-      "big": [
-        "body"
-      ],
-      "blink": [
-        "body"
-      ],
-      "blockquote": [
-        "body"
-      ],
-      "br": [
-        "body"
-      ],
-      "button": [
-        "body"
-      ],
-      "canvas": [
-        "body"
-      ],
-      "center": [
-        "body"
-      ],
-      "cite": [
-        "body"
-      ],
-      "code": [
-        "body"
-      ],
-      "command": [
-        "body"
-      ],
-      "content": [
-        "body"
-      ],
-      "data": [
-        "body"
-      ],
-      "datagrid": [
-        "body"
-      ],
-      "datalist": [
-        "body"
-      ],
-      "dd": [
-        "body"
-      ],
-      "del": [
-        "body"
-      ],
-      "details": [
-        "body"
-      ],
-      "dfn": [
-        "body"
-      ],
-      "dialog": [
-        "body"
-      ],
-      "dir": [
-        "body"
-      ],
-      "div": [
-        "body"
-      ],
-      "dl": [
-        "body"
-      ],
-      "dt": [
-        "body"
-      ],
-      "element": [
-        "body"
-      ],
-      "em": [
-        "body"
-      ],
-      "embed": [
-        "body"
-      ],
-      "fieldset": [
-        "body"
-      ],
-      "figcaption": [
-        "body"
-      ],
-      "figure": [
-        "body"
-      ],
-      "font": [
-        "body"
-      ],
-      "footer": [
-        "body"
-      ],
-      "form": [
-        "body"
-      ],
-      "h1": [
-        "body"
-      ],
-      "h2": [
-        "body"
-      ],
-      "h3": [
-        "body"
-      ],
-      "h4": [
-        "body"
-      ],
-      "h5": [
-        "body"
-      ],
-      "h6": [
-        "body"
-      ],
-      "header": [
-        "body"
-      ],
-      "hgroup": [
-        "body"
-      ],
-      "hr": [
-        "body"
-      ],
-      "i": [
-        "body"
-      ],
-      "iframe": [
-        "body"
-      ],
-      "img": [
-        "body"
-      ],
-      "input": [
-        "body"
-      ],
-      "ins": [
-        "body"
-      ],
-      "isindex": [
-        "body"
-      ],
-      "kbd": [
-        "body"
-      ],
-      "keygen": [
-        "body"
-      ],
-      "label": [
-        "body"
-      ],
-      "legend": [
-        "body"
-      ],
-      "li": [
-        "body"
-      ],
-      "link": [
-        "body"
-      ],
-      "listing": [
-        "body"
-      ],
-      "main": [
-        "body"
-      ],
-      "map": [
-        "body"
-      ],
-      "mark": [
-        "body"
-      ],
-      "marquee": [
-        "body"
-      ],
-      "menu": [
-        "body"
-      ],
-      "menuitem": [
-        "body"
-      ],
-      "meta": [
-        "body"
-      ],
-      "meter": [
-        "body"
-      ],
-      "multicol": [
-        "body"
-      ],
-      "nav": [
-        "body"
-      ],
-      "nobr": [
-        "body"
-      ],
-      "noembed": [
-        "body"
-      ],
-      "noframes": [
-        "body"
-      ],
-      "noscript": [
-        "body"
-      ],
-      "object": [
-        "body"
-      ],
-      "ol": [
-        "body"
-      ],
-      "optgroup": [
-        "body"
-      ],
-      "option": [
-        "body"
-      ],
-      "output": [
-        "body"
-      ],
-      "p": [
-        "body"
-      ],
-      "param": [
-        "body"
-      ],
-      "picture": [
-        "body"
-      ],
-      "plaintext": [
-        "body"
-      ],
-      "pre": [
-        "body"
-      ],
-      "progress": [
-        "body"
-      ],
-      "q": [
-        "body"
-      ],
-      "rp": [
-        "body"
-      ],
-      "rt": [
-        "body"
-      ],
-      "rtc": [
-        "body"
-      ],
-      "ruby": [
-        "body"
-      ],
-      "s": [
-        "body"
-      ],
-      "samp": [
-        "body"
-      ],
-      "script": [
-        "body"
-      ],
-      "section": [
-        "body"
-      ],
-      "select": [
-        "body"
-      ],
-      "shadow": [
-        "body"
-      ],
-      "slot": [
-        "body"
-      ],
-      "small": [
-        "body"
-      ],
-      "source": [
-        "body"
-      ],
-      "spacer": [
-        "body"
-      ],
-      "span": [
-        "body"
-      ],
-      "strike": [
-        "body"
-      ],
-      "strong": [
-        "body"
-      ],
-      "style": [
-        "body"
-      ],
-      "sub": [
-        "body"
-      ],
-      "summary": [
-        "body"
-      ],
-      "sup": [
-        "body"
-      ],
-      "table": [
-        "body"
-      ],
-      "template": [
-        "body"
-      ],
-      "textarea": [
-        "body"
-      ],
-      "time": [
-        "body"
-      ],
-      "title": [
-        "body"
-      ],
-      "track": [
-        "body"
-      ],
-      "tt": [
-        "body"
-      ],
-      "u": [
-        "body"
-      ],
-      "ul": [
-        "body"
-      ],
-      "var": [
-        "body"
-      ],
-      "video": [
-        "body"
-      ],
-      "wbr": [
-        "body"
-      ],
-      "xcustom": [
-        "body"
-      ],
-      "xmp": [
-        "body"
-      ]
-    },
     "table": {
       "col": [
         "colgroup"
@@ -38533,51 +38441,76 @@ var cannedData = {
       ]
     }
   },
+  "resumable": {
+    "a": true,
+    "b": true,
+    "big": true,
+    "code": true,
+    "em": true,
+    "font": true,
+    "i": true,
+    "nobr": true,
+    "s": true,
+    "small": true,
+    "strike": true,
+    "strong": true,
+    "tt": true,
+    "u": true
+  },
   "textContentModel": {
     "a": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "abbr": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "acronym": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "address": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "applet": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "area": {},
     "article": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "aside": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "audio": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "b": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "base": {},
@@ -38585,63 +38518,76 @@ var cannedData = {
     "bb": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "bdi": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "bdo": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "bgsound": {},
     "big": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "blink": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "blockquote": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
+    "body": {},
     "br": {},
     "button": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "canvas": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "caption": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "center": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "cite": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "code": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "col": {},
@@ -38650,156 +38596,187 @@ var cannedData = {
     "content": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "data": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "datagrid": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "datalist": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "dd": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "del": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "details": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "dfn": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "dialog": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "dir": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "div": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "dl": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "dt": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "element": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "em": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "embed": {},
     "fieldset": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "figcaption": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "figure": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "font": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "footer": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "form": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "h1": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "h2": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "h3": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "h4": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "h5": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "h6": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "header": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "hgroup": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "hr": {},
     "i": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "iframe": {
+      "plain_text": true,
       "raw": true,
       "text": true
     },
@@ -38808,140 +38785,168 @@ var cannedData = {
     "ins": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "isindex": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "kbd": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "keygen": {},
     "label": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "legend": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "li": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "link": {},
     "listing": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "main": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "map": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "mark": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "marquee": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "menu": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "menuitem": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "meta": {},
     "meter": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "multicol": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "nav": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "nobr": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "noembed": {
+      "plain_text": true,
       "raw": true,
       "text": true
     },
     "noframes": {
+      "plain_text": true,
       "raw": true,
       "text": true
     },
     "noscript": {
+      "plain_text": true,
       "raw": true,
       "text": true
     },
     "object": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "ol": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "optgroup": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "option": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "output": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "p": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "param": {},
     "picture": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "plaintext": {
+      "plain_text": true,
       "raw": true,
       "text": true,
       "unended": true
@@ -38949,46 +38954,55 @@ var cannedData = {
     "pre": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "progress": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "q": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "rp": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "rt": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "rtc": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "ruby": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "s": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "samp": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "script": {
@@ -38998,47 +39012,56 @@ var cannedData = {
     "section": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "select": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "shadow": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "slot": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "small": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "source": {},
     "spacer": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "span": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "strike": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "strong": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "style": {
@@ -39048,16 +39071,19 @@ var cannedData = {
     "sub": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "summary": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "sup": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "table": {
@@ -39069,11 +39095,13 @@ var cannedData = {
     "td": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "template": {},
     "textarea": {
       "entities": true,
+      "plain_text": true,
       "raw": true,
       "text": true
     },
@@ -39083,6 +39111,7 @@ var cannedData = {
     "th": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "thead": {
@@ -39091,10 +39120,12 @@ var cannedData = {
     "time": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "title": {
       "entities": true,
+      "plain_text": true,
       "raw": true,
       "text": true
     },
@@ -39105,35 +39136,42 @@ var cannedData = {
     "tt": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "u": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "ul": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "var": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "video": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "wbr": {},
     "xcustom": {
       "comments": true,
       "entities": true,
+      "plain_text": true,
       "text": true
     },
     "xmp": {
+      "plain_text": true,
       "raw": true,
       "text": true
     }
