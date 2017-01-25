@@ -284,7 +284,8 @@ public class HtmlSanitizerTest extends TestCase {
 
   @Test
   public static final void testNabobsOfNegativism() {
-    // Treating <noscript> as raw-text gains us nothing security-wise.
+    // Treating <noscript> as raw-text gains us nothing security-wise
+    // and we don't want to push tag content outside.
     assertEquals("<noscript></noscript>",
                  sanitize("<noscript><evil></noscript>"));
     assertEquals("<noscript>I <b>&lt;3</b> Ponies</noscript>",

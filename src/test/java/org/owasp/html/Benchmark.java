@@ -43,6 +43,13 @@ import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 
 /**
  * An executable that benchmarks the sanitizer against an alternative.
+ * <p>
+ * Can be run thus
+ * <pre>
+ * mvn exec:java -Dexec.mainClass=org.owasp.html.Benchmark \
+ *   -Dexec.classpathScope=test \
+ *   -Dexec.args=src/test/resources/benchmark-data/Yahoo\!.html
+ * </pre>
  */
 public class Benchmark {
 

@@ -86,15 +86,15 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
   public final void testTagSoupIronedOut() {
     balancer.openDocument();
     balancer.openTag("i", ImmutableList.<String>of());
-    balancer.text("a");
+    balancer.text("x");
     balancer.openTag("b", ImmutableList.<String>of());
-    balancer.text("b");
+    balancer.text("y");
     balancer.closeTag("i");
-    balancer.text("c");
+    balancer.text("z");
     balancer.closeDocument();
 
     assertEquals(
-        "<i>a<b>b</b></i><b>c</b>",
+        "<i>x<b>y</b></i><b>z</b>",
         htmlOutputBuffer.toString());
   }
 
@@ -161,7 +161,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         + "<style type=\"text/css\">\n.World {\n  color: blue\n}\n</style></h1>"
         // Whitespace allowed inside <ul> but non-whitespace text nodes are
         // moved inside <li>.
-        + "<ul>\n  <li>Hello,</li>\n  <li>World!</li></ul>",
+        + "<ul><li>Hello,</li><li>World!</li></ul>",
         htmlOutputBuffer.toString());
   }
 
@@ -181,17 +181,18 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeTag("hr"); // hr is not a header tag so does not close an h3.
     balancer.text("header");
     // <h3> is not allowed in h3.
-    balancer.openTag("hr", ImmutableList.<String>of());
-    balancer.closeTag("hr");
+    balancer.openTag("h3", ImmutableList.<String>of());
+    balancer.closeTag("h3");
     balancer.text("sub-sub-body");
     balancer.closeTag("H4");
     balancer.closeTag("h2");
     balancer.closeDocument();
 
     assertEquals(
+
         "<h1>header</h1>body"
         + "<h2>sub-header</h2>sub-body"
-        + "<h3>sub-sub-header</h3><hr />sub-sub-body",
+        + "<h3>sub-sub-header</h3><h3></h3>sub-sub-body",
         htmlOutputBuffer.toString());
   }
 
@@ -228,7 +229,8 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.openTag("td", ImmutableList.<String>of());
     balancer.text("foo");
     balancer.closeTag("td");
-    // Insert a td to contain this mis-nested table.
+    // Chrome does not insert a td to contain this mis-nested table.
+    // Instead, it ends one table and starts another.
     balancer.openTag("table", ImmutableList.<String>of());
     balancer.openTag("tbody", ImmutableList.<String>of());
     balancer.openTag("tr", ImmutableList.<String>of());
@@ -239,9 +241,9 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeDocument();
 
     assertEquals(
-        "<table><tbody><tr><td>foo</td><td>"
-        + "<table><tbody><tr><th>bar</th></tr></tbody></table>"
-        + "</td></tr></tbody></table>",
+        "<table><tbody><tr><td>foo</td></tr></tbody></table>"
+        + "<table><tbody><tr><th>bar</th></tr></tbody></table>",
+
         htmlOutputBuffer.toString());
   }
 
@@ -281,7 +283,8 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.text("How are you");
     balancer.closeTag("p");
     balancer.text("\n");
-    balancer.openTag("p", ImmutableList.<String>of());
+    balancer.openTag("ul", ImmutableList.<String>of());
+    balancer.openTag("li", ImmutableList.<String>of());
     balancer.openTag("table", ImmutableList.<String>of());
     balancer.openTag("tbody", ImmutableList.<String>of());
     balancer.openTag("tr", ImmutableList.<String>of());
@@ -292,17 +295,17 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
       balancer.openTag("font", ImmutableList.<String>of());
       balancer.openTag("p", ImmutableList.<String>of());
       balancer.text("Cell");
-      balancer.closeTag("b");
-      balancer.closeTag("font");
-      balancer.closeTag("font");
       balancer.closeTag("p");
+      balancer.closeTag("font");
+      balancer.closeTag("font");
+      balancer.closeTag("li");
       balancer.text("\n");
       balancer.closeTag("td");
     }
     balancer.closeTag("tr");
     balancer.closeTag("tbody");
     balancer.closeTag("table");
-    balancer.closeTag("p");
+    balancer.closeTag("ul");
     balancer.text("\n");
     balancer.openTag("p", ImmutableList.<String>of());
     balancer.text("x");
@@ -312,13 +315,15 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeDocument();
 
     assertEquals(
-        "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>\n"
-        + "<p><table><tbody><tr>"
-        + "<td><b><font><font></font></font></b><p><b>Cell</b></p>\n</td>"
-        // The close </p> tag does not close the whole table.
-        + "<td><b><font><font></font></font></b><p><b>Cell</b></p>\n</td>"
-        + "</tr></tbody></table></p>\n"
-        + "<p>x</p></body></html>",
+        "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>"
+        + "<ul><li><table><tbody><tr>"
+        + "<td><b><font><font><p>Cell</p></font></font>\n"
+        + "</b></td>"
+        // The close </li> tag does not close the whole table.
+        + "<td><b><b><font><font><p>Cell</p></font></font>\n"
+        + "</b></b></td>"
+        + "</tr></tbody></table></li></ul>"
+        + "<b><b><p>x</p></b></b></body></html>",
         htmlOutputBuffer.toString());
   }
 
@@ -395,6 +400,24 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
+  @Test
+  public final void testDirectlyNestedAnchor() {
+    ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
+    balancer.openDocument();
+    balancer.openTag("span", ImmutableList.<String>of());
+    balancer.openTag("a", hrefOnly);
+    balancer.openTag("a", hrefOnly);
+    balancer.text("...");
+    balancer.closeTag("a");
+    balancer.closeTag("a");
+    balancer.closeTag("span");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<span><a href=\"\"></a><a href=\"\">...</a></span>",
+        htmlOutputBuffer.toString());
+  }
+
 
   @Test
   public final void testAnchorClosedWhenBlockInInline() {
@@ -410,7 +433,9 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeDocument();
 
     assertEquals(
-        "<span><a href=\"\"></a></span><div>...</div>",
+        // According to the spec, div is not nestable within span, but
+        // browsers allow it.
+        "<span><a href=\"\"><div>...</div></a></span>",
         htmlOutputBuffer.toString());
   }
 
@@ -437,10 +462,8 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         htmlOutputBuffer.toString());
   }
 
-  // TODO: Handle media elements properly
-  @Ignore
   @Test
-  public final void failingtestInteractiveInAnchorIndirectly() {
+  public final void testInteractiveInAnchorIndirectly() {
     ImmutableList<String> hrefOnly = ImmutableList.of("href", "");
     balancer.openDocument();
     balancer.openTag("div", ImmutableList.<String>of());
@@ -453,7 +476,7 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeTag("div");
     balancer.closeDocument();
     assertEquals(
-        "<div><a href=\"\"><div></div></a><video></video></div>",
+        "<div><a href=\"\"><div><video></video></div></a></div>",
         htmlOutputBuffer.toString());
   }
 
@@ -475,17 +498,19 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
   @Test
   public final void testResumedElementsAllowedWhereResumed() {
     balancer.openDocument();
+    balancer.openTag("a", ImmutableList.<String>of());
     balancer.openTag("b", ImmutableList.<String>of());
     balancer.text("foo");
     balancer.openTag("i", ImmutableList.<String>of());
-    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("a", ImmutableList.<String>of());
     balancer.text("bar");
-    balancer.closeTag("div");
+    balancer.closeTag("a");
     balancer.closeTag("i");
     balancer.closeTag("b");
+    balancer.closeTag("a");
     balancer.closeDocument();
     assertEquals(
-        "<b>foo<i></i></b><div><b><i>bar</i></b></div>",
+        "<a><b>foo<i></i></b></a><b><i><a>bar</a></i></b>",
         htmlOutputBuffer.toString());
   }
 }

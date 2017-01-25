@@ -417,9 +417,21 @@ public class SanitizersTest extends TestCase {
 
   @Test
   public static final void testStyleTagInTable() {
-    String input = "<table><style></style><tr><td>Foo</td></tr><tr><td>Bar</td></tr></table>";
-    PolicyFactory pf = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING).and(Sanitizers.TABLES);
-    assertEquals("<table><tr><td>Foo</td></tr><tr><td>Bar</td></tr></table>", pf.sanitize(input));
+    String input = ""
+        + "<table>"
+        + "<style></style>"
+        + "<tr><td>Foo</td></tr>"
+        + "<tr><td>Bar</td></tr>"
+        + "</table>";
+    PolicyFactory pf = Sanitizers.BLOCKS
+        .and(Sanitizers.FORMATTING)
+        .and(Sanitizers.TABLES);
+    assertEquals(
+        "<table><tbody>"
+        + "<tr><td>Foo</td></tr>"
+        + "<tr><td>Bar</td></tr>"
+        + "</tbody></table>",
+        pf.sanitize(input));
   }
 
   static int fac(int n) {

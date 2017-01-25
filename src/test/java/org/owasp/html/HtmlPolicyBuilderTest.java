@@ -707,6 +707,18 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertTrue(failed);
   }
 
+  @Test
+  public static final void testScopingExitInNoContent() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("table", "tr", "td", "noscript")
+        .toFactory();
+
+    assertEquals(
+        "<table><tr><td>foo<noscript></noscript></td><td>bar</td></tr></table>",
+        pf.sanitize("<table><tr><td>foo<noscript></table></noscript><td>bar"));
+
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }

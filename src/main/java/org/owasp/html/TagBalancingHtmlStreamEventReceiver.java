@@ -28,14 +28,12 @@
 
 package org.owasp.html;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.BitSet;
 import java.util.List;
 
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import org.owasp.html.HtmlElementTables.HtmlElementNames;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
 /**
@@ -50,11 +48,15 @@ public class TagBalancingHtmlStreamEventReceiver
     implements HtmlStreamEventReceiver {
   private final HtmlStreamEventReceiver underlying;
   private int nestingLimit = Integer.MAX_VALUE;
-  private final List<ElementContainmentInfo> openElements
-      = Lists.newArrayList();
-  private final Deque<ElementContainmentInfo> toResumeInReverse
-      = new ArrayDeque<ElementContainmentInfo>();
+  private final IntVector openElements = new IntVector();
+  private final IntVector toResumeInReverse = new IntVector();
+  private static final HtmlElementTables METADATA = HtmlElementTables.get();
+  private static final int UNRECOGNIZED_TAG =
+      METADATA.indexForName(HtmlElementNames.CUSTOM_ELEMENT_NAME);
+  private static final int A_TAG = METADATA.indexForName("a");
+  private static final int BODY_TAG = METADATA.indexForName("body");
 
+  private static final boolean DEBUG = false;
 
   /**
    * @param underlying An event receiver that should receive a stream of
@@ -82,7 +84,9 @@ public class TagBalancingHtmlStreamEventReceiver
 
   public void closeDocument() {
     for (int i = Math.min(nestingLimit, openElements.size()); --i >= 0;) {
-      underlying.closeTag(openElements.get(i).elementName);
+      int elIndex = openElements.get(i);
+      String elname = METADATA.canonNameForIndex(elIndex);
+      underlying.closeTag(elname);
     }
     openElements.clear();
     toResumeInReverse.clear();
@@ -90,54 +94,76 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   public void openTag(String elementName, List<String> attrs) {
+    if (DEBUG) {
+      dumpState("open " + elementName);
+    }
     String canonElementName = HtmlLexer.canonicalName(elementName);
-    ElementContainmentInfo elInfo = ELEMENT_CONTAINMENT_RELATIONSHIPS.get(
-        canonElementName);
+
+    int elIndex = METADATA.indexForName(canonElementName);
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
-    if (elInfo == null) {
+    if (elIndex == UNRECOGNIZED_TAG) {
       if (openElements.size() < nestingLimit) {
         underlying.openTag(elementName, attrs);
       }
       return;
     }
 
-    prepareForContent(elInfo);
+    prepareForContent(elIndex);
 
     if (openElements.size() < nestingLimit) {
-      underlying.openTag(elInfo.elementName, attrs);
+      underlying.openTag(METADATA.canonNameForIndex(elIndex), attrs);
     }
-    if (!elInfo.isVoid) {
-      openElements.add(elInfo);
+    if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
+      openElements.add(elIndex);
     }
   }
 
-  private void prepareForContent(ElementContainmentInfo elInfo) {
+  private void prepareForContent(int elIndex) {
     int nOpen = openElements.size();
-    if (nOpen != 0) {
-      ElementContainmentInfo top = openElements.get(nOpen - 1);
-      if ((top.contents & elInfo.types) == 0) {
-        ElementContainmentInfo blockContainerChild = top.blockContainerChild;
-        // Open implied elements, such as list-items and table cells & rows.
-        if (blockContainerChild != null
-            && (blockContainerChild.contents & elInfo.types) != 0) {
-          underlying.openTag(
-              blockContainerChild.elementName, Lists.<String>newArrayList());
-          openElements.add(blockContainerChild);
-          top = blockContainerChild;
+    {
+      int top = nOpen != 0 ? openElements.get(nOpen - 1) : BODY_TAG;
+      // Open implied elements, such as list-items and table cells & rows.
+      int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
+      if (impliedElIndices.length != 0) {
+        List<String> attrs = Lists.<String>newArrayList();
+
+        int startPos = 0;
+        for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
+          int impliedElIndex = impliedElIndices[i];
+          if (impliedElIndex == top) {
+            startPos = i + 1;
+            break;
+          }
+        }
+
+        for (int i = startPos, n = impliedElIndices.length; i < n; ++i) {
+          int impliedElIndex = impliedElIndices[i];
+          String impliedElName = METADATA.canonNameForIndex(
+              impliedElIndex);
+          attrs.clear();
+          underlying.openTag(impliedElName, attrs);
+          openElements.add(impliedElIndex);
+          top = impliedElIndex;
           ++nOpen;
         }
       }
+    }
 
-      // Close all the elements that cannot contain the element to open.
+    if (nOpen != 0) {
+      int top = openElements.get(nOpen - 1);
+      // Close all the elements that cannot contain the content to open.
       while (true) {
-        if (canContain(elInfo, top, nOpen - 1)) {
+        boolean canContain = canContain(elIndex, top, nOpen - 1)
+            && !(elIndex == A_TAG
+                 && openElements.lastIndexOf(A_TAG) >= 0);
+        if (canContain) {
           break;
         }
         if (openElements.size() < nestingLimit) {
-          underlying.closeTag(top.elementName);
+          underlying.closeTag(METADATA.canonNameForIndex(top));
         }
         openElements.remove(--nOpen);
-        if (top.resumable) {
+        if (METADATA.resumable(top) && top != elIndex) {
           toResumeInReverse.add(top);
         }
         if (nOpen == 0) { break; }
@@ -146,16 +172,18 @@ public class TagBalancingHtmlStreamEventReceiver
     }
 
     while (!toResumeInReverse.isEmpty()) {
-      ElementContainmentInfo toResume = toResumeInReverse.getLast();
+      int toResume = toResumeInReverse.getLast();
       // If toResume can contain elInfo AND the top of the stack can contain
       // toResume, then we push toResume.
       nOpen = openElements.size();
       if ((nOpen == 0
           || canContain(toResume, openElements.get(nOpen - 1), nOpen))
-          && canContain(elInfo, toResume, nOpen)) {
+          && canContain(elIndex, toResume, nOpen)) {
         toResumeInReverse.removeLast();
         if (openElements.size() < nestingLimit) {
-          underlying.openTag(toResume.elementName, Lists.<String>newArrayList());
+          underlying.openTag(
+              METADATA.canonNameForIndex(toResume),
+              Lists.<String>newArrayList());
         }
         openElements.add(toResume);
       } else {
@@ -164,61 +192,98 @@ public class TagBalancingHtmlStreamEventReceiver
     }
   }
 
+  private static final BitSet TRANSPARENT = new BitSet();
+  static {
+    for (String transparentElement
+        : new String[] {
+            "a",
+            "audio",
+            "canvas",
+            "del",
+            "ins",
+            "map",
+            "object",
+            "video",
+        }) {
+      TRANSPARENT.set(METADATA.indexForName(
+          transparentElement));
+    }
+  }
+
   /**
    * Takes into account transparency when figuring out what
    * can be contained.
    */
   private boolean canContain(
-      ElementContainmentInfo child, ElementContainmentInfo top, int topIndex) {
-    int childTypes = child.types;
-
-    int contents = top.contents;
-    // Compute which content groups show through based on transparency.
-    // We only care about the bits in childTypes which have not been found
-    // in the current element which allows us to prune the search.
-    int transparencyAllowed = childTypes
-        & (top.transparentToContents & ~contents);
-    for (int containerIndex = topIndex - 1; transparencyAllowed != 0;
-        --containerIndex) {
-      if (containerIndex < 0) {
-        // When the element stack is empty, we don't check containment.
-        // This is effectively assuming, by omission, that any element can
-        // appear at the root of the document fragment.
-
-        // Allow transparent elements to contain any content that could be
-        // contained by any container of the document fragment.
-        // Revisit this decision if we start constraining what can be top-level.
-        contents |= transparencyAllowed;
-        break;
+      int child, int container, int containerIndexOnStack) {
+    Preconditions.checkArgument(containerIndexOnStack >= 0);
+    int anc = container;
+    int ancIndexOnStack = containerIndexOnStack;
+    while (true) {
+      if (METADATA.canContain(anc, child)) {
+        return true;
       }
-      ElementContainmentInfo container = openElements.get(containerIndex);
-      contents |= transparencyAllowed & container.contents;
-      transparencyAllowed =
-          transparencyAllowed & container.transparentToContents & ~contents;
+      if (!TRANSPARENT.get(anc)) {
+        return false;
+      }
+      if (ancIndexOnStack == 0) {
+        return METADATA.canContain(BODY_TAG, child);
+      }
+      --ancIndexOnStack;
+      anc = openElements.get(ancIndexOnStack);
     }
-    return (contents & childTypes) != 0;
   }
 
   public void closeTag(String elementName) {
+    if (DEBUG) {
+      dumpState("close " + elementName);
+    }
     String canonElementName = HtmlLexer.canonicalName(elementName);
-    ElementContainmentInfo elInfo = ELEMENT_CONTAINMENT_RELATIONSHIPS.get(
-        canonElementName);
-    if (elInfo == null) {  // Allow unrecognized end tags through.
+
+    int elIndex = METADATA.indexForName(canonElementName);
+    if (elIndex == UNRECOGNIZED_TAG) {  // Allow unrecognized end tags through.
       if (openElements.size() < nestingLimit) {
         underlying.closeTag(elementName);
       }
       return;
     }
-    int index = openElements.lastIndexOf(elInfo);
-    // Let any of </h1>, </h2>, ... close other header tags.
-    if (isHeaderElementName(canonElementName)) {
-      for (int i = openElements.size(), limit = index + 1; -- i >= limit;) {
-        ElementContainmentInfo openEl = openElements.get(i);
-        if (isHeaderElementName(openEl.elementName)) {
-          elInfo = openEl;
-          index = i;
-          canonElementName = openEl.elementName;
-          break;
+
+    // Ensure that index is in the scope of closeable elements.
+    // This approximates the "has an element in *** scope" predicates defined at
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/syntax.html
+    // #has-an-element-in-the-specific-scope
+    int blockingScopes = ALL_SCOPES & ~SCOPES_BY_ELEMENT[elIndex];
+
+    int index = -1;
+    {
+      if (isHeaderElementName(canonElementName)) {
+        // Let any of </h1>, </h2>, ... close other header tags.
+        for (int i = openElements.size(); -- i >= 0;) {
+          int openElementIndex = openElements.get(i);
+          if (isHeaderElement(openElementIndex)) {
+            elIndex = openElementIndex;
+            index = i;
+            canonElementName = METADATA.canonNameForIndex(openElementIndex);
+            break;
+          }
+          int openElementScope = SCOPES_BY_ELEMENT[openElementIndex];
+          if (openElementScope == ALL_SCOPES
+              || (openElementScope & blockingScopes) != 0) {
+            break;
+          }
+        }
+      } else {
+        for (int i = openElements.size(); -- i >= 0;) {
+          int openElementIndex = openElements.get(i);
+          if (openElementIndex == elIndex) {
+            index = i;
+            break;
+          }
+          int openElementScope = SCOPES_BY_ELEMENT[openElementIndex];
+          if (openElementScope == ALL_SCOPES
+              || (openElementScope & blockingScopes) != 0) {
+            break;
+          }
         }
       }
     }
@@ -226,32 +291,19 @@ public class TagBalancingHtmlStreamEventReceiver
       return;  // Don't close unopened tags.
     }
 
-    // Ensure that index is in the scope of closeable elements.
-    // This approximates the "has an element in *** scope" predicates defined at
-    // http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html
-    // #has-an-element-in-the-specific-scope
-    int blockingScopes = elInfo.blockedByScopes;
-
-    for (int i = openElements.size(); --i > index;) {
-      ElementContainmentInfo openElementInfo = openElements.get(i);
-      if ((openElementInfo.inScopes & blockingScopes) != 0) {
-        return;
-      }
-    }
-
     int last = openElements.size();
     // Close all the elements that cannot contain the element to open.
     while (--last > index) {
-      ElementContainmentInfo unclosed = openElements.remove(last);
+      int unclosed = openElements.remove(last);
       if (last + 1 < nestingLimit) {
-        underlying.closeTag(unclosed.elementName);
+        underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
-      if (unclosed.resumable) {
+      if (METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
     }
     if (openElements.size() < nestingLimit) {
-      underlying.closeTag(elInfo.elementName);
+      underlying.closeTag(METADATA.canonNameForIndex(elIndex));
     }
     openElements.remove(index);
   }
@@ -276,8 +328,24 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   public void text(String text) {
-    if (!isInterElementWhitespace(text)) {
-      prepareForContent(ElementContainmentRelationships.CHARACTER_DATA_ONLY);
+    if (DEBUG) {
+      dumpState("text `" + text.replace("\n", "\\n") + "`");
+    }
+    boolean isInterElementWhitespace = isInterElementWhitespace(text);
+    if (isInterElementWhitespace) {
+      int nOpenElements = openElements.size();
+      if (nOpenElements != 0) {
+        int top = openElements.get(nOpenElements - 1);
+        if (!METADATA.canContainText(top)
+            // Use this as a proxy for whether or not a manufactured node is
+            // needed.  If it is, then skip the inter-element space and don't
+            // manufacture a node.
+            || METADATA.impliedElements(top, A_TAG).length != 0) {
+          return;
+        }
+      }
+    } else {
+      prepareForContent(HtmlElementTables.TEXT_NODE);
     }
 
     if (openElements.size() < nestingLimit) {
@@ -285,855 +353,71 @@ public class TagBalancingHtmlStreamEventReceiver
     }
   }
 
+  private static boolean isHeaderElement(int elIndex) {
+    String canonElementName = METADATA.canonNameForIndex(elIndex);
+    return isHeaderElementName(canonElementName);
+  }
+
   private static boolean isHeaderElementName(String canonElementName) {
-    return canonElementName.length() == 2 && canonElementName.charAt(0) == 'h'
+    return canonElementName.length() == 2
+        && (canonElementName.charAt(0) | 32) == 'h'
         && canonElementName.charAt(1) <= '9';
   }
 
+  private static final byte ALL_SCOPES;
+  private static final byte[] SCOPES_BY_ELEMENT;
 
-  @Immutable
-  private static final class ElementContainmentInfo {
-    final String elementName;
-    /**
-     * True if the adoption agency algorithm allows an element to be resumed
-     * after a mis-nested end tag closes it.
-     * E.g. in {@code <b>Foo<i>Bar</b>Baz</i>} the {@code <i>} element is
-     * resumed after the {@code <b>} element is closed.
-     */
-    final boolean resumable;
-    /** A set of bits of element groups into which the element falls. */
-    final int types;
-    /** The type of elements that an element can contain. */
-    final int contents;
-    /**
-     * A bit set of the elements that an element can contain when those can
-     * be contained in its parent element.
-     */
-    final int transparentToContents;
-    /** True if the element has no content -- not even text content. */
-    final boolean isVoid;
-    /** A legal child of this node that can contain block content. */
-    final @Nullable ElementContainmentInfo blockContainerChild;
-    /** A bit set of close tag scopes that block this element's close tags. */
-    final int blockedByScopes;
-    /** A bit set of scopes groups into which this element falls. */
-    final int inScopes;
+  static {
+    final byte COMMON = 1;
+    final byte BUTTON = 2;
+    final byte LIST_ITEM = 4;
+    final byte TABLE = 8;
 
-    ElementContainmentInfo(
-        String elementName, boolean resumable, int types, int contents,
-        int transparentToContents,
-        @Nullable ElementContainmentInfo blockContainerChild,
-        int inScopes) {
-      this.elementName = elementName;
-      this.resumable = resumable;
-      this.types = types;
-      this.contents = contents;
-      this.transparentToContents = transparentToContents;
-      this.isVoid = contents == 0
-          && HtmlTextEscapingMode.isVoidElement(elementName);
-      this.blockContainerChild = blockContainerChild;
-      this.blockedByScopes =
-          ElementContainmentRelationships.CloseTagScope.ALL & ~inScopes;
-      this.inScopes = inScopes;
-    }
+    ALL_SCOPES = COMMON | BUTTON | LIST_ITEM | TABLE;
+    final byte C_B_LI = COMMON | BUTTON | LIST_ITEM;
 
-    @Override public String toString() {
-      return "<" + elementName + ">";
-    }
+    SCOPES_BY_ELEMENT = new byte[METADATA.nElementTypes()];
+    SCOPES_BY_ELEMENT[METADATA.indexForName("applet")] = C_B_LI;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("button")] = BUTTON;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("caption")] = C_B_LI;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("html")] = ALL_SCOPES;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("object")] = C_B_LI;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("ol")] = LIST_ITEM;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("table")] = ALL_SCOPES;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("template")] = ALL_SCOPES;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("td")] = C_B_LI;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("th")] = C_B_LI;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("ul")] = LIST_ITEM;
+
+    // The <nofeature> elements are weird.
+    //     <table><noscript></table></noscript>...
+    // is equivalent to
+    //     <table>...
+    // when scripts are enabled and is equivalent to
+    //     <table></table>...
+    // when not.
+    //
+    // We scope <noscript> so that, even when we parse and filter the content
+    // as if it were tag content, we don't treat that content as escaping
+    // which is consistent with the view that that content is ignored by the
+    // browser as is usually the case.
+    SCOPES_BY_ELEMENT[METADATA.indexForName("noscript")] = ALL_SCOPES;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("noframes")] = ALL_SCOPES;
+    SCOPES_BY_ELEMENT[METADATA.indexForName("noembed")] = ALL_SCOPES;
+
   }
 
-  static final ImmutableMap<String, ElementContainmentInfo>
-      ELEMENT_CONTAINMENT_RELATIONSHIPS
-      = ElementContainmentRelationships.make().toMap();
-
-  private static final class ElementContainmentRelationships {
-    private enum ElementGroup {
-      BLOCK,
-      INLINE,
-      INLINE_MINUS_A,
-      MIXED,
-      TABLE_CONTENT,
-      HEAD_CONTENT,
-      TOP_CONTENT,
-      AREA_ELEMENT,
-      FORM_ELEMENT,
-      LEGEND_ELEMENT,
-      LI_ELEMENT,
-      DL_PART,
-      P_ELEMENT,
-      OPTIONS_ELEMENT,
-      OPTION_ELEMENT,
-      PARAM_ELEMENT,
-      TABLE_ELEMENT,
-      TR_ELEMENT,
-      TD_ELEMENT,
-      COL_ELEMENT,
-      CHARACTER_DATA,
-      ;
+  private void dumpState(String msg) {
+    System.err.println(msg);
+    System.err.println("\tstack");
+    for (int i = 0, n = openElements.size(); i < n; ++i) {
+      int idx = openElements.get(i);
+      System.err.println("\t\t" + METADATA.canonNameForIndex(idx));
     }
-
-    /**
-     * An identifier for one of the "has a *** element in scope" predicates
-     * used by HTML5 to decide when a close tag implicitly closes tags above
-     * the target element on the open element stack.
-     */
-    private enum CloseTagScope {
-      COMMON,
-      BUTTON,
-      LIST_ITEM,
-      TABLE,
-      ;
-
-      static final int ALL = (1 << values().length) - 1;
+    System.err.println("\tresumable");
+    for (int i = 0, n = toResumeInReverse.size(); i < n; ++i) {
+      int idx = toResumeInReverse.get(i);
+      System.err.println("\t\t" + METADATA.canonNameForIndex(idx));
     }
-
-    static ElementContainmentRelationships make() {
-      return new ElementContainmentRelationships();
-    }
-
-    private static int elementGroupBits(ElementGroup... groups) {
-      int bitField = 0;
-      for (ElementGroup group : groups) {
-        assert group.ordinal() < 32;
-        bitField |= (1 << group.ordinal());
-      }
-      return bitField;
-    }
-
-    private static int scopeBits(CloseTagScope a) {
-      return 1 << a.ordinal();
-    }
-
-    private static int scopeBits(
-        CloseTagScope a, CloseTagScope b, CloseTagScope c) {
-      return (1 << a.ordinal()) | (1 << b.ordinal()) | (1 << c.ordinal());
-    }
-
-    private ImmutableMap.Builder<String, ElementContainmentInfo> definitions
-        = ImmutableMap.builder();
-
-
-    @SuppressWarnings("synthetic-access")
-    private final class ElementContainmentInfoBuilder {
-      final String elementName;
-      private boolean resumable;
-      private int types;
-      private int contents;
-      private int transparentToContents;
-      private ElementContainmentInfo blockContainerChild = null;
-      private int inScopes = 0;
-
-      ElementContainmentInfoBuilder(String elementName) {
-        this.elementName = elementName;
-      }
-
-      ElementContainmentInfoBuilder resumable() {
-        this.resumable = true;
-        return this;
-      }
-
-      ElementContainmentInfoBuilder types(ElementGroup... groups) {
-        this.types |= elementGroupBits(groups);
-        return this;
-      }
-
-      ElementContainmentInfoBuilder contents(ElementGroup... groups) {
-        this.contents |= elementGroupBits(groups);
-        return this;
-      }
-
-      ElementContainmentInfoBuilder transparentToContents(
-          ElementGroup... groups) {
-        this.transparentToContents |= elementGroupBits(groups);
-        return this;
-      }
-
-      ElementContainmentInfoBuilder blockContainerChild(
-          @Nullable ElementContainmentInfo c) {
-        this.blockContainerChild = c;
-        return this;
-      }
-
-      ElementContainmentInfoBuilder inScopes(CloseTagScope scopes) {
-        return inScopes(scopeBits(scopes));
-      }
-
-      ElementContainmentInfoBuilder inScopes(
-          CloseTagScope a, CloseTagScope b, CloseTagScope c) {
-        return inScopes(scopeBits(a, b, c));
-      }
-
-      ElementContainmentInfoBuilder inScopes(int scopeBits) {
-        this.inScopes |= scopeBits;
-        return this;
-      }
-
-      ElementContainmentInfo define() {
-        ElementContainmentInfo info = new ElementContainmentInfo(
-            elementName, resumable, types, contents, transparentToContents,
-            blockContainerChild, inScopes);
-        definitions.put(elementName, info);
-        return info;
-      }
-    }
-
-    private ElementContainmentInfoBuilder defineElement(String elementName) {
-      return new ElementContainmentInfoBuilder(elementName);
-    }
-
-
-    ImmutableMap<String, ElementContainmentInfo> toMap() {
-      return definitions.build();
-    }
-
-    {
-      defineElement("a")
-          .types(
-              ElementGroup.INLINE)
-          .contents(
-              ElementGroup.INLINE_MINUS_A)
-          .transparentToContents(ElementGroup.BLOCK)
-          .define();
-      defineElement("abbr")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("acronym")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("address")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE, ElementGroup.P_ELEMENT)
-          .define();
-      defineElement("applet")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.PARAM_ELEMENT)
-          .inScopes(
-              CloseTagScope.COMMON, CloseTagScope.BUTTON,
-              CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("area")
-          .types(ElementGroup.AREA_ELEMENT)
-          .define();
-      defineElement("audio")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("b")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("base")
-          .types(ElementGroup.HEAD_CONTENT)
-          .define();
-      defineElement("basefont")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("bdi")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("bdo")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("big")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("blink")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("blockquote")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("body")
-          .types(
-              ElementGroup.TOP_CONTENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("br")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("button")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .inScopes(CloseTagScope.BUTTON)
-          .define();
-      defineElement("canvas")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("caption")
-          .types(
-              ElementGroup.TABLE_CONTENT)
-          .contents(
-              ElementGroup.INLINE)
-          .inScopes(
-              CloseTagScope.COMMON, CloseTagScope.BUTTON,
-              CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("center")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("cite")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("code")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("col")
-          .types(
-              ElementGroup.TABLE_CONTENT, ElementGroup.COL_ELEMENT)
-          .define();
-      defineElement("colgroup")
-          .types(
-              ElementGroup.TABLE_CONTENT)
-          .contents(
-              ElementGroup.COL_ELEMENT)
-          .define();
-      ElementContainmentInfo DD = defineElement("dd")
-          .types(
-              ElementGroup.DL_PART)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("del")
-          .resumable()
-          .types(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.MIXED)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("dfn")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("dir")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.LI_ELEMENT)
-          .define();
-      defineElement("div")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("dl")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.DL_PART)
-          .blockContainerChild(DD)
-          .define();
-      defineElement("dt")
-          .types(
-              ElementGroup.DL_PART)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("em")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("fieldset")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.LEGEND_ELEMENT)
-          .define();
-      defineElement("font")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("form")
-          .types(
-              ElementGroup.BLOCK, ElementGroup.FORM_ELEMENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.INLINE_MINUS_A, ElementGroup.TR_ELEMENT,
-              ElementGroup.TD_ELEMENT)
-          .define();
-      defineElement("h1")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("h2")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("h3")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("h4")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("h5")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("h6")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("head")
-          .types(
-              ElementGroup.TOP_CONTENT)
-          .contents(
-              ElementGroup.HEAD_CONTENT)
-          .define();
-      defineElement("hr")
-          .types(ElementGroup.BLOCK)
-          .define();
-      defineElement("html")
-          .contents(ElementGroup.TOP_CONTENT)
-          .inScopes(CloseTagScope.ALL)
-          .define();
-      defineElement("i")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("iframe")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("img")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("input")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("ins")
-          .resumable()
-          .types(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("isindex")
-          .types(ElementGroup.INLINE)
-          .define();
-      defineElement("kbd")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("label")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("legend")
-          .types(
-              ElementGroup.LEGEND_ELEMENT)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      ElementContainmentInfo LI = defineElement("li")
-          .types(
-              ElementGroup.LI_ELEMENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("link")
-          .types(
-              ElementGroup.INLINE, ElementGroup.HEAD_CONTENT)
-          .define();
-      defineElement("listing")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("map")
-          .types(
-              ElementGroup.INLINE)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.AREA_ELEMENT)
-          .define();
-      defineElement("meta")
-          .types(ElementGroup.HEAD_CONTENT)
-          .define();
-      defineElement("nobr")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("noframes")
-          .types(
-              ElementGroup.BLOCK, ElementGroup.TOP_CONTENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.TOP_CONTENT)
-          .define();
-      defineElement("noscript")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .define();
-      defineElement("object")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,
-              ElementGroup.HEAD_CONTENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.PARAM_ELEMENT)
-          .inScopes(
-              CloseTagScope.COMMON, CloseTagScope.BUTTON,
-              CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("ol")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.LI_ELEMENT)
-          .blockContainerChild(LI)
-          .inScopes(CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("optgroup")
-          .types(
-              ElementGroup.OPTIONS_ELEMENT)
-          .contents(
-              ElementGroup.OPTIONS_ELEMENT)
-          .define();
-      defineElement("option")
-          .types(
-              ElementGroup.OPTIONS_ELEMENT, ElementGroup.OPTION_ELEMENT)
-          .contents(
-              ElementGroup.CHARACTER_DATA)
-          .define();
-      defineElement("p")
-          .types(
-              ElementGroup.BLOCK, ElementGroup.P_ELEMENT)
-          .contents(
-              ElementGroup.INLINE, ElementGroup.TABLE_ELEMENT)
-          .define();
-      defineElement("param")
-          .types(ElementGroup.PARAM_ELEMENT)
-          .define();
-      defineElement("pre")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("q")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("s")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("samp")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("script")
-          .types(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.INLINE_MINUS_A, ElementGroup.MIXED,
-              ElementGroup.TABLE_CONTENT, ElementGroup.HEAD_CONTENT,
-              ElementGroup.TOP_CONTENT, ElementGroup.AREA_ELEMENT,
-              ElementGroup.FORM_ELEMENT, ElementGroup.LEGEND_ELEMENT,
-              ElementGroup.LI_ELEMENT, ElementGroup.DL_PART,
-              ElementGroup.P_ELEMENT, ElementGroup.OPTIONS_ELEMENT,
-              ElementGroup.OPTION_ELEMENT, ElementGroup.PARAM_ELEMENT,
-              ElementGroup.TABLE_ELEMENT, ElementGroup.TR_ELEMENT,
-              ElementGroup.TD_ELEMENT, ElementGroup.COL_ELEMENT)
-          .contents(
-              ElementGroup.CHARACTER_DATA)
-          .define();
-      defineElement("select")
-          .types(
-              ElementGroup.INLINE)
-          .contents(
-              ElementGroup.OPTIONS_ELEMENT)
-          .define();
-      defineElement("small")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("span")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("strike")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("strong")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("style")
-          .types(
-              ElementGroup.BLOCK, ElementGroup.INLINE,
-              ElementGroup.INLINE_MINUS_A, ElementGroup.MIXED,
-              ElementGroup.TABLE_CONTENT, ElementGroup.HEAD_CONTENT,
-              ElementGroup.TOP_CONTENT, ElementGroup.AREA_ELEMENT,
-              ElementGroup.FORM_ELEMENT, ElementGroup.LEGEND_ELEMENT,
-              ElementGroup.LI_ELEMENT, ElementGroup.DL_PART,
-              ElementGroup.P_ELEMENT, ElementGroup.OPTIONS_ELEMENT,
-              ElementGroup.OPTION_ELEMENT, ElementGroup.PARAM_ELEMENT,
-              ElementGroup.TABLE_ELEMENT, ElementGroup.TR_ELEMENT,
-              ElementGroup.TD_ELEMENT, ElementGroup.COL_ELEMENT)
-          .contents(
-              ElementGroup.CHARACTER_DATA)
-          .define();
-      defineElement("sub")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("sup")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("table")
-          .types(
-              ElementGroup.BLOCK, ElementGroup.TABLE_ELEMENT)
-          .contents(
-              ElementGroup.TABLE_CONTENT, ElementGroup.FORM_ELEMENT)
-          .inScopes(CloseTagScope.ALL)
-          .define();
-      defineElement("tbody")
-          .types(
-              ElementGroup.TABLE_CONTENT)
-          .contents(
-              ElementGroup.TR_ELEMENT)
-          .define();
-      ElementContainmentInfo TD = defineElement("td")
-          .types(
-              ElementGroup.TD_ELEMENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .inScopes(
-              CloseTagScope.COMMON, CloseTagScope.BUTTON,
-              CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("textarea")
-          // No, a textarea cannot be inside a link.
-          .types(ElementGroup.INLINE)
-          .contents(ElementGroup.CHARACTER_DATA)
-          .define();
-      defineElement("tfoot")
-          .types(
-              ElementGroup.TABLE_CONTENT)
-          .contents(
-              ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,
-              ElementGroup.TD_ELEMENT)
-          .define();
-      defineElement("th")
-          .types(
-              ElementGroup.TD_ELEMENT)
-          .contents(
-              ElementGroup.BLOCK, ElementGroup.INLINE)
-          .inScopes(
-              CloseTagScope.COMMON, CloseTagScope.BUTTON,
-              CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("thead")
-          .types(
-              ElementGroup.TABLE_CONTENT)
-          .contents(
-              ElementGroup.FORM_ELEMENT, ElementGroup.TR_ELEMENT,
-              ElementGroup.TD_ELEMENT)
-          .define();
-      defineElement("title")
-          .types(ElementGroup.HEAD_CONTENT)
-          .contents(ElementGroup.CHARACTER_DATA)
-          .define();
-      defineElement("tr")
-          .types(
-              ElementGroup.TABLE_CONTENT, ElementGroup.TR_ELEMENT)
-          .contents(
-              ElementGroup.FORM_ELEMENT, ElementGroup.TD_ELEMENT)
-          .blockContainerChild(TD)
-          .define();
-      defineElement("tt")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("u")
-          .resumable()
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("ul")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.LI_ELEMENT)
-          .blockContainerChild(LI)
-          .inScopes(CloseTagScope.LIST_ITEM)
-          .define();
-      defineElement("var")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-      defineElement("video")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("wbr")
-          .types(
-              ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A)
-          .define();
-      defineElement("xmp")
-          .types(
-              ElementGroup.BLOCK)
-          .contents(
-              ElementGroup.INLINE)
-          .define();
-    }
-
-    static final ElementContainmentInfo CHARACTER_DATA_ONLY
-        = new ElementContainmentInfo(
-            "#text", false,
-            elementGroupBits(
-                ElementGroup.INLINE, ElementGroup.INLINE_MINUS_A,
-                ElementGroup.BLOCK, ElementGroup.CHARACTER_DATA),
-            0, 0, null, 0);
-  }
-
-  static boolean allowsPlainTextualContent(String canonElementName) {
-    ElementContainmentInfo info =
-       ELEMENT_CONTAINMENT_RELATIONSHIPS.get(canonElementName);
-    if (info == null
-        || ((info.contents
-             & ElementContainmentRelationships.CHARACTER_DATA_ONLY.types)
-            != 0)) {
-      switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {
-        case PCDATA:     return true;
-        case RCDATA:     return true;
-        case PLAIN_TEXT: return true;
-        case VOID:       return false;
-        case CDATA:
-        case CDATA_SOMETIMES:
-          return "xmp".equals(canonElementName)
-              || "listing".equals(canonElementName);
-      }
-    }
-    return false;
   }
 }

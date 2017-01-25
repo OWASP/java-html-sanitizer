@@ -219,6 +219,7 @@ public class HtmlPolicyBuilder {
     return allowElements(ElementPolicy.REJECT_ALL_ELEMENT_POLICY, elementNames);
   }
 
+  private static HtmlElementTables METADATA = HtmlElementTables.get();
   /**
    * Allow the given elements with the given policy.
    *
@@ -236,10 +237,10 @@ public class HtmlPolicyBuilder {
       // that to infect later allowElement calls for this particular element
       // name.  rejects should have higher priority than allows.
       elPolicies.put(elementName, newPolicy);
-      if (!textContainers.containsKey(elementName)
-          && TagBalancingHtmlStreamEventReceiver
-              .allowsPlainTextualContent(elementName)) {
-        textContainers.put(elementName, true);
+      if (!textContainers.containsKey(elementName)) {
+        if (METADATA.canContainPlainText(METADATA.indexForName(elementName))) {
+          textContainers.put(elementName, true);
+        }
       }
     }
     return this;
