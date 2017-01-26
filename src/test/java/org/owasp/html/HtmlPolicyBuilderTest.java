@@ -719,6 +719,23 @@ public class HtmlPolicyBuilderTest extends TestCase {
 
   }
 
+  @Test
+  public static final void testIssue80() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("table", "tr", "td", "tbody")
+        .toFactory();
+
+    assertEquals(
+        "<table><tbody>"
+        + "<tr><td>td1</td><td>td2</td></tr>"
+        + "<tr><td>new line</td></tr>"
+        + "</tbody></table>",
+        pf.sanitize(
+            "<table><tbody>"
+            + "<tr><td>td1</td><td>td2</tr>"
+            + "<td>new line</tbody></table>"));
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }

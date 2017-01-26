@@ -513,4 +513,21 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         "<a><b>foo<i></i></b></a><b><i><a>bar</a></i></b>",
         htmlOutputBuffer.toString());
   }
+
+  @Test
+  public final void testMenuItemNesting() {
+    // issue 96
+    balancer.openDocument();
+    balancer.openTag("div", ImmutableList.<String>of());
+    balancer.openTag("menu", ImmutableList.<String>of());
+    balancer.openTag("menuitem", ImmutableList.<String>of());
+    balancer.closeTag("menuitem");
+    balancer.openTag("menuitem", ImmutableList.<String>of());
+    balancer.closeTag("menuitem");
+    balancer.closeTag("menu");
+    balancer.closeTag("div");
+    assertEquals(
+        "<div><menu><menuitem></menuitem><menuitem></menuitem></menu></div>",
+        htmlOutputBuffer.toString());
+  }
 }
