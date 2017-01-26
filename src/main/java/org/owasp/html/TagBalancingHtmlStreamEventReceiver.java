@@ -389,6 +389,10 @@ public class TagBalancingHtmlStreamEventReceiver
         "object",
         "template",
         // TODO: mathml and svg
+
+        // HACK: putting these here allows these tags to implicitly close td
+        // and th.
+        "tr", "tbody", "thead", "tfoot",
     };
     for (String tn : inScopeElements) {
       SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= IN;
