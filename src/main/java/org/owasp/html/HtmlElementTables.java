@@ -329,9 +329,6 @@ public final class HtmlElementTables implements Serializable {
    * lexically nested within an ancestor.
    */
   int[] impliedElements(int anc, int desc) {
-    // TODO: move canContain and impliedElements into HtmlElementTables and
-    // make the tables themselves private and eliminate unnecessary tables.
-
     // <style> and <script> are allowed anywhere.
     if (desc == SCRIPT_TAG || desc == STYLE_TAG) {
       return ZERO_INTS;
