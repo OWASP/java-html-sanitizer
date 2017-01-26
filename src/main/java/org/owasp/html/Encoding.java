@@ -32,8 +32,6 @@ import java.io.IOException;
 
 import javax.annotation.Nullable;
 
-import com.google.common.annotations.VisibleForTesting;
-
 /** Encoders and decoders for HTML. */
 final class Encoding {
 
@@ -41,8 +39,7 @@ final class Encoding {
    * Decodes HTML entities to produce a string containing only valid
    * Unicode scalar values.
    */
-  @VisibleForTesting
-  static String decodeHtml(String s) {
+  public static String decodeHtml(String s) {
     int firstAmp = s.indexOf('&');
     int safeLimit = longestPrefixOfGoodCodeunits(s);
     if ((firstAmp & safeLimit) < 0) { return s; }
