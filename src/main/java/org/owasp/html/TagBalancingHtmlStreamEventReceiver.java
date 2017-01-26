@@ -252,7 +252,7 @@ public class TagBalancingHtmlStreamEventReceiver
     // This approximates the "has an element in *** scope" predicates defined at
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/syntax.html
     // #has-an-element-in-the-specific-scope
-    int blockingScopes = ALL_SCOPES & ~SCOPES_BY_ELEMENT[elIndex];
+    int blockingScopes = SCOPE_FOR_END_TAG[elIndex];
 
     int index = -1;
     {
@@ -267,8 +267,7 @@ public class TagBalancingHtmlStreamEventReceiver
             break;
           }
           int openElementScope = SCOPES_BY_ELEMENT[openElementIndex];
-          if (openElementScope == ALL_SCOPES
-              || (openElementScope & blockingScopes) != 0) {
+          if ((openElementScope & blockingScopes) != 0) {
             break;
           }
         }
@@ -280,8 +279,7 @@ public class TagBalancingHtmlStreamEventReceiver
             break;
           }
           int openElementScope = SCOPES_BY_ELEMENT[openElementIndex];
-          if (openElementScope == ALL_SCOPES
-              || (openElementScope & blockingScopes) != 0) {
+          if ((openElementScope & blockingScopes) != 0) {
             break;
           }
         }
@@ -366,6 +364,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
   private static final byte ALL_SCOPES;
   private static final byte[] SCOPES_BY_ELEMENT;
+  private static final byte[] SCOPE_FOR_END_TAG;
 
   static {
     // w3c.github.io/html/single-page.html#as-that-element-in-the-specific-scope
@@ -378,6 +377,7 @@ public class TagBalancingHtmlStreamEventReceiver
     ALL_SCOPES = IN | BUTTON | LIST_ITEM | TABLE | SELECT;
 
     SCOPES_BY_ELEMENT = new byte[METADATA.nElementTypes()];
+
     String[] inScopeElements = {
         "applet",
         "caption",
@@ -389,10 +389,6 @@ public class TagBalancingHtmlStreamEventReceiver
         "object",
         "template",
         // TODO: mathml and svg
-
-        // HACK: putting these here allows these tags to implicitly close td
-        // and th.
-        "tr", "tbody", "thead", "tfoot",
     };
     for (String tn : inScopeElements) {
       SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= IN;
@@ -450,15 +446,37 @@ public class TagBalancingHtmlStreamEventReceiver
     // as if it were tag content, we don't treat that content as escaping
     // which is consistent with the view that that content is ignored by the
     // browser as is usually the case.
-    String[] nofeatureScopeHack = new String[] {
-      "noscript",
-      "noframes",
-      "noembed",
-    };
-    for (String tn : nofeatureScopeHack) {
-      SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= ALL_SCOPES;
-    }
+    SCOPES_BY_ELEMENT[METADATA.indexForName("noembed")]
+      = SCOPES_BY_ELEMENT[METADATA.indexForName("noframes")]
+      = SCOPES_BY_ELEMENT[METADATA.indexForName("noscript")]
+      = ALL_SCOPES;
 
+    // Derived by looking at
+    //     //dev.w3.org/html5/github-html/heartbeat/tokenization.html
+    // and scanning for all lines matching one of
+    //     "element in scope"
+    //     "element in button scope"
+    //     "element in list item scope"
+    //     "element in select scope"
+    //     "element in table scope"
+    SCOPE_FOR_END_TAG = new byte[METADATA.nElementTypes()];
+    for (int i = 0; i < SCOPE_FOR_END_TAG.length; ++i) {
+      SCOPE_FOR_END_TAG[i] = IN;
+    }
+    SCOPE_FOR_END_TAG[METADATA.indexForName("caption")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("col")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("colgroup")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("table")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("tbody")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("tfoot")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("thead")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("tr")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("td")]
+      = SCOPE_FOR_END_TAG[METADATA.indexForName("th")]
+      = TABLE;
+    SCOPE_FOR_END_TAG[METADATA.indexForName("select")] = SELECT;
+    SCOPE_FOR_END_TAG[METADATA.indexForName("p")] = BUTTON;  // really.
+    SCOPE_FOR_END_TAG[METADATA.indexForName("li")] = LIST_ITEM;
   }
 
   private void dumpState(String msg) {
