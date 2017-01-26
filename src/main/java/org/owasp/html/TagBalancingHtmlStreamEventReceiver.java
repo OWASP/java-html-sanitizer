@@ -368,26 +368,71 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final byte[] SCOPES_BY_ELEMENT;
 
   static {
-    final byte COMMON = 1;
+    // w3c.github.io/html/single-page.html#as-that-element-in-the-specific-scope
+    final byte IN = 1;
     final byte BUTTON = 2;
     final byte LIST_ITEM = 4;
     final byte TABLE = 8;
+    final byte SELECT = 16;
 
-    ALL_SCOPES = COMMON | BUTTON | LIST_ITEM | TABLE;
-    final byte C_B_LI = COMMON | BUTTON | LIST_ITEM;
+    ALL_SCOPES = IN | BUTTON | LIST_ITEM | TABLE | SELECT;
 
     SCOPES_BY_ELEMENT = new byte[METADATA.nElementTypes()];
-    SCOPES_BY_ELEMENT[METADATA.indexForName("applet")] = C_B_LI;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("button")] = BUTTON;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("caption")] = C_B_LI;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("html")] = ALL_SCOPES;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("object")] = C_B_LI;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("ol")] = LIST_ITEM;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("table")] = ALL_SCOPES;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("template")] = ALL_SCOPES;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("td")] = C_B_LI;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("th")] = C_B_LI;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("ul")] = LIST_ITEM;
+    String[] inScopeElements = {
+        "applet",
+        "caption",
+        "html",
+        "table",
+        "td",
+        "th",
+        "marquee",
+        "object",
+        "template",
+        // TODO: mathml and svg
+    };
+    for (String tn : inScopeElements) {
+      SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= IN;
+    }
+
+    String[] listItemScopeExtras = {
+        "ol",
+        "ul",
+    };
+    for (String[] tns
+         : new String[][] { listItemScopeExtras, inScopeElements }) {
+      for (String tn : tns) {
+        SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= LIST_ITEM;
+      }
+    }
+    String[] buttonScopeExtras = {
+        "button",
+    };
+    for (String[] tns
+        : new String[][] { buttonScopeExtras, inScopeElements }) {
+     for (String tn : tns) {
+       SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= BUTTON;
+     }
+   }
+
+    String[] tableScopeElements = {
+        "html",
+        "table",
+        "template",
+    };
+    for (String tn : tableScopeElements) {
+      SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= TABLE;
+    }
+
+    String[] selectScopeExceptions = {
+        "optgroup",
+        "option",
+    };
+    for (int i = 0, n = SCOPES_BY_ELEMENT.length; i < n; ++i) {
+      SCOPES_BY_ELEMENT[i] |= SELECT;
+    }
+    for (String tn : selectScopeExceptions) {
+      SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] &= ~SELECT;
+    }
 
     // The <nofeature> elements are weird.
     //     <table><noscript></table></noscript>...
@@ -401,9 +446,14 @@ public class TagBalancingHtmlStreamEventReceiver
     // as if it were tag content, we don't treat that content as escaping
     // which is consistent with the view that that content is ignored by the
     // browser as is usually the case.
-    SCOPES_BY_ELEMENT[METADATA.indexForName("noscript")] = ALL_SCOPES;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("noframes")] = ALL_SCOPES;
-    SCOPES_BY_ELEMENT[METADATA.indexForName("noembed")] = ALL_SCOPES;
+    String[] nofeatureScopeHack = new String[] {
+      "noscript",
+      "noframes",
+      "noembed",
+    };
+    for (String tn : nofeatureScopeHack) {
+      SCOPES_BY_ELEMENT[METADATA.indexForName(tn)] |= ALL_SCOPES;
+    }
 
   }
 
