@@ -140,7 +140,7 @@ public final class CssSchema {
 
   /** {@code "-moz-foo"} &rarr; {@code "foo"}. */
   private static @Nullable String stripVendorPrefix(String cssKeyword) {
-    if (cssKeyword.length() < 1) {
+    if (cssKeyword.length() < 2) {
       return null;
     }
     int prefixLen = 0;
