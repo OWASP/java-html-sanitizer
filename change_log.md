@@ -2,6 +2,11 @@
 
 Most recent at top.
 
+  * Release 20170329.1
+    * Rework how element containment is done to use element metadata
+      derived by interrogating browsers.
+      See [announcement](https://groups.google.com/forum/#!topic/owasp-java-html-sanitizer-support/KPOEjctiB_A) for more detail.
+    * Minor bugfixes
   * Release 20160924.1
     * Allow !important in style attributes when styling is allowed.
   * Release 20160827.1
