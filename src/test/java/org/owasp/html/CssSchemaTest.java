@@ -52,6 +52,9 @@ public final class CssSchemaTest extends TestCase {
           "cursor",
           // Allows code execution.
           "-moz-binding",
+          // Prefix corner cases.
+          "-",
+          "-moz-",
         }) {
       assertSame(key, CssSchema.DISALLOWED, CssSchema.DEFAULT.forKey(key));
     }

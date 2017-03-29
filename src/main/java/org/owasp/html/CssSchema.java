@@ -141,21 +141,23 @@ public final class CssSchema {
   /** {@code "-moz-foo"} &rarr; {@code "foo"}. */
   private static @Nullable String stripVendorPrefix(String cssKeyword) {
     int prefixLen = 0;
-    switch (cssKeyword.charAt(1)) {
-      case 'm':
-        if (cssKeyword.startsWith("-ms-")) {
-          prefixLen = 4;
-        } else if (cssKeyword.startsWith("-moz-")) {
-          prefixLen = 5;
-        }
-        break;
-      case 'o':
-        if (cssKeyword.startsWith("-o-")) { prefixLen = 3; }
-        break;
-      case 'w':
-        if (cssKeyword.startsWith("-webkit-")) { prefixLen = 8; }
-        break;
-      default: break;
+    if (cssKeyword.length() >= 2) {
+      switch (cssKeyword.charAt(1)) {
+        case 'm':
+          if (cssKeyword.startsWith("-ms-")) {
+            prefixLen = 4;
+          } else if (cssKeyword.startsWith("-moz-")) {
+            prefixLen = 5;
+          }
+          break;
+        case 'o':
+          if (cssKeyword.startsWith("-o-")) { prefixLen = 3; }
+          break;
+        case 'w':
+          if (cssKeyword.startsWith("-webkit-")) { prefixLen = 8; }
+          break;
+        default: break;
+      }
     }
     return prefixLen == 0 ? null : cssKeyword.substring(prefixLen);
   }
