@@ -155,6 +155,7 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss("font-size:smaller", "font-size: smaller");
     assertSanitizedCss("font:smaller", "font: smaller");
     assertSanitizedCss("font:'chalkboardse-light'", "font: 'ChalkboardSE-Light'");
+    assertSanitizedCss(null, "font: '---");
   }
 
   @Test
