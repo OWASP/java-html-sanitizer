@@ -2,6 +2,9 @@
 
 Most recent at top.
 
+  * Release 20170408.1
+    * Fix some bugs in the tag balancer introduced when we swapped in
+      the empirically derived tag metadata.
   * Release 20170329.1
     * Rework how element containment is done to use element metadata
       derived by interrogating browsers.
