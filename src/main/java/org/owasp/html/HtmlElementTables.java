@@ -53,6 +53,7 @@ public final class HtmlElementTables implements Serializable {
   /** The elements that can be resumed after misnested inline tags. */
   private final DenseElementSet resumable;
 
+  private final int DIR_TAG;
   private final int OL_TAG;
   private final int UL_TAG;
   private final int LI_TAG;
@@ -109,6 +110,7 @@ public final class HtmlElementTables implements Serializable {
     // between elements, so we hard-code some tables needed to allow embedding
     // regardless of element scoping relationships that are extracted from the
     // HTML 5 spec.
+    DIR_TAG = indexForName("dir");
     OL_TAG = indexForName("ol");
     UL_TAG = indexForName("ul");
     LI_TAG = indexForName("li");
@@ -135,7 +137,7 @@ public final class HtmlElementTables implements Serializable {
             // LI_TAG is allowed here since an LI can appear when an LI is on
             // top of the stack.  It will be popped and the new LI will be
             // opened.
-            new int[] { OL_TAG, UL_TAG, LI_TAG },
+            new int[] { DIR_TAG, OL_TAG, UL_TAG, LI_TAG },
             new int[] { UL_TAG }),
         new FreeWrapper(
             OPTION_TAG, new int[] { SELECT_TAG, OPTGROUP_TAG, OPTION_TAG },
@@ -375,6 +377,7 @@ public final class HtmlElementTables implements Serializable {
         return LI_TAG_ARR;
       }
     }
+    // TODO: why are we dropping OPTION_AG_ARR?
     return ZERO_INTS;
   }
 

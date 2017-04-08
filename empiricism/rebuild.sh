@@ -5,7 +5,7 @@ echo Load html-containment.html?rerun into your browser then copy/paste the
 echo JSON dump from the bottom into $PWD/canned-data.json
 
 pushd ..
-mvn install -DskipTests=true
+mvn install -f aggregate -DskipTests=true
 popd
 
 perl -i.bak -ne '

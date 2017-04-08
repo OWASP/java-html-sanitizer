@@ -38552,7 +38552,12 @@ var cannedData = {
       "plain_text": true,
       "text": true
     },
-    "body": {},
+    "body": {
+      "comments": true,
+      "entities": true,
+      "plain_text": true,
+      "text": true
+    },
     "br": {},
     "button": {
       "comments": true,

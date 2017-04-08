@@ -43,7 +43,6 @@ var elementNames =
   'textarea', 'td', 'tr', 'video', 'xmp'
 ]
 : [
-
   'a', 'abbr', 'acronym', 'address', 'applet', 'area', 'article',
   'aside', 'audio', 'b', 'base', 'basefont', 'bb', 'bdi', 'bdo',
   'bgsound', 'big', 'blink', 'blockquote', 'body', 'br', 'button',
@@ -448,6 +447,9 @@ var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
       var el = body.getElementsByTagName(elementName)[0];
       var text = innerTextOf(el);
       var model = newBlankObject();
+      if (elementName === 'body') {  // Special case.
+        text = '/*1&2345*/';
+      }
       switch (text) {
         case '':
           if (elementContainsComment(el)) { model.comments = true; }

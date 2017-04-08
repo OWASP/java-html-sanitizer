@@ -395,6 +395,7 @@ public class TagBalancingHtmlStreamEventReceiver
     }
 
     String[] listItemScopeExtras = {
+        "dir",
         "ol",
         "ul",
     };

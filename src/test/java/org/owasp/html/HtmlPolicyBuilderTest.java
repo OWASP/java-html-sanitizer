@@ -241,6 +241,22 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testBodyTransforming() {
+    assertEquals(
+        "<div>foo</div>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements(
+                new ElementPolicy() {
+                  public String apply(String elementName, List<String> attrs) {
+                    return "div";
+                  }
+                },
+                "body")
+            .allowElements("div"),
+            "<body>foo</body>"));
+  }
+  @Test
   public static final void testAllowUrlProtocols() {
     assertEquals(
         Joiner.on('\n').join(
@@ -253,7 +269,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Stylish Para 1",
             "Stylish Para 2",
             ""),
-            apply(new HtmlPolicyBuilder()
+        apply(new HtmlPolicyBuilder()
             .allowElements("img")
             .allowAttributes("src", "alt").onElements("img")
             .allowUrlProtocols("http")));
@@ -734,6 +750,17 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<table><tbody>"
             + "<tr><td>td1</td><td>td2</tr>"
             + "<td>new line</tbody></table>"));
+  }
+
+  @Test
+  public static final void testDirLi() {
+    assertEquals(
+        "<dir compact=\"compact\"><li>something</li></dir>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("dir", "li", "ul")
+            .allowAttributes("compact").onElements("dir"),
+            "<dir compact=\"compact\"><li>something</li></dir>"));
   }
 
   private static String apply(HtmlPolicyBuilder b) {
