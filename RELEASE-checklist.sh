@@ -43,10 +43,12 @@ cd "$RELEASE_CLONE"
 # mvn release:update-versions puts -SNAPSHOT on the end no matter what
 # so this is a two step process.
 export VERSION_PLACEHOLDER=99999999999999-SNAPSHOT
-mvn -f aggregate \
-    release:update-versions \
-    -DautoVersionSubmodules=true \
-    -DdevelopmentVersion="$VERSION_PLACEHOLDER" && \
+for project in aggregate empiricism; do
+    mvn -f $project \
+        release:update-versions \
+        -DautoVersionSubmodules=true \
+        -DdevelopmentVersion="$VERSION_PLACEHOLDER"
+done
 find . -name pom.xml \
     | xargs perl -i.placeholder -pe "s/$VERSION_PLACEHOLDER/$NEW_VERSION/g"
 

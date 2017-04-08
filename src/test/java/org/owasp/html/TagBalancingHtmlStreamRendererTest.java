@@ -315,14 +315,14 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeDocument();
 
     assertEquals(
-        "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>"
+        "<html><head><meta /></head><body><p>Hi</p><p>How are you</p>\n"
         + "<ul><li><table><tbody><tr>"
         + "<td><b><font><font><p>Cell</p></font></font>\n"
         + "</b></td>"
         // The close </li> tag does not close the whole table.
         + "<td><b><b><font><font><p>Cell</p></font></font>\n"
         + "</b></b></td>"
-        + "</tr></tbody></table></li></ul>"
+        + "</tr></tbody></table></li></ul>\n"
         + "<b><b><p>x</p></b></b></body></html>",
         htmlOutputBuffer.toString());
   }

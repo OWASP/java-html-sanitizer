@@ -403,7 +403,7 @@ function tagStackToHtml(stack, body) {
     for (var i = 0, n = elementNames.length; i < n; ++i) {
       var elementName = elementNames[i];
       var stack = containmentStackFor(elementName);
-      if (stack) { --stack.length; }
+      if (stack && stack.length) { --stack.length; }
       containmentStackMap[elementName] = stack;
     }
     displayJson(containmentStackMap,
@@ -727,7 +727,7 @@ var closedOnClose = getOwn(cannedData, 'closedOnClose') || new Promise();
       var innerTc = textContentModel[inner];
       if (outerTc && innerTc && outerTc.comments && innerTc.comments) {
         var stack = containmentStackFor(outer, [inner]);
-        if (stack) {
+        if (stack && stack.length) {
           --stack.length;  // strip outer.
           // <outer><inner></outer><!--X--></inner>
           return tagStackToHtml(
