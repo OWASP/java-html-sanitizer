@@ -1,6 +1,7 @@
 package org.owasp.html.empiricism;
 
 import org.owasp.html.HtmlElementTables;
+import org.owasp.html.HtmlElementTables.HtmlElementNames;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -12,8 +13,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -33,10 +34,184 @@ import javax.json.JsonReader;
  */
 public final class JsonToSerializedHtmlElementTables {
 
+  static final class SourceLineWriter {
+    final StringBuilder indent = new StringBuilder();
+    final StringBuilder sb = new StringBuilder();
+
+    void lines(CharSequence... lines) {
+      for (CharSequence line : lines) { line(line); }
+    }
+
+    void line(CharSequence cs) {
+      int n = cs.length();
+      if (n != 0) {
+        int lt = 0;
+        for (; lt < n; ++lt) {
+          char c = cs.charAt(lt);
+          if (c == '}' || c == ')') {
+            indent.setLength(indent.length() - 2);
+          } else {
+            break;
+          }
+        }
+        sb.append(indent);
+        sb.append(cs);
+        for (; lt < n; ++lt) {
+          char c = cs.charAt(lt);
+          if (c == '{' || c == '(') {
+            indent.append(' ').append(' ');
+          } else if (c == '}' || c == ')') {
+            indent.setLength(indent.length() - 2);
+          }
+        }
+      }
+      sb.append('\n');
+    }
+
+    void write(int[][] arr) {
+      line("new int[][] {");
+      writeEls(arr);
+      line("}");
+    }
+
+    private void writeEls(int[][] arr) {
+      for (int i = 0, n = arr.length; i < n; ++i) {
+        line("{");
+        writeEls(arr[i]);
+        line(i + 1 != n ? "}," : "}");
+      }
+    }
+
+    void write(int[] arr) {
+      line("new int[] {");
+      writeEls(arr);
+      line("}");
+    }
+
+    private void writeEls(int[] arr) {
+      StringBuilder buf = new StringBuilder();
+      for (int i = 0, n = arr.length; i < n; ++i) {
+        if (i != 0) {
+          buf.append(',');
+          if (i % 16 == 0 && buf.length() != 0) {
+            line(buf);
+            buf.setLength(0);
+          } else {
+            buf.append(' ');
+          }
+        }
+        buf.append(arr[i]);
+      }
+      if (buf.length() != 0) {
+        line(buf);
+      }
+    }
+
+    private void writeEls(byte[] arr) {
+      StringBuilder buf = new StringBuilder();
+      for (int i = 0, n = arr.length; i < n; ++i) {
+        if (i != 0) {
+          buf.append(',');
+          if (i % 16 == 0 && buf.length() != 0) {
+            line(buf);
+            buf.setLength(0);
+          } else {
+            buf.append(' ');
+          }
+        }
+        buf.append("(byte)").append(arr[i]);
+      }
+      if (buf.length() != 0) {
+        line(buf);
+      }
+    }
+
+    void writePacked(boolean[] arr) {
+      int[] packed = new int[(arr.length + 31) / 32];
+      for (int i = 0, n = arr.length; i < n; ++i) {
+        if (arr[i]) {
+          packed[i >> 5] |= (1 << (i & 0x1f));
+        }
+      }
+      boolean[] reunpacked = HtmlElementTables.unpack(packed, arr.length);
+      Preconditions.checkState(Arrays.equals(arr, reunpacked));
+      line("HtmlElementTables.unpack(new int[] {");
+      writeEls(packed);
+      line("}, " + arr.length + ")");
+    }
+
+    void write(byte[] arr) {
+      line("new byte[] {");
+      writeEls(arr);
+      line("}");
+    }
+
+    String getSource() {
+      return sb.toString();
+    }
+
+    void write(int[][][] arrs) {
+      line("new int[][][] {");
+      for (int j = 0, m = arrs.length; j < m; ++j) {
+        int[][] arr = arrs[j];
+        if (arr == null) {
+          line(j + 1 != m ? "null," : "null");
+        } else {
+          line("{");
+          writeEls(arr);
+          line(j + 1 != m ? "}," : "}");
+        }
+      }
+      line("}");
+    }
+
+    void write(String[] arr) {
+      line("new String[] {");
+      writeEls(arr);
+      line("}");
+    }
+
+    private void writeEls(String[] arr) {
+      StringBuilder buf = new StringBuilder();
+      for (int i = 0, n = arr.length; i < n; ++i) {
+        if (i != 0) {
+          buf.append(',');
+          if (i % 16 == 0 && buf.length() != 0) {
+            line(buf);
+            buf.setLength(0);
+          } else {
+            buf.append(' ');
+          }
+        }
+        String s = arr[i];
+        buf.append('"');
+        for (int j = 0, m = s.length(); j < m; ++j) {
+          char c = s.charAt(j);
+          switch (c) {
+            case '\n': buf.append("\\n"); break;
+            case '\r': buf.append("\\r"); break;
+            case '\\': buf.append("\\\\"); break;
+            case '"': buf.append("\\\""); break;
+            case '(': case ')': case '{': case '}':  // Don't interfere with indent
+              buf.append("\\u00");
+              buf.append(Integer.toHexString(c));
+              break;
+            default:
+              buf.append(c);
+          }
+        }
+        buf.append('"');
+      }
+      if (buf.length() != 0) {
+        line(buf);
+      }
+    }
+  }
+
   /** */
   public static void main(String... argv) throws IOException {
     if (argv.length > 2 || argv.length > 0 && !new File(argv[0]).isFile()) {
-      System.err.println("Expected infile.js outfile.ser");
+      System.err.println("Expected infile.js outfile.java");
       System.err.println();
       System.err.println(
           "Converts canned.js to a serialized "
@@ -45,7 +220,8 @@ public final class JsonToSerializedHtmlElementTables {
     }
 
     String infile = argv.length >= 1 ? argv[0] : "canned-data.json";
-    String outfile = argv.length >= 2 ? argv[1] : "html-metadata.ser";
+    String outfile = argv.length >= 2
+        ? argv[1] : "target/HtmlElementTablesCanned.java";
 
     JsonObject obj;
     FileInputStream in = new FileInputStream(infile);
@@ -60,80 +236,111 @@ public final class JsonToSerializedHtmlElementTables {
       in.close();
     }
 
+    SourceLineWriter src = new SourceLineWriter();
+    src.lines(
+        "package org.owasp.html;",
+        "",
+        "/** Generated by " + JsonToSerializedHtmlElementTables.class + " */",
+        "final class HtmlElementTablesCanned {",
+        "static final HtmlElementTables TABLES;",
+        "static {"
+        );
+
     HtmlElementTables.HtmlElementNames elementNames;
+    String[] elementNamesArr;
     {
       ImmutableList.Builder<String> b = ImmutableList.builder();
       JsonArray arr = obj.getJsonArray("elementNames");
       for (int i = 0, n = arr.size(); i < n; ++i) {
         b.add(arr.getString(i));
       }
-      elementNames = new HtmlElementTables.HtmlElementNames(b.build());
+      ImmutableList<String> elementNameList = b.build();
+      elementNames = new HtmlElementTables.HtmlElementNames(elementNameList);
+      elementNamesArr = elementNameList.toArray(new String[0]);
     }
+    src.lines(
+        "HtmlElementTables.HtmlElementNames elementNames",
+        "= new HtmlElementTables.HtmlElementNames(");
+    src.write(elementNamesArr);
+    src.line(");");
 
-    HtmlElementTables.DenseElementBinaryMatrix canContain =
-        newDenseElementBinaryMatrix(
-            elementNames, obj.getJsonObject("canContain"));
-    HtmlElementTables.DenseElementBinaryMatrix closedOnClose =
-        newDenseElementBinaryMatrix(
-            elementNames, obj.getJsonObject("closedOnClose"));
-    HtmlElementTables.DenseElementBinaryMatrix closedOnOpen =
-        newDenseElementBinaryMatrix(
-            elementNames, obj.getJsonObject("closedOnOpen"));
-    HtmlElementTables.SparseElementToElements explicitClosers =
-        newSparseElementToElements(
-            elementNames, obj.getJsonObject("explicitClosers"));
-    HtmlElementTables.SparseElementMultitable impliedElements =
-        newSparseElementMultitable(
-            elementNames, obj.getJsonObject("impliedElements"));
-    HtmlElementTables.TextContentModel textContentModel;
-    {
-      byte[] packedBits = new byte[elementNames.canonNames.size()];
-      JsonObject tcmObj = obj.getJsonObject("textContentModel");
-      for (String key : tcmObj.keySet()) {
-        int ei = elementNames.getElementNameIndex(key);
-        byte b = 0;
-        JsonObject bitsObj = tcmObj.getJsonObject(key);
-        for (String bitKey : bitsObj.keySet()) {
-          HtmlElementTables.TextContentModelBit mbit = MODEL_BITS.get(bitKey);
-          if (bitsObj.getBoolean(bitKey)) {
-            b |= mbit.bitMask;
-          } else {
-            b &= ~mbit.bitMask;
-          }
-        }
-        packedBits[ei] = b;
-      }
-      textContentModel = new HtmlElementTables.TextContentModel(packedBits);
-    }
-    HtmlElementTables.DenseElementSet resumable =
-        newDenseElementSet(elementNames, obj.getJsonObject("resumable"));
+    newDenseElementBinaryMatrix(
+        elementNames, obj.getJsonObject("canContain"),
+        "canContain", src);
+    newDenseElementBinaryMatrix(
+        elementNames, obj.getJsonObject("closedOnClose"),
+        "closedOnClose", src);
+    newDenseElementBinaryMatrix(
+        elementNames, obj.getJsonObject("closedOnOpen"),
+        "closedOnOpen", src);
+    newSparseElementToElements(
+        elementNames, obj.getJsonObject("explicitClosers"),
+        "explicitClosers", src);
+    newSparseElementMultitable(
+        elementNames, obj.getJsonObject("impliedElements"),
+        "impliedElements", src);
+    newTextContentModel(
+        elementNames, obj.getJsonObject("textContentModel"),
+        "textContentModel", src);
+    newDenseElementSet(elementNames, obj.getJsonObject("resumable"),
+        "resumable", src);
 
-    HtmlElementTables tables = new HtmlElementTables(
-        elementNames,
-        canContain,
-        closedOnClose,
-        closedOnOpen,
-        explicitClosers,
-        impliedElements,
-        textContentModel,
-        resumable);
+    src.lines(
+        "TABLES = new HtmlElementTables(",
+        "elementNames,",
+        "canContain,",
+        "closedOnClose,",
+        "closedOnOpen,",
+        "explicitClosers,",
+        "impliedElements,",
+        "textContentModel,",
+        "resumable);");
+
+    src.lines("}", "}");
+
     OutputStream out = new FileOutputStream(outfile);
     try {
-      ObjectOutputStream oout = new ObjectOutputStream(out);
+      OutputStreamWriter w = new OutputStreamWriter(out, "UTF-8");
       try {
-        oout.writeObject(tables);
+        w.write(src.getSource());
       } finally {
-        oout.close();
+        w.close();
       }
     } finally {
       out.close();
     }
   }
 
-  private static HtmlElementTables.DenseElementBinaryMatrix
-      newDenseElementBinaryMatrix(
-          HtmlElementTables.HtmlElementNames en,
-          JsonObject obj) {
+  private static void newTextContentModel(
+      HtmlElementNames elementNames, JsonObject tcmObj, String fieldName,
+      SourceLineWriter src) {
+    byte[] packedBits = new byte[elementNames.canonNames.size()];
+    for (String key : tcmObj.keySet()) {
+      int ei = elementNames.getElementNameIndex(key);
+      byte b = 0;
+      JsonObject bitsObj = tcmObj.getJsonObject(key);
+      for (String bitKey : bitsObj.keySet()) {
+        HtmlElementTables.TextContentModelBit mbit = MODEL_BITS.get(bitKey);
+        if (bitsObj.getBoolean(bitKey)) {
+          b |= mbit.bitMask;
+        } else {
+          b &= ~mbit.bitMask;
+        }
+      }
+      packedBits[ei] = b;
+    }
+    src.lines(
+        "HtmlElementTables.TextContentModel " + fieldName + " = new "
+        + "HtmlElementTables.TextContentModel(");
+    src.write(packedBits);
+    src.line(");");
+  }
+
+  private static void newDenseElementBinaryMatrix(
+      HtmlElementTables.HtmlElementNames en,
+      JsonObject obj,
+      String fieldName,
+      SourceLineWriter src) {
     int dim = en.canonNames.size();
     boolean[] bits = new boolean[dim * dim];
     for (String elname : obj.keySet()) {
@@ -144,26 +351,37 @@ public final class JsonToSerializedHtmlElementTables {
         bits[ai * dim + bi] = true;
       }
     }
-    return new HtmlElementTables.DenseElementBinaryMatrix(bits, dim);
+    src.lines(
+        "HtmlElementTables.DenseElementBinaryMatrix " + fieldName
+        + " = new HtmlElementTables.DenseElementBinaryMatrix(");
+    src.writePacked(bits);
+    src.line(", " + dim + ");");
   }
 
-  private static HtmlElementTables.DenseElementSet
-      newDenseElementSet(
-          HtmlElementTables.HtmlElementNames en,
-          JsonObject obj) {
+  private static void newDenseElementSet(
+      HtmlElementTables.HtmlElementNames en,
+      JsonObject obj,
+      String fieldName,
+      SourceLineWriter src) {
     int dim = en.canonNames.size();
     boolean[] bits = new boolean[dim];
     for (String elname : obj.keySet()) {
       int i = en.getElementNameIndex(elname);
       bits[i] = obj.getBoolean(elname);
     }
-    return new HtmlElementTables.DenseElementSet(bits);
+    src.lines(
+        "HtmlElementTables.DenseElementSet " + fieldName + " = new "
+        + "HtmlElementTables.DenseElementSet("
+        );
+    src.writePacked(bits);
+    src.lines(");");
   }
 
-  private static HtmlElementTables.SparseElementToElements
-      newSparseElementToElements(
-          HtmlElementTables.HtmlElementNames en,
-          JsonObject obj) {
+  private static void newSparseElementToElements(
+      HtmlElementTables.HtmlElementNames en,
+      JsonObject obj,
+      String fieldName,
+      SourceLineWriter src) {
     List<int[]> arrs = Lists.newArrayList();
     for (String elname : obj.keySet()) {
       int ei = en.getElementNameIndex(elname);
@@ -191,14 +409,19 @@ public final class JsonToSerializedHtmlElementTables {
         return Integer.compare(a[0], b[0]);
       }
     });
-    return new HtmlElementTables.SparseElementToElements(
-        arrs.toArray(new int[arrs.size()][]));
+    int[][] arr = arrs.toArray(new int[arrs.size()][]);
+    src.lines(
+        "HtmlElementTables.SparseElementToElements " + fieldName
+        + " = new HtmlElementTables.SparseElementToElements(");
+    src.write(arr);
+    src.line(");");
   }
 
-  private static HtmlElementTables.SparseElementMultitable
-      newSparseElementMultitable(
-          HtmlElementTables.HtmlElementNames en,
-          JsonObject obj) {
+  private static void newSparseElementMultitable(
+      HtmlElementTables.HtmlElementNames en,
+      JsonObject obj,
+      String fieldName,
+      SourceLineWriter src) {
     int dim = en.canonNames.size();
     int[][][] arrs = new int[dim][][];
 
@@ -226,7 +449,11 @@ public final class JsonToSerializedHtmlElementTables {
 
       });
     }
-    return new HtmlElementTables.SparseElementMultitable(arrs);
+    src.lines(
+        "HtmlElementTables.SparseElementMultitable " + fieldName + " = " +
+        "new HtmlElementTables.SparseElementMultitable(");
+    src.write(arrs);
+    src.line(");");
   }
 
   private static final

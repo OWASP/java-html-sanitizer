@@ -1,9 +1,5 @@
 package org.owasp.html;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -11,14 +7,11 @@ import java.util.List;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Resources;
 
 /**
  * Metadata about HTML elements.
  */
-public final class HtmlElementTables implements Serializable {
-
-  private static final long serialVersionUID = 2L;
+public final class HtmlElementTables {
 
   /** Pseudo element index for text nodes. */
   public static final int TEXT_NODE = -1;
@@ -303,8 +296,7 @@ public final class HtmlElementTables implements Serializable {
   }
 
 
-  private static final class FreeWrapper implements Serializable {
-    private static final long serialVersionUID = 1L;
+  private static final class FreeWrapper {
 
     final int desc;
     final boolean[] allowedContainers;
@@ -387,53 +379,19 @@ public final class HtmlElementTables implements Serializable {
    * Get the HTML metadata instance.
    */
   static HtmlElementTables get() {
-    return SerializedTableInstance.INSTANCE;
+    return HtmlElementTablesCanned.TABLES;
   }
-
-  private static final class SerializedTableInstance {
-    static final HtmlElementTables INSTANCE;
-    static {
-      HtmlElementTables t;
-      try {
-        InputStream in =
-            Resources.asByteSource(Resources.getResource(
-                HtmlElementTables.class, "html-metadata.ser"))
-            .openBufferedStream();
-        try {
-          ObjectInputStream oin = new ObjectInputStream(in);
-          try {
-            t = (HtmlElementTables) oin.readObject();
-          } finally {
-            oin.close();
-          }
-        } finally {
-          in.close();
-        }
-      } catch (IOException ex) {
-        throw (AssertionError)
-            new AssertionError("Could not load HTML metadata")
-            .initCause(ex);
-      } catch (ClassNotFoundException ex) {
-        throw (AssertionError)
-            new AssertionError("Could not load HTML metadata")
-            .initCause(ex);
-      }
-      INSTANCE = Preconditions.checkNotNull(t);
-    }
-  }
-
 
   /**
    * Maps between element indices and element names.
    */
-  public static final class HtmlElementNames implements Serializable {
-    private static final long serialVersionUID = 1L;
+  public static final class HtmlElementNames {
 
     /**
      * placeholder name for any element name not defined by the HTML 6
      * specification or any similar document.
      */
-    public static final String CUSTOM_ELEMENT_NAME = "xcustom";
+    static final String CUSTOM_ELEMENT_NAME = "xcustom";
 
     /**
      * Canonical element names by element index.
@@ -444,6 +402,11 @@ public final class HtmlElementTables implements Serializable {
 
     /** */
     public HtmlElementNames(List<String> canonNames) {
+      this.canonNames = ImmutableList.copyOf(canonNames);
+    }
+
+    /** */
+    HtmlElementNames(String... canonNames) {
       this.canonNames = ImmutableList.copyOf(canonNames);
     }
 
@@ -469,9 +432,7 @@ public final class HtmlElementTables implements Serializable {
   /**
    * Given two element names, yields a boolean.
    */
-  public static final class DenseElementBinaryMatrix implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+  static final class DenseElementBinaryMatrix {
     private final int matrixLength;
     private final boolean[] bits;
 
@@ -509,8 +470,7 @@ public final class HtmlElementTables implements Serializable {
   /**
    * A set of elements.
    */
-  public static final class DenseElementSet implements Serializable {
-    private static final long serialVersionUID = 1L;
+  public static final class DenseElementSet {
 
     private final boolean[] bits;
 
@@ -531,8 +491,7 @@ public final class HtmlElementTables implements Serializable {
   /**
    * Maps element indices to sets of the same.
    */
-  public static final class SparseElementToElements implements Serializable {
-    private static final long serialVersionUID = 1L;
+  public static final class SparseElementToElements {
     private final int[][] arrs;
 
     /**
@@ -590,9 +549,7 @@ public final class HtmlElementTables implements Serializable {
   /**
    * Maps element to elements to lists of elements.
    */
-  public static final class SparseElementMultitable implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+  public static final class SparseElementMultitable {
     private final int[][][] arrs;
     private static final int[][] ZERO_INT_ARRS = new int[0][];
 
@@ -642,9 +599,7 @@ public final class HtmlElementTables implements Serializable {
   /**
    * For each element, the kinds of character data it can contain.
    */
-  public static final class TextContentModel implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+  public static final class TextContentModel {
     private final byte[] contentModelBitsPerElement;
 
     /** */
@@ -663,7 +618,7 @@ public final class HtmlElementTables implements Serializable {
     }
 
     /**
-     * Whether {@code &amp;} parses to an HTML charcter reference when it
+     * Whether {@code &amp;} parses to an HTML character reference when it
      * appears in the identified element.
      */
     public boolean canContainEntities(int elementIndex) {
@@ -757,4 +712,17 @@ public final class HtmlElementTables implements Serializable {
           return a[0] - b[0];
         }
       };
+
+  /**
+   * Unpacks a boolean[] from an array of ints.
+   * This allows us to store largish boolean[]s in relatively small numbers of
+   * bytecode instructions.
+   */
+  public static boolean[] unpack(int[] packed, int length) {
+    boolean[] bools = new boolean[length];
+    for (int i = 0; i < length; ++i) {
+      bools[i] = (packed[i >> 5] & (1 << (i & 0x1f))) != 0;
+    }
+    return bools;
+  }
 }

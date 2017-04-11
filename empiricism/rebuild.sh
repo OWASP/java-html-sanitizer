@@ -5,7 +5,7 @@ echo Load html-containment.html?rerun into your browser then copy/paste the
 echo JSON dump from the bottom into $PWD/canned-data.json
 
 pushd ..
-mvn install -f aggregate -DskipTests=true
+mvn -f aggregate install -DskipTests=true
 popd
 
 perl -i.bak -ne '
@@ -27,7 +27,8 @@ print "var cannedData = %s;" % (
 mvn package
 
 mvn exec:java \
-  -Dexec.mainClass=org.owasp.html.empiricism.JsonToSerializedHtmlElementTables \
+  -Dexec.mainClass=org.owasp.html.empiricism.JsonToSerializedHtmlElementTables
 
-cp html-metadata.ser ../src/main/resources/org/owasp/html
-echo copied metadata to resources directory
+# TODO: Maybe do this via a genrule in the pom.xml
+cp target/HtmlElementTablesCanned.java ../src/main/java/org/owasp/html
+echo copied generated source to src directory
