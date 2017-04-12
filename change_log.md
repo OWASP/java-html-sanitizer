@@ -2,6 +2,8 @@
 
 Most recent at top.
 
+  * Release 20170411.1
+    * Get rid of dependency on resource to ease use with j2objc
   * Release 20170408.1
     * Fix some bugs in the tag balancer introduced when we swapped in
       the empirically derived tag metadata.
