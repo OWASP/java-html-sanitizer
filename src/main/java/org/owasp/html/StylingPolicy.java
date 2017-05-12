@@ -155,7 +155,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
         if ((meaning & (meaning - 1)) == 0) {  // meaning is unambiguous
           if (meaning == CssSchema.BIT_UNRESERVED_WORD
               && token.length() > 2
-              && isAlphanumericOrSpace(token, 1, token.length() - 1)) {
+              && isAlphanumericOrSpaceOrHyphen(token, 1, token.length() - 1)) {
             emitToken(Strings.toLowerCase(token));
           } else if (meaning == CssSchema.BIT_URL) {
             // convert to a URL token and hand-off to the appropriate method
@@ -232,7 +232,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
     return sanitizedCss.length() == 0 ? null : sanitizedCss.toString();
   }
 
-  static boolean isAlphanumericOrSpace(
+  static boolean isAlphanumericOrSpaceOrHyphen(
       String token, int start, int end) {
     for (int i = start; i < end; ++i) {
       char ch = token.charAt(i);
@@ -243,7 +243,8 @@ final class StylingPolicy implements JoinableAttributePolicy {
       } else {
         int chLower = ch | 32;
         if (!(('0' <= chLower && chLower <= '9')
-              || ('a' <= chLower && chLower <= 'z'))) {
+              || ('a' <= chLower && chLower <= 'z')
+              || ('-' == ch))) {
           return false;
         }
       }
