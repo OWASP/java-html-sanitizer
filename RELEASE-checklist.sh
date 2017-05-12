@@ -44,7 +44,7 @@ cd "$RELEASE_CLONE"
 # so this is a two step process.
 export VERSION_PLACEHOLDER=99999999999999-SNAPSHOT
 for project in aggregate empiricism; do
-    mvn -f $project \
+    mvn -f "$project" \
         release:update-versions \
         -DautoVersionSubmodules=true \
         -DdevelopmentVersion="$VERSION_PLACEHOLDER"
