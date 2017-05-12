@@ -2,6 +2,10 @@
 
 Most recent at top.
 
+  * Release 20170512.1
+    * Allow hyphens in font-family names.
+    * Rework policy compilation of policies so PolicyFactory.and(...) is
+      commutative.
   * Release 20170411.1
     * Get rid of dependency on resource to ease use with j2objc
   * Release 20170408.1
