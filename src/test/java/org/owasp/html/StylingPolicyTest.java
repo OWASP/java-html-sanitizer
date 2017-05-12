@@ -335,6 +335,15 @@ public class StylingPolicyTest extends TestCase {
         "color:purple !foo(bar) important");
   }
 
+  @Test
+  public static final void testCdoCdc() {
+    // No <!-- or --> in output.
+    assertSanitizedCss("font-family:'a--' 'b'", "font-family: a--\\>b");
+    assertSanitizedCss("font-family:'a' '--b'", "font-family: a<\\!--b");
+    assertSanitizedCss("font-family:'a--' 'b'", "font-family: a-->b");
+    assertSanitizedCss("font-family:'a b'", "font-family: a<!--b");
+  }
+
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(
