@@ -638,22 +638,36 @@ public class HtmlPolicyBuilder {
         textContainerSet.add(textContainer.getKey());
       }
     }
-    return new PolicyFactory(compilePolicies(), textContainerSet.build(),
-                             ImmutableMap.copyOf(globalAttrPolicies),
-                             preprocessor, postprocessor);
+    CompiledState compiled = compilePolicies();
+
+    return new PolicyFactory(
+        compiled.compiledPolicies, textContainerSet.build(),
+        ImmutableMap.copyOf(compiled.globalAttrPolicies),
+        preprocessor, postprocessor);
   }
 
   // Speed up subsequent builds by caching the compiled policies.
-  private transient ImmutableMap<String, ElementAndAttributePolicies>
-      compiledPolicies;
+  private transient CompiledState compiledState;
+
+  private static final class CompiledState {
+    final Map<String, AttributePolicy> globalAttrPolicies;
+    final ImmutableMap<String, ElementAndAttributePolicies> compiledPolicies;
+
+    CompiledState(
+        Map<String, AttributePolicy> globalAttrPolicies,
+        ImmutableMap<String, ElementAndAttributePolicies> compiledPolicies) {
+      this.globalAttrPolicies = globalAttrPolicies;
+      this.compiledPolicies = compiledPolicies;
+    }
+  }
 
   /** Called by mutators to signal that any compiled policy is out-of-date. */
   private void invalidateCompiledState() {
-    compiledPolicies = null;
+    compiledState = null;
   }
 
-  private ImmutableMap<String, ElementAndAttributePolicies> compilePolicies() {
-    if (compiledPolicies != null) { return compiledPolicies; }
+  private CompiledState compilePolicies() {
+    if (compiledState != null) { return compiledState; }
 
     // Copy maps before normalizing in case builder is reused.
     @SuppressWarnings("hiding")
@@ -741,6 +755,13 @@ public class HtmlPolicyBuilder {
         }
       }
     }
+    if (stylingPolicy != null) {
+      AttributePolicy old = globalAttrPolicies.get("style");
+      if (old != null) {
+        globalAttrPolicies.put(
+            "style", AttributePolicy.Util.join(old, stylingPolicy));
+      }
+    }
 
     ImmutableMap.Builder<String, ElementAndAttributePolicies> policiesBuilder
         = ImmutableMap.builder();
@@ -753,18 +774,29 @@ public class HtmlPolicyBuilder {
 
       Map<String, AttributePolicy> elAttrPolicies
           = attrPolicies.get(elementName);
-      if (elAttrPolicies == null) { elAttrPolicies = ImmutableMap.of(); }
+      if (elAttrPolicies == null) {
+        elAttrPolicies = ImmutableMap.of();
+      }
+      if (stylingPolicy != null) {
+        AttributePolicy old = elAttrPolicies.get("style");
+        if (old != null) {
+          attrPolicies.put(
+              elementName,
+              elAttrPolicies = Maps.newLinkedHashMap(elAttrPolicies));
+          elAttrPolicies.put(
+              "style", AttributePolicy.Util.join(old, stylingPolicy));
+        }
+      }
+
       ImmutableMap.Builder<String, AttributePolicy> attrs
           = ImmutableMap.builder();
+
       for (Map.Entry<String, AttributePolicy> ape : elAttrPolicies.entrySet()) {
         String attributeName = ape.getKey();
         // Handle below so we don't end up putting the same key into the map
         // twice.  ImmutableMap.Builder hates that.
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
         AttributePolicy policy = ape.getValue();
-        if ("style".equals(attributeName)) {
-          policy = AttributePolicy.Util.join(policy, stylingPolicy);
-        }
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
           attrs.put(attributeName, policy);
         }
@@ -774,9 +806,6 @@ public class HtmlPolicyBuilder {
         String attributeName = ape.getKey();
         AttributePolicy policy = AttributePolicy.Util.join(
             elAttrPolicies.get(attributeName), ape.getValue());
-        if ("style".equals(attributeName)) {
-          policy = AttributePolicy.Util.join(policy, stylingPolicy);
-        }
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
           attrs.put(attributeName, policy);
         }
@@ -788,7 +817,7 @@ public class HtmlPolicyBuilder {
               elementName,
               elPolicy, attrs.build(), skipIfEmpty.contains(elementName)));
     }
-    return compiledPolicies = policiesBuilder.build();
+    return new CompiledState(globalAttrPolicies, policiesBuilder.build());
   }
 
   /**

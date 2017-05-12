@@ -32,8 +32,11 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import org.owasp.html.JoinedAttributePolicy.JoinableAttributePolicy;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.Lists;
 
 /**
@@ -42,7 +45,7 @@ import com.google.common.collect.Lists;
  * ones to reduce the attack-surface.
  */
 @TCB
-final class StylingPolicy implements AttributePolicy {
+final class StylingPolicy implements JoinableAttributePolicy {
 
   final CssSchema cssSchema;
   final Function<String, String> urlRewriter;
@@ -257,5 +260,33 @@ final class StylingPolicy implements AttributePolicy {
   @Override
   public int hashCode() {
     return cssSchema.hashCode();
+  }
+
+  public Joinable.JoinStrategy<JoinableAttributePolicy> getJoinStrategy() {
+    return StylingPolicyJoinStrategy.INSTANCE;
+  }
+
+  static final class StylingPolicyJoinStrategy
+  implements Joinable.JoinStrategy<JoinableAttributePolicy> {
+    static final StylingPolicyJoinStrategy INSTANCE =
+        new StylingPolicyJoinStrategy();
+
+    public JoinableAttributePolicy join(
+        Iterable<? extends JoinableAttributePolicy> toJoin) {
+      Function<String, String> identity = Functions.<String>identity();
+      CssSchema cssSchema = null;
+      Function<String, String> urlRewriter = identity;
+      for (JoinableAttributePolicy p : toJoin) {
+        StylingPolicy sp = (StylingPolicy) p;
+        cssSchema = cssSchema == null
+            ? sp.cssSchema : CssSchema.union(cssSchema, sp.cssSchema);
+        urlRewriter = urlRewriter.equals(identity)
+            || urlRewriter.equals(sp.urlRewriter)
+            ? sp.urlRewriter
+            : Functions.compose(urlRewriter, sp.urlRewriter);
+      }
+      return new StylingPolicy(cssSchema, urlRewriter);
+    }
+
   }
 }

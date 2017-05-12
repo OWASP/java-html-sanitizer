@@ -319,12 +319,12 @@ public class SanitizersTest extends TestCase {
   @Test
   public static final void testAndOrdering() {
     String input = ""
-        + "xss<a href=\"http://www.google.de\" style=\"color:red;\""
+        + "xss<a href=\"http://www.google.de\" style=\"color:red\""
         + " onmouseover=alert(1) onmousemove=\"alert(2)\" onclick=alert(3)>"
         + "g"
         + "<img src=\"http://example.org\"/>oogle</a>";
     String want = ""
-        + "xss<a href=\"http://www.google.de\" style=\"color:red;\""
+        + "xss<a href=\"http://www.google.de\" style=\"color:red\""
         + " rel=\"nofollow\">"
         + "g"
         + "<img src=\"http://example.org\" />oogle</a>";
