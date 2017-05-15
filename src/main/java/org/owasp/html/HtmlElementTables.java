@@ -532,6 +532,7 @@ public final class HtmlElementTables {
     int lo = leftIncl, hi = rightExcl;
     while (lo < hi) {
       int mid = (lo + hi) >> 1;
+      assert mid >= lo;
       int el = arr[mid];
       int delta = value - el;
       if (delta == 0) {
