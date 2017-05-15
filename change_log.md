@@ -2,6 +2,9 @@
 
 Most recent at top.
 
+  * Release 20170515.1
+    * Fixed performance regression in 20170512.1
+    * Fixed code layout issue that was breaking j2objc.
   * Release 20170512.1
     * Allow hyphens in font-family names.
     * Rework policy compilation of policies so PolicyFactory.and(...) is
