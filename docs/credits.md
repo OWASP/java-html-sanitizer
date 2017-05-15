@@ -1,4 +1,4 @@
-#Credits
+# Credits
 
  * agustin.lucchetti
  * andy-h-chen
@@ -10,3 +10,4 @@
  * robinhouston
  * vytah
  * willikins_bear
+ * yokotaso
