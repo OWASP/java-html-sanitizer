@@ -32,7 +32,7 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
-import org.owasp.html.JoinedAttributePolicy.JoinableAttributePolicy;
+import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;

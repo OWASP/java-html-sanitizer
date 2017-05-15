@@ -31,14 +31,11 @@ package org.owasp.html;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Collection;
 import java.util.Set;
 
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
-import org.owasp.html.JoinedAttributePolicy.JoinableAttributePolicy;
 import org.owasp.html.Joinable.JoinHelper;
 
 /**
@@ -128,37 +125,7 @@ import org.owasp.html.Joinable.JoinHelper;
         }
       };
 
-}
-
-@Immutable
-final class JoinedAttributePolicy implements AttributePolicy {
-  final ImmutableList<AttributePolicy> policies;
-
-  JoinedAttributePolicy(Collection<? extends AttributePolicy> policies) {
-    this.policies = ImmutableList.copyOf(policies);
-  }
-
-  public @Nullable String apply(
-      String elementName, String attributeName, @Nullable String rawValue) {
-    String value = rawValue;
-    for (AttributePolicy p : policies) {
-      if (value == null) { break; }
-      value = p.apply(elementName, attributeName, value);
-    }
-    return value;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return o != null && this.getClass() == o.getClass()
-        && policies.equals(((JoinedAttributePolicy) o).policies);
-  }
-
-  @Override
-  public int hashCode() {
-    return policies.hashCode();
-  }
-
+  /** An attribute policy that is joinable. */
   static interface JoinableAttributePolicy
   extends AttributePolicy, Joinable<JoinableAttributePolicy> {
     // Parameterized Appropriately.
