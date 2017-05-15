@@ -817,7 +817,9 @@ public class HtmlPolicyBuilder {
               elementName,
               elPolicy, attrs.build(), skipIfEmpty.contains(elementName)));
     }
-    return new CompiledState(globalAttrPolicies, policiesBuilder.build());
+    compiledState = new CompiledState(
+        globalAttrPolicies, policiesBuilder.build());
+    return compiledState;
   }
 
   /**
