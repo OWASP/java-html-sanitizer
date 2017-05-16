@@ -130,7 +130,9 @@ public final class CssSchema {
     Property property = properties.get(propertyNameCanon);
     if (property != null) { return property; }
     int n = propertyNameCanon.length();
-    if (n != 0 && propertyNameCanon.charAt(0) == '-') {
+    // Minimum length of a vendor prefix is 3, and we need at least one
+    // more char.
+    if (n > 3 && propertyNameCanon.charAt(0) == '-') {
       String barePropertyNameCanon = stripVendorPrefix(propertyNameCanon);
       property = properties.get(barePropertyNameCanon);
       if (property != null) { return property; }
