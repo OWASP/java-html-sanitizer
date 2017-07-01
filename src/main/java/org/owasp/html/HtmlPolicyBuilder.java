@@ -202,6 +202,31 @@ public class HtmlPolicyBuilder {
       AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY;
   private Set<String> extraRelsForLinks;
   private Set<String> skipRelsForLinks;
+  private Map<String, String> encodingPolicies = Maps.newLinkedHashMap();
+
+  public HtmlPolicyBuilder() {
+    for (int i = 0; i < ' '; ++i) {
+      // We elide control characters so that we can ensure that our output is
+      // in the intersection of valid HTML5 and XML.  According to
+      // http://www.w3.org/TR/2008/REC-xml-20081126/#charsets
+      // Char      ::=          #x9 | #xA | #xD | [#x20-#xD7FF]
+      //             |          [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+      if (i != '\t' && i != '\n' && i != '\r') {
+        encodingPolicies.put(String.valueOf(Character.toChars(i)), ""); // Elide
+      }
+    }
+    // "&#34;" is shorter than "&quot;"
+    encodingPolicies.put("\"", "&#" + ((int) '"') + ";");// Attribute delimiter.
+    encodingPolicies.put("&", "&amp;");                  // HTML special.
+    // We don't use &apos; since that is not in the intersection of HTML&XML.
+    encodingPolicies.put("\'", "&#" + ((int) '\'') + ";");   // Attribute delimiter.
+    encodingPolicies.put("+", "&#" + ((int) '+') + ";");     // UTF-7 special.
+    encodingPolicies.put("<", "&lt;");                       // HTML special.
+    encodingPolicies.put("=", "&#" + ((int) '=') + ";");     // Special in attributes.
+    encodingPolicies.put(">", "&gt;");                       // HTML special.
+    encodingPolicies.put("@", "&#" + ((int) '@') + ";");     // Conditional compilation.
+    encodingPolicies.put("`", "&#" + ((int) '`') + ";");     // Attribute delimiter.
+  }
 
   /**
    * Allows the named elements.
@@ -643,7 +668,7 @@ public class HtmlPolicyBuilder {
     return new PolicyFactory(
         compiled.compiledPolicies, textContainerSet.build(),
         ImmutableMap.copyOf(compiled.globalAttrPolicies),
-        preprocessor, postprocessor);
+        preprocessor, postprocessor , encodingPolicies);
   }
 
   // Speed up subsequent builds by caching the compiled policies.
@@ -1024,7 +1049,7 @@ public class HtmlPolicyBuilder {
   }
 
   static final class JoinRelsOnLinksPolicies
-  implements Joinable.JoinStrategy<JoinableElementPolicy> {
+      implements Joinable.JoinStrategy<JoinableElementPolicy> {
 
     static final JoinRelsOnLinksPolicies INSTANCE
         = new JoinRelsOnLinksPolicies();
@@ -1041,6 +1066,28 @@ public class HtmlPolicyBuilder {
       extra.removeAll(skip);
       return RelsOnLinksPolicy.create(extra, skip);
     }
+  }
+
+  /*
+
+   */
+
+  public HtmlPolicyBuilder disableEncoding() {
+    encodingPolicies.clear();
+    return this;
+  }
+
+  public HtmlPolicyBuilder disbaleEncodingFor(String... characterList) {
+    Map<String, String> newEncodingPolicy = Maps.newLinkedHashMap();
+
+    for (String key : encodingPolicies.keySet()) {
+      newEncodingPolicy.put(key, encodingPolicies.get(key));
+    }
+    for (String entry : characterList) {
+      newEncodingPolicy.remove(entry);
+    }
+    encodingPolicies = newEncodingPolicy;
+    return this;
   }
 }
 

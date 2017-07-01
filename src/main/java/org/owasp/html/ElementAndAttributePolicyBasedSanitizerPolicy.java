@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -47,6 +48,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy {
   final ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final ImmutableSet<String> allowedTextContainers;
+  private final Map<String, String> encodingPolicies;
   private final HtmlStreamEventReceiver out;
   /**
    * True to skip textual content.  Used to ignore the content of embedded CDATA
@@ -62,10 +64,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
       ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies,
-      ImmutableSet<String> allowedTextContainers) {
+      ImmutableSet<String> allowedTextContainers,
+      Map<String, String> encodingPolicies) {
     this.out = out;
     this.elAndAttrPolicies = elAndAttrPolicies;
     this.allowedTextContainers = allowedTextContainers;
+    this.encodingPolicies = encodingPolicies;
   }
 
   static final ImmutableSet<String> SKIPPABLE_ELEMENT_CONTENT
