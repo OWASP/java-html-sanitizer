@@ -29,6 +29,7 @@
 package org.owasp.html;
 
 import java.io.IOException;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -153,27 +154,46 @@ final class Encoding {
 
   static void encodeHtmlAttribOnto(String plainText, Appendable output)
       throws IOException {
-    encodeHtmlOnto(plainText, output, "{\u200B");
+    encodeHtmlOnto(plainText, output, "{\u200B", null);
   }
 
+  static void encodeHtmlAttribOnto(String plainText, Appendable output, Map<Character, String> encodingPolicies)
+      throws IOException {
+    encodeHtmlOnto(plainText, output, "{\u200B", encodingPolicies);
+  }
+
+  /*
+   * Avoid problems with client-side template languages like
+   * Angular & Polymer which attach special significance to text like
+   * {{...}}.
+   * We split brackets so that these template languages don't end up
+   * executing expressions in sanitized text.
+   */
   static void encodePcdataOnto(String plainText, Appendable output)
       throws IOException {
-    // Avoid problems with client-side template languages like
-    // Angular & Polymer which attach special significance to text like
-    // {{...}}.
-    // We split brackets so that these template languages don't end up
-    // executing expressions in sanitized text.
-    encodeHtmlOnto(plainText, output, "{<!-- -->");
+    encodeHtmlOnto(plainText, output, "{<!-- -->", null);
   }
 
+  static void encodePcdataOnto(String plainText, Appendable output, Map<Character, String> encodingPolicies)
+      throws IOException {
+    encodeHtmlOnto(plainText, output, "{<!-- -->", encodingPolicies);
+  }
+
+  /*
+   * Avoid problems with client-side template languages like
+   * Angular & Polymer which attach special significance to text like
+   * {{...}}.
+   * We split brackets so that these template languages don't end up
+   * executing expressions in sanitized text.
+   */
   static void encodeRcdataOnto(String plainText, Appendable output)
       throws IOException {
-    // Avoid problems with client-side template languages like
-    // Angular & Polymer which attach special significance to text like
-    // {{...}}.
-    // We split brackets so that these template languages don't end up
-    // executing expressions in sanitized text.
-    encodeHtmlOnto(plainText, output, "{\u200B");
+    encodeHtmlOnto(plainText, output, "{\u200B", null);
+  }
+
+  static void encodeRcdataOnto(String plainText, Appendable output, Map<Character, String> encodingPolicies)
+      throws IOException {
+    encodeHtmlOnto(plainText, output, "{\u200B", encodingPolicies);
   }
 
   /**
@@ -183,10 +203,12 @@ final class Encoding {
    * smaller appends.
    * Elides code-units that are not valid XML Characters.
    * @see <a href="http://www.w3.org/TR/2008/REC-xml-20081126/#charsets">XML Ch. 2.2 - Characters</a>
+   * @param encodingPolicies Contains encoding rules defined at the time of building policy (if any). If no rules are
+   *                         configured or if this value is null, default behaviour (defined as Encoding.REPLACEMENT) is used
    */
   @TCB
   private static void encodeHtmlOnto(
-      String plainText, Appendable output, @Nullable String braceReplacement)
+      String plainText, Appendable output, @Nullable String braceReplacement, Map<Character, String> encodingPolicies)
           throws IOException {
     int n = plainText.length();
     int pos = 0;
@@ -194,6 +216,10 @@ final class Encoding {
       char ch = plainText.charAt(i);
       if (ch < REPLACEMENTS.length) {  // Handles all ASCII.
         String repl = REPLACEMENTS[ch];
+
+        if (encodingPolicies != null && encodingPolicies.containsKey(ch))
+          repl = encodingPolicies.get(ch);
+
         if (ch == '{' && repl == null) {
           if (i + 1 == n || plainText.charAt(i + 1) == '{') {
             repl = braceReplacement;
