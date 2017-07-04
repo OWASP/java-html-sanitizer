@@ -34,6 +34,7 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -57,12 +58,14 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
+  private Map<Character, String> encodingPolicies;
 
   /**
    * Factory.
    * @param output the buffer to which HTML is streamed.
    * @param ioExHandler called with any exception raised by output.
    * @param badHtmlHandler receives alerts when HTML cannot be rendered because
+   * @param encodingPolicies encoding rules defined at the time of Policy creation
    *    there is not valid HTML tree that results from that series of calls.
    *    E.g. it is not possible to create an HTML {@code <style>} element whose
    *    textual content is {@code "</style>"}.
@@ -70,16 +73,30 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   public static HtmlStreamRenderer create(
       @WillCloseWhenClosed Appendable output,
       Handler<? super IOException> ioExHandler,
-      Handler<? super String> badHtmlHandler) {
+      Handler<? super String> badHtmlHandler,
+      Map<Character, String> encodingPolicies) {
+    HtmlStreamRenderer renderer;
     if (output instanceof Closeable) {
-      return new CloseableHtmlStreamRenderer(
+      renderer = new CloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
     } else if (AutoCloseableHtmlStreamRenderer.isAutoCloseable(output)) {
-      return AutoCloseableHtmlStreamRenderer.createAutoCloseableHtmlStreamRenderer(
+      renderer = AutoCloseableHtmlStreamRenderer.createAutoCloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
     } else {
-      return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
+      renderer = new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
     }
+
+    if (renderer != null) {
+      renderer.encodingPolicies = encodingPolicies;
+    }
+    return renderer;
+  }
+
+  public static HtmlStreamRenderer create(
+      @WillCloseWhenClosed Appendable output,
+      Handler<? super IOException> ioExHandler,
+      Handler<? super String> badHtmlHandler){
+    return create(output, ioExHandler, badHtmlHandler, null);
   }
 
   /**
@@ -93,7 +110,13 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   public static HtmlStreamRenderer create(
       StringBuilder output, Handler<? super String> badHtmlHandler) {
     // Propagate since StringBuilder should not throw IOExceptions.
-    return create(output, Handler.PROPAGATE, badHtmlHandler);
+    return create(output, Handler.PROPAGATE, badHtmlHandler, null);
+  }
+
+  public static HtmlStreamRenderer create(
+      StringBuilder output, Handler<? super String> badHtmlHandler, Map<Character, String> encodingPolicies) {
+    // Propagate since StringBuilder should not throw IOExceptions.
+    return create(output, Handler.PROPAGATE, badHtmlHandler, encodingPolicies);
   }
 
   protected HtmlStreamRenderer(
@@ -193,7 +216,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         continue;
       }
       output.append(' ').append(name).append('=').append('"');
-      Encoding.encodeHtmlAttribOnto(value, output);
+      Encoding.encodeHtmlAttribOnto(value, output, encodingPolicies);
       if (value.indexOf('`') != -1) {
         // Apparently, in quirks mode, IE8 does a poor job producing innerHTML
         // values.  Given
@@ -279,9 +302,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       pendingUnescaped.append(text);
     } else {
       if (this.escapingMode == HtmlTextEscapingMode.RCDATA) {
-        Encoding.encodeRcdataOnto(text, output);
+        Encoding.encodeRcdataOnto(text, output, encodingPolicies);
       } else {
-        Encoding.encodePcdataOnto(text, output);
+        Encoding.encodePcdataOnto(text, output, encodingPolicies);
       }
     }
   }

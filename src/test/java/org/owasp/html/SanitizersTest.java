@@ -137,6 +137,51 @@ public class SanitizersTest extends TestCase {
         and2.sanitize(inputHtml));
   }
 
+  /*
+   * Test configurable policies to define encoding of special character(s)
+   * using disableEncoding() and disableEncodingFor()
+   */
+  @Test
+  public static final void testEncodingPolicies() {
+    /*
+     * Policy that follows default behaviour while encoding text found outside any tag
+     */
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .toFactory();
+    assertEquals(
+        "foo&#64;bar&#43;foo&#61;bar", s.sanitize("foo@bar+foo=bar")
+    );
+    assertEquals(
+        "foo!bar&gt;foo#bar", s.sanitize("foo!bar>foo#bar")
+    );
+
+    /*
+     * Policy that disable encoding for all special characters
+     */
+    s = new HtmlPolicyBuilder()
+        .disableEncoding()
+        .toFactory();
+    assertEquals(
+        "foo@bar+foo=bar", s.sanitize("foo@bar+foo=bar")
+    );
+    assertEquals(
+        "foo!bar>foo#bar", s.sanitize("foo!bar>foo#bar")
+    );
+
+    /*
+     * Policy that disable encoding for selected characters
+     */
+    s = new HtmlPolicyBuilder()
+        .disableEncodingFor('@', '+')
+        .toFactory();
+    assertEquals(
+        "foo@bar+foo&#61;bar", s.sanitize("foo@bar+foo=bar")
+    );
+    assertEquals(
+        "foo!bar&gt;foo@bar", s.sanitize("foo!bar>foo@bar")
+    );
+  }
+
   @Test
   public static final void testImages() {
     PolicyFactory s = Sanitizers.IMAGES;

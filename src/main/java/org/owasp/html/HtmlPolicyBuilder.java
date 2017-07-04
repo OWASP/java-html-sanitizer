@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -202,6 +203,14 @@ public class HtmlPolicyBuilder {
       AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY;
   private Set<String> extraRelsForLinks;
   private Set<String> skipRelsForLinks;
+  private Map<Character, String> encodingPolicies;
+
+  /*
+   * if any entry for encodingPolicies is null, the default behaviour as per Encoding.REPLACEMENT is used
+   */
+  public HtmlPolicyBuilder() {
+    encodingPolicies = new HashMap<Character, String>();
+  }
 
   /**
    * Allows the named elements.
@@ -393,6 +402,29 @@ public class HtmlPolicyBuilder {
             attributeName,
             AttributePolicy.Util.join(oldPolicy, policy));
       }
+    }
+    return this;
+  }
+
+  /*
+   * Call this function while building Policy before build() or toFactory() to disable encoding for all special characters
+   * Default behavior is encoding of all special characters as per Encoding.REPLACEMENT array
+   */
+  public HtmlPolicyBuilder disableEncoding() {
+    for (int i = 0; i < Encoding.REPLACEMENTS.length; i++) {
+      encodingPolicies.put((char) ('\0' + i), String.valueOf((char) ('\0' + i)));
+    }
+    return this;
+  }
+
+  /*
+   * Call this function while building Policy before build() or toFactory() to disable encoding for selected special character(s)
+   * Pass any number of Character arguments to disable encoding for that character.
+   */
+  public HtmlPolicyBuilder disableEncodingFor(Character... characterList) {
+    for (Character entry : characterList) {
+      if (entry < Encoding.REPLACEMENTS.length)
+        encodingPolicies.put(entry, String.valueOf(entry));
     }
     return this;
   }
@@ -643,7 +675,7 @@ public class HtmlPolicyBuilder {
     return new PolicyFactory(
         compiled.compiledPolicies, textContainerSet.build(),
         ImmutableMap.copyOf(compiled.globalAttrPolicies),
-        preprocessor, postprocessor);
+        preprocessor, postprocessor, encodingPolicies);
   }
 
   // Speed up subsequent builds by caching the compiled policies.
