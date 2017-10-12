@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import com.google.common.html.types.SafeHtml;
 import com.google.common.html.types.UncheckedConversions;
 
+import org.owasp.html.Context;
 import org.owasp.html.HtmlChangeListener;
 import org.owasp.html.PolicyFactory;
 
@@ -67,27 +68,57 @@ public final class SafeHtmlMint {
 
   /** A convenience function that sanitizes a string of HTML. */
   public SafeHtml sanitize(@Nullable String html) {
-    return sanitize(html, null, null);
+    return sanitize(html, Context.DEFAULT, null, null);
+  }
+
+  /** A convenience function that sanitizes a string of HTML. */
+  public SafeHtml sanitize(@Nullable String html, @Nullable Context context) {
+    return sanitize(html, context, null, null);
   }
 
   /**
    * A convenience function that sanitizes a string of HTML and reports
    * the names of rejected element and attributes to listener.
    * @param html the string of HTML to sanitize.
+   * @param context the context of the document that will embed the output.
    * @param listener if non-null, receives notifications of tags and attributes
    *     that were rejected by the policy.  This may tie into intrusion
    *     detection systems.
-   * @param context if {@code (listener != null)} then the context value passed
-   *     with notifications.  This can be used to let the listener know from
-   *     which connection or request the questionable HTML was received.
+   * @param listenerContext if {@code (listener != null)} then the context
+   *     value passed with notifications.  This can be used to let the listener
+   *     know from which connection or request the questionable HTML was
+   *     received.
    * @return a string of safe HTML assuming the input policy factory produces
    *     safe HTML.
    */
   public <CTX> SafeHtml sanitize(
       @Nullable String html,
-      @Nullable HtmlChangeListener<CTX> listener, @Nullable CTX context) {
+      @Nullable HtmlChangeListener<CTX> listener,
+      @Nullable CTX listenerContext) {
+    return sanitize(html, Context.DEFAULT, listener, listenerContext);
+  }
+  
+  /**
+   * A convenience function that sanitizes a string of HTML and reports
+   * the names of rejected element and attributes to listener.
+   * @param html the string of HTML to sanitize.
+   * @param context the context of the document that will embed the output.
+   * @param listener if non-null, receives notifications of tags and attributes
+   *     that were rejected by the policy.  This may tie into intrusion
+   *     detection systems.
+   * @param listenerContext if {@code (listener != null)} then the context
+   *     value passed with notifications.  This can be used to let the listener
+   *     know from which connection or request the questionable HTML was
+   *     received.
+   * @return a string of safe HTML assuming the input policy factory produces
+   *     safe HTML.
+   */
+  public <CTX> SafeHtml sanitize(
+      @Nullable String html, @Nullable Context context,
+      @Nullable HtmlChangeListener<CTX> listener,
+      @Nullable CTX listenerContext) {
     if (html == null) { return SafeHtml.EMPTY; }
     return UncheckedConversions.safeHtmlFromStringKnownToSatisfyTypeContract(
-        f.sanitize(html, listener, context));
+        f.sanitize(html, context, listener, listenerContext));
   }
 }
