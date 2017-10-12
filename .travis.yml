@@ -2,10 +2,10 @@ language: java
 sudo: false
 jdk:
   # It's important to test on all these because of a horrible hack in the POM.
-  - openjdk6
-  - oraclejdk7
+# - openjdk6
+  - openjdk7
   - oraclejdk8
-  # - oraclejdk9  # Not yet available on travis-ci.com
+  - oraclejdk9
 # Additionally pass -Dgpg.skip to suppress signing instead of trying to provision
 # Travis's containers with keys.
 install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true -B -V
