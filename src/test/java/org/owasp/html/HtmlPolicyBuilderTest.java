@@ -32,12 +32,16 @@ import java.util.List;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.owasp.url.Absolutizer;
+import org.owasp.url.BuiltinScheme;
+import org.owasp.url.UrlClassifiers;
+import org.owasp.url.UrlContext;
 
 import com.google.common.base.Joiner;
 
 import junit.framework.TestCase;
 
-@SuppressWarnings("javadoc")
+@SuppressWarnings({"javadoc", "deprecation"})
 public class HtmlPolicyBuilderTest extends TestCase {
 
   static final String EXAMPLE = Joiner.on('\n').join(
@@ -176,7 +180,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public static final void testImagesAllowed() {
+  public static final void testImagesAllowedDeprecated() {
     assertEquals(
         Joiner.on('\n').join(
             "Header",
@@ -192,6 +196,40 @@ public class HtmlPolicyBuilderTest extends TestCase {
               .allowElements("img")
               .allowAttributes("src", "alt").onElements("img")
               .allowUrlProtocols("https")));
+  }
+
+  @Test
+  public static final void testImagesAllowed() {
+    // If we want relative URLs to pass a classifier that
+    // only allows HTTPS, we need to use a context with a
+    // base URL that uses HTTPS.
+    UrlContext urlContext = new UrlContext(
+        new Absolutizer(
+            UrlContext.DEFAULT.absolutizer.schemes,
+            "https://foo.com/bar"));
+    Context context = new Context(urlContext);
+
+    assertEquals(
+        Joiner.on('\n').join(
+            "Header",
+            "Paragraph 1",
+            "Click me out",
+            "<img src=\"canary.png\" alt=\"local-canary\" />",
+            // HTTP img not output because only HTTPS allowed.
+            "Fancy with soupy tags.",
+            "Stylish Para 1",
+            "Stylish Para 2",
+            ""),
+        apply(new HtmlPolicyBuilder()
+              .allowElements("img")
+              .allowAttributes("alt").onElements("img")
+              .allowAttributes("src")
+                  .matching(
+                      UrlClassifiers.builder().scheme(BuiltinScheme.HTTPS)
+                      .build())
+              .onElements("img"),
+              EXAMPLE,
+              context));
   }
 
   @Test
@@ -256,6 +294,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             .allowElements("div"),
             "<body>foo</body>"));
   }
+
   @Test
   public static final void testAllowUrlProtocols() {
     assertEquals(
@@ -276,6 +315,30 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testMatchUrlClassifier() {
+    assertEquals(
+        Joiner.on('\n').join(
+            "Header",
+            "Paragraph 1",
+            "Click me out",
+            "<img src=\"canary.png\" alt=\"local-canary\" />"
+            + "<img src=\"http://canaries.org/canary.png\" />",
+            "Fancy with soupy tags.",
+            "Stylish Para 1",
+            "Stylish Para 2",
+            ""),
+        apply(new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("alt").onElements("img")
+            .allowAttributes("src")
+              .matching(
+                  UrlClassifiers.builder()
+                  .scheme(BuiltinScheme.HTTP)
+                  .build())
+              .onElements("img")));
+  }
+
+  @Test
   public static final void testPossibleFalloutFromIssue5() {
     assertEquals(
         "Bad",
@@ -286,7 +349,18 @@ public class HtmlPolicyBuilderTest extends TestCase {
             .allowUrlProtocols("http"),
 
             "<a href='javascript:alert(1337)//:http'>Bad</a>"));
+    assertEquals(
+        "Bad",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href")
+            .matching(
+                UrlClassifiers.builder().scheme(BuiltinScheme.HTTP).build())
+            .onElements("a"),
+            "<a href='javascript:alert(1337)//:http'>Bad</a>"));
   }
+
 
   @Test
   public static final void testTextInOption() {
@@ -767,11 +841,12 @@ public class HtmlPolicyBuilderTest extends TestCase {
     return apply(b, EXAMPLE);
   }
 
-  private static String apply(HtmlPolicyBuilder b, String src) {
+  private static String apply(HtmlPolicyBuilder b, String src, Context context) {
     return b.toFactory().sanitize(
-        src, null,
-        new Handler<String>() {
-          public void handle(String x) { fail(x); }
-        });
+        src, context, null, null);
+  }
+
+  private static String apply(HtmlPolicyBuilder b, String src) {
+    return apply(b, src, Context.DEFAULT);
   }
 }

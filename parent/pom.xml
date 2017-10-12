@@ -215,9 +215,20 @@ application while protecting against XSS.
         <scope>provided</scope>
       </dependency>
       <dependency>
+        <groupId>org.owasp</groupId>
+        <artifactId>url</artifactId>
+        <version>1.2.2</version>
+      </dependency>
+      <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
         <version>4.12</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>nu.validator.htmlparser</groupId>
+        <artifactId>htmlparser</artifactId>
+        <version>1.4</version>
         <scope>test</scope>
       </dependency>
     </dependencies>

@@ -1,4 +1,4 @@
-// Copyright (c) 2011, Mike Samuel
+// Copyright (c) 2017, Mike Samuel
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,42 +28,28 @@
 
 package org.owasp.html;
 
-import com.google.common.collect.ImmutableList;
+import org.owasp.url.UrlContext;
 
-import java.util.Collection;
+/**
+ * The context in which the sanitized output will be used.
+ */
+public final class Context {
+  private final UrlContext urlContext;
 
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+  /** A least common denominator context. */
+  public static final Context DEFAULT = new Context(UrlContext.DEFAULT);
 
-
-@Immutable
-final class JoinedAttributePolicy
-extends AttributePolicy.Util.AbstractV2AttributePolicy {
-  final ImmutableList<AttributePolicy.V2> policies;
-
-  JoinedAttributePolicy(Collection<? extends AttributePolicy.V2> policies) {
-    this.policies = ImmutableList.copyOf(policies);
+  /**
+   * @param urlContext The URL context for the embedding document.
+   */
+  public Context(UrlContext urlContext) {
+    this.urlContext = urlContext;
   }
 
-  public @Nullable String apply(
-      String elementName, String attributeName, @Nullable String rawValue,
-      Context context) {
-    String value = rawValue;
-    for (AttributePolicy.V2 p : policies) {
-      if (value == null) { break; }
-      value = p.apply(elementName, attributeName, value, context);
-    }
-    return value;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return o != null && this.getClass() == o.getClass()
-        && policies.equals(((JoinedAttributePolicy) o).policies);
-  }
-
-  @Override
-  public int hashCode() {
-    return policies.hashCode();
+  /**
+   * The URL context for the embedding document.
+   */
+  public UrlContext urlContext() {
+    return urlContext;
   }
 }

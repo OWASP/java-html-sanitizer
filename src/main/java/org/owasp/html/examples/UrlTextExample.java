@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.owasp.html.Context;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlStreamEventReceiver;
 import org.owasp.html.HtmlStreamEventReceiverWrapper;
@@ -134,7 +135,9 @@ public class UrlTextExample {
           }
       ).toFactory();
 
-    out.append(policyBuilder.sanitize(Joiner.on('\n').join(inputs)));
+    out.append(policyBuilder.sanitize(
+        Joiner.on('\n').join(inputs),
+        Context.DEFAULT));
   }
 
   /**

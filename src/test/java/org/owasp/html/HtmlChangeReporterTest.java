@@ -35,26 +35,26 @@ import junit.framework.TestCase;
 @SuppressWarnings("javadoc")
 public class HtmlChangeReporterTest extends TestCase {
 
-  static class Context {
+  static class TestContext {
     // Opaque test value compared via equality.
   }
 
   @Test
   public static final void testChangeReporting() {
-    final Context testContext = new Context();
+    final TestContext testContext = new TestContext();
 
     StringBuilder out = new StringBuilder();
     final StringBuilder log = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         out, Handler.DO_NOTHING);
-    HtmlChangeListener<Context> listener = new HtmlChangeListener<Context>() {
-      public void discardedTag(Context context, String elementName) {
-        assertSame(testContext, context);
+    HtmlChangeListener<TestContext> listener = new HtmlChangeListener<TestContext>() {
+      public void discardedTag(TestContext tcontext, String elementName) {
+        assertSame(testContext, tcontext);
         log.append('<').append(elementName).append("> ");
       }
 
       public void discardedAttributes(
-          Context context, String tagName, String... attributeNames) {
+          TestContext context, String tagName, String... attributeNames) {
         assertSame(testContext, context);
         log.append('<').append(tagName);
         for (String attributeName : attributeNames) {
@@ -63,10 +63,11 @@ public class HtmlChangeReporterTest extends TestCase {
         log.append("> ");
       }
     };
-    HtmlChangeReporter<Context> hcr = new HtmlChangeReporter<Context>(
+    HtmlChangeReporter<TestContext> hcr = new HtmlChangeReporter<TestContext>(
         renderer, listener, testContext);
 
-    hcr.setPolicy(Sanitizers.FORMATTING.apply(hcr.getWrappedRenderer()));
+    hcr.setPolicy(Sanitizers.FORMATTING.apply(
+        hcr.getWrappedRenderer(), Context.DEFAULT));
     String html =
         "<textarea>Hello</textarea>,<b onclick=alert(42)>World</B>!"
         + "<Script type=text/javascript>doEvil()</script><PLAINTEXT>";

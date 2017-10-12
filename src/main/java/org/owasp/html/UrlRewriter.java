@@ -1,4 +1,4 @@
-// Copyright (c) 2011, Mike Samuel
+// Copyright (c) 2017, Mike Samuel
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -28,42 +28,22 @@
 
 package org.owasp.html;
 
-import com.google.common.collect.ImmutableList;
+/**
+ * Maps URLs from untrusted text to trusted URLs.
+ */
+public interface UrlRewriter {
 
-import java.util.Collection;
+  /**
+   * @param context the context of the document that will embed the output.
+   * @return the trusted URL or null to not trust any URL.
+   */
+  String rewrite(String urlText, Context context);
 
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+  /** Returns the input unfiltered. */
+  public static UrlRewriter IDENTITY = new UrlRewriter() {
 
-
-@Immutable
-final class JoinedAttributePolicy
-extends AttributePolicy.Util.AbstractV2AttributePolicy {
-  final ImmutableList<AttributePolicy.V2> policies;
-
-  JoinedAttributePolicy(Collection<? extends AttributePolicy.V2> policies) {
-    this.policies = ImmutableList.copyOf(policies);
-  }
-
-  public @Nullable String apply(
-      String elementName, String attributeName, @Nullable String rawValue,
-      Context context) {
-    String value = rawValue;
-    for (AttributePolicy.V2 p : policies) {
-      if (value == null) { break; }
-      value = p.apply(elementName, attributeName, value, context);
+    public String rewrite(String urlText, Context context) {
+      return urlText;
     }
-    return value;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return o != null && this.getClass() == o.getClass()
-        && policies.equals(((JoinedAttributePolicy) o).policies);
-  }
-
-  @Override
-  public int hashCode() {
-    return policies.hashCode();
-  }
+  };
 }

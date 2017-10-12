@@ -82,7 +82,7 @@ public class AntiSamyTest extends TestCase {
         .allowStandardUrlProtocols()
         .requireRelNofollowOnLinks()
         .allowStyling()
-        .build(renderer);
+        .build(renderer, Context.DEFAULT);
   }
 
   static String sanitize(String html) {

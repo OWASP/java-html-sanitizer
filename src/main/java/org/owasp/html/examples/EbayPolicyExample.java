@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.regex.Pattern;
 
+import org.owasp.html.Context;
 import org.owasp.html.Handler;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
@@ -228,7 +229,9 @@ public class EbayPolicyExample {
           }
         });
     // Use the policy defined above to sanitize the HTML.
-    HtmlSanitizer.sanitize(html, POLICY_DEFINITION.apply(renderer));
+    HtmlSanitizer.sanitize(
+        html,
+        POLICY_DEFINITION.apply(renderer, Context.DEFAULT));
   }
 
   private static Predicate<String> matchesEither(

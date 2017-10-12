@@ -58,39 +58,69 @@ import com.google.common.collect.ImmutableList;
    *    careful to remove both the name and its associated value.
    *
    * @return {@code null} to disallow the element, or the adjusted element name.
+   * @deprecated prefer {@link V2#apply(String, List, Context)}
    */
+  @Deprecated
   public @Nullable String apply(String elementName, List<String> attrs);
+
+
+  /**
+   * Extends ElementPolicy that additionally receives the context in which
+   * the sanitized HTML is embedded.
+   */
+  public interface V2 extends ElementPolicy {
+    /**
+     * @param elementName the lower-case element name.
+     * @param attrs a list of alternating attribute names and values.
+     *    The list may be added to or removed from.  When removing, be
+     *    careful to remove both the name and its associated value.
+     * @param context the context in which the sanitized result will be used.
+     *
+     * @return {@code null} to disallow the element, or the adjusted element
+     *    name.
+     */
+    public @Nullable String apply(
+        String elementName, List<String> attrs, Context context);
+  }
 
 
   /** Utilities for working with element policies. */
   public static final class Util {
     private Util() { /* uninstantiable */ }
 
+    /** Adapts an old-style element policy to the new form. */
+    public static ElementPolicy.V2 adapt(ElementPolicy p) {
+      if (p instanceof ElementPolicy.V2) {
+        return (V2) p;
+      }
+      return new ElementPolicyAdapter(p);
+    }
+
     /**
      * Given zero or more element policies, returns an element policy equivalent
      * to applying them in order failing early if any of them fails.
      */
-    public static final ElementPolicy join(ElementPolicy... policies) {
+    public static final ElementPolicy.V2 join(ElementPolicy... policies) {
       PolicyJoiner joiner = new PolicyJoiner();
       for (ElementPolicy p : policies) {
         if (p != null) {
-          joiner.unroll(p);
+          joiner.unroll(adapt(p));
         }
       }
       return joiner.join();
     }
 
     static final class PolicyJoiner
-        extends JoinHelper<ElementPolicy, JoinableElementPolicy> {
+        extends JoinHelper<ElementPolicy.V2, JoinableElementPolicy> {
 
       PolicyJoiner() {
         super(
-            ElementPolicy.class, JoinableElementPolicy.class,
+            ElementPolicy.V2.class, JoinableElementPolicy.class,
             REJECT_ALL_ELEMENT_POLICY, IDENTITY_ELEMENT_POLICY);
       }
 
       @Override
-      Optional<ImmutableList<ElementPolicy>> split(ElementPolicy x) {
+      Optional<ImmutableList<ElementPolicy.V2>> split(ElementPolicy.V2 x) {
         if (x instanceof JoinedElementPolicy) {
           return Optional.of(((JoinedElementPolicy) x).policies);
         }
@@ -98,47 +128,73 @@ import com.google.common.collect.ImmutableList;
       }
 
       @Override
-      ElementPolicy rejoin(Set<? extends ElementPolicy> xs) {
+      ElementPolicy.V2 rejoin(Set<? extends ElementPolicy.V2> xs) {
         return new JoinedElementPolicy(xs);
       }
     }
+
+
+    static abstract class AbstractV2ElementPolicy implements ElementPolicy.V2 {
+      public String apply(String elementName, List<String> attrs) {
+        return apply(elementName, attrs, null);
+      }
+    }
+
+    static final class ElementPolicyAdapter extends AbstractV2ElementPolicy {
+      final ElementPolicy p;
+
+      public ElementPolicyAdapter(ElementPolicy p) {
+        this.p = p;
+      }
+
+      public String apply(
+          String elementName, List<String> attrs, Context context) {
+        return p.apply(elementName, attrs);
+      }
+    }
+
   }
 
   /** An element policy that returns the element unchanged. */
-  public static final ElementPolicy IDENTITY_ELEMENT_POLICY
-      = new ElementPolicy() {
-    public String apply(String elementName, List<String> attrs) {
+  public static final ElementPolicy.V2 IDENTITY_ELEMENT_POLICY
+      = new Util.AbstractV2ElementPolicy() {
+    public String apply(
+        String elementName, List<String> attrs, Context context) {
       return elementName;
     }
   };
 
   /** An element policy that rejects all elements. */
-  public static final ElementPolicy REJECT_ALL_ELEMENT_POLICY
-      = new ElementPolicy() {
-    public @Nullable String apply(String elementName, List<String> attrs) {
+  public static final ElementPolicy.V2 REJECT_ALL_ELEMENT_POLICY
+      = new Util.AbstractV2ElementPolicy() {
+
+    public @Nullable String apply(
+        String elementName, List<String> attrs, Context context) {
       return null;
     }
   };
 
   @SuppressWarnings("javadoc")
   static interface JoinableElementPolicy
-  extends ElementPolicy, Joinable<JoinableElementPolicy> {
+  extends ElementPolicy.V2, Joinable<JoinableElementPolicy> {
     // Parameterized appropriately.
   }
 }
 
 @Immutable
-final class JoinedElementPolicy implements ElementPolicy {
-  final ImmutableList<ElementPolicy> policies;
+final class JoinedElementPolicy
+extends ElementPolicy.Util.AbstractV2ElementPolicy {
+  final ImmutableList<ElementPolicy.V2> policies;
 
-  JoinedElementPolicy(Iterable<? extends ElementPolicy> policies) {
+  JoinedElementPolicy(Iterable<? extends ElementPolicy.V2> policies) {
     this.policies = ImmutableList.copyOf(policies);
   }
 
-  public @Nullable String apply(String elementName, List<String> attrs) {
+  public @Nullable String apply(
+      String elementName, List<String> attrs, Context context) {
     String filteredElementName = elementName;
-    for (ElementPolicy part : policies) {
-      filteredElementName = part.apply(filteredElementName, attrs);
+    for (ElementPolicy.V2 part : policies) {
+      filteredElementName = part.apply(filteredElementName, attrs, context);
       if (filteredElementName == null) { break; }
     }
     return filteredElementName;

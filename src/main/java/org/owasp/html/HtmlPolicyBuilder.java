@@ -37,8 +37,12 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import org.owasp.html.ElementPolicy.JoinableElementPolicy;
+import org.owasp.url.Classification;
+import org.owasp.url.Diagnostic;
+import org.owasp.url.UrlClassifier;
+import org.owasp.url.UrlContext;
+import org.owasp.url.UrlValue;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -184,10 +188,11 @@ public class HtmlPolicyBuilder {
   static final String DEFAULT_RELS_ON_TARGETTED_LINKS_STR
       = Joiner.on(' ').join(DEFAULT_RELS_ON_TARGETTED_LINKS);
 
-  private final Map<String, ElementPolicy> elPolicies = Maps.newLinkedHashMap();
-  private final Map<String, Map<String, AttributePolicy>> attrPolicies
+  private final Map<String, ElementPolicy.V2> elPolicies
       = Maps.newLinkedHashMap();
-  private final Map<String, AttributePolicy> globalAttrPolicies
+  private final Map<String, Map<String, AttributePolicy.V2>> attrPolicies
+      = Maps.newLinkedHashMap();
+  private final Map<String, AttributePolicy.V2> globalAttrPolicies
       = Maps.newLinkedHashMap();
   private final Set<String> allowedProtocols = Sets.newLinkedHashSet();
   private final Set<String> skipIfEmpty = Sets.newLinkedHashSet(
@@ -231,7 +236,7 @@ public class HtmlPolicyBuilder {
     invalidateCompiledState();
     for (String elementName : elementNames) {
       elementName = HtmlLexer.canonicalName(elementName);
-      ElementPolicy newPolicy = ElementPolicy.Util.join(
+      ElementPolicy.V2 newPolicy = ElementPolicy.Util.join(
           elPolicies.get(elementName), policy);
       // Don't remove if newPolicy is the always reject policy since we want
       // that to infect later allowElement calls for this particular element
@@ -382,7 +387,8 @@ public class HtmlPolicyBuilder {
       List<String> elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      Map<String, AttributePolicy> policies = attrPolicies.get(elementName);
+      Map<String, AttributePolicy.V2> policies =
+          attrPolicies.get(elementName);
       if (policies == null) {
         policies = Maps.newLinkedHashMap();
         attrPolicies.put(elementName, policies);
@@ -437,8 +443,9 @@ public class HtmlPolicyBuilder {
   }
 
   /**
-   * Opts out of some of the {@link #DEFAULT_RELS_ON_TARGETTED_LINKS} from being added
-   * to links, and reverses pre
+   * Opts out of some of the {@link #DEFAULT_RELS_ON_TARGETTED_LINKS} from
+   * being added to links, and reverses previous calls to
+   * {@link #requireRelsOnLinks(String...)} with the same arguments.
    *
    * @see #requireRelsOnLinks
    */
@@ -472,7 +479,14 @@ public class HtmlPolicyBuilder {
    * <p>
    * Do not allow any <code>*script</code> such as <code>javascript</code>
    * protocols if you might use this policy with untrusted code.
+   *
+   * <p>This does not affect URLs vetted by
+   * {@link AttributeBuilder#matching(UrlClassifier)} since
+   * those classifiers whitelist protocols.
+   *
+   * @deprecated Prefer {@link AttributeBuilder#matching(UrlClassifier)}
    */
+  @Deprecated
   public HtmlPolicyBuilder allowUrlProtocols(String... protocols) {
     invalidateCompiledState();
     // If there is at least one allowed protocol, then allow URLs and
@@ -489,7 +503,14 @@ public class HtmlPolicyBuilder {
 
   /**
    * Reverses a decision made by {@link #allowUrlProtocols}.
+   *
+   * <p>This does not affect URLs vetted by
+   * {@link AttributeBuilder#matching(UrlClassifier)} since
+   * those classifiers whitelist protocols.
+   *
+   * @deprecated Prefer {@link AttributeBuilder#matching(UrlClassifier)}
    */
+  @Deprecated
   public HtmlPolicyBuilder disallowUrlProtocols(String... protocols) {
     invalidateCompiledState();
     for (String protocol : protocols) {
@@ -602,8 +623,9 @@ public class HtmlPolicyBuilder {
    *      previous calls to this object.
    *      Typically a {@link HtmlStreamRenderer}.
    */
+  @Deprecated
   public HtmlSanitizer.Policy build(HtmlStreamEventReceiver out) {
-    return toFactory().apply(out);
+    return build(out, Context.DEFAULT, null, null);
   }
 
   /**
@@ -615,15 +637,51 @@ public class HtmlPolicyBuilder {
    * @param listener is notified of dropped tags and attributes so that
    *      intrusion detection systems can be alerted to questionable HTML.
    *      If {@code null} then no notifications are sent.
-   * @param context if {@code (listener != null)} then the context value passed
-   *      with alerts.  This can be used to let the listener know from which
-   *      connection or request the questionable HTML was received.
+   * @param listenerContext if {@code (listener != null)} then the context
+   *      value passed with alerts.  This can be used to let the listener
+   *      know from which connection or request the questionable HTML was
+   *      received.
    */
+  @Deprecated
   public <CTX> HtmlSanitizer.Policy build(
       HtmlStreamEventReceiver out,
       @Nullable HtmlChangeListener<? super CTX> listener,
-      @Nullable CTX context) {
-    return toFactory().apply(out, listener, context);
+      @Nullable CTX listenerContext) {
+    return build(out, Context.DEFAULT, listener, listenerContext);
+  }
+
+  /**
+   * Produces a policy based on the allow and disallow calls previously made.
+   *
+   * @param out receives calls to open only tags allowed by
+   *      previous calls to this object.
+   *      Typically a {@link HtmlStreamRenderer}.
+   */
+  public HtmlSanitizer.Policy build(
+      HtmlStreamEventReceiver out, Context context) {
+    return toFactory().apply(out, context, null, null);
+  }
+
+  /**
+   * Produces a policy based on the allow and disallow calls previously made.
+   *
+   * @param out receives calls to open only tags allowed by
+   *      previous calls to this object.
+   *      Typically a {@link HtmlStreamRenderer}.
+   * @param listener is notified of dropped tags and attributes so that
+   *      intrusion detection systems can be alerted to questionable HTML.
+   *      If {@code null} then no notifications are sent.
+   * @param listenerContext if {@code (listener != null)} then the context
+   *      value passed with alerts.  This can be used to let the listener
+   *      know from which connection or request the questionable HTML was
+   *      received.
+   */
+  public <CTX> HtmlSanitizer.Policy build(
+      HtmlStreamEventReceiver out,
+      Context context,
+      @Nullable HtmlChangeListener<? super CTX> listener,
+      @Nullable CTX listenerContext) {
+    return toFactory().apply(out, context, listener, listenerContext);
   }
 
   /**
@@ -650,11 +708,11 @@ public class HtmlPolicyBuilder {
   private transient CompiledState compiledState;
 
   private static final class CompiledState {
-    final Map<String, AttributePolicy> globalAttrPolicies;
+    final Map<String, AttributePolicy.V2> globalAttrPolicies;
     final ImmutableMap<String, ElementAndAttributePolicies> compiledPolicies;
 
     CompiledState(
-        Map<String, AttributePolicy> globalAttrPolicies,
+        Map<String, AttributePolicy.V2> globalAttrPolicies,
         ImmutableMap<String, ElementAndAttributePolicies> compiledPolicies) {
       this.globalAttrPolicies = globalAttrPolicies;
       this.compiledPolicies = compiledPolicies;
@@ -671,17 +729,17 @@ public class HtmlPolicyBuilder {
 
     // Copy maps before normalizing in case builder is reused.
     @SuppressWarnings("hiding")
-    Map<String, ElementPolicy> elPolicies
+    Map<String, ElementPolicy.V2> elPolicies
         = Maps.newLinkedHashMap(this.elPolicies);
     @SuppressWarnings("hiding")
-    Map<String, Map<String, AttributePolicy>> attrPolicies
+    Map<String, Map<String, AttributePolicy.V2>> attrPolicies
         = Maps.newLinkedHashMap(this.attrPolicies);
-    for (Map.Entry<String, Map<String, AttributePolicy>> e :
+    for (Map.Entry<String, Map<String, AttributePolicy.V2>> e :
          attrPolicies.entrySet()) {
       e.setValue(Maps.newLinkedHashMap(e.getValue()));
     }
     @SuppressWarnings("hiding")
-    Map<String, AttributePolicy> globalAttrPolicies
+    Map<String, AttributePolicy.V2> globalAttrPolicies
         = Maps.newLinkedHashMap(this.globalAttrPolicies);
     @SuppressWarnings("hiding")
     Set<String> allowedProtocols = ImmutableSet.copyOf(this.allowedProtocols);
@@ -711,7 +769,7 @@ public class HtmlPolicyBuilder {
     // attribute globally.
     StylingPolicy stylingPolicy = null;
     {
-      final AttributePolicy urlAttributePolicy;
+      final AttributePolicy.V2 urlAttributePolicy;
       if (allowedProtocols.size() == 3
           && allowedProtocols.contains("mailto")
           && allowedProtocols.contains("http")
@@ -723,13 +781,13 @@ public class HtmlPolicyBuilder {
       }
 
       if (this.stylingPolicySchema != null) {
-        final AttributePolicy styleUrlPolicyFinal = AttributePolicy.Util.join(
-            styleUrlPolicy, urlAttributePolicy);
+        final AttributePolicy.V2 styleUrlPolicyFinal =
+            AttributePolicy.Util.join(styleUrlPolicy, urlAttributePolicy);
         stylingPolicy = new StylingPolicy(
             stylingPolicySchema,
-            new Function<String, String>() {
-              public String apply(String url) {
-                return styleUrlPolicyFinal.apply("img", "src", url);
+            new UrlRewriter() {
+              public String rewrite(String url, Context context) {
+                return styleUrlPolicyFinal.apply("img", "src", url, context);
               }
             });
       }
@@ -738,19 +796,26 @@ public class HtmlPolicyBuilder {
       for (String urlAttributeName : URL_ATTRIBUTE_NAMES) {
         if (globalAttrPolicies.containsKey(urlAttributeName)) {
           toGuard.remove(urlAttributeName);
-          globalAttrPolicies.put(urlAttributeName, AttributePolicy.Util.join(
-              urlAttributePolicy, globalAttrPolicies.get(urlAttributeName)));
+          AttributePolicy.V2 unguarded =
+              globalAttrPolicies.get(urlAttributeName);
+          if (!isGuardedByUrlClassifier(unguarded)) {
+            globalAttrPolicies.put(urlAttributeName, AttributePolicy.Util.join(
+                urlAttributePolicy, unguarded));
+          }
         }
       }
       // Implement guards not implemented on global policies in the per-element
       // policy maps.
-      for (Map.Entry<String, Map<String, AttributePolicy>> e
+      for (Map.Entry<String, Map<String, AttributePolicy.V2>> e
            : attrPolicies.entrySet()) {
-        Map<String, AttributePolicy> policies = e.getValue();
+        Map<String, AttributePolicy.V2> policies = e.getValue();
         for (String urlAttributeName : toGuard) {
           if (policies.containsKey(urlAttributeName)) {
-            policies.put(urlAttributeName, AttributePolicy.Util.join(
-                urlAttributePolicy, policies.get(urlAttributeName)));
+            AttributePolicy.V2 unguarded = policies.get(urlAttributeName);
+            if (!isGuardedByUrlClassifier(unguarded)) {
+              policies.put(urlAttributeName, AttributePolicy.Util.join(
+                  urlAttributePolicy, unguarded));
+            }
           }
         }
       }
@@ -765,20 +830,20 @@ public class HtmlPolicyBuilder {
 
     ImmutableMap.Builder<String, ElementAndAttributePolicies> policiesBuilder
         = ImmutableMap.builder();
-    for (Map.Entry<String, ElementPolicy> e : elPolicies.entrySet()) {
+    for (Map.Entry<String, ElementPolicy.V2> e : elPolicies.entrySet()) {
       String elementName = e.getKey();
-      ElementPolicy elPolicy = e.getValue();
+      ElementPolicy.V2 elPolicy = e.getValue();
       if (ElementPolicy.REJECT_ALL_ELEMENT_POLICY.equals(elPolicy)) {
         continue;
       }
 
-      Map<String, AttributePolicy> elAttrPolicies
+      Map<String, AttributePolicy.V2> elAttrPolicies
           = attrPolicies.get(elementName);
       if (elAttrPolicies == null) {
         elAttrPolicies = ImmutableMap.of();
       }
       if (stylingPolicy != null) {
-        AttributePolicy old = elAttrPolicies.get("style");
+        AttributePolicy.V2 old = elAttrPolicies.get("style");
         if (old != null) {
           attrPolicies.put(
               elementName,
@@ -788,23 +853,24 @@ public class HtmlPolicyBuilder {
         }
       }
 
-      ImmutableMap.Builder<String, AttributePolicy> attrs
+      ImmutableMap.Builder<String, AttributePolicy.V2> attrs
           = ImmutableMap.builder();
 
-      for (Map.Entry<String, AttributePolicy> ape : elAttrPolicies.entrySet()) {
+      for (Map.Entry<String, AttributePolicy.V2> ape
+           : elAttrPolicies.entrySet()) {
         String attributeName = ape.getKey();
         // Handle below so we don't end up putting the same key into the map
         // twice.  ImmutableMap.Builder hates that.
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
-        AttributePolicy policy = ape.getValue();
+        AttributePolicy.V2 policy = ape.getValue();
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
           attrs.put(attributeName, policy);
         }
       }
-      for (Map.Entry<String, AttributePolicy> ape
+      for (Map.Entry<String, AttributePolicy.V2> ape
            : globalAttrPolicies.entrySet()) {
         String attributeName = ape.getKey();
-        AttributePolicy policy = AttributePolicy.Util.join(
+        AttributePolicy.V2 policy = AttributePolicy.Util.join(
             elAttrPolicies.get(attributeName), ape.getValue());
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
           attrs.put(attributeName, policy);
@@ -820,6 +886,15 @@ public class HtmlPolicyBuilder {
     compiledState = new CompiledState(
         globalAttrPolicies, policiesBuilder.build());
     return compiledState;
+  }
+
+  private static boolean isGuardedByUrlClassifier(AttributePolicy.V2 p) {
+    for (AttributePolicy.V2 ep : AttributePolicy.Util.unjoin(p)) {
+      if (ep instanceof UrlClassifierAttributePolicy) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -846,6 +921,22 @@ public class HtmlPolicyBuilder {
     public AttributeBuilder matching(AttributePolicy attrPolicy) {
       this.policy = AttributePolicy.Util.join(this.policy, attrPolicy);
       return this;
+    }
+
+    /**
+     * Filters out values which are not valid URLs that match the given
+     * classifier.
+     *
+     * <p>When this is provided, the
+     * {@linkplain HtmlPolicyBuilder#allowUrlProtocols allowed URL protocols}
+     * and {@linkplain HtmlPolicyBuilder#disallowUrlProtocols
+     *      disallowed URL protocols}
+     * are <b>not</b> applied in preference of the
+     * {@linkplain org.owasp.url.UrlClassifierBuilder#scheme scheme whitelist}
+     * implicit in the classifier.
+     */
+    public AttributeBuilder matching(UrlClassifier classifier) {
+      return matching(new UrlClassifierAttributePolicy(classifier));
     }
 
     /**
@@ -945,6 +1036,7 @@ public class HtmlPolicyBuilder {
 
 
   private static final class RelsOnLinksPolicy
+      extends ElementPolicy.Util.AbstractV2ElementPolicy
       implements ElementPolicy.JoinableElementPolicy {
     final ImmutableSet<String> extra;
     final ImmutableSet<String> skip;
@@ -982,7 +1074,8 @@ public class HtmlPolicyBuilder {
       return -1;
     }
 
-    public String apply(String elementName, List<String> attrs) {
+    public String apply(
+        String elementName, List<String> attrs, Context context) {
       if (indexOfAttributeValue("href", attrs) >= 0) {
         // It's a link.
         boolean hasTarget = indexOfAttributeValue("target", attrs) >= 0;
@@ -1040,6 +1133,42 @@ public class HtmlPolicyBuilder {
       }
       extra.removeAll(skip);
       return RelsOnLinksPolicy.create(extra, skip);
+    }
+  }
+
+  static final class UrlClassifierAttributePolicy
+  extends AttributePolicy.Util.AbstractV2AttributePolicy {
+    final UrlClassifier urlClassifier;
+
+    UrlClassifierAttributePolicy(UrlClassifier urlClassifier) {
+      this.urlClassifier = urlClassifier;
+    }
+
+    public String apply(
+        String elementName, String attributeName, String value,
+        Context context) {
+      if (value == null) {
+        return null;
+      }
+      UrlContext urlContext = context != null
+          ? context.urlContext()
+          : UrlContext.DEFAULT;
+      UrlValue urlValue = UrlValue.from(urlContext, value.trim());
+      Classification classification = urlClassifier.apply(
+          urlValue, Diagnostic.Receiver.NULL);
+      switch (classification) {
+        case INVALID:
+        case NOT_A_MATCH:
+          return null;
+        case MATCH:
+          if (!urlValue.inheritsPlaceholderAuthority
+              && (urlValue.pathSimplificationReachedRootsParent
+                  || !urlValue.cornerCases.isEmpty())) {
+            return urlValue.urlText;
+          }
+          return urlValue.originalUrlText;
+      }
+      throw new AssertionError(classification);
     }
   }
 }

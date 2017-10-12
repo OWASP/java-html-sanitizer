@@ -35,8 +35,6 @@ import javax.annotation.Nullable;
 import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.Lists;
 
 /**
@@ -45,19 +43,23 @@ import com.google.common.collect.Lists;
  * ones to reduce the attack-surface.
  */
 @TCB
-final class StylingPolicy implements JoinableAttributePolicy {
+final class StylingPolicy
+extends AttributePolicy.Util.AbstractV2AttributePolicy
+implements JoinableAttributePolicy {
 
   final CssSchema cssSchema;
-  final Function<String, String> urlRewriter;
+  final UrlRewriter urlRewriter;
 
-  StylingPolicy(CssSchema cssSchema, Function<String, String> urlRewriter) {
+  StylingPolicy(
+      CssSchema cssSchema,
+      UrlRewriter urlRewriter) {
     this.cssSchema = cssSchema;
     this.urlRewriter = urlRewriter;
   }
 
   public @Nullable String apply(
-      String elementName, String attributeName, String value) {
-    return value != null ? sanitizeCssProperties(value) : null;
+      String elementName, String attributeName, String value, Context context) {
+    return value != null ? sanitizeCssProperties(value, context) : null;
   }
 
   /**
@@ -68,7 +70,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
    * @return A sanitized version of the input.
    */
   @VisibleForTesting
-  String sanitizeCssProperties(String style) {
+  String sanitizeCssProperties(String style, final Context context) {
     final StringBuilder sanitizedCss = new StringBuilder();
     CssGrammar.parsePropertyGroup(style, new CssGrammar.PropertyHandler() {
       CssSchema.Property cssProperty = CssSchema.DISALLOWED;
@@ -94,7 +96,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
 
       private void sanitizeAndAppendUrl(String urlContent) {
         if (urlContent.length() < 1024) {
-          String rewrittenUrl = urlRewriter.apply(urlContent);
+          String rewrittenUrl = urlRewriter.rewrite(urlContent, context);
           if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
             if (hasTokens) { sanitizedCss.append(' '); }
             sanitizedCss.append("url('").append(rewrittenUrl).append("')");
@@ -274,9 +276,9 @@ final class StylingPolicy implements JoinableAttributePolicy {
 
     public JoinableAttributePolicy join(
         Iterable<? extends JoinableAttributePolicy> toJoin) {
-      Function<String, String> identity = Functions.<String>identity();
+      UrlRewriter identity = UrlRewriter.IDENTITY;
       CssSchema cssSchema = null;
-      Function<String, String> urlRewriter = identity;
+      UrlRewriter urlRewriter = identity;
       for (JoinableAttributePolicy p : toJoin) {
         StylingPolicy sp = (StylingPolicy) p;
         cssSchema = cssSchema == null
@@ -284,10 +286,21 @@ final class StylingPolicy implements JoinableAttributePolicy {
         urlRewriter = urlRewriter.equals(identity)
             || urlRewriter.equals(sp.urlRewriter)
             ? sp.urlRewriter
-            : Functions.compose(urlRewriter, sp.urlRewriter);
+            : compose(urlRewriter, sp.urlRewriter);
       }
       return new StylingPolicy(cssSchema, urlRewriter);
     }
 
+  }
+
+  static UrlRewriter compose(final UrlRewriter a, final UrlRewriter b) {
+    return new UrlRewriter() {
+
+      public String rewrite(String urlText, Context context) {
+        String rw = b.rewrite(urlText, context);
+        return rw != null ? a.rewrite(rw, context) : null;
+      }
+
+    };
   }
 }

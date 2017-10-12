@@ -55,7 +55,8 @@ import com.google.common.collect.ImmutableSet;
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @TCB
-public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
+public class FilterUrlByProtocolAttributePolicy
+extends AttributePolicy.Util.AbstractV2AttributePolicy {
   private final ImmutableSet<String> protocols;
 
   /**
@@ -67,7 +68,8 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
   }
 
   public @Nullable String apply(
-      String elementName, String attributeName, String value) {
+      String elementName, String attributeName, String value,
+      Context context) {
     String url = Strings.stripHtmlSpaces(value);
     protocol_loop:
     for (int i = 0, n = url.length(); i < n; ++i) {

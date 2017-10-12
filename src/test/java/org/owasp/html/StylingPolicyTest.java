@@ -32,8 +32,6 @@ import javax.annotation.Nullable;
 
 import org.junit.Test;
 
-import com.google.common.base.Function;
-
 import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
@@ -348,16 +346,18 @@ public class StylingPolicyTest extends TestCase {
       @Nullable String expectedCss, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(
         CssSchema.DEFAULT,
-        new Function<String, String>() {
-          public String apply(String url) {
+        new UrlRewriter() {
+          public String rewrite(String url, Context context) {
             String safeUrl =
-                StandardUrlAttributePolicy.INSTANCE.apply("img", "src", url);
+                StandardUrlAttributePolicy.INSTANCE.apply(
+                    "img", "src", url, context);
             if (safeUrl != null) {
               return safeUrl + "#sanitized";
             }
             return null;
           }
         });
-    assertEquals(expectedCss, stylingPolicy.sanitizeCssProperties(css));
+    assertEquals(expectedCss, stylingPolicy.sanitizeCssProperties(
+        css, Context.DEFAULT));
   }
 }

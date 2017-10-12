@@ -33,14 +33,17 @@ package org.owasp.html;
  * {@code http}, {@code https}, {@code mailto}.
  */
 @TCB
-final class StandardUrlAttributePolicy implements AttributePolicy {
+final class StandardUrlAttributePolicy
+extends AttributePolicy.Util.AbstractV2AttributePolicy {
 
   static final StandardUrlAttributePolicy INSTANCE
       = new StandardUrlAttributePolicy();
 
   private StandardUrlAttributePolicy() { /* singleton */ }
 
-  public String apply(String elementName, String attributeName, String value) {
+  public String apply(
+      String elementName, String attributeName, String value,
+      Context context) {
     String url = Strings.stripHtmlSpaces(value);
 
     protocol_loop:
