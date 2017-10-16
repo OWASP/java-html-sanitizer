@@ -5,7 +5,7 @@ jdk:
 # - openjdk6  # No longer supported by Travis
   - openjdk7
   - oraclejdk8
-#  - oraclejdk9  # Not testable on JDK9.  Something maybe related to Jacoco mucking with the bootclasspaht
+  - oraclejdk9
 
 # Additionally pass -Dgpg.skip to suppress signing instead of trying to provision
 # Travis's containers with keys.
