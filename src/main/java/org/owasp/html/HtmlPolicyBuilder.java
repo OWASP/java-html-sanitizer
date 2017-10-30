@@ -1162,8 +1162,7 @@ public class HtmlPolicyBuilder {
           return null;
         case MATCH:
           if (!urlValue.inheritsPlaceholderAuthority
-              && (urlValue.pathSimplificationReachedRootsParent
-                  || !urlValue.cornerCases.isEmpty())) {
+              && !urlValue.cornerCases.isEmpty()) {
             return urlValue.urlText;
           }
           return urlValue.originalUrlText;

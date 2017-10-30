@@ -217,7 +217,7 @@ application while protecting against XSS.
       <dependency>
         <groupId>org.owasp</groupId>
         <artifactId>url</artifactId>
-        <version>1.2.2</version>
+        <version>1.2.3</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>
