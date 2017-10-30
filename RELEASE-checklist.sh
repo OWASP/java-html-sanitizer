@@ -44,10 +44,10 @@ cd "$RELEASE_CLONE"
 # so this is a two step process.
 export VERSION_PLACEHOLDER=99999999999999-SNAPSHOT
 for project in parent aggregate empiricism; do
-    mvn -f "$project" install
+    mvn -f "$project"/pom.xml install
 done
 for project in parent aggregate empiricism; do
-    mvn -f "$project" \
+    mvn -f "$project"/pom.xml \
         release:update-versions \
         -DautoVersionSubmodules=true \
         -DdevelopmentVersion="$VERSION_PLACEHOLDER"
@@ -66,7 +66,7 @@ perl -i.bak \
 $EDITOR change_log.md
 
 # A dry run.
-mvn -f aggregate clean source:jar javadoc:jar verify \
+mvn -f aggregate/pom.xml clean source:jar javadoc:jar verify \
     -DperformRelease=true
 
 # Commit and tag
@@ -75,7 +75,7 @@ git tag -m "Release $NEW_VERSION" -s "release-$NEW_VERSION"
 git push origin "release-$NEW_VERSION"
 
 # Actually deploy.
-mvn -f aggregate clean source:jar javadoc:jar verify deploy:deploy \
+mvn -f aggregate/pom.xml clean source:jar javadoc:jar verify deploy:deploy \
     -DperformRelease=true
 
 # Bump the development version.
