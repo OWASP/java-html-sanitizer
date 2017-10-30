@@ -3,6 +3,7 @@
  * agustin.lucchetti
  * andy-h-chen
  * augustd
+ * chuckdumont
  * gazheyes
  * lichtenberger.johannes
  * nikhilmarathe

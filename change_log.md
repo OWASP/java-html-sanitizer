@@ -1,7 +1,8 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-
+  * Release 20171016.1
+    * Allow underscores in attribute names.
   * Release 20170515.1
     * Fixed performance regression in 20170512.1
     * Fixed code layout issue that was breaking j2objc.

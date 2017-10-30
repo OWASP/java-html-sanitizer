@@ -6,7 +6,7 @@
     <relativePath>parent</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
-    <version>20170515.2-SNAPSHOT</version>
+    <version>20171016.2-SNAPSHOT</version>
   </parent>
 
   <name>OWASP Java HTML Sanitizer</name>
@@ -23,7 +23,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.7.5.201505241946</version>
+        <version>0.7.9</version>
         <configuration>
           <destFile>${basedir}/target/coverage-reports/jacoco-unit.exec</destFile>
           <dataFile>${basedir}/target/coverage-reports/jacoco-unit.exec</dataFile>

@@ -18,7 +18,7 @@ extensive test suite, and has undergone
 how to get started with or without Maven.
 
 You can use
-[prepackaged policies](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20170515.1/org/owasp/html/Sanitizers.html):
+[prepackaged policies](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
@@ -28,7 +28,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 or the
 [tests](https://github.com/OWASP/java-html-sanitizer/blob/master/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
-[policy](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20170515.1/org/owasp/html/HtmlPolicyBuilder.html):
+[policy](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -41,7 +41,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
 or you can write
-[custom policies](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20170515.1/org/owasp/html/ElementPolicy.html)
+[custom policies](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/ElementPolicy.html)
 to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
@@ -59,11 +59,11 @@ PolicyFactory policy = new HtmlPolicyBuilder()
 String safeHTML = policy.sanitize(untrustedHTML);
 ```
 
-```
-Please note that the elements "a", "font", "img", "input" and "span" need to be explicitly whitelisted
-using the `allowWithoutAttributes()` method if you want them to be allowed through the filter when
-these elements do not include any attributes.
-```
+Please note that the elements "a", "font", "img", "input" and "span"
+need to be explicitly whitelisted using the `allowWithoutAttributes()`
+method if you want them to be allowed through the filter when these
+elements do not include any attributes.
+
 ----
 
 Subscribe to the
