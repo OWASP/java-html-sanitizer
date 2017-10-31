@@ -11,7 +11,7 @@ Many client-side templates look for special constructs in text nodes.  Often, us
 | Template Language | Construct | Example | Notes |
 | ----------------- | --------- | ------- | ----- |
 | Angular           | `{{`...`}}` | [`{{buttonText}}`](https://docs.angularjs.org/guide/templates) | 
-| Polymer           | `{{`...`}}` | [`{{arrayOfFriends | startsWith('M')}}`](https://www.polymer-project.org/0.5/docs/polymer/expressions.html) |
+| Polymer           | `{{`...`}}` | [<tt>{{arrayOfFriends &vert; startsWith('M')}}</tt>](https://www.polymer-project.org/0.5/docs/polymer/expressions.html) |
 | CanJS             | `<%`...`%>` | `<% alert(1) %>` | |
 | Underscore        | `<%`...`%>` | `<% alert(1) %>` | |
 | Ember             | `{{`...`}}` | `{{#view tagName=script}}alert(2){{/view}}` | |
