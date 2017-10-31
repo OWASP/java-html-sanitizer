@@ -11,10 +11,9 @@ For bugs, please include
   * any policy code related to the problem if you can
   * the output you expect
 
-If you're having trouble putting HTML in markdown, try
+If you're having trouble putting HTML in markdown, try using
+an HTML [code block](https://help.github.com/articles/creating-and-highlighting-code-blocks/):
 
-<pre>
-<!-- -->```html
+```html
 HTML goes here
-<!-- -->```
-</pre>
+```
