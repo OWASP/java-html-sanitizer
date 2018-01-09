@@ -75,6 +75,7 @@ public final class HtmlElementTables {
   /** {@code <noscript>}, {@code <noframes>}, etc. */
   private final DenseElementSet nofeatureElements;
 
+  private final DenseElementSet tableElements;
 
   /** */
   public HtmlElementTables(
@@ -186,16 +187,26 @@ public final class HtmlElementTables {
         nofeatureBits[indexForName("noframes")] =
             nofeatureBits[indexForName("noembed")] = true;
     this.nofeatureElements = new DenseElementSet(nofeatureBits);
+
+    boolean[] tableElements = new boolean[this.nElementTypes()];
+    tableElements[indexForName("table")] =
+        tableElements[indexForName("thead")] =
+            tableElements[indexForName("tbody")] =
+                tableElements[indexForName("tfoot")] =
+                    tableElements[indexForName("tr")] = true;
+    this.tableElements = new DenseElementSet(tableElements);
   }
 
 
   /** True if parent can directly contain child. */
   public boolean canContain(int parent, int child) {
-    if (nofeatureElements.get(parent)) {
+    if (nofeatureElements.get(parent) || tableElements.get(parent)) {
       // It's hard to interrogate a browser about the behavior of
       // <noscript> in scriptless mode using JavaScript, and the
       // behavior of <noscript> is more dangerous when in that mode,
       // so we hardcode that mode here as a worst case assumption.
+      // Return true for <table>, <thead>, <tbody>, <tfoot> and <tr> elements,
+      // so that it will not close the open table elements and break table layout.
       return true;
     }
 

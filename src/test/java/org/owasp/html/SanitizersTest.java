@@ -313,7 +313,7 @@ public class SanitizersTest extends TestCase {
       .and(Sanitizers.STYLES)
       .and(Sanitizers.IMAGES)
       .and(Sanitizers.TABLES);
-    assertEquals("<table></table>Hallo\r\n\nEnde\n\r", pf.sanitize(input));
+    assertEquals("<table>Hallo\r\n\nEnde\n\r</table>", pf.sanitize(input));
   }
 
   @Test

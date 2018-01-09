@@ -229,8 +229,6 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.openTag("td", ImmutableList.<String>of());
     balancer.text("foo");
     balancer.closeTag("td");
-    // Chrome does not insert a td to contain this mis-nested table.
-    // Instead, it ends one table and starts another.
     balancer.openTag("table", ImmutableList.<String>of());
     balancer.openTag("tbody", ImmutableList.<String>of());
     balancer.openTag("tr", ImmutableList.<String>of());
@@ -241,8 +239,8 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
     balancer.closeDocument();
 
     assertEquals(
-        "<table><tbody><tr><td>foo</td></tr></tbody></table>"
-        + "<table><tbody><tr><th>bar</th></tr></tbody></table>",
+        "<table><tbody><tr><td>foo</td><table><tbody><tr><th>bar</th>"
+        + "</tr></tbody></table></tr></tbody></table>",
 
         htmlOutputBuffer.toString());
   }
