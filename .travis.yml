@@ -11,4 +11,4 @@ jdk:
 # Travis's containers with keys.
 install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip=true -B -V
 # Older versions of Javadoc don't recognize the -Xdoclint flag.
-script: "$TRAVIS_BUILD_DIR/build_for_travis.sh"
+script: "$TRAVIS_BUILD_DIR/scripts/build_for_travis.sh"
