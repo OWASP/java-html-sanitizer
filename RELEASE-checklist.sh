@@ -58,6 +58,8 @@ find . -name pom.xml \
 # Make sure there's no snapshots left in any poms.
 find . -name pom.xml | xargs grep -- -SNAPSHOT
 
+./scripts/fix_javadoc_links.sh "$NEW_VERSION"
+
 # Make sure the change log is up-to-date.
 perl -i.bak \
      -pe 'if (m/^  [*] / && !$added) { $_ = qq(  * Release $ENV{"NEW_VERSION"}\n$_); $added = 1; }' \
