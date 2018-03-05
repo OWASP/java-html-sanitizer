@@ -28,7 +28,7 @@ include source code which defines a sanitization policy, and applies
 it to HTML.
 
 The
-[javadoc](http://javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/)
+[javadoc](http://javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/)
 covers more detailed topics, including
 [customization](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20180219.1/org/owasp/html/HtmlPolicyBuilder.html).
 
