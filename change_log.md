@@ -1,6 +1,8 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20180219.1
+    * Strip ZWNJ from MacOS and iOS [crashing text sequences](https://manishearth.github.io/blog/2018/02/15/picking-apart-the-crashing-ios-string/)
   * Release 20171016.1
     * Allow underscores in attribute names.
   * Release 20170515.1

@@ -203,6 +203,43 @@ final class Encoding {
           output.append(plainText, pos, i).append(repl);
           pos = i + 1;
         }
+      } else if ((0x93A <= ch && ch <= 0xC4C)
+          && (
+              // Devanagari vowel
+              ch <= 0x94F
+              || 0x93A <= ch && ch <= 0x94F
+              // Benagli vowels
+              || 0x985 <= ch && ch <= 0x994
+              || 0x9BE <= ch && ch < 0x9CC  // 0x9CC (Bengali AU) is ok
+              || 0x9E0 <= ch && ch <= 0x9E3
+              // Telugu vowels
+              || 0xC05 <= ch && ch <= 0xC14
+              || 0xC3E <= ch && ch != 0xC48 /* 0xC48 (Telugu AI) is ok */)) {
+        // https://manishearth.github.io/blog/2018/02/15/picking-apart-the-crashing-ios-string/
+        // > So, ultimately, the full set of cases that cause the crash are:
+        // >   Any sequence <consonant1, virama, consonant2, ZWNJ, vowel>
+        // > in Devanagari, Bengali, and Telugu, where: ...
+
+        // TODO: This is needed as of February 2018, but hopefully not long after that.
+        // We eliminate the ZWNJ which seems the minimally damaging thing to do to
+        // Telugu rendering per the article above:
+        // > a ZWNJ before a vowel doesn’t really do anything for most Indic scripts.
+
+        if (pos < i) {
+          if (plainText.charAt(i - 1) == 0x200C /* ZWNJ */) {
+            output.append(plainText, pos, i - 1);
+            // Drop the ZWNJ on the floor.
+            pos = i;
+          }
+        } else if (output instanceof StringBuilder) {
+          StringBuilder sb = (StringBuilder) output;
+          int len = sb.length();
+          if (len != 0) {
+            if (sb.charAt(len - 1) == 0x200C /* ZWNJ */) {
+              sb.setLength(len - 1);
+            }
+          }
+        }
       } else if (((char) 0xd800) <= ch) {
         if (ch <= ((char) 0xdfff)) {
           char next;
