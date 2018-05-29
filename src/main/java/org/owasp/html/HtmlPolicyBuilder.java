@@ -524,6 +524,11 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder allowStyling(CssSchema whitelist) {
     invalidateCompiledState();
 
+    this.stylingPolicySchema =
+        this.stylingPolicySchema == null
+        ? whitelist
+        : CssSchema.union(stylingPolicySchema, whitelist);
+
     // Allow the style attribute, and then we will fix it up later.  This allows
     // us to attach the final URL policy to the style attribute policy, while
     // still not allowing styles when allowStyling is followed by a call to
@@ -531,10 +536,6 @@ public class HtmlPolicyBuilder {
     this.allowAttributesGlobally(
         AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, ImmutableList.of("style"));
 
-    this.stylingPolicySchema =
-        this.stylingPolicySchema == null
-        ? whitelist
-        : CssSchema.union(stylingPolicySchema, whitelist);
     return this;
   }
 
