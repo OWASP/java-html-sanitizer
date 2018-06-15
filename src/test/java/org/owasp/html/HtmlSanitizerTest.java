@@ -449,7 +449,7 @@ public class HtmlSanitizerTest extends TestCase {
        .allowStyling()
        // Don't throw out useless <img> and <input> elements to ease debugging.
        .allowWithoutAttributes("img", "input")
-       .build(renderer);
+       .build(renderer, Context.DEFAULT);
 
     HtmlSanitizer.sanitize(html, policy);
 

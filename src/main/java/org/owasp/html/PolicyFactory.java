@@ -54,7 +54,7 @@ public final class PolicyFactory
     implements Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> {
 
   private final ImmutableMap<String, ElementAndAttributePolicies> policies;
-  private final ImmutableMap<String, AttributePolicy> globalAttrPolicies;
+  private final ImmutableMap<String, AttributePolicy.V2> globalAttrPolicies;
   private final ImmutableSet<String> textContainers;
   private final HtmlStreamEventProcessor preprocessor;
   private final HtmlStreamEventProcessor postprocessor;
@@ -62,7 +62,7 @@ public final class PolicyFactory
   PolicyFactory(
       ImmutableMap<String, ElementAndAttributePolicies> policies,
       ImmutableSet<String> textContainers,
-      ImmutableMap<String, AttributePolicy> globalAttrPolicies,
+      ImmutableMap<String, AttributePolicy.V2> globalAttrPolicies,
       HtmlStreamEventProcessor preprocessor,
       HtmlStreamEventProcessor postprocessor) {
     this.policies = policies;
@@ -73,9 +73,16 @@ public final class PolicyFactory
   }
 
   /** Produces a sanitizer that emits tokens to {@code out}. */
+  @Deprecated
   public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {
+    return apply(out, Context.DEFAULT);
+  }
+
+  /** Produces a sanitizer that emits tokens to {@code out}. */
+  public HtmlSanitizer.Policy apply(
+      @Nonnull HtmlStreamEventReceiver out, Context context) {
     return new ElementAndAttributePolicyBasedSanitizerPolicy(
-        postprocessor.wrap(out), policies, textContainers);
+        postprocessor.wrap(out), context, policies, textContainers);
   }
 
   /**
@@ -85,26 +92,34 @@ public final class PolicyFactory
    * @param listener if non-null, receives notifications of tags and attributes
    *     that were rejected by the policy.  This may tie into intrusion
    *     detection systems.
-   * @param context if {@code (listener != null)} then the context value passed
-   *     with notifications.  This can be used to let the listener know from
-   *     which connection or request the questionable HTML was received.
+   * @param listenerContext if {@code (listener != null)} then the context
+   *     value passed with notifications.  This can be used to let the listener
+   *     know from which connection or request the questionable HTML was
+   *     received.
    */
   public <CTX> HtmlSanitizer.Policy apply(
-      HtmlStreamEventReceiver out, @Nullable HtmlChangeListener<CTX> listener,
-      @Nullable CTX context) {
+      HtmlStreamEventReceiver out, Context context,
+      @Nullable HtmlChangeListener<CTX> listener,
+      @Nullable CTX listenerContext) {
     if (listener == null) {
-      return apply(out);
+      return apply(out, context);
     } else {
       HtmlChangeReporter<CTX> r = new HtmlChangeReporter<CTX>(
-          out, listener, context);
-      r.setPolicy(apply(r.getWrappedRenderer()));
+          out, listener, listenerContext);
+      r.setPolicy(apply(r.getWrappedRenderer(), context));
       return r.getWrappedPolicy();
     }
   }
 
   /** A convenience function that sanitizes a string of HTML. */
+  @Deprecated
   public String sanitize(@Nullable String html) {
-    return sanitize(html, null, null);
+    return sanitize(html, Context.DEFAULT, null, null);
+  }
+
+  /** A convenience function that sanitizes a string of HTML. */
+  public String sanitize(@Nullable String html, Context context) {
+    return sanitize(html, context, null, null);
   }
 
   /**
@@ -114,22 +129,25 @@ public final class PolicyFactory
    * @param listener if non-null, receives notifications of tags and attributes
    *     that were rejected by the policy.  This may tie into intrusion
    *     detection systems.
-   * @param context if {@code (listener != null)} then the context value passed
-   *     with notifications.  This can be used to let the listener know from
+   * @param listenerContext if {@code (listener != null)} then the context
+   *     value passed with notifications.
+   *     This can be used to let the listener know from
    *     which connection or request the questionable HTML was received.
    * @return a string of HTML that complies with this factory's policy.
    */
   public <CTX> String sanitize(
-      @Nullable String html,
-      @Nullable HtmlChangeListener<CTX> listener, @Nullable CTX context) {
+      @Nullable String html, Context context,
+      @Nullable HtmlChangeListener<CTX> listener,
+      @Nullable CTX listenerContext) {
     if (html == null) { return ""; }
     StringBuilder out = new StringBuilder(html.length());
     HtmlSanitizer.sanitize(
         html,
         apply(
             HtmlStreamRenderer.create(out, Handler.DO_NOTHING),
+            context,
             listener,
-            context),
+            listenerContext),
         preprocessor);
     return out.toString();
   }
@@ -178,14 +196,15 @@ public final class PolicyFactory
         .addAll(f.textContainers)
         .build();
     }
-    ImmutableMap<String, AttributePolicy> allGlobalAttrPolicies;
+    ImmutableMap<String, AttributePolicy.V2> allGlobalAttrPolicies;
     if (f.globalAttrPolicies.isEmpty()) {
       allGlobalAttrPolicies = this.globalAttrPolicies;
     } else if (this.globalAttrPolicies.isEmpty()) {
       allGlobalAttrPolicies = f.globalAttrPolicies;
     } else {
-      ImmutableMap.Builder<String, AttributePolicy> ab = ImmutableMap.builder();
-      for (Map.Entry<String, AttributePolicy> e
+      ImmutableMap.Builder<String, AttributePolicy.V2> ab =
+          ImmutableMap.builder();
+      for (Map.Entry<String, AttributePolicy.V2> e
           : this.globalAttrPolicies.entrySet()) {
         String attrName = e.getKey();
         ab.put(
@@ -193,7 +212,7 @@ public final class PolicyFactory
             AttributePolicy.Util.join(
                 e.getValue(), f.globalAttrPolicies.get(attrName)));
       }
-      for (Map.Entry<String, AttributePolicy> e
+      for (Map.Entry<String, AttributePolicy.V2> e
           : f.globalAttrPolicies.entrySet()) {
         String attrName = e.getKey();
         if (!this.globalAttrPolicies.containsKey(attrName)) {

@@ -75,8 +75,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return new CloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
     } else if (AutoCloseableHtmlStreamRenderer.isAutoCloseable(output)) {
-      return AutoCloseableHtmlStreamRenderer.createAutoCloseableHtmlStreamRenderer(
-          output, ioExHandler, badHtmlHandler);
+      return AutoCloseableHtmlStreamRenderer
+          .createAutoCloseableHtmlStreamRenderer(
+              output, ioExHandler, badHtmlHandler);
     } else {
       return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
     }

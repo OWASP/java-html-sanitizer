@@ -1,4 +1,4 @@
-# Using with Maven 
+# Using with Maven
 
 The HTML Sanitizer is available from
 [Maven Central](https://search.maven.org/#browse%7C84770979)

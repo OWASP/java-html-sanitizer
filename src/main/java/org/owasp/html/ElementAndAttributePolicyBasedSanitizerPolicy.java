@@ -48,6 +48,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   final ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final ImmutableSet<String> allowedTextContainers;
   private final HtmlStreamEventReceiver out;
+  private final Context context;
   /**
    * True to skip textual content.  Used to ignore the content of embedded CDATA
    * content that is not meant to be human-readable.
@@ -61,9 +62,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
+      Context context,
       ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies,
       ImmutableSet<String> allowedTextContainers) {
     this.out = out;
+    this.context = context;
     this.elAndAttrPolicies = elAndAttrPolicies;
     this.allowedTextContainers = allowedTextContainers;
   }
@@ -102,7 +105,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     // to refactor it into multiple method bodies, so if you change this,
     // check the override of it in that class.
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
-    String adjustedElementName = applyPolicies(elementName, attrs, policies);
+    String adjustedElementName = applyPolicies(
+        elementName, attrs, context, policies);
     if (adjustedElementName != null
         && !(attrs.isEmpty() && policies.skipIfEmpty)) {
       writeOpenTag(policies, adjustedElementName, attrs);
@@ -112,14 +116,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   static final @Nullable String applyPolicies(
-      String elementName, List<String> attrs,
+      String elementName, List<String> attrs, Context context,
       ElementAndAttributePolicies policies) {
     String adjustedElementName;
     if (policies != null) {
       for (ListIterator<String> attrsIt = attrs.listIterator();
            attrsIt.hasNext();) {
         String name = attrsIt.next();
-        AttributePolicy attrPolicy
+        AttributePolicy.V2 attrPolicy
             = policies.attrPolicies.get(name);
         if (attrPolicy == null) {
           attrsIt.remove();
@@ -127,7 +131,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           attrsIt.remove();
         } else {
           String value = attrsIt.next();
-          String adjustedValue = attrPolicy.apply(elementName, name, value);
+          String adjustedValue = attrPolicy.apply(
+              elementName, name, value, context);
           if (adjustedValue == null) {
             attrsIt.remove();
             attrsIt.previous();
@@ -142,7 +147,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       // are unique.
       removeDuplicateAttributes(attrs);
 
-      adjustedElementName = policies.elPolicy.apply(elementName, attrs);
+      adjustedElementName = policies.elPolicy.apply(
+          elementName, attrs, context);
       if (adjustedElementName != null) {
         adjustedElementName = HtmlLexer.canonicalName(adjustedElementName);
       }

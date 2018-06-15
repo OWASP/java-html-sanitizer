@@ -29,6 +29,11 @@
 package org.owasp.html;
 
 import org.junit.Test;
+import org.owasp.url.Absolutizer;
+import org.owasp.url.BuiltinScheme;
+import org.owasp.url.MediaTypeClassifiers;
+import org.owasp.url.UrlClassifiers;
+import org.owasp.url.UrlContext;
 
 import java.util.BitSet;
 import java.util.Iterator;
@@ -40,7 +45,7 @@ import junit.framework.TestCase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-@SuppressWarnings("javadoc")
+@SuppressWarnings({"javadoc", "deprecation"})
 public class SanitizersTest extends TestCase {
 
   @Test
@@ -220,6 +225,60 @@ public class SanitizersTest extends TestCase {
         + "not with Turkish dotted I&#39;s"
         + "The fail protocol needs to happen");
     assertEquals(want, s.sanitize(input));
+  }
+
+  @Test
+  public static final void testDataUrlMediaTypeRestrictions() {
+    UrlContext context = new UrlContext(
+        new Absolutizer(
+            UrlContext.DEFAULT.absolutizer.schemes,
+            "https://foo.com/bar/"));
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowElements("a", "img", "p")
+        .allowAttributes("href")
+        .matching(
+            UrlClassifiers.builder()
+            .scheme(
+                BuiltinScheme.HTTPS, BuiltinScheme.MAILTO, BuiltinScheme.TEL)
+            .schemeData(
+                MediaTypeClassifiers.builder()
+                .type("text", "html")
+                .build())
+            .build())
+        .onElements("a")
+        .allowAttributes("src")
+        .matching(
+            UrlClassifiers.builder()
+            .scheme(BuiltinScheme.HTTPS)
+            .schemeData(
+                MediaTypeClassifiers.builder()
+                .type("image", "gif")
+                .type("image", "png")
+                .build())
+            .build())
+        .onElements("img")
+        .toFactory();
+
+    String input = (
+        "<a href=\"mailto:foo@bar.com\">email</a>"
+        + "\n| <a href=\"foo.html\">foo</a>"
+        + "\n| <a href=\"data:text/html,bar\">bar</a>"
+        + "\n| <a href=\"data:image/png;base64,...\">"
+        + "<img src=\"data:image/png;base64,...\">"
+        + "</a>"
+        + "\n| <a href=\"foo.png\"><img src=\"foo.png\"></a>"
+        );
+    String want = (
+        "<a href=\"mailto:foo&#64;bar.com\">email</a>"
+        + "\n| <a href=\"foo.html\">foo</a>"
+        + "\n| <a href=\"data:text/html,bar\">bar</a>"
+        // We did not explicitly allow links to data:image.
+        + "\n| <img src=\"data:image/png;base64,...\" />"
+        // Media types on data have no effect on https l
+        + "\n| <a href=\"foo.png\"><img src=\"foo.png\" /></a>"
+        );
+
+    assertEquals(want, s.sanitize(input, new Context(context)));
   }
 
   @Test

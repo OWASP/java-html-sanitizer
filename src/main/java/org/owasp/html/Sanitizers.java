@@ -117,7 +117,10 @@ public final class Sanitizers {
   /**
    * Allows {@code <img>} elements from HTTP, HTTPS, and relative sources.
    */
+  @SuppressWarnings("deprecation")
   public static final PolicyFactory IMAGES = new HtmlPolicyBuilder()
+      // TODO: Use a UrlClassifier instead once we've ensured that it's
+      // compatible with all supported JDKs.
       .allowUrlProtocols("http", "https").allowElements("img")
       .allowAttributes("alt", "src").onElements("img")
       .allowAttributes("border", "height", "width").matching(INTEGER)

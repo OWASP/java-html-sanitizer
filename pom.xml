@@ -68,6 +68,10 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>org.owasp</groupId>
+      <artifactId>url</artifactId>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <scope>test</scope>
@@ -75,7 +79,6 @@
     <dependency>
       <groupId>nu.validator.htmlparser</groupId>
       <artifactId>htmlparser</artifactId>
-      <version>1.4</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

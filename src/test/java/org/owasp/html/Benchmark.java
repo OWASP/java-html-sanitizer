@@ -213,7 +213,8 @@ public class Benchmark {
           }
         });
 
-    HtmlSanitizer.sanitize(html, policyBuilder.build(renderer));
+    HtmlSanitizer.sanitize(
+        html, policyBuilder.build(renderer, Context.DEFAULT));
     return sb.toString();
   }
 

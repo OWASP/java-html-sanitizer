@@ -41,14 +41,14 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 final class ElementAndAttributePolicies {
   final String elementName;
-  final ElementPolicy elPolicy;
-  final ImmutableMap<String, AttributePolicy> attrPolicies;
+  final ElementPolicy.V2 elPolicy;
+  final ImmutableMap<String, AttributePolicy.V2> attrPolicies;
   final boolean skipIfEmpty;
 
   ElementAndAttributePolicies(
       String elementName,
-      ElementPolicy elPolicy,
-      Map<? extends String, ? extends AttributePolicy>
+      ElementPolicy.V2 elPolicy,
+      Map<? extends String, ? extends AttributePolicy.V2>
         attrPolicies,
       boolean skipIfEmpty) {
     this.elementName = elementName;
@@ -60,18 +60,19 @@ final class ElementAndAttributePolicies {
   ElementAndAttributePolicies and(ElementAndAttributePolicies p) {
     assert elementName.equals(p.elementName):
       elementName + " != " + p.elementName;
-    ImmutableMap.Builder<String, AttributePolicy> joinedAttrPolicies
+    ImmutableMap.Builder<String, AttributePolicy.V2> joinedAttrPolicies
         = ImmutableMap.builder();
-    for (Map.Entry<String, AttributePolicy> e : this.attrPolicies.entrySet()) {
+    for (Map.Entry<String, AttributePolicy.V2> e
+         : this.attrPolicies.entrySet()) {
       String attrName = e.getKey();
-      AttributePolicy a = e.getValue();
-      AttributePolicy b = p.attrPolicies.get(attrName);
+      AttributePolicy.V2 a = e.getValue();
+      AttributePolicy.V2 b = p.attrPolicies.get(attrName);
       if (b != null) {
         a = AttributePolicy.Util.join(a, b);
       }
       joinedAttrPolicies.put(attrName, a);
     }
-    for (Map.Entry<String, AttributePolicy> e : p.attrPolicies.entrySet()) {
+    for (Map.Entry<String, AttributePolicy.V2> e : p.attrPolicies.entrySet()) {
       String attrName = e.getKey();
       if (!this.attrPolicies.containsKey(attrName)) {
         joinedAttrPolicies.put(attrName, e.getValue());
@@ -99,15 +100,16 @@ final class ElementAndAttributePolicies {
   }
 
   ElementAndAttributePolicies andGlobals(
-      Map<String, AttributePolicy> globalAttrPolicies) {
+      Map<String, AttributePolicy.V2> globalAttrPolicies) {
     if (globalAttrPolicies.isEmpty()) { return this; }
-    Map<String, AttributePolicy> anded = null;
-    for (Map.Entry<String, AttributePolicy> e : this.attrPolicies.entrySet()) {
+    Map<String, AttributePolicy.V2> anded = null;
+    for (Map.Entry<String, AttributePolicy.V2> e
+         : this.attrPolicies.entrySet()) {
       String attrName = e.getKey();
-      AttributePolicy globalAttrPolicy = globalAttrPolicies.get(attrName);
+      AttributePolicy.V2 globalAttrPolicy = globalAttrPolicies.get(attrName);
       if (globalAttrPolicy != null) {
-        AttributePolicy attrPolicy = e.getValue();
-        AttributePolicy joined = AttributePolicy.Util.join(
+        AttributePolicy.V2 attrPolicy = e.getValue();
+        AttributePolicy.V2 joined = AttributePolicy.Util.join(
             attrPolicy, globalAttrPolicy);
         if (!joined.equals(attrPolicy)) {
           if (anded == null) {
@@ -118,7 +120,8 @@ final class ElementAndAttributePolicies {
         }
       }
     }
-    for (Map.Entry<String, AttributePolicy> e : globalAttrPolicies.entrySet()) {
+    for (Map.Entry<String, AttributePolicy.V2> e
+         : globalAttrPolicies.entrySet()) {
       String attrName = e.getKey();
       if (!this.attrPolicies.containsKey(attrName)) {
         if (anded == null) {
