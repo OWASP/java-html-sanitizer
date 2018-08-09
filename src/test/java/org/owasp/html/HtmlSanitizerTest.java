@@ -30,6 +30,8 @@ package org.owasp.html;
 
 import junit.framework.TestCase;
 
+import java.util.Arrays;
+
 import javax.annotation.Nullable;
 
 import org.junit.Test;
@@ -363,7 +365,31 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(
         sanitize("<br id=\"foo\">"),
         sanitize("<br id=foo id=bar>"));
+  }
 
+  @Test
+  public static final void testNbsps() {
+    String input =
+        "test&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bob";
+
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .toFactory();
+
+    String got = policy.sanitize(input);
+    int[] codeUnits = new int[got.length()];
+    for (int i = 0, n = got.length(); i < n; ++i) {
+      codeUnits[i] = got.charAt(i);
+    }
+
+    assertTrue(
+        Arrays.toString(codeUnits),
+        Arrays.equals(
+            new int[] {
+                116, 101, 115, 116,
+                160, 160, 160, 160, 160, 160, 160, 160,
+                98, 111, 98,
+            },
+            codeUnits));
   }
 
   @Test
