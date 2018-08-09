@@ -34,6 +34,7 @@ import java.util.Locale;
 import org.junit.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 
 import junit.framework.TestCase;
 
@@ -173,6 +174,18 @@ public class HtmlPolicyBuilderTest extends TestCase {
               // Allows http.
               .allowAttributes("href").onElements("a")
               .requireRelNofollowOnLinks()));
+  }
+
+  @Test
+  public static final void testLinksWithNofollowAlreadyPresent() {
+    assertEquals(
+        "html <a href=\"/\" rel=\"nofollow\">link</a>",
+        apply(
+            new HtmlPolicyBuilder()
+              .allowElements("a")
+              .allowAttributes("href").onElements("a")
+              .requireRelNofollowOnLinks(),
+            "html <a href='/' rel='nofollow'>link</a>"));
   }
 
   @Test
@@ -761,6 +774,47 @@ public class HtmlPolicyBuilderTest extends TestCase {
             .allowElements("dir", "li", "ul")
             .allowAttributes("compact").onElements("dir"),
             "<dir compact=\"compact\"><li>something</li></dir>"));
+  }
+
+  @Test
+  public static void testScriptTagWithCommentBlockContainingHtmlCommentEnd() {
+    PolicyFactory scriptSanitizer = new HtmlPolicyBuilder()
+        // allow scripts of type application/json
+        .allowElements(
+            new ElementPolicy() {
+              public String apply(String elementName, List<String> attrs) {
+                int typeIndex = attrs.indexOf("type");
+                if (typeIndex < 0 || attrs.size() < typeIndex + 1
+                    || !attrs.get(typeIndex + 1).equals("application/json")) {
+                  return null;
+                }
+                return elementName;
+              }
+            },
+            "script")
+        // allow contents in this script tag
+        .allowTextIn("script")
+        // keep type attribute in application/json script tag
+        .allowAttributes("type").matching(true, ImmutableSet.of("application/json")).onElements("script")
+        .toFactory();
+
+    String mismatchedHtmlComments = "<script type=\"application/json\">\n" +
+            "<!--\n" +
+            "{\"field\":\"-->\"}\n" +
+            "// -->\n" +
+            "</script>";
+    assertEquals(
+        "<script type=\"application/json\"></script>",
+        scriptSanitizer.sanitize(mismatchedHtmlComments));
+
+    String htmlMetaCharsEscaped = "<script type=\"application/json\">\n" +
+        "<!--\n" +
+        "{\"field\":\"--\\u003c\"}\n" +
+        "// -->\n" +
+        "</script>";
+    assertEquals(
+        htmlMetaCharsEscaped,
+        scriptSanitizer.sanitize(htmlMetaCharsEscaped));
   }
 
   private static String apply(HtmlPolicyBuilder b) {
