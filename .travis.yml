@@ -6,6 +6,7 @@ jdk:
   - openjdk7
   - oraclejdk8
   - oraclejdk9
+  - oraclejdk10
 
 # Additionally pass -Dgpg.skip to suppress signing instead of trying to provision
 # Travis's containers with keys.
