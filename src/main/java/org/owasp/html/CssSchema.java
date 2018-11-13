@@ -34,6 +34,7 @@ import java.util.SortedSet;
 
 import javax.annotation.Nullable;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -43,7 +44,13 @@ import com.google.common.collect.Sets;
 @TCB
 public final class CssSchema {
 
-  static final class Property {
+  /**
+   * Describes how CSS interprets tokens after the ":" for a property.
+   * For example, if the property name "color" maps to this, then it
+   * should record that '#' literals are innocuous colors, and that functions
+   * like "rgb", "rgba", "hsl", etc. are allowed functions.
+   */
+  public static final class Property {
     /** A bitfield of BIT_* constants describing groups of allowed tokens. */
     final int bits;
     /** Specific allowed values. */
@@ -53,12 +60,59 @@ public final class CssSchema {
      */
     final ImmutableMap<String, String> fnKeys;
 
-    Property(
+    /**
+     * @param bits A bitfield of BIT_* constants describing groups of allowed tokens.
+     * @param literals Specific allowed values.
+     * @param fnKeys Maps lower-case function tokens to the schema key for their parameters.
+     */
+    public Property(
         int bits, ImmutableSet<String> literals,
         ImmutableMap<String, String> fnKeys) {
       this.bits = bits;
       this.literals = literals;
       this.fnKeys = fnKeys;
+    }
+
+    @Override
+    public int hashCode() {
+      final int prime = 31;
+      int result = 1;
+      result = prime * result + bits;
+      result = prime * result + ((fnKeys == null) ? 0 : fnKeys.hashCode());
+      result = prime * result + ((literals == null) ? 0 : literals.hashCode());
+      return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null) {
+        return false;
+      }
+      if (getClass() != obj.getClass()) {
+        return false;
+      }
+      Property other = (Property) obj;
+      if (bits != other.bits) {
+        return false;
+      }
+      if (fnKeys == null) {
+        if (other.fnKeys != null) {
+          return false;
+        }
+      } else if (!fnKeys.equals(other.fnKeys)) {
+        return false;
+      }
+      if (literals == null) {
+        if (other.literals != null) {
+          return false;
+        }
+      } else if (!literals.equals(other.literals)) {
+        return false;
+      }
+      return true;
     }
   }
 
@@ -101,16 +155,51 @@ public final class CssSchema {
   }
 
   /**
+   * A schema that includes all and only the named properties.
+   *
+   * @param properties maps lower-case CSS property names to property objects.
+   */
+  public static CssSchema withProperties(
+      Map<? extends String, ? extends Property> properties) {
+    ImmutableMap<String, Property> propertyMap =
+        ImmutableMap.copyOf(properties);
+    // check that all fnKeys are defined in properties.
+    for (Map.Entry<String, Property> e : propertyMap.entrySet()) {
+      Property property = e.getValue();
+      for (String fnKey : property.fnKeys.values()) {
+        if (!propertyMap.containsKey(fnKey)) {
+          throw new IllegalArgumentException(
+              "Property map is not self contained.  " + e.getValue()
+              + " depends on undefined function key " + fnKey);
+        }
+      }
+    }
+    return new CssSchema(propertyMap);
+  }
+
+  /**
    * A schema that represents the union of the input schemas.
    *
    * @return A schema that allows all and only CSS properties that are allowed
    *    by at least one of the inputs.
+   * @throws IllegalArgumentException if two schemas have properties with the
+   *    same name, but different (per .equals) {@link Property} values.
    */
   public static CssSchema union(CssSchema... cssSchemas) {
     if (cssSchemas.length == 1) { return cssSchemas[0]; }
     Map<String, Property> properties = Maps.newLinkedHashMap();
     for (CssSchema cssSchema : cssSchemas) {
-      properties.putAll(cssSchema.properties);
+      for (Map.Entry<String, Property> e : cssSchema.properties.entrySet()) {
+        String name = e.getKey();
+        Property newProp = e.getValue();
+        Preconditions.checkNotNull(name);
+        Preconditions.checkNotNull(newProp);
+        Property oldProp = properties.put(name, newProp);
+        if (oldProp != null && !oldProp.equals(newProp)) {
+          throw new IllegalArgumentException(
+              "Duplicate irreconcilable definitions for " + name);
+        }
+      }
     }
     return new CssSchema(ImmutableMap.copyOf(properties));
   }
