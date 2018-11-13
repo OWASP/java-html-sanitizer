@@ -336,9 +336,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           break;
         case '>':
           if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 2) == '-') {
-            if (innerStart < 0) { return i; }
+            if (innerStart < 0) { return i - 2; }
             // Merged start and end like <!--->
-            if (innerStart + 6 >= i) { return i; }
+            if (innerStart + 6 > i) { return innerStart; }
             innerStart = -1;
           }
           break;

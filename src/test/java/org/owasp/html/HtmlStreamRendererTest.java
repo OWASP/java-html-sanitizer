@@ -237,6 +237,44 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
+  public final void testMoreUnbalancedHtmlCommentsInScripts() throws Exception {
+    String js = "if (x-->y) { ... }\n";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    // We could actually allow this since --> is not banned per 4.12.1.3
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : -->y) { ..",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testShortHtmlCommentInScript() throws Exception {
+    String js = "// <!----> <!--->";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    // We could actually allow this since --> is not banned per 4.12.1.3
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : <!--->",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
   public final void testHtml51SemanticsScriptingExample5Part3() throws Exception {
     String js = "<!-- if ( player<script ) { ... } -->";
 
@@ -278,6 +316,24 @@ public class HtmlStreamRendererTest extends TestCase {
         + "if (player < script) { ... }\n"
         + "if (script > player) { ... }\n"
         + "--></script>",
+        rendered.toString());
+  }
+
+  public final void testHtmlCommentInRcdata() throws Exception {
+    String str = "// <!----> <!---> <!--";
+
+    renderer.openDocument();
+    renderer.openTag("title", ImmutableList.<String>of());
+    renderer.text(str);
+    renderer.closeTag("title");
+    renderer.openTag("textarea", ImmutableList.<String>of());
+    renderer.text(str);
+    renderer.closeTag("textarea");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<title>// &lt;!----&gt; &lt;!---&gt; &lt;!--</title>"
+        + "<textarea>// &lt;!----&gt; &lt;!---&gt; &lt;!--</textarea>",
         rendered.toString());
   }
 
