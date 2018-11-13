@@ -235,7 +235,7 @@ public class EbayPolicyExample {
       final Pattern a, final Pattern b) {
     return new Predicate<String>() {
       public boolean apply(String s) {
-        return a.matcher(s).matches()|| b.matcher(s).matches();
+        return a.matcher(s).matches() || b.matcher(s).matches();
       }
     };
   }
