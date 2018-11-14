@@ -90,7 +90,7 @@ find . -name pom.xml \
 
 git commit -am "Bumped dev version"
 
-git push origin master
+git push origin master --tags
 
 # Now Release
 echo '1. Go to oss.sonatype.org'
