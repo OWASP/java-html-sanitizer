@@ -207,7 +207,6 @@ final class Encoding {
           && (
               // Devanagari vowel
               ch <= 0x94F
-              || 0x93A <= ch && ch <= 0x94F
               // Benagli vowels
               || 0x985 <= ch && ch <= 0x994
               || 0x9BE <= ch && ch < 0x9CC  // 0x9CC (Bengali AU) is ok
