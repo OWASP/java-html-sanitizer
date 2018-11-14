@@ -1,6 +1,10 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20181114.1
+    * Compatible with guava > 19 including 21.x.x - 27.x.x
+    * Public API now supports custom style creation.
+    * Tweaks to handline of [HTML comment like constructs](https://www.w3.org/TR/html5/scripting-1.html#restrictions-for-contents-of-script-elements) in script element bodies.
   * Release 20180219.1
     * Strip ZWNJ from MacOS and iOS [crashing text sequences](https://manishearth.github.io/blog/2018/02/15/picking-apart-the-crashing-ios-string/)
   * Release 20171016.1
