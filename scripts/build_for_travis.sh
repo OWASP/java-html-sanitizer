@@ -13,5 +13,6 @@ if echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]'; then
     exec mvn verify -Dmaven.javadoc.skip=true $COMMON_FLAGS
 else
     # Build the whole kit-n-kaboodle.
-    exec mvn -f aggregate verify $COMMON_FLAGS
+    mvn                             -f aggregate/pom.xml       source:jar javadoc:jar verify $COMMON_FLAGS \
+    && mvn -Dguava.version=27.0-jre -f aggregate/pom.xml clean source:jar javadoc:jar verify $COMMON_FLAGS
 fi
