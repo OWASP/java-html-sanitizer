@@ -31,6 +31,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -99,6 +100,7 @@ public class Policy {
     private final Map<String, Attribute> globalAttributes;
     private final Map<String, Attribute> dynamicAttributes;
 
+    private final List<String> allowedEmptyTags;
     private final TagMatcher allowedEmptyTagsMatcher;
     private final TagMatcher requiresClosingTagsMatcher;
 
@@ -107,6 +109,13 @@ public class Policy {
      */
     public Tag getTagByLowercaseName(String tagName) {
         return tagRules.get(tagName);
+    }
+
+    /**
+     * Return all the tag rules for the policy.
+     */
+    public Collection<Tag> getTagRules() {
+        return tagRules.values();
     }
 
     protected static class ParseContext {
@@ -202,6 +211,7 @@ public class Policy {
 
 
     protected Policy(ParseContext parseContext) throws IOException {
+        this.allowedEmptyTags = Collections.unmodifiableList(parseContext.allowedEmptyTags);
         this.allowedEmptyTagsMatcher = new TagMatcher(parseContext.allowedEmptyTags);
         this.requiresClosingTagsMatcher = new TagMatcher(parseContext.requireClosingTags);
         this.commonRegularExpressions = Collections.unmodifiableMap(parseContext.commonRegularExpressions);
@@ -213,6 +223,7 @@ public class Policy {
     }
 
     protected Policy(Policy old, Map<String, String> directives, Map<String, Tag> tagRules) {
+        this.allowedEmptyTags = old.allowedEmptyTags;
         this.allowedEmptyTagsMatcher = old.allowedEmptyTagsMatcher;
         this.requiresClosingTagsMatcher = old.requiresClosingTagsMatcher;
         this.commonRegularExpressions = old.commonRegularExpressions;
@@ -752,6 +763,13 @@ public class Policy {
     }
 
     /**
+     * Return all the global attributes for the policy.
+     */
+    public Collection<Attribute> getGlobalAttributes() {
+        return globalAttributes.values();
+    }
+
+    /**
      * A method for returning one of the dynamic <global-attribute> entries by
      * name.
      *
@@ -777,6 +795,13 @@ public class Policy {
      */
     public TagMatcher getAllowedEmptyTags() {
         return allowedEmptyTagsMatcher;
+    }
+
+    /**
+     * Return all the allowed empty tags configured in the Policy.
+     */
+    public List<String> getAllowedEmptyTagsList() {
+        return allowedEmptyTags;
     }
 
     /**

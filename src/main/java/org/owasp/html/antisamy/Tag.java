@@ -25,6 +25,7 @@
 package org.owasp.html.antisamy;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -155,5 +156,13 @@ public class Tag {
      */
     public Attribute getAttributeByName(String name) {
         return allowedAttributes.get(name);
+    }
+
+
+    /**
+     * Returns the allowed attributes.
+     */
+    public Collection<Attribute> getAllowedAttributes() {
+        return allowedAttributes.values();
     }
 }

@@ -86,6 +86,14 @@ public class Attribute  {
     return name;
   }
 
+  public List<String> getAllowedValues() {
+    return allowedValues;
+  }
+
+  public Pattern[] getAllowedRegexps() {
+    return allowedRegExps;
+  }
+
     /**
    *
    * @return The <code>onInvalid</code> value a tag could have, from the list of "filterTag", "removeTag" and "removeAttribute"

@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<anti-samy-rules
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="antisamy.xsd">
+
+  <common-regexps>
+    <regexp name="htmlId" value="[a-zA-Z0-9:._\-]+" />
+  </common-regexps>
+
+  <common-attributes>
+    <attribute name="id">
+      <regexp-list>
+        <regexp name="htmlId" />
+      </regexp-list>
+    </attribute>
+    <attribute name="align">
+      <literal-list>
+        <literal value="center" />
+        <literal value="middle" />
+        <literal value="left" />
+        <literal value="right" />
+        <literal value="justify" />
+        <literal value="char" />
+      </literal-list>
+    </attribute>
+  </common-attributes>
+
+  <global-tag-attributes>
+    <attribute name="id" />
+  </global-tag-attributes>
+
+  <tag-rules>
+    <tag name="h1" action="validate" />
+    <tag name="p" action="validate">
+      <attribute name="align" />
+    </tag>
+    <tag name="dd" action="truncate" />
+  </tag-rules>
+
+  <allowed-empty-tags>
+    <literal-list>
+      <literal value="br" />
+    </literal-list>
+  </allowed-empty-tags>
+
+</anti-samy-rules>

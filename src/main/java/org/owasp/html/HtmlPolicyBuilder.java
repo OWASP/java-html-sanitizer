@@ -28,6 +28,8 @@
 
 package org.owasp.html;
 
+import java.io.IOException;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -559,6 +561,34 @@ public class HtmlPolicyBuilder {
   }
 
   /**
+   * Reads the AntiSamy policy defined by the given URL.
+   */
+  public HtmlPolicyBuilder loadAntiSamyPolicy(URL url) throws IOException {
+    org.owasp.html.antisamy.Policy policy = org.owasp.html.antisamy.Policy.getInstance(url);
+
+    // Global attributes
+    for (org.owasp.html.antisamy.Attribute attribute : policy.getGlobalAttributes()) {
+      this.allowAttributes(attribute.getName()).matching(attribute).globally();
+    }
+
+    // Tags
+    for (org.owasp.html.antisamy.Tag tag : policy.getTagRules()) {
+      this.allowElements(tag.getName());
+      for (org.owasp.html.antisamy.Attribute attribute : tag.getAllowedAttributes()) {
+        this.allowAttributes(attribute.getName()).matching(attribute).onElements(tag.getName());
+      }
+    }
+
+    // Empty tags
+    for (String tag : policy.getAllowedEmptyTagsList()) {
+      this.allowElements(tag);
+      this.allowWithoutAttributes(tag);
+    }
+
+    return this;
+  }
+
+  /**
    * Inserts a pre-processor into the pipeline between the lexer and the policy.
    * Pre-processors receive HTML events before the policy, so the policy will
    * be applied to anything they add.
@@ -907,6 +937,30 @@ public class HtmlPolicyBuilder {
               ? Strings.toLowerCase(uncanonValue)
               : uncanonValue;
           return allowed.contains(value) ? value : null;
+        }
+      });
+    }
+
+    /**
+     * Restrict the values allowed by later {@code allow*} calls to those
+     * matching the supplied AntiSamy Attribute.
+     * Multiple calls to {@code matching} are combined to restrict to the
+     * intersection of possible matched values.
+     */
+    public AttributeBuilder matching(final org.owasp.html.antisamy.Attribute attribute) {
+      return matching(new AttributePolicy() {
+        public @Nullable String apply(String elementName, String attributeName, String value) {
+          for (String val : attribute.getAllowedValues()) {
+            if (val.equalsIgnoreCase(value)) {
+              return value;
+            }
+          }
+          for (Pattern pattern : attribute.getAllowedRegexps()) {
+            if (pattern.matcher(value).matches()) {
+              return value;
+            }
+          }
+          return null;
         }
       });
     }
