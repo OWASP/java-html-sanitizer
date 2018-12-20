@@ -2,6 +2,7 @@ package org.owasp.html.antisamy;
 
 import org.owasp.html.antisamy.Tag;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public class InternalPolicy extends Policy {
     private final boolean allowDynamicAttributes;
 
 
-    protected InternalPolicy(URL baseUrl, ParseContext parseContext) throws PolicyException {
+    protected InternalPolicy(URL baseUrl, ParseContext parseContext) throws IOException {
         super(parseContext);
         this.maxInputSize = determineMaxInputSize();
         this.isNofollowAnchors = isTrue(Policy.ANCHORS_NOFOLLOW);
