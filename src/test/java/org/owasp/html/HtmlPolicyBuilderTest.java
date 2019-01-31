@@ -737,6 +737,21 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testEmptyDefaultLinkRelsSet() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href", "target").onElements("a")
+        .allowStandardUrlProtocols()
+        .skipRelsOnLinks("noopener", "noreferrer")
+        .toFactory();
+
+    assertEquals(
+        "<a href=\"http://example.com\" target=\"_blank\">eg</a>",
+        pf.sanitize("<a href=\"http://example.com\" target=\"_blank\">eg</a>")
+    );
+  }
+
+  @Test
   public static final void testScopingExitInNoContent() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("table", "tr", "td", "noscript")

@@ -987,7 +987,7 @@ public class HtmlPolicyBuilder {
       if (indexOfAttributeValue("href", attrs) >= 0) {
         // It's a link.
         boolean hasTarget = indexOfAttributeValue("target", attrs) >= 0;
-        if (hasTarget || !extra.isEmpty()) {
+        if ((hasTarget && !whenTargetPresent.isEmpty()) || !extra.isEmpty()) {
           int relIndex = indexOfAttributeValue("rel", attrs);
           String relValue;
           if (relIndex < 0 && hasTarget && extra.isEmpty() && skip.isEmpty()) {
