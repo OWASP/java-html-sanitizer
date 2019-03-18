@@ -737,6 +737,46 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testEmptyDefaultLinkRelsSet() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href", "target").onElements("a")
+        .allowStandardUrlProtocols()
+        .skipRelsOnLinks("noopener", "noreferrer")
+        .toFactory();
+
+    assertEquals(
+        "<a href=\"http://example.com\" target=\"_blank\">eg</a>",
+        pf.sanitize("<a href=\"http://example.com\" target=\"_blank\">eg</a>"));
+  }
+
+  @Test
+  public static final void testExplicitRelsSkip() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href", "target", "rel").onElements("a")
+        .allowStandardUrlProtocols()
+        .skipRelsOnLinks("noopener", "noreferrer")
+        .toFactory();
+
+    assertEquals(
+        "<a href=\"http://example.com\" target=\"_blank\">text</a>",
+        pf.sanitize(
+            "<a href=\"http://example.com\" target=\"_blank\""
+            + " rel=\"noopener\">text</a>"));
+    assertEquals(
+        "<a href=\"http://example.com\" target=\"_blank\">text</a>",
+        pf.sanitize(
+            "<a href=\"http://example.com\" target=\"_blank\""
+            + " rel=\"noreferrer noopener\">text</a>"));
+    assertEquals(
+        "<a href=\"http://example.com\" target=\"_blank\" rel=\"nofoo nobar nobaz\">text</a>",
+        pf.sanitize(
+            "<a href=\"http://example.com\" target=\"_blank\""
+            + " rel=\"nofoo noopener nobar  NOREFERRER nobaz \">text</a>"));
+  }
+
+  @Test
   public static final void testScopingExitInNoContent() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("table", "tr", "td", "noscript")

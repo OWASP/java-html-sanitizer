@@ -438,7 +438,7 @@ public class HtmlPolicyBuilder {
 
   /**
    * Opts out of some of the {@link #DEFAULT_RELS_ON_TARGETTED_LINKS} from being added
-   * to links, and reverses pre
+   * to links, and reverses previous calls to requireRelsOnLinks with the given link values.
    *
    * @see #requireRelsOnLinks
    */
@@ -730,7 +730,9 @@ public class HtmlPolicyBuilder {
             stylingPolicySchema,
             new Function<String, String>() {
               public String apply(String url) {
-                return styleUrlPolicyFinal.apply("img", "src", url);
+                return styleUrlPolicyFinal.apply(
+                    "img", "src",
+                    url != null ? url : "about:invalid");
               }
             });
       }
@@ -990,12 +992,27 @@ public class HtmlPolicyBuilder {
         if (hasTarget || !extra.isEmpty()) {
           int relIndex = indexOfAttributeValue("rel", attrs);
           String relValue;
+
           if (relIndex < 0 && hasTarget && extra.isEmpty() && skip.isEmpty()) {
             relValue = DEFAULT_RELS_ON_TARGETTED_LINKS_STR;
           } else {
             StringBuilder sb = new StringBuilder();
             if (relIndex >= 0) {
-              sb.append(attrs.get(relIndex)).append(' ');
+              // Preserve values that are not explicitly skipped.
+              String rels = attrs.get(relIndex);
+              int left = 0, n = rels.length();
+              for (int i = 0; i <= n; ++i) {
+                if (i == n || Strings.isHtmlSpace(rels.charAt(i))) {
+                  if (left < i) {
+                    if (skip.isEmpty()
+                        || !skip.contains(
+                            Strings.toLowerCase(rels.substring(left, i)))) {
+                      sb.append(rels, left, i).append(' ');
+                    }
+                  }
+                  left = i + 1;
+                }
+              }
             }
             for (String s : extra) {
               sb.append(s).append(' ');
@@ -1005,13 +1022,24 @@ public class HtmlPolicyBuilder {
                 sb.append(s).append(' ');
               }
             }
-            relValue = sb.substring(0, sb.length() - 1);
+            int sblen = sb.length();
+            if (sblen == 0) {
+              relValue = "";
+            } else {
+              relValue = sb.substring(0, sb.length() - 1);
+            }
           }
-          if (relIndex < 0) {
-            attrs.add("rel");
-            attrs.add(relValue);
+          if (relValue.isEmpty()) {
+            if (relIndex >= 0) {
+              attrs.subList(relIndex - 1, relIndex + 1).clear();
+            }
           } else {
-            attrs.set(relIndex, relValue);
+            if (relIndex < 0) {
+              attrs.add("rel");
+              attrs.add(relValue);
+            } else {
+              attrs.set(relIndex, relValue);
+            }
           }
         }
       }
