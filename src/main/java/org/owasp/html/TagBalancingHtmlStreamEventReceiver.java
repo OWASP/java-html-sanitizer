@@ -263,6 +263,7 @@ public class TagBalancingHtmlStreamEventReceiver
           if (isHeaderElement(openElementIndex)) {
             elIndex = openElementIndex;
             index = i;
+            // This is a dead store, but not setting is a maintenance hazard.
             canonElementName = METADATA.canonNameForIndex(openElementIndex);
             break;
           }

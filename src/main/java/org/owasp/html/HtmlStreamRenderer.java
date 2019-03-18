@@ -342,6 +342,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             innerStart = -1;
           }
           break;
+        default:
+          break;
       }
     }
     return innerStart;

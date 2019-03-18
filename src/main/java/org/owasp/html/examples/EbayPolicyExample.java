@@ -238,7 +238,7 @@ public class EbayPolicyExample {
         return a.matcher(s).matches() || b.matcher(s).matches();
       }
 
-      // Needed for Java8 compat with later Guava that extends
+      // Needed for Java8 compatibility with later Guava that extends
       // java.util.function.Predicate.
       // For some reason the default test method implementation that calls
       // through to apply is not assumed here.

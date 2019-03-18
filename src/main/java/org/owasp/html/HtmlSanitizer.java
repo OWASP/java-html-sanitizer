@@ -129,13 +129,13 @@ public final class HtmlSanitizer {
   public static void sanitize(
       @Nullable String html, final Policy policy,
       HtmlStreamEventProcessor preprocessor) {
-    if (html == null) { html = ""; }
+    String htmlContent = html != null ? html : "";
 
     HtmlStreamEventReceiver receiver = initializePolicy(policy, preprocessor);
 
     receiver.openDocument();
 
-    HtmlLexer lexer = new HtmlLexer(html);
+    HtmlLexer lexer = new HtmlLexer(htmlContent);
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
     // way.
     LinkedList<String> attrs = Lists.newLinkedList();
@@ -144,16 +144,16 @@ public final class HtmlSanitizer {
       switch (token.type) {
         case TEXT:
           receiver.text(
-              Encoding.decodeHtml(html.substring(token.start, token.end)));
+              Encoding.decodeHtml(htmlContent.substring(token.start, token.end)));
           break;
         case UNESCAPED:
           receiver.text(Encoding.stripBannedCodeunits(
-              html.substring(token.start, token.end)));
+              htmlContent.substring(token.start, token.end)));
           break;
         case TAGBEGIN:
-          if (html.charAt(token.start + 1) == '/') {  // A close tag.
+          if (htmlContent.charAt(token.start + 1) == '/') {  // A close tag.
             receiver.closeTag(HtmlLexer.canonicalName(
-                html.substring(token.start + 2, token.end)));
+                htmlContent.substring(token.start + 2, token.end)));
             while (lexer.hasNext()
                    && lexer.next().type != HtmlTokenType.TAGEND) {
               // skip tokens until we see a ">"
@@ -174,11 +174,11 @@ public final class HtmlSanitizer {
                     attrsReadyForName = false;
                   }
                   attrs.add(HtmlLexer.canonicalName(
-                      html.substring(tagBodyToken.start, tagBodyToken.end)));
+                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end)));
                   break;
                 case ATTRVALUE:
                   attrs.add(Encoding.decodeHtml(stripQuotes(
-                      html.substring(tagBodyToken.start, tagBodyToken.end))));
+                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end))));
                   attrsReadyForName = true;
                   break;
                 case TAGEND:
@@ -192,7 +192,7 @@ public final class HtmlSanitizer {
             }
             receiver.openTag(
                 HtmlLexer.canonicalName(
-                    html.substring(token.start + 1, token.end)),
+                    htmlContent.substring(token.start + 1, token.end)),
                 attrs);
           }
           break;

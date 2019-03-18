@@ -531,7 +531,7 @@ public final class HtmlElementTables {
       int[] arr, int leftIncl, int rightExcl, int value) {
     int lo = leftIncl, hi = rightExcl;
     while (lo < hi) {
-      int mid = (lo + hi) >> 1;
+      int mid = (lo + hi) >>> 1;
       assert mid >= lo;
       int el = arr[mid];
       int delta = value - el;
@@ -604,8 +604,9 @@ public final class HtmlElementTables {
     private final byte[] contentModelBitsPerElement;
 
     /** */
+    @SuppressWarnings("cast")
     public TextContentModel(byte[] contentModelBitsPerElement) {
-      this.contentModelBitsPerElement = contentModelBitsPerElement;
+      this.contentModelBitsPerElement = (byte[]) contentModelBitsPerElement.clone();
     }
 
     /**
