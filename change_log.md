@@ -1,6 +1,11 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Pending
+    * Update dependency on guava version to 27.1-jre to avoid causing clients
+      problems with CVE-2018-10237.  Specify Maven property `guava.version`
+      to override.
+    * Compatible with JDK 11.
   * Release 20181114.1
     * Compatible with guava > 19 including 21.x.x - 27.x.x
     * Public API now supports custom style creation.
