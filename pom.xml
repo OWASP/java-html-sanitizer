@@ -23,11 +23,10 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.7.9</version>
-        <configuration>
+        <!--configuration>
           <destFile>${basedir}/target/coverage-reports/jacoco-unit.exec</destFile>
           <dataFile>${basedir}/target/coverage-reports/jacoco-unit.exec</dataFile>
-        </configuration>
+        </configuration-->
         <executions>
           <execution>
             <id>jacoco-initialize</id>
@@ -42,7 +41,21 @@
               <goal>report</goal>
             </goals>
           </execution>
+          <execution>
+            <id>report</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.eluder.coveralls</groupId>
+        <artifactId>coveralls-maven-plugin</artifactId>
+        <configuration>
+          <repoToken>TENYw0IKRulLOXgkyzjGqNi0hQyhBiSiU</repoToken>
+        </configuration>
       </plugin>
     </plugins>
   </build>

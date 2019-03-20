@@ -8,8 +8,8 @@ set -e
 
 
 # Make sure the build is ok via
-mvn -Dguava.version=27.0-jre -f aggregate clean verify      javadoc:jar source:jar
-mvn                          -f aggregate clean verify site javadoc:jar source:jar
+mvn -Dguava.version=27.0-jre -f aggregate clean verify                    javadoc:jar source:jar
+mvn                          -f aggregate clean verify jacoco:report site javadoc:jar source:jar
 
 echo
 echo Browse to
