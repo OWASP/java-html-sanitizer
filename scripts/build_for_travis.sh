@@ -9,7 +9,7 @@ set -e
 COMMON_FLAGS="-Dgpg.skip=true -B -V"
 
 IS_LEGACY=""
-if echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]'; then
+if echo $TRAVIS_JDK_VERSION | egrep -q '(jdk|jre)[67]($|[^0-9])'; then
     IS_LEGACY=1
     # The main library only uses jdk6 compatible dependencies,
     # but Guava 21.0 is compatibility with jdk 7.
@@ -19,6 +19,7 @@ if echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]'; then
     # to configure the maven-javadoc-plugin.
     COMMON_FLAGS="$COMMON_FLAGS -Dmaven.javadoc.skip=true"
 fi
+
 
 echo "*** TRAVIS_JDK_VERSION=$TRAVIS_JDK_VERSION COMMON_FLAGS=($COMMON_FLAGS) IS_LEGACY=$IS_LEGACY"
 
