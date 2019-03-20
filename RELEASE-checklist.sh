@@ -10,6 +10,7 @@ set -e
 # Make sure the build is ok via
 mvn -Dguava.version=27.0-jre -f aggregate clean verify                    javadoc:jar source:jar
 mvn                          -f aggregate clean verify jacoco:report site javadoc:jar source:jar
+mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit -f aggregate
 
 echo
 echo Browse to

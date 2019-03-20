@@ -15,5 +15,6 @@ else
     # Build the whole kit-n-kaboodle.
     mvn                             -f aggregate/pom.xml       source:jar javadoc:jar verify $COMMON_FLAGS \
     && mvn -Dguava.version=27.1-jre -f aggregate/pom.xml clean source:jar javadoc:jar verify $COMMON_FLAGS \
-    && mvn jacoco:report coveralls:report
+    && mvn jacoco:report coveralls:report \
+    && mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit -f aggregate
 fi
