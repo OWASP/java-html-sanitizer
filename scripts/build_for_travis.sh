@@ -20,6 +20,7 @@ if echo $TRAVIS_JDK_VERSION | egrep -q 'jdk[67]'; then
     COMMON_FLAGS="$COMMON_FLAGS -Dmaven.javadoc.skip=true"
 fi
 
+echo "*** TRAVIS_JDK_VERSION=$TRAVIS_JDK_VERSION COMMON_FLAGS=($COMMON_FLAGS) IS_LEGACY=$IS_LEGACY"
 
 mvn install -DskipTests=true $COMMON_FLAGS
 
@@ -32,5 +33,5 @@ else
     mvn                             -f aggregate/pom.xml       source:jar javadoc:jar verify $COMMON_FLAGS \
     && mvn -Dguava.version=27.1-jre -f aggregate/pom.xml clean source:jar javadoc:jar verify $COMMON_FLAGS \
     && mvn jacoco:report coveralls:report \
-    && mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit $COMMON_FLAGS
+    && mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit -f aggregate $COMMON_FLAGS
 fi
