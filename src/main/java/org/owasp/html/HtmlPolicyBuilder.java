@@ -587,14 +587,56 @@ public class HtmlPolicyBuilder {
   }
 
   /**
-   * Names of attributes from HTML 4 whose values are URLs.
-   * Other attributes, e.g. <code>style</code> may contain URLs even though
-   * there values are not URLs.
+   * Maps attribute names that need extra handling to producers of those
+   * extra guards.
    */
-  private static final Set<String> URL_ATTRIBUTE_NAMES = ImmutableSet.of(
-      "action", "archive", "background", "cite", "classid", "codebase", "data",
-      "dsync", "formaction", "href", "icon", "longdesc", "manifest", "poster",
-      "profile", "src", "srcset", "usemap");
+  private static final Map<String, AttributeGuardMaker> ATTRIBUTE_GUARDS;
+  static {
+    // For each URL attribute that is allowed, we further constrain it by
+    // only allowing the value through if it specifies no protocol, or if it
+    // specifies one in the allowedProtocols white-list.
+    // This is done regardless of whether any protocols have been allowed, so
+    // allowing the attribute "href" globally with the identity policy but
+    // not white-listing any protocols, effectively disallows the "href"
+    // attribute globally.
+    ImmutableMap.Builder<String, AttributeGuardMaker> b =
+        ImmutableMap.builder();
+    AttributeGuardMaker identityGuard = new AttributeGuardMaker() {
+      @Override
+      AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
+        return intermediates.urlAttributePolicy;
+      }
+    };
+    for (String urlAttributeName : new String[] {
+        "action", "archive", "background", "cite", "classid", "codebase", "data",
+        "dsync", "formaction", "href", "icon", "longdesc", "manifest", "poster",
+        "profile", "src", "srcset", "usemap",
+    }) {
+      b.put(urlAttributeName, identityGuard);
+    }
+    b.put("style", new AttributeGuardMaker() {
+
+      @Override
+      AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
+        if (intermediates.cssSchema == null) {
+          return null;
+        }
+        final AttributePolicy styleUrlPolicyFinal = AttributePolicy.Util.join(
+            intermediates.styleUrlPolicy, intermediates.urlAttributePolicy);
+        return new StylingPolicy(
+            intermediates.cssSchema,
+            new Function<String, String>() {
+              public String apply(String url) {
+                return styleUrlPolicyFinal.apply(
+                    "img", "src",
+                    url != null ? url : "about:invalid");
+              }
+            });
+      }
+
+    });
+    ATTRIBUTE_GUARDS = b.build();
+  }
 
   /**
    * Produces a policy based on the allow and disallow calls previously made.
@@ -702,15 +744,7 @@ public class HtmlPolicyBuilder {
       }
     }
 
-    // Implement protocol policies.
-    // For each URL attribute that is allowed, we further constrain it by
-    // only allowing the value through if it specifies no protocol, or if it
-    // specifies one in the allowedProtocols white-list.
-    // This is done regardless of whether any protocols have been allowed, so
-    // allowing the attribute "href" globally with the identity policy but
-    // not white-listing any protocols, effectively disallows the "href"
-    // attribute globally.
-    StylingPolicy stylingPolicy = null;
+    // Add guards on top of any custom policies.
     {
       final AttributePolicy urlAttributePolicy;
       if (allowedProtocols.size() == 3
@@ -723,26 +757,16 @@ public class HtmlPolicyBuilder {
             allowedProtocols);
       }
 
-      if (this.stylingPolicySchema != null) {
-        final AttributePolicy styleUrlPolicyFinal = AttributePolicy.Util.join(
-            styleUrlPolicy, urlAttributePolicy);
-        stylingPolicy = new StylingPolicy(
-            stylingPolicySchema,
-            new Function<String, String>() {
-              public String apply(String url) {
-                return styleUrlPolicyFinal.apply(
-                    "img", "src",
-                    url != null ? url : "about:invalid");
-              }
-            });
-      }
-
-      Set<String> toGuard = Sets.newLinkedHashSet(URL_ATTRIBUTE_NAMES);
-      for (String urlAttributeName : URL_ATTRIBUTE_NAMES) {
-        if (globalAttrPolicies.containsKey(urlAttributeName)) {
-          toGuard.remove(urlAttributeName);
-          globalAttrPolicies.put(urlAttributeName, AttributePolicy.Util.join(
-              urlAttributePolicy, globalAttrPolicies.get(urlAttributeName)));
+      Set<String> toGuard = Sets.newLinkedHashSet(ATTRIBUTE_GUARDS.keySet());
+      AttributeGuardIntermediates intermediates = new AttributeGuardIntermediates(
+          urlAttributePolicy, this.styleUrlPolicy, this.stylingPolicySchema);
+      for (Map.Entry<String, AttributeGuardMaker> e : ATTRIBUTE_GUARDS.entrySet()) {
+        String attributeName = e.getKey();
+        if (globalAttrPolicies.containsKey(attributeName)) {
+          toGuard.remove(attributeName);
+          AttributePolicy guard = e.getValue().makeGuard(intermediates);
+          globalAttrPolicies.put(attributeName, AttributePolicy.Util.join(
+              guard, globalAttrPolicies.get(attributeName)));
         }
       }
       // Implement guards not implemented on global policies in the per-element
@@ -750,19 +774,14 @@ public class HtmlPolicyBuilder {
       for (Map.Entry<String, Map<String, AttributePolicy>> e
            : attrPolicies.entrySet()) {
         Map<String, AttributePolicy> policies = e.getValue();
-        for (String urlAttributeName : toGuard) {
-          if (policies.containsKey(urlAttributeName)) {
-            policies.put(urlAttributeName, AttributePolicy.Util.join(
-                urlAttributePolicy, policies.get(urlAttributeName)));
+        for (String attributeName : toGuard) {
+          if (policies.containsKey(attributeName)) {
+            AttributePolicy guard = ATTRIBUTE_GUARDS.get(attributeName)
+                .makeGuard(intermediates);
+            policies.put(attributeName, AttributePolicy.Util.join(
+                guard, policies.get(attributeName)));
           }
         }
-      }
-    }
-    if (stylingPolicy != null) {
-      AttributePolicy old = globalAttrPolicies.get("style");
-      if (old != null) {
-        globalAttrPolicies.put(
-            "style", AttributePolicy.Util.join(old, stylingPolicy));
       }
     }
 
@@ -779,16 +798,6 @@ public class HtmlPolicyBuilder {
           = attrPolicies.get(elementName);
       if (elAttrPolicies == null) {
         elAttrPolicies = ImmutableMap.of();
-      }
-      if (stylingPolicy != null) {
-        AttributePolicy old = elAttrPolicies.get("style");
-        if (old != null) {
-          attrPolicies.put(
-              elementName,
-              elAttrPolicies = Maps.newLinkedHashMap(elAttrPolicies));
-          elAttrPolicies.put(
-              "style", AttributePolicy.Util.join(old, stylingPolicy));
-        }
       }
 
       ImmutableMap.Builder<String, AttributePolicy> attrs
@@ -1073,3 +1082,32 @@ public class HtmlPolicyBuilder {
   }
 }
 
+
+/**
+ * Given some policy builder state, produces a guard for an HTML attribute
+ * that needs extra handling on top of any policy-author-supplied custom
+ * attribute policy.
+ */
+abstract class AttributeGuardMaker {
+  abstract AttributePolicy makeGuard(AttributeGuardIntermediates intermediates);
+}
+
+/**
+ * A grab bag of state that is useful when coming up with guards for HTML
+ * attributes that need extra handling on top of any policy-author-supplied
+ * custom attribute policy.
+ */
+final class AttributeGuardIntermediates {
+  final AttributePolicy urlAttributePolicy;
+  final AttributePolicy styleUrlPolicy;
+  final CssSchema cssSchema;
+
+  AttributeGuardIntermediates(
+      AttributePolicy urlAttributePolicy,
+      AttributePolicy styleUrlPolicy,
+      CssSchema cssSchema) {
+    this.urlAttributePolicy = urlAttributePolicy;
+    this.styleUrlPolicy = styleUrlPolicy;
+    this.cssSchema = cssSchema;
+  }
+}
