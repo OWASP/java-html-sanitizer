@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Pending
+  * Release 20190325.1
     * Properly parse `srcset` attribute values to apply URL policy to
       each URL in turn.
     * Update dependency on guava version to 27.1-jre to avoid causing clients

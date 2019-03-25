@@ -3,12 +3,12 @@
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>aggregate</artifactId>
   <packaging>pom</packaging>
-  <version>20181114.2-SNAPSHOT</version>
+  <version>20190325.1</version>
   <parent>
     <relativePath>../parent</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
-    <version>20181114.2-SNAPSHOT</version>
+    <version>20190325.1</version>
   </parent>
 
   <modules>
