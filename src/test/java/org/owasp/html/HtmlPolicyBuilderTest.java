@@ -30,6 +30,7 @@ package org.owasp.html;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import org.junit.Test;
 
@@ -348,6 +349,81 @@ public class HtmlPolicyBuilderTest extends TestCase {
             + "<image src=\"http://example.com/foo.png\" />"
             + "<Image src=\"http://example.com/bar.png\">"
             + "<IMAGE>"));
+  }
+
+  @Test
+  public static final void testImgSrcsetSyntax() {
+    assertEquals(
+        ""
+        + "<img srcset=\"http://example.com/foo.png\" />\n"
+        + "<img srcset=\"http://example.com/foo.png 640w\" />\n"
+        + "<img srcset=\"http://example.com/foo.png 48x\" />\n"
+        + "<img srcset=\"http://example.com/foo.png .123x\" />\n"
+        + "<img srcset=\"http://example.com/foo.png .123e2x\" />\n"
+        + "<img srcset=\"http://example.com/foo.png 123.456x\" />\n"
+        + "<img srcset=\"/big.png 64w, /little.png\" />\n"
+        + "<img srcset=\"/big.png 64w, /little.png\" />\n"
+        + "<img srcset=\"/big.png 64w, /little.png\" />\n"
+        + "<img srcset=\"foo%2cbar.png\" />\n"
+        + "empty: \n"
+        + "only space: \n"
+        + "only comma: \n"
+        + "comma at end: <img srcset=\"foo.png\" />\n"
+        + "comma stuck to url: \n"
+        + "commas inside: <img srcset=\"foo.png%2c%2cbar.png\" />\n"
+        + "double commas 1: \n"
+        + "double commas 2: \n"
+        + "bad url: <img srcset=\"foo.png 1w\" />\n",
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("srcset").onElements("img")
+            .allowStandardUrlProtocols(),
+            ""
+            + "<img srcset=\"http://example.com/foo.png\" />\n"
+            + "<img srcset=\"http://example.com/foo.png 640w\" />\n"
+            + "<img srcset=\"http://example.com/foo.png 48x\" />\n"
+            + "<img srcset=\"http://example.com/foo.png .123x\" />\n"
+            + "<img srcset=\"http://example.com/foo.png .123e2x\" />\n"
+            + "<img srcset=\"http://example.com/foo.png 123.456x\" />\n"
+            + "<img srcset=\"/big.png 64w, /little.png\" />\n"
+            + "<img srcset=\" /big.png 64w , /little.png\" />\n"
+            + "<img srcset=\"\t\t/big.png 64w\r\n,/little.png\t\t\" />\n"
+            + "<img srcset=\"foo,bar.png\" />\n"
+            + "empty: <img srcset=\"\" />\n"
+            + "only space: <img srcset=\"  \" />\n"
+            + "only comma: <img srcset=\",\" />\n"
+            + "comma at end: <img srcset=\"foo.png ,\" />\n"  // ok
+            + "comma stuck to url: <img srcset=\"bar.png,\" />\n"  // not ok
+            + "commas inside: <img srcset=\"foo.png,,bar.png\" />\n"  // escaped
+            + "double commas 1: <img srcset=\"a ,, b\" />\n"  // not ok
+            + "double commas 2: <img srcset=\"a , , b\" />\n"  // not ok
+            + "bad url: <img srcset=\"foo.png 1w, javascript:evil()\" />\n"
+            ));
+  }
+
+  @Test
+  public static final void testUrlChecksLayer() {
+    assertEquals(
+        ""
+        + "<img src=\"http://example.com/OK.png\" />\n"
+        + "\n"
+        + "<img srcset=\"http://example.com/bar.png#OK 1w\" />",
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("src", "srcset")
+                .matching(Pattern.compile(".*OK.*"))
+                .onElements("img")
+            .allowStandardUrlProtocols(),
+            ""
+            + "<img src=\"http://example.com/OK.png\" />\n"
+            + "<img src=\"http://example.com/\" />\n"
+            + "<img srcset=\"http://example.com/bar.png#OK 1w, javascript:alert%28%27OK%27%29\">"
+            )
+        );
   }
 
   @Test

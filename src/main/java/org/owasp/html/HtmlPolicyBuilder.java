@@ -610,7 +610,7 @@ public class HtmlPolicyBuilder {
     for (String urlAttributeName : new String[] {
         "action", "archive", "background", "cite", "classid", "codebase", "data",
         "dsync", "formaction", "href", "icon", "longdesc", "manifest", "poster",
-        "profile", "src", "srcset", "usemap",
+        "profile", "src", "usemap",
     }) {
       b.put(urlAttributeName, identityGuard);
     }
@@ -632,6 +632,14 @@ public class HtmlPolicyBuilder {
                     url != null ? url : "about:invalid");
               }
             });
+      }
+
+    });
+    b.put("srcset", new AttributeGuardMaker() {
+
+      @Override
+      AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
+        return new SrcsetAttributePolicy(intermediates.urlAttributePolicy);
       }
 
     });

@@ -2,6 +2,8 @@
 
 Most recent at top.
   * Pending
+    * Properly parse `srcset` attribute values to apply URL policy to
+      each URL in turn.
     * Update dependency on guava version to 27.1-jre to avoid causing clients
       problems with CVE-2018-10237.  Specify Maven property `guava.version`
       to override.

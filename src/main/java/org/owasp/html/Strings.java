@@ -181,5 +181,86 @@ final class Strings {
     return s.substring(i, n);
   }
 
+  /**
+   * Parses a valid floating point number per the HTML5 spec.
+   * https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#valid-floating-point-number
+   *
+   * @param start the start of the floating point number on s.
+   * @return the end of the floating point number if valid or -1 if not.
+   */
+  static int skipValidFloatingPointNumber(String value, int start) {
+    // A string is a valid floating-point number if it consists of:
+    int i = start;
+    final int n = value.length();
+
+    if (i >= n) {
+      return -1;
+    }
+
+    // 1. Optionally, a U+002D HYPHEN-MINUS character (-).
+    if (value.charAt(i) == '-') {
+      ++i;
+    }
+    // 2. One or both of the following, in the given order:
+    boolean hasIntegerPart = false;
+    //    1. A series of one or more ASCII digits.
+    while (i < n) {
+      char ch = value.charAt(i);
+      if ('0' <= ch && ch <= '9') {
+        ++i;
+        hasIntegerPart = true;
+      } else {
+        break;
+      }
+    }
+    //    2. Both of the following, in the given order:
+    //       1. A single U+002E FULL STOP character (.).
+    //       2. A series of one or more ASCII digits.
+    if (i < n && value.charAt(i) == '.') {
+      ++i;
+      while (i < n) {
+        char ch = value.charAt(i);
+        if ('0' <= ch && ch <= '9') {
+          ++i;
+          hasIntegerPart = true;
+        } else {
+          break;
+        }
+      }
+    }
+    if (!hasIntegerPart) {
+      return -1;
+    }
+    // 3. Optionally:
+    //    1. Either a U+0065 LATIN SMALL LETTER E character (e)
+    //       or a U+0045 LATIN CAPITAL LETTER E character (E).
+    if (i < n && (value.charAt(i) | 32) == 'e') {
+      ++i;
+      //    2. Optionally, a U+002D HYPHEN-MINUS character (-) or
+      //       U+002B PLUS SIGN character (+).
+      if (i < n) {
+        char ch = value.charAt(i);
+        if (ch == '+' || ch == '-') {
+          ++i;
+        }
+      }
+      //    3. A series of one or more ASCII digits.
+      boolean hasExponent = false;
+      while (i < n) {
+        char ch = value.charAt(i);
+        if ('0' <= ch && ch <= '9') {
+          ++i;
+          hasExponent = true;
+        } else {
+          break;
+        }
+      }
+      if (!hasExponent) {
+        return -1;
+      }
+    }
+    return i;
+  }
+
   private Strings() { /* uninstantiable */ }
 }
