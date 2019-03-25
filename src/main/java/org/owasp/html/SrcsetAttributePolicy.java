@@ -102,7 +102,7 @@ final class SrcsetAttributePolicy implements AttributePolicy {
             elementName, "src", value.substring(urlStart, urlEnd));
         if (okUrl != null && !okUrl.isEmpty()) {
           if (sb.length() != 0) {
-            sb.append(", ");
+            sb.append(" , ");
           }
           sb.append(okUrl.replace(",", "%2c"));
           if (metadataStart < metadataEnd) {

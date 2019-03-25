@@ -28,8 +28,6 @@
 
 package org.owasp.html;
 
-import javax.annotation.Nullable;
-
 /**
  * Locale independent versions of String case-insensitive operations.
  * <p>
@@ -52,6 +50,7 @@ import javax.annotation.Nullable;
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
 final class Strings {
+  /*
   public static boolean equalsIgnoreCase(
       @Nullable String a, @Nullable String b) {
     if (a == null) { return b == null; }
@@ -71,6 +70,7 @@ final class Strings {
     }
     return true;
   }
+  */
 
   public static boolean regionMatchesIgnoreCase(
       CharSequence a, int aoffset, CharSequence b, int boffset, int n) {
@@ -90,6 +90,7 @@ final class Strings {
   }
 
   /** True iff {@code s.equals(String.toLowerCase(s))}. */
+  /*
   public static boolean isLowerCase(CharSequence s) {
     for (int i = s.length(); --i >= 0;) {
       char c = s.charAt(i);
@@ -99,6 +100,7 @@ final class Strings {
     }
     return true;
   }
+  */
 
   private static final char[] LCASE_CHARS = new char['Z' + 1];
   private static final char[] UCASE_CHARS = new char['z' + 1];
@@ -126,6 +128,7 @@ final class Strings {
     return s;
   }
 
+  /*
   public static String toUpperCase(String s) {
     for (int i = s.length(); --i >= 0;) {
       char c = s.charAt(i);
@@ -143,7 +146,7 @@ final class Strings {
     }
     return s;
   }
-
+  */
 
   private static final long HTML_SPACE_CHAR_BITMASK =
       (1L << ' ')
@@ -202,13 +205,13 @@ final class Strings {
       ++i;
     }
     // 2. One or both of the following, in the given order:
-    boolean hasIntegerPart = false;
+    boolean hasMantissa = false;
     //    1. A series of one or more ASCII digits.
     while (i < n) {
       char ch = value.charAt(i);
       if ('0' <= ch && ch <= '9') {
         ++i;
-        hasIntegerPart = true;
+        hasMantissa = true;
       } else {
         break;
       }
@@ -218,17 +221,19 @@ final class Strings {
     //       2. A series of one or more ASCII digits.
     if (i < n && value.charAt(i) == '.') {
       ++i;
+      // Even if there's an integer, you need digits after the decimal point.
+      hasMantissa = false;
       while (i < n) {
         char ch = value.charAt(i);
         if ('0' <= ch && ch <= '9') {
           ++i;
-          hasIntegerPart = true;
+          hasMantissa = true;
         } else {
           break;
         }
       }
     }
-    if (!hasIntegerPart) {
+    if (!hasMantissa) {
       return -1;
     }
     // 3. Optionally:
