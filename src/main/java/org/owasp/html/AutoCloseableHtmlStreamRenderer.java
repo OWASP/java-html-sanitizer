@@ -7,8 +7,6 @@ import java.lang.reflect.Method;
 
 import javax.annotation.WillCloseWhenClosed;
 
-import com.google.common.base.Throwables;
-
 final class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
   // This is available on JDK6 and makes this class extend AutoCloseable.
   implements Closeable {
@@ -83,8 +81,10 @@ final class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
         Throwable tgt = ex.getTargetException();
         if (tgt instanceof IOException) {
           throw (IOException) tgt;
+        } else if (tgt instanceof RuntimeException) {
+          throw (RuntimeException) tgt;
         } else {
-          Throwables.propagate(tgt);
+          throw new AssertionError(null, tgt);
         }
       }
     }

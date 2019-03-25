@@ -59,7 +59,7 @@ public class Benchmark {
    * specifies a benchmark to run and unspecified ones are not run.
    */
   public static void main(String[] args) throws Exception {
-    String html = Files.toString(new File(args[0]), Charsets.UTF_8);
+    String html = Files.asCharSource(new File(args[0]), Charsets.UTF_8).read();
 
     boolean timeLibhtmlparser = true;
     boolean timeSanitize = true;
