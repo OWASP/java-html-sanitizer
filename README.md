@@ -12,12 +12,24 @@ This code was written with security best practices in mind, has an
 extensive test suite, and has undergone
 [adversarial security review](docs/attack_review_ground_rules.md).
 
+## Table Of Contents
+
+*  [Getting Started](#getting-started)
+*  [Prepackaged Policies](#prepackaged-policies)
+*  [Crafting a policy](#crafting-a-policy)
+*  [Custom policies](#custom-policies)
+*  [Preprocessors](#preprocessors)
+*  [Telemetry](#telemetry)
+*  [Questions\?](#questions)
+*  [Contributing](#contributing)
+*  [Credits](#credits)
+
 ## Getting Started
 
 [Getting Started](docs/getting_started.md) includes instructions on
 how to get started with or without Maven.
 
-## Prepackage Policies
+## Prepackaged Policies
 
 You can use
 [prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20190325.1/org/owasp/html/Sanitizers.html):
