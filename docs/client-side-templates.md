@@ -22,7 +22,7 @@ Many client-side templates look for special constructs in text nodes.  Often, us
 
 ## Client side template / expression attributes
 
-When filtering client-side templates, it should also be considered to fully cover attributes containing expressions and parseable information that might cause damage or lead to arbitary JavaScript execution.
+When filtering client-side templates, it should also be considered to fully cover attributes containing expressions and parseable information that might cause damage or lead to arbitrary JavaScript execution.
 
 | Template Language | Attrbutes | Notes |
 |-------------------|-----------|-------|
