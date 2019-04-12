@@ -1,5 +1,6 @@
 # Credits
 
+ * 0xflotus
  * agustin.lucchetti
  * andy-h-chen
  * augustd
