@@ -66,14 +66,12 @@ to do things like changing `h1`s to `div`s with a certain class:
 PolicyFactory policy = new HtmlPolicyBuilder()
     .allowElements("p")
     .allowElements(
-        new ElementPolicy() {
-          (String elementName, List<String> attrs) -> {
-            // Add a class attribute.
-            attrs.add("class");
-            attrs.add("header-" + elementName);
-            // Return elementName to include, null to drop.
-            return "div";
-          }
+        (String elementName, List<String> attrs) -> {
+          // Add a class attribute.
+          attrs.add("class");
+          attrs.add("header-" + elementName);
+          // Return elementName to include, null to drop.
+          return "div";
         }, "h1", "h2", "h3", "h4", "h5", "h6")
     .toFactory();
 String safeHTML = policy.sanitize(untrustedHTML);
