@@ -66,9 +66,7 @@ to do things like changing `h1`s to `div`s with a certain class:
 PolicyFactory policy = new HtmlPolicyBuilder()
     .allowElements("p")
     .allowElements(
-        new ElementPolicy() {
-          @Override
-          public String apply(String elementName, List<String> attrs) {
+        (String elementName, List<String> attrs) -> {
             // Add a class attribute.
             attrs.add("class");
             attrs.add("header-" + elementName);
