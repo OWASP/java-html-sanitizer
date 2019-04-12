@@ -67,7 +67,8 @@ PolicyFactory policy = new HtmlPolicyBuilder()
     .allowElements("p")
     .allowElements(
         new ElementPolicy() {
-          (String elementName, List<String> attrs) -> {
+          @Override
+          public String apply(String elementName, List<String> attrs) {
             // Add a class attribute.
             attrs.add("class");
             attrs.add("header-" + elementName);
