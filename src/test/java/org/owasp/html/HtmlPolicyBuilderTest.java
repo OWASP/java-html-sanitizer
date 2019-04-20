@@ -941,6 +941,23 @@ public class HtmlPolicyBuilderTest extends TestCase {
         scriptSanitizer.sanitize(htmlMetaCharsEscaped));
   }
 
+  @Test
+  public static final void testNoscriptInAttribute() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("img", "p", "noscript")
+        .allowAttributes("title").globally()
+        .allowAttributes("img").onElements("img")
+        .toFactory();
+
+    assertEquals(
+        "<noscript>"
+        + "<p title=\"&lt;/noscript&gt;&lt;img src&#61;x onerror&#61;alert(1)&gt;\">"
+        + "</p>"
+        + "</noscript>",
+        pf.sanitize(
+            "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">"));
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
