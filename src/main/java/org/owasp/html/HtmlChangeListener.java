@@ -34,6 +34,15 @@ import javax.annotation.Nullable;
  * Receives events when an HTML tag, or attribute is discarded.
  * This can be hooked into an intrusion detection system to alert code when
  * suspicious HTML passes through the sanitizer.
+ * <p>
+ * Note: If a string sanitizes with no change notifications, it is not the case
+ * that the input string is necessarily safe to use.
+ * Only use the output of the sanitizer.
+ * The sanitizer ensures that the output is in a sub-set of HTML that commonly
+ * used HTML parsers will agree on the meaning of, but the absence of
+ * notifications does not mean that the input is in such a sub-set,
+ * only that it does not contain structural features that were removed.
+ * </p>
  */
 public interface HtmlChangeListener<T> {
 
