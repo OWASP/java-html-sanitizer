@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Unreleased
+  * Release 20190503.1
     * Make Encoding class public so that clients can use HTML text decoder.
     * Fix bug in srcset handling.
   * Release 20190325.1
