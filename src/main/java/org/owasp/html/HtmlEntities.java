@@ -33,7 +33,7 @@ import com.google.common.collect.ImmutableMap;
 /**
  * Utilities for decoding HTML entities, e.g., {@code &amp;}.
  */
-class HtmlEntities {
+final class HtmlEntities {
 
   /**
    * Decodes any HTML entity at the given location.  This handles both named and
