@@ -189,6 +189,16 @@ public final class EncodingTest extends TestCase {
         "\u03b1",
         Encoding.decodeHtml("&alpha;"));
 
+    // surrogate pair
+    assertEquals(
+        "\uD835\uDC9C",
+        Encoding.decodeHtml("&Ascr;"));
+
+    // longest entity name
+    assertEquals(
+        "\u2233",
+        Encoding.decodeHtml("&CounterClockwiseContourIntegral;"));
+
     assertEquals(
         "&;",
         Encoding.decodeHtml("&;"));
