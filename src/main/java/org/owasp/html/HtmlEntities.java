@@ -37,7 +37,17 @@ import com.google.common.collect.ImmutableMap;
  */
 final class HtmlEntities {
 
-  private static final int LONGEST_ENTITY_NAME = 31; // CounterClockwiseContourIntegral
+  private static final int LONGEST_ENTITY_NAME;
+
+  static {
+    int longestEntityName = 0;
+    for (String entityName : getEntityNameToCodePointMap().keySet()) {
+      if (entityName.length() > longestEntityName) {
+        longestEntityName = entityName.length();
+      }
+    }
+    LONGEST_ENTITY_NAME = longestEntityName;
+  }
 
   /**
    * Decodes any HTML entity at the given location.  This handles both named and
