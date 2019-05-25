@@ -37,203 +37,12 @@ import com.google.common.collect.ImmutableMap;
  */
 final class HtmlEntities {
 
+  /** A trie that maps entity names to codepoints. */
+  public static final Trie ENTITY_TRIE;
+
   private static final int LONGEST_ENTITY_NAME;
 
   static {
-    int longestEntityName = 0;
-    for (String entityName : getEntityNameToCodePointMap().keySet()) {
-      if (entityName.length() > longestEntityName) {
-        longestEntityName = entityName.length();
-      }
-    }
-    LONGEST_ENTITY_NAME = longestEntityName;
-  }
-
-  /**
-   * Decodes any HTML entity at the given location.  This handles both named and
-   * numeric entities.
-   *
-   * @param html HTML text.
-   * @param offset the position of the sequence to decode.
-   * @param limit the last position in chars that could be part of the sequence
-   *    to decode.
-   * @return The offset after the end of the decoded sequence and the decoded
-   *    code-point or code-unit packed into a long.
-   *    The first 32 bits are the offset, and the second 32 bits are a
-   *    code-point or a code-unit.
-   */
-  public static long decodeEntityAt(String html, int offset, int limit) {
-    char ch = html.charAt(offset);
-    if ('&' != ch) {
-      return ((offset + 1L) << 32) | ch;
-    }
-
-    int entityLimit = Math.min(limit, offset + LONGEST_ENTITY_NAME + 2); // + 2 for & and ; characters
-    int end = -1;
-    int tail = -1;
-    if (entityLimit == limit) {
-      // Assume a broken entity that ends at the end until shown otherwise.
-      end = tail = entityLimit;
-    }
-    entityloop:
-    for (int i = offset + 1; i < entityLimit; ++i) {
-      switch (html.charAt(i)) {
-        case ';':  // An unbroken entity.
-          end = i;
-          tail = end + 1;
-          break entityloop;
-        case '#':
-        case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-        case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
-        case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
-        case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
-        case 'Y': case 'Z':
-        case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-        case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
-        case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
-        case 's': case 't': case 'u': case 'v': case 'w': case 'x':
-        case 'y': case 'z':
-        case '0': case '1': case '2': case '3': case '4': case '5':
-        case '6': case '7': case '8': case '9':
-          break;
-        case '=':
-          // An equal sign after an entity missing a closing semicolon should
-          // never have the semicolon inserted since that causes trouble with
-          // parameters in partially encoded URLs.
-          return ((offset + 1L) << 32) | '&';
-        default:  // A possible broken entity.
-          end = i;
-          tail = i;
-          break entityloop;
-      }
-    }
-    if (end < 0 || offset + 2 >= end) {
-      return ((offset + 1L) << 32) | '&';
-    }
-    // Now we know where the entity ends, and that there is at least one
-    // character in the entity name
-    char ch1 = html.charAt(offset + 1);
-    char ch2 = html.charAt(offset + 2);
-    int codepoint = -1;
-    if ('#' == ch1) {
-      // numeric entity
-      if ('x' == ch2 || 'X' == ch2) {
-        if (end == offset + 3) {  // No digits
-          return ((offset + 1L) << 32) | '&';
-        }
-        codepoint = 0;
-        // hex literal
-        digloop:
-        for (int i = offset + 3; i < end; ++i) {
-          char digit = html.charAt(i);
-          switch (digit & 0xfff8) {
-            case 0x30: case 0x38: // ASCII 48-57 are '0'-'9'
-              int decDig = digit & 0xf;
-              if (decDig < 10) {
-                codepoint = (codepoint << 4) | decDig;
-              } else {
-                codepoint = -1;
-                break digloop;
-              }
-              break;
-            // ASCII 65-70 and 97-102 are 'A'-'Z' && 'a'-'z'
-            case 0x40: case 0x60:
-              int hexDig = (digit & 0x7);
-              if (hexDig != 0 && hexDig < 7) {
-                codepoint = (codepoint << 4) | (hexDig + 9);
-              } else {
-                codepoint = -1;
-                break digloop;
-              }
-              break;
-            default:
-              codepoint = -1;
-              break digloop;
-          }
-        }
-        if (codepoint > Character.MAX_CODE_POINT) {
-          codepoint = 0xfffd;  // Unknown.
-        }
-      } else {
-        codepoint = 0;
-        // decimal literal
-        digloop:
-        for (int i = offset + 2; i < end; ++i) {
-          char digit = html.charAt(i);
-          switch (digit & 0xfff8) {
-            case 0x30: case 0x38: // ASCII 48-57 are '0'-'9'
-              int decDig = digit - '0';
-              if (decDig < 10) {
-                codepoint = (codepoint * 10) + decDig;
-              } else {
-                codepoint = -1;
-                break digloop;
-              }
-              break;
-            default:
-              codepoint = -1;
-              break digloop;
-          }
-        }
-        if (codepoint > Character.MAX_CODE_POINT) {
-          codepoint = 0xfffd;  // Unknown.
-        }
-      }
-    } else {
-      Trie t = ENTITY_TRIE;
-      for (int i = offset + 1; i < end; ++i) {
-        char nameChar = html.charAt(i);
-        t = t.lookup(nameChar);
-        if (t == null) { break; }
-      }
-      if (t == null) {
-        t = ENTITY_TRIE;
-        for (int i = offset + 1; i < end; ++i) {
-          char nameChar = html.charAt(i);
-          if ('Z' >= nameChar && nameChar >= 'A') { nameChar |= 32; }
-          t = t.lookup(nameChar);
-          if (t == null) { break; }
-        }
-      }
-      if (t != null && t.isTerminal()) {
-        codepoint = t.getValue();
-      }
-    }
-    if (codepoint < 0) {
-      return ((offset + 1L) << 32) | '&';
-    } else {
-      return (((long) tail) << 32) | codepoint;
-    }
-  }
-
-//  /** A possible entity name like "amp" or "gt". */
-//  public static boolean isEntityName(String name) {
-//    Trie t = ENTITY_TRIE;
-//    int n = name.length();
-//
-//    // Treat AMP the same amp, but not Amp.
-//    boolean isUcase = true;
-//    for (int i = 0; i < n; ++i) {
-//      char ch = name.charAt(i);
-//      if (!('A' <= ch && ch <= 'Z')) {
-//        isUcase = false;
-//        break;
-//      }
-//    }
-//
-//    if (isUcase) { name = Strings.toLowerCase(name); }
-//
-//    for (int i = 0; i < n; ++i) {
-//      t = t.lookup(name.charAt(i));
-//      if (t == null) { return false; }
-//    }
-//    return t.isTerminal();
-//  }
-
-  /** A trie that maps entity names to codepoints. */
-  public static final Trie ENTITY_TRIE = new Trie(getEntityNameToCodePointMap());
-
-  private static Map<String, Integer> getEntityNameToCodePointMap() {
     final ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
 
     // C0 Controls and Basic Latin
@@ -2327,8 +2136,199 @@ final class HtmlEntities {
     builder.put("yopf", Character.toCodePoint('\ud835', '\udd6a')); // MATHEMATICAL DOUBLE-STRUCK SMALL Y
     builder.put("zopf", Character.toCodePoint('\ud835', '\udd6b')); // MATHEMATICAL DOUBLE-STRUCK SMALL Z
 
-    return builder.build();
+    final Map<String, Integer> entityNameToCodePointMap = builder.build();
+
+    int longestEntityName = 0;
+    for (String entityName : entityNameToCodePointMap.keySet()) {
+      if (entityName.length() > longestEntityName) {
+        longestEntityName = entityName.length();
+      }
+    }
+
+    ENTITY_TRIE = new Trie(entityNameToCodePointMap);
+    LONGEST_ENTITY_NAME = longestEntityName;
   }
+
+  /**
+   * Decodes any HTML entity at the given location.  This handles both named and
+   * numeric entities.
+   *
+   * @param html HTML text.
+   * @param offset the position of the sequence to decode.
+   * @param limit the last position in chars that could be part of the sequence
+   *    to decode.
+   * @return The offset after the end of the decoded sequence and the decoded
+   *    code-point or code-unit packed into a long.
+   *    The first 32 bits are the offset, and the second 32 bits are a
+   *    code-point or a code-unit.
+   */
+  public static long decodeEntityAt(String html, int offset, int limit) {
+    char ch = html.charAt(offset);
+    if ('&' != ch) {
+      return ((offset + 1L) << 32) | ch;
+    }
+
+    int entityLimit = Math.min(limit, offset + LONGEST_ENTITY_NAME + 2); // + 2 for & and ; characters
+    int end = -1;
+    int tail = -1;
+    if (entityLimit == limit) {
+      // Assume a broken entity that ends at the end until shown otherwise.
+      end = tail = entityLimit;
+    }
+    entityloop:
+    for (int i = offset + 1; i < entityLimit; ++i) {
+      switch (html.charAt(i)) {
+        case ';':  // An unbroken entity.
+          end = i;
+          tail = end + 1;
+          break entityloop;
+        case '#':
+        case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+        case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+        case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+        case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+        case 'Y': case 'Z':
+        case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+        case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
+        case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+        case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+        case 'y': case 'z':
+        case '0': case '1': case '2': case '3': case '4': case '5':
+        case '6': case '7': case '8': case '9':
+          break;
+        case '=':
+          // An equal sign after an entity missing a closing semicolon should
+          // never have the semicolon inserted since that causes trouble with
+          // parameters in partially encoded URLs.
+          return ((offset + 1L) << 32) | '&';
+        default:  // A possible broken entity.
+          end = i;
+          tail = i;
+          break entityloop;
+      }
+    }
+    if (end < 0 || offset + 2 >= end) {
+      return ((offset + 1L) << 32) | '&';
+    }
+    // Now we know where the entity ends, and that there is at least one
+    // character in the entity name
+    char ch1 = html.charAt(offset + 1);
+    char ch2 = html.charAt(offset + 2);
+    int codepoint = -1;
+    if ('#' == ch1) {
+      // numeric entity
+      if ('x' == ch2 || 'X' == ch2) {
+        if (end == offset + 3) {  // No digits
+          return ((offset + 1L) << 32) | '&';
+        }
+        codepoint = 0;
+        // hex literal
+        digloop:
+        for (int i = offset + 3; i < end; ++i) {
+          char digit = html.charAt(i);
+          switch (digit & 0xfff8) {
+            case 0x30: case 0x38: // ASCII 48-57 are '0'-'9'
+              int decDig = digit & 0xf;
+              if (decDig < 10) {
+                codepoint = (codepoint << 4) | decDig;
+              } else {
+                codepoint = -1;
+                break digloop;
+              }
+              break;
+            // ASCII 65-70 and 97-102 are 'A'-'Z' && 'a'-'z'
+            case 0x40: case 0x60:
+              int hexDig = (digit & 0x7);
+              if (hexDig != 0 && hexDig < 7) {
+                codepoint = (codepoint << 4) | (hexDig + 9);
+              } else {
+                codepoint = -1;
+                break digloop;
+              }
+              break;
+            default:
+              codepoint = -1;
+              break digloop;
+          }
+        }
+        if (codepoint > Character.MAX_CODE_POINT) {
+          codepoint = 0xfffd;  // Unknown.
+        }
+      } else {
+        codepoint = 0;
+        // decimal literal
+        digloop:
+        for (int i = offset + 2; i < end; ++i) {
+          char digit = html.charAt(i);
+          switch (digit & 0xfff8) {
+            case 0x30: case 0x38: // ASCII 48-57 are '0'-'9'
+              int decDig = digit - '0';
+              if (decDig < 10) {
+                codepoint = (codepoint * 10) + decDig;
+              } else {
+                codepoint = -1;
+                break digloop;
+              }
+              break;
+            default:
+              codepoint = -1;
+              break digloop;
+          }
+        }
+        if (codepoint > Character.MAX_CODE_POINT) {
+          codepoint = 0xfffd;  // Unknown.
+        }
+      }
+    } else {
+      Trie t = ENTITY_TRIE;
+      for (int i = offset + 1; i < end; ++i) {
+        char nameChar = html.charAt(i);
+        t = t.lookup(nameChar);
+        if (t == null) { break; }
+      }
+      if (t == null) {
+        t = ENTITY_TRIE;
+        for (int i = offset + 1; i < end; ++i) {
+          char nameChar = html.charAt(i);
+          if ('Z' >= nameChar && nameChar >= 'A') { nameChar |= 32; }
+          t = t.lookup(nameChar);
+          if (t == null) { break; }
+        }
+      }
+      if (t != null && t.isTerminal()) {
+        codepoint = t.getValue();
+      }
+    }
+    if (codepoint < 0) {
+      return ((offset + 1L) << 32) | '&';
+    } else {
+      return (((long) tail) << 32) | codepoint;
+    }
+  }
+
+//  /** A possible entity name like "amp" or "gt". */
+//  public static boolean isEntityName(String name) {
+//    Trie t = ENTITY_TRIE;
+//    int n = name.length();
+//
+//    // Treat AMP the same amp, but not Amp.
+//    boolean isUcase = true;
+//    for (int i = 0; i < n; ++i) {
+//      char ch = name.charAt(i);
+//      if (!('A' <= ch && ch <= 'Z')) {
+//        isUcase = false;
+//        break;
+//      }
+//    }
+//
+//    if (isUcase) { name = Strings.toLowerCase(name); }
+//
+//    for (int i = 0; i < n; ++i) {
+//      t = t.lookup(name.charAt(i));
+//      if (t == null) { return false; }
+//    }
+//    return t.isTerminal();
+//  }
 
   private HtmlEntities() { /* uninstantiable */ }
 }
