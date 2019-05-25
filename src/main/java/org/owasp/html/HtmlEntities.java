@@ -45,6 +45,8 @@ final class HtmlEntities {
   static {
     final ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
 
+    // Source data: https://dev.w3.org/html5/html-author/charref
+
     // C0 Controls and Basic Latin
     builder.put("Tab", Integer.valueOf('\u0009')); // CHARACTER TABULATION
     builder.put("NewLine", Integer.valueOf('\n')); // LINE FEED (LF)
