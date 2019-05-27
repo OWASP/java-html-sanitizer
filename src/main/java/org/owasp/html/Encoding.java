@@ -37,7 +37,7 @@ public final class Encoding {
 
   /**
    * Decodes HTML entities to produce a string containing only valid
-   * Unicode code points.
+   * Unicode scalar values.
    *
    * @param s text/html
    * @return text/plain
