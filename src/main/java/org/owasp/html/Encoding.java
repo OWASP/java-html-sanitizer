@@ -54,10 +54,14 @@ public final class Encoding {
       int pos = 0;
       int amp = firstAmp;
       while (amp >= 0) {
-        long endAndCodepoint = HtmlEntities.decodeEntityAt(s, amp, n);
-        int end = (int) (endAndCodepoint >>> 32);
-        int codepoint = (int) endAndCodepoint;
-        sb.append(s, pos, amp).appendCodePoint(codepoint);
+        long endAndCodeunits = HtmlEntities.decodeEntityAt(s, amp, n);
+        int end = (int) (endAndCodeunits >>> 32);
+        char codeunit1 = (char) ((endAndCodeunits & 0xffff0000L) >>> 16);
+        char codeunit2 = (char) (endAndCodeunits & 0xffffL);
+        sb.append(s, pos, amp).append(codeunit1);
+        if (codeunit2 != '\0') {
+          sb.append(codeunit2);
+        }
         pos = end;
         amp = s.indexOf('&', end);
       }
