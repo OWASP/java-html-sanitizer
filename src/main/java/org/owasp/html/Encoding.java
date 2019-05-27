@@ -56,8 +56,8 @@ public final class Encoding {
       while (amp >= 0) {
         long endAndCodeunits = HtmlEntities.decodeEntityAt(s, amp, n);
         int end = (int) (endAndCodeunits >>> 32);
-        char codeunit1 = (char) ((endAndCodeunits & 0xffff0000L) >>> 16);
-        char codeunit2 = (char) (endAndCodeunits & 0xffffL);
+        char codeunit1 = (char) (endAndCodeunits >>> 16);
+        char codeunit2 = (char) endAndCodeunits;
         sb.append(s, pos, amp).append(codeunit1);
         if (codeunit2 != '\u0000') {
           sb.append(codeunit2);
