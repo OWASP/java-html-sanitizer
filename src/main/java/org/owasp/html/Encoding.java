@@ -59,7 +59,7 @@ public final class Encoding {
         char codeunit1 = (char) ((endAndCodeunits & 0xffff0000L) >>> 16);
         char codeunit2 = (char) (endAndCodeunits & 0xffffL);
         sb.append(s, pos, amp).append(codeunit1);
-        if (codeunit2 != '\0') {
+        if (codeunit2 != '\u0000') {
           sb.append(codeunit2);
         }
         pos = end;
