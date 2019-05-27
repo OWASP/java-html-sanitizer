@@ -192,6 +192,9 @@ public final class EncodingTest extends TestCase {
         "\ud835\udc9c",  // U+1D49C requires a surrogate pair in UTF-16.
         Encoding.decodeHtml("&Ascr;"));
     assertEquals(
+        "fj",  // &fjlig; refers to 2 characters.
+        Encoding.decodeHtml("&fjlig;"));
+    assertEquals(
         "\u2233",  // HTML entity with the longest name.
         Encoding.decodeHtml("&CounterClockwiseContourIntegral;"));
 
