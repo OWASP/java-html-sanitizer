@@ -28,10 +28,6 @@
 
 package org.owasp.html;
 
-import static java.lang.Character.MIN_HIGH_SURROGATE;
-import static java.lang.Character.MIN_LOW_SURROGATE;
-import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
-
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
