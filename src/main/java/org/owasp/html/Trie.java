@@ -78,7 +78,7 @@ final class Trie<T> {
       this.value = elements.get(pos).getValue();
       if (pos + 1 == end) {  // base case
         this.childMap = ZERO_CHARS;
-        this.children = ZERO_TRIES;
+        this.children = ((Trie<T>[]) ZERO_TRIES);
         return;
       } else {
         ++pos;
@@ -156,7 +156,7 @@ final class Trie<T> {
   }
 
   private static final char[] ZERO_CHARS = new char[0];
-  private static final Trie[] ZERO_TRIES = new Trie[0];
+  private static final Trie<?>[] ZERO_TRIES = new Trie<?>[0];
 
   /**
    * Append all strings s such that {@code this.lookup(s).isTerminal()} to the

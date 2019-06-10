@@ -453,11 +453,11 @@ public class SanitizersTest extends TestCase {
     /** Permutation size. */
     final int k;
 
-    Permutations(T... elements) {
+    Permutations(@SuppressWarnings("unchecked") T... elements) {
       this(elements.length, elements);
     }
 
-    Permutations(int k, T... elements) {
+    Permutations(int k, @SuppressWarnings("unchecked") T... elements) {
       this.k = k;
       this.elements = ImmutableList.copyOf(elements);
     }

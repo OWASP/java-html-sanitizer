@@ -841,7 +841,8 @@ public final class CssSchema {
     DEFINITIONS = builder.build();
   }
 
-  private static <T> ImmutableSet<T> union(ImmutableSet<T>... subsets) {
+  private static <T> ImmutableSet<T> union(
+      @SuppressWarnings("unchecked") ImmutableSet<T>... subsets) {
     ImmutableSet.Builder<T> all = ImmutableSet.builder();
     for (ImmutableSet<T> subset : subsets) {
       all.addAll(subset);
