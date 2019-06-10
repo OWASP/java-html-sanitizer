@@ -197,6 +197,10 @@ public final class EncodingTest extends TestCase {
     assertEquals(
         "\u2233",  // HTML entity with the longest name.
         Encoding.decodeHtml("&CounterClockwiseContourIntegral;"));
+    assertEquals(
+        // HTML entity with the longest name missing terminator.
+        "\u2233",
+        Encoding.decodeHtml("&CounterClockwiseContourIntegral"));
 
     assertEquals(
         "&;",
