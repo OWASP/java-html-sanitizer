@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import javax.annotation.Nullable;
+
 /**
  * A trie used to separate punctuation tokens in a run of non-whitespace
  * characters by preferring the longest punctuation string possible in a
@@ -45,7 +47,7 @@ final class Trie<T> {
   private final char[] childMap;
   private final Trie<T>[] children;
   private final boolean terminal;
-  private final T value;
+  private final @Nullable T value;
 
   /**
    * @param elements not empty, non null.
@@ -117,7 +119,7 @@ final class Trie<T> {
   /** Does this node correspond to a complete string in the input set. */
   public boolean isTerminal() { return terminal; }
 
-  public T getValue() { return value; }
+  public @Nullable T getValue() { return value; }
 
   /**
    * The child corresponding to the given character.
