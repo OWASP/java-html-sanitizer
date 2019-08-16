@@ -4,10 +4,8 @@ jdk:
   # It's important to test on all these because of a horrible hack in the POM.
 # - openjdk6  # No longer supported by Travis
   - openjdk7
-  - oraclejdk8
-  - oraclejdk9
-  - openjdk10
-  - oraclejdk11
+  - openjdk8
+  - openjdk11
 
 # Test each version with an appropriate Java version and flags to disable
 # GPG signing so that we don't have to provision Travis with private keys.
