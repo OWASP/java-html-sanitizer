@@ -3,7 +3,6 @@ sudo: false
 jdk:
   # It's important to test on all these because of a horrible hack in the POM.
 # - openjdk6  # No longer supported by Travis
-  - openjdk7
   - openjdk8
   - openjdk11
 
