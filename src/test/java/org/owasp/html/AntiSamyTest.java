@@ -378,7 +378,7 @@ public class AntiSamyTest extends TestCase {
 
     /* issue #25 */
     assertEquals(
-        "<div>Test</div>", sanitize("<div style=\"margin: -5em\">Test</div>"));
+        "<div>Test</div>", sanitize("<div style=\"margin: xxx\">Test</div>"));
 
 
     /* issue #28 */
