@@ -654,7 +654,7 @@ public final class CssSchema {
     Property listStyleType = new Property(
         0, union(listStyleLiterals0, listStyleLiterals2), zeroFns);
     builder.put("list-style-type", listStyleType);
-    Property margin = new Property(1, bottomLiterals0, zeroFns);
+    Property margin = new Property(5, bottomLiterals0, zeroFns);
     builder.put("margin", margin);
     Property maxHeight = new Property(1, maxHeightLiterals0, zeroFns);
     builder.put("max-height", maxHeight);
