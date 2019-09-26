@@ -142,10 +142,10 @@ public final class HtmlElementTables {
             TD_TAG, new int[] { TR_TAG, TD_TAG, TH_TAG },
             new int[] { TABLE_TAG, TBODY_TAG, TR_TAG }),
         new FreeWrapper(
-            TH_TAG, new int[] { TR_TAG, TD_TAG, TR_TAG },
+            TH_TAG, new int[] { TR_TAG, TD_TAG, TH_TAG },
             new int[] { TABLE_TAG, TBODY_TAG, TR_TAG }),
         new FreeWrapper(
-            TR_TAG, new int[] { TBODY_TAG, THEAD_TAG, TFOOT_TAG, TR_TAG },
+            TR_TAG, new int[] { TBODY_TAG, THEAD_TAG, TFOOT_TAG, TR_TAG, TD_TAG, TH_TAG },
             new int[] { TABLE_TAG, TBODY_TAG }),
         new FreeWrapper(
             TBODY_TAG, new int[] { TABLE_TAG, THEAD_TAG, TBODY_TAG, TFOOT_TAG },
