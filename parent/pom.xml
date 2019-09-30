@@ -213,6 +213,17 @@ application while protecting against XSS.
             </dependency>
           </dependencies>
         </plugin>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-bundle-plugin</artifactId>
+          <extensions>true</extensions>
+          <version>3.5.0</version>
+        </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-verifier-plugin</artifactId>
+            <version>1.1</version>
+          </plugin>
       </plugins>
     </pluginManagement>
   </build>
