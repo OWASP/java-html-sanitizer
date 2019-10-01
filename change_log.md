@@ -1,6 +1,8 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20191001.1
+    * Package as an OSGI bundle
   * Release 20190610.1
     * Recognize named HTML entities added in the last few years.
   * Release 20190503.1

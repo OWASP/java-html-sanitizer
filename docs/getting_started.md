@@ -30,16 +30,16 @@ it to HTML.
 The
 [javadoc](http://javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/)
 covers more detailed topics, including
-[customization](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20190610.1/org/owasp/html/HtmlPolicyBuilder.html).
+[customization](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlPolicyBuilder.html).
 
 Important classes are:
 
-  * [Sanitizers](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20190610.1/org/owasp/html/Sanitizers.html) contains combinable pre-packaged policies.
-  * [HtmlPolicyBuilder](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20190610.1/org/owasp/html/HtmlPolicyBuilder.html) lets you easily build custom policies.
+  * [Sanitizers](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/Sanitizers.html) contains combinable pre-packaged policies.
+  * [HtmlPolicyBuilder](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlPolicyBuilder.html) lets you easily build custom policies.
 
 For advanced use, see:
-  * [AttributePolicy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20190610.1/org/owasp/html/AttributePolicy.html) and [ElementPolicy](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20180219.1/org/owasp/html/ElementPolicy.html) allow complex customization.
-  * [HtmlStreamEventReceiver](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20190610.1/org/owasp/html/HtmlStreamEventReceiver.html) if you don't just want a `String` as output.
+  * [AttributePolicy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/AttributePolicy.html) and [ElementPolicy](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20180219.1/org/owasp/html/ElementPolicy.html) allow complex customization.
+  * [HtmlStreamEventReceiver](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlStreamEventReceiver.html) if you don't just want a `String` as output.
 
 ## Asking Questions
 
