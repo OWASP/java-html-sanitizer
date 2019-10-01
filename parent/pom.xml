@@ -153,7 +153,7 @@ application while protecting against XSS.
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>2.10.4</version>
+          <version>3.1.1</version>
           <executions>
             <execution>
               <id>attach-javadocs</id>
@@ -170,7 +170,7 @@ application while protecting against XSS.
             <excludePackageNames>*.example</excludePackageNames>
             <!-- The Javadoc that ships with JDK 8 is spammy.
                  http://docs.oracle.com/javase/8/docs/technotes/tools/unix/javadoc.html#BEJEFABE -->
-            <additionalparam>-Xdoclint:-missing</additionalparam>
+            <additionalOptions>-Xdoclint:-missing -html5</additionalOptions>
             <!-- workaround for https://bugs.openjdk.java.net/browse/JDK-8212233 -->
             <javaApiLinks>
               <property>
