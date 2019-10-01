@@ -118,9 +118,9 @@
       <!-- `mvn compile site` will generate target/site/findbugs.html -->
       <!-- http://gleclaire.github.io/findbugs-maven-plugin/dependency-info.html -->
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>findbugs-maven-plugin</artifactId>
-        <version>3.0.2</version>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>3.1.12.2</version>
         <configuration>
           <!--
             Enables analysis which takes more memory but finds more bugs.
