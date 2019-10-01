@@ -3,7 +3,7 @@
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>html-types</artifactId>
   <version>20190610.2-SNAPSHOT</version>
-  <packaging>jar</packaging>
+  <packaging>bundle</packaging>
   <parent>
     <relativePath>../parent</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
@@ -20,6 +20,26 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-verifier-plugin</artifactId>
+        <configuration>
+            <verificationFile>src/test/resources/osgi-integration-verification.xml</verificationFile>
+        </configuration>
+        <executions>
+          <execution>
+            <id>main</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
