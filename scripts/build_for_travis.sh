@@ -15,10 +15,12 @@ if echo $TRAVIS_JDK_VERSION | egrep -q '(jdk|jre)[67]($|[^0-9])'; then
     # but Guava 21.0 is compatibility with jdk 7.
     COMMON_FLAGS="$COMMON_FLAGS -Dguava.version=20.0"
 fi
-if ! echo $TRAVIS_JDK_VERSION | egrep -q '(jdk|jre)9($|[^0-9])'; then
+if echo $TRAVIS_JDK_VERSION | egrep -q '(jdk|jre)([678]|11)($|[^0-9])'; then
     # Older versions of javadoc barf on -Xdoclint flags used
     # to configure the maven-javadoc-plugin.
-    # TODO: Newer versions barf on modules for some reason.
+    # JDK8 javadoc barfs on the flag "-html5]
+    # JDK11 barfs too.  https://bugs.openjdk.java.net/browse/JDK-8212233
+    # JDK9 is okay.  Yay!
     COMMON_FLAGS="$COMMON_FLAGS -Dmaven.javadoc.skip=true"
 fi
 
