@@ -101,4 +101,13 @@ public class ExamplesTest extends TestCase {
         "<a href=\"../good.html\" rel=\"nofollow\">click here</a>",
         sanitized);
   }
+
+  @Test
+  public static final void testTableStructure() {
+      String input = "<TABLE><TR><TD>Green Zone Bulk mail<TD>21 entries<TR><TH>Type<TH>Date<TH>Size<TH>Country<TR><TD>Junk<TD>March 26<TD>25KB<TD>US";
+      String sanitized = Sanitizers.TABLES.sanitize(input);
+      assertEquals(
+          "<table><tbody><tr><td>Green Zone Bulk mail</td><td>21 entries</td></tr><tr><th>Type</th><th>Date</th><th>Size</th><th>Country</th></tr><tr><td>Junk</td><td>March 26</td><td>25KB</td><td>US</td></tr></tbody></table>",
+          sanitized);
+  }
 }
