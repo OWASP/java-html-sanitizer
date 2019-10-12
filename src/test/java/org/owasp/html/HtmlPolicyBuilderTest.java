@@ -958,6 +958,23 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">"));
   }
 
+  @Test
+  public static final void testTableStructure() {
+    String input =
+        "<TABLE>"
+        + "<TR><TD>Foo<TD>Bar"
+        + "<TR><TH>Baz<TH>Boo<TH>Far<TH>Faz"
+        + "<TR><TD>Oink<TD>Doink<TD>Poink<TD>Toink";
+    String sanitized = Sanitizers.TABLES.sanitize(input);
+    assertEquals(
+            ("<table><tbody>"
+             + "<tr><td>Foo</td><td>Bar</td></tr>"
+             + "<tr><th>Baz</th><th>Boo</th><th>Far</th><th>Faz</th></tr>"
+             + "<tr><td>Oink</td><td>Doink</td><td>Poink</td><td>Toink</td></tr>"
+             + "</tbody></table>"),
+        sanitized);
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
