@@ -1,6 +1,8 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Pending
+    * Fix table formatting
   * Release 20191001.1
     * Package as an OSGI bundle
   * Release 20190610.1
