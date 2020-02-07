@@ -14,6 +14,8 @@ For bugs, please include
 If you're having trouble putting HTML in markdown, try using
 an HTML [code block](https://help.github.com/articles/creating-and-highlighting-code-blocks/):
 
+````md
 ```html
 HTML goes here
 ```
+````
