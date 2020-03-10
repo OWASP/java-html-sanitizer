@@ -1,6 +1,7 @@
 # OWASP Java HTML Sanitizer
 
-[<img src="https://travis-ci.org/OWASP/java-html-sanitizer.svg">](https://travis-ci.org/OWASP/java-html-sanitizer) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=master)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=master) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22com.googlecode.owasp-java-html-sanitizer%22%20AND%20a:%22owasp-java-html-sanitizer%22)
+[<img src="https://travis-ci.org/OWASP/java-html-sanitizer.svg">](https://travis-ci.org/OWASP/java-html-sanitizer) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=master)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=master) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer?style=plastic)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
 you include HTML authored by third-parties in your web application while
