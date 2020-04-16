@@ -434,6 +434,24 @@ public class SanitizersTest extends TestCase {
         pf.sanitize(input));
   }
 
+  @Test
+  public static final void testColspanAttributeInTable() {
+    String input = ""
+        + "<table>"
+        + "<tr><th colspan=\"2\">Foo</th></tr>"
+        + "<tr><td colspan=\"2\">Bar</td></tr>"
+        + "</table>";
+    PolicyFactory pf = Sanitizers.BLOCKS
+        .and(Sanitizers.FORMATTING)
+        .and(Sanitizers.TABLES);
+    assertEquals(
+        "<table><tbody>"
+        + "<tr><th colspan=\"2\">Foo</th></tr>"
+        + "<tr><td colspan=\"2\">Bar</td></tr>"
+        + "</tbody></table>",
+        pf.sanitize(input));
+  }
+  
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
