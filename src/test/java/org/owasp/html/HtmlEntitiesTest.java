@@ -1,13 +1,14 @@
 package org.owasp.html;
 
-import static org.junit.Assert.*;
-
 import org.junit.Test;
 
-public class HtmlEntitiesTest {
+import junit.framework.TestCase;
+
+@SuppressWarnings("javadoc")
+public class HtmlEntitiesTest extends TestCase {
 
 	@Test
-	public void decodeTest() {
+	public void testAfterAmpString() {
 		String input = "<a href=\"/t?a=1&order_id=2\">order</a>";
 		String output = Encoding.decodeHtml(input);
 		assertEquals("<a href=\"/t?a=1&order_id=2\">order</a>", output);
