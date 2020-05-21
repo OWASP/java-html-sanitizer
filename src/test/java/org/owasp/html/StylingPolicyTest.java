@@ -344,6 +344,138 @@ public class StylingPolicyTest extends TestCase {
     assertSanitizedCss("font-family:'a b'", "font-family: a<!--b");
   }
 
+  @Test
+  public void testSkipIfEmptyUnionSpanTag() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+  }
+
+  @Test
+  public void testSkipIfEmptyUnionSpanTagOppositeCase() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+  }
+
+  @Test
+  public void testSkipIfEmptyUnionATag() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowWithoutAttributes("a")
+            .toFactory();
+
+    String aTagString = "<a>Hi</a>";
+    String resultString = beforePolicy.sanitize(aTagString);
+    assertEquals("<a>Hi</a>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("a")
+            .disallowWithoutAttributes("a")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(aTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  @Test
+  public void testSkipIfEmptyUnionATagOppositeCase() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("a")
+            .toFactory();
+
+    String aTagString = "<a>Hi</a>";
+    String resultString = beforePolicy.sanitize(aTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowWithoutAttributes("a")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(aTagString);
+    assertEquals("<a>Hi</a>", resultString);
+  }
+
+  public void testSkipIfEmptyUnionPTag() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+		    .disallowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  public void testSkipIfEmptyUnionPTagOppositeCase() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+  }
+
+  public void testdfadfa() {
+    PolicyFactory POLICY_DEFINITION = new HtmlPolicyBuilder()
+            .allowAttributes("id", "class").globally()
+            .allowAttributes("href", "target").onElements("a")
+            .allowWithoutAttributes("span", "div")
+            .allowElements("a", "span", "div","input", "textarea")
+            .toFactory();
+
+    String result = Sanitizers.FORMATTING
+            .and(Sanitizers.BLOCKS)
+            .and(Sanitizers.IMAGES)
+            .and(Sanitizers.STYLES)
+            .and(POLICY_DEFINITION)
+            .sanitize("<span id=\"abc\">some text</span>");
+    System.out.println(result);
+  }
+
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(

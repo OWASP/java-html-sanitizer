@@ -86,6 +86,7 @@ final class ElementAndAttributePolicies {
     if (HtmlPolicyBuilder.DEFAULT_SKIP_IF_EMPTY.contains(elementName)) {
       // Either policy explicitly opted out of skip if empty.
       combinedSkipIfEmpty = skipIfEmpty && p.skipIfEmpty;
+      // combinedSkipIfEmpty = p.skipIfEmpty;
     } else {
       // Either policy explicitly specified skip if empty.
       combinedSkipIfEmpty = skipIfEmpty || p.skipIfEmpty;
