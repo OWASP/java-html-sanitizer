@@ -104,7 +104,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     if (adjustedElementName != null
-        && !(attrs.isEmpty() && policies.skipIfEmpty)) {
+        && !(attrs.isEmpty() && policies.htmlTagSkipType.skip())) {
       writeOpenTag(policies, adjustedElementName, attrs);
       return;
     }
