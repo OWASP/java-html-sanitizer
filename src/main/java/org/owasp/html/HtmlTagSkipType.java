@@ -6,10 +6,10 @@ public enum HtmlTagSkipType {
   DO_NOT_SKIP(false),
   NONE(false);
 
-  private final boolean skip;
+  private final boolean skipAvailability;
 
-  HtmlTagSkipType(boolean skip) {
-    this.skip = skip;
+  HtmlTagSkipType(boolean skipAvailability) {
+    this.skipAvailability = skipAvailability;
   }
 
   public HtmlTagSkipType and(HtmlTagSkipType s) {
@@ -28,7 +28,7 @@ public enum HtmlTagSkipType {
     return SKIP;
   }
 
-  public boolean skip() {
-    return this.skip;
+  public boolean skipAvailability() {
+    return this.skipAvailability;
   }
 }
