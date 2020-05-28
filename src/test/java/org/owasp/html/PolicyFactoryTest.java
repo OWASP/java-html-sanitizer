@@ -205,7 +205,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : X
   @Test
-  public void testSkipIfEmpty1() {
+  public void testHtmlTagSkipPolicy1() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .toFactory();
@@ -226,7 +226,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : allow
   @Test
-  public void testSkipIfEmpty2() {
+  public void testHtmlTagSkipPolicy2() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .toFactory();
@@ -248,7 +248,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : disallow
   @Test
-  public void testSkipIfEmpty3() {
+  public void testHtmlTagSkipPolicy3() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .toFactory();
@@ -270,7 +270,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : X
   @Test
-  public void testSkipIfEmpty4() {
+  public void testHtmlTagSkipPolicy4() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .allowWithoutAttributes("span")
@@ -292,7 +292,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : allow
   @Test
-  public void testSkipIfEmpty5() {
+  public void testHtmlTagSkipPolicy5() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .allowWithoutAttributes("span")
@@ -315,7 +315,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : disallow
   @Test
-  public void testSkipIfEmpty6() {
+  public void testHtmlTagSkipPolicy6() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .allowWithoutAttributes("span")
@@ -338,7 +338,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : X
   @Test
-  public void testSkipIfEmpty7() {
+  public void testHtmlTagSkipPolicy7() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .disallowWithoutAttributes("span")
@@ -360,7 +360,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : allow
   @Test
-  public void testSkipIfEmpty8() {
+  public void testHtmlTagSkipPolicy8() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .disallowWithoutAttributes("span")
@@ -383,7 +383,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : disallow
   @Test
-  public void testSkipIfEmpty9() {
+  public void testHtmlTagSkipPolicy9() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .disallowWithoutAttributes("span")
@@ -405,7 +405,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : X
   // afterPolicy : X
-  public void testSkipIfEmpty10() {
+  @Test
+  public void testHtmlTagSkipPolicy10() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .toFactory();
@@ -425,7 +426,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : X
   // afterPolicy : allow
-  public void testSkipIfEmpty11() {
+  @Test
+  public void testHtmlTagSkipPolicy11() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .toFactory();
@@ -446,7 +448,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : X
   // afterPolicy : disallow
-  public void testSkipIfEmpty12() {
+  @Test
+  public void testHtmlTagSkipPolicy12() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .toFactory();
@@ -467,7 +470,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : allow
   // afterPolicy : X
-  public void testSkipIfEmpty13() {
+  @Test
+  public void testHtmlTagSkipPolicy13() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .allowWithoutAttributes("p")
@@ -488,7 +492,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : allow
   // afterPolicy : allow
-  public void testSkipIfEmpty14() {
+  @Test
+  public void testHtmlTagSkipPolicy14() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .allowWithoutAttributes("p")
@@ -510,7 +515,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : allow
   // afterPolicy : disallow
-  public void testSkipIfEmpty15() {
+  @Test
+  public void testHtmlTagSkipPolicy15() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .allowWithoutAttributes("p")
@@ -532,7 +538,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : disallow
   // afterPolicy : X
-  public void testSkipIfEmpty16() {
+  @Test
+  public void testHtmlTagSkipPolicy16() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .disallowWithoutAttributes("p")
@@ -553,7 +560,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : disallow
   // afterPolicy : allow
-  public void testSkipIfEmpty17() {
+  @Test
+  public void testHtmlTagSkipPolicy17() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .disallowWithoutAttributes("p")
@@ -575,7 +583,8 @@ public final class PolicyFactoryTest extends TestCase {
   // Not Default Skip Tag
   // beforePolicy : disallow
   // afterPolicy : disallow
-  public void testSkipIfEmpty18() {
+  @Test
+  public void testHtmlTagSkipPolicy18() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .disallowWithoutAttributes("p")
