@@ -166,7 +166,7 @@ public class HtmlPolicyBuilder {
    * output.
    */
   public static final ImmutableSet<String> DEFAULT_SKIP_IF_EMPTY
-          = ImmutableSet.of("a", "font", "img", "input", "span");
+      = ImmutableSet.of("a", "font", "img", "input", "span");
 
   static final ImmutableMap<String, HtmlTagSkipType> DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR;
   static {
