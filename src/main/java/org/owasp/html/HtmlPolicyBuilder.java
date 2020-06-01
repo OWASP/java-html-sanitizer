@@ -159,19 +159,23 @@ import com.google.common.collect.Sets;
 @NotThreadSafe
 public class HtmlPolicyBuilder {
   /**
-   * The default map of elements that are removed if they have no attributes.
-   * Since {@code <img>} is in this map, by default, a policy will remove
+   * The default set of elements that are removed if they have no attributes.
+   * Since {@code <img>} is in this set, by default, a policy will remove
    * {@code <img src=javascript:alert(1337)>} because its URL is not allowed
    * and it has no other attributes that would warrant it appearing in the
    * output.
    */
-  public static final ImmutableMap<String, HtmlTagSkipType> DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR
-          = ImmutableMap.of(
-          "a", HtmlTagSkipType.SKIP_BY_DEFAULT,
-          "font", HtmlTagSkipType.SKIP_BY_DEFAULT,
-          "img", HtmlTagSkipType.SKIP_BY_DEFAULT,
-          "input", HtmlTagSkipType.SKIP_BY_DEFAULT,
-          "span", HtmlTagSkipType.SKIP_BY_DEFAULT);
+  public static final ImmutableSet<String> DEFAULT_SKIP_IF_EMPTY
+          = ImmutableSet.of("a", "font", "img", "input", "span");
+
+  static final ImmutableMap<String, HtmlTagSkipType> DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR;
+  static {
+    ImmutableMap.Builder<String, HtmlTagSkipType> b = ImmutableMap.builder();
+    for (String elementName : DEFAULT_SKIP_IF_EMPTY) {
+      b.put(elementName, HtmlTagSkipType.SKIP_BY_DEFAULT);
+    }
+    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = b.build();
+  }
 
   /**
    * These
@@ -855,7 +859,7 @@ public class HtmlPolicyBuilder {
       if (DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR.containsKey(elementName)) {
         return HtmlTagSkipType.SKIP_BY_DEFAULT;
       } else {
-        return HtmlTagSkipType.NONE;
+        return HtmlTagSkipType.DO_NOT_SKIP_BY_DEFAULT;
       }
     }
 

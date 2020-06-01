@@ -1,10 +1,10 @@
 package org.owasp.html;
 
 public enum HtmlTagSkipType {
-  SKIP_BY_DEFAULT(true),
   SKIP(true),
+  SKIP_BY_DEFAULT(true),
   DO_NOT_SKIP(false),
-  NONE(false);
+  DO_NOT_SKIP_BY_DEFAULT(false);
 
   private final boolean skipAvailability;
 
@@ -21,7 +21,7 @@ public enum HtmlTagSkipType {
       return s;
     }
 
-    if (s == NONE) {
+    if (s == DO_NOT_SKIP_BY_DEFAULT) {
       return this;
     }
 
