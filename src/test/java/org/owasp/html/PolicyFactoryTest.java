@@ -201,6 +201,408 @@ public final class PolicyFactoryTest extends TestCase {
     }
   }
 
+  // Default Skip Tag
+  // beforePolicy : X
+  // afterPolicy : X
+  @Test
+  public void testHtmlTagSkipPolicy1() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : X
+  // afterPolicy : allow
+  @Test
+  public void testHtmlTagSkipPolicy2() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : X
+  // afterPolicy : disallow
+  @Test
+  public void testHtmlTagSkipPolicy3() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .disallowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : allow
+  // afterPolicy : X
+  @Test
+  public void testHtmlTagSkipPolicy4() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : allow
+  // afterPolicy : allow
+  @Test
+  public void testHtmlTagSkipPolicy5() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : allow
+  // afterPolicy : disallow
+  @Test
+  public void testHtmlTagSkipPolicy6() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .disallowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : disallow
+  // afterPolicy : X
+  @Test
+  public void testHtmlTagSkipPolicy7() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .disallowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : disallow
+  // afterPolicy : allow
+  @Test
+  public void testHtmlTagSkipPolicy8() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .disallowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .allowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("<span>Hi</span>", resultString);
+  }
+
+  // Default Skip Tag
+  // beforePolicy : disallow
+  // afterPolicy : disallow
+  @Test
+  public void testHtmlTagSkipPolicy9() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("span")
+            .disallowWithoutAttributes("span")
+            .toFactory();
+
+    String spanTagString = "<span>Hi</span>";
+    String resultString = beforePolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("span")
+            .disallowWithoutAttributes("span")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(spanTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : X
+  // afterPolicy : X
+  @Test
+  public void testHtmlTagSkipPolicy10() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : X
+  // afterPolicy : allow
+  @Test
+  public void testHtmlTagSkipPolicy11() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : X
+  // afterPolicy : disallow
+  @Test
+  public void testHtmlTagSkipPolicy12() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : allow
+  // afterPolicy : X
+  @Test
+  public void testHtmlTagSkipPolicy13() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : allow
+  // afterPolicy : allow
+  @Test
+  public void testHtmlTagSkipPolicy14() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : allow
+  // afterPolicy : disallow
+  @Test
+  public void testHtmlTagSkipPolicy15() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : disallow
+  // afterPolicy : X
+  @Test
+  public void testHtmlTagSkipPolicy16() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : disallow
+  // afterPolicy : allow
+  @Test
+  public void testHtmlTagSkipPolicy17() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .allowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("<p>Hi</p>", resultString);
+  }
+
+  // Not Default Skip Tag
+  // beforePolicy : disallow
+  // afterPolicy : disallow
+  @Test
+  public void testHtmlTagSkipPolicy18() {
+    PolicyFactory beforePolicy = new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory();
+
+    String pTagString = "<p>Hi</p>";
+    String resultString = beforePolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+
+    PolicyFactory afterPolicy = beforePolicy.and(new HtmlPolicyBuilder()
+            .allowElements("p")
+            .disallowWithoutAttributes("p")
+            .toFactory());
+
+    resultString = afterPolicy.sanitize(pTagString);
+    assertEquals("Hi", resultString);
+  }
+
   static final class SubstringFilter implements AttributePolicy {
     final String substr;
 

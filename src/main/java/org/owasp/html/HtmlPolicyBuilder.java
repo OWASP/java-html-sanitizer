@@ -168,6 +168,15 @@ public class HtmlPolicyBuilder {
   public static final ImmutableSet<String> DEFAULT_SKIP_IF_EMPTY
       = ImmutableSet.of("a", "font", "img", "input", "span");
 
+  static final ImmutableMap<String, HtmlTagSkipType> DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR;
+  static {
+    ImmutableMap.Builder<String, HtmlTagSkipType> b = ImmutableMap.builder();
+    for (String elementName : DEFAULT_SKIP_IF_EMPTY) {
+      b.put(elementName, HtmlTagSkipType.SKIP_BY_DEFAULT);
+    }
+    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = b.build();
+  }
+
   /**
    * These
    * <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types"
@@ -190,8 +199,7 @@ public class HtmlPolicyBuilder {
   private final Map<String, AttributePolicy> globalAttrPolicies
       = Maps.newLinkedHashMap();
   private final Set<String> allowedProtocols = Sets.newLinkedHashSet();
-  private final Set<String> skipIfEmpty = Sets.newLinkedHashSet(
-      DEFAULT_SKIP_IF_EMPTY);
+  private final Map<String, HtmlTagSkipType> skipIssueTagMap = Maps.newLinkedHashMap(DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR);
   private final Map<String, Boolean> textContainers = Maps.newLinkedHashMap();
   private HtmlStreamEventProcessor postprocessor =
       HtmlStreamEventProcessor.Processors.IDENTITY;
@@ -307,14 +315,14 @@ public class HtmlPolicyBuilder {
    * Assuming the given elements are allowed, allows them to appear without
    * attributes.
    *
-   * @see #DEFAULT_SKIP_IF_EMPTY
+   * @see #DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR
    * @see #disallowWithoutAttributes
    */
   public HtmlPolicyBuilder allowWithoutAttributes(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
       elementName = HtmlLexer.canonicalName(elementName);
-      skipIfEmpty.remove(elementName);
+      skipIssueTagMap.put(elementName, HtmlTagSkipType.DO_NOT_SKIP);
     }
     return this;
   }
@@ -322,14 +330,14 @@ public class HtmlPolicyBuilder {
   /**
    * Disallows the given elements from appearing without attributes.
    *
-   * @see #DEFAULT_SKIP_IF_EMPTY
+   * @see #DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR
    * @see #allowWithoutAttributes
    */
   public HtmlPolicyBuilder disallowWithoutAttributes(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
       elementName = HtmlLexer.canonicalName(elementName);
-      skipIfEmpty.add(elementName);
+      skipIssueTagMap.put(elementName, HtmlTagSkipType.SKIP);
     }
     return this;
   }
@@ -835,11 +843,27 @@ public class HtmlPolicyBuilder {
           elementName,
           new ElementAndAttributePolicies(
               elementName,
-              elPolicy, attrs.build(), skipIfEmpty.contains(elementName)));
+              elPolicy, attrs.build(),
+              getHtmlTagSkipType(elementName)
+          )
+      );
     }
     compiledState = new CompiledState(
         globalAttrPolicies, policiesBuilder.build());
     return compiledState;
+  }
+
+  private HtmlTagSkipType getHtmlTagSkipType(String elementName) {
+    HtmlTagSkipType htmlTagSkipType = skipIssueTagMap.get(elementName);
+    if (htmlTagSkipType == null) {
+      if (DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR.containsKey(elementName)) {
+        return HtmlTagSkipType.SKIP_BY_DEFAULT;
+      } else {
+        return HtmlTagSkipType.DO_NOT_SKIP_BY_DEFAULT;
+      }
+    }
+
+    return htmlTagSkipType;
   }
 
   /**

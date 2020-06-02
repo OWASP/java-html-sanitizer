@@ -43,18 +43,18 @@ final class ElementAndAttributePolicies {
   final String elementName;
   final ElementPolicy elPolicy;
   final ImmutableMap<String, AttributePolicy> attrPolicies;
-  final boolean skipIfEmpty;
+  final HtmlTagSkipType htmlTagSkipType;
 
   ElementAndAttributePolicies(
       String elementName,
       ElementPolicy elPolicy,
       Map<? extends String, ? extends AttributePolicy>
         attrPolicies,
-      boolean skipIfEmpty) {
+      HtmlTagSkipType htmlTagSkipType) {
     this.elementName = elementName;
     this.elPolicy = elPolicy;
     this.attrPolicies = ImmutableMap.copyOf(attrPolicies);
-    this.skipIfEmpty = skipIfEmpty;
+    this.htmlTagSkipType = htmlTagSkipType;
   }
 
   ElementAndAttributePolicies and(ElementAndAttributePolicies p) {
@@ -78,24 +78,11 @@ final class ElementAndAttributePolicies {
       }
     }
 
-    // HACK: this is attempting to recognize when skipIfEmpty has been
-    // explicitly set in HtmlPolicyBuilder and can only make a best effort at
-    // that and is also too tightly coupled with HtmlPolicyBuilder.
-    // Maybe go tri-state.
-    boolean combinedSkipIfEmpty;
-    if (HtmlPolicyBuilder.DEFAULT_SKIP_IF_EMPTY.contains(elementName)) {
-      // Either policy explicitly opted out of skip if empty.
-      combinedSkipIfEmpty = skipIfEmpty && p.skipIfEmpty;
-    } else {
-      // Either policy explicitly specified skip if empty.
-      combinedSkipIfEmpty = skipIfEmpty || p.skipIfEmpty;
-    }
-
     return new ElementAndAttributePolicies(
         elementName,
         ElementPolicy.Util.join(elPolicy, p.elPolicy),
         joinedAttrPolicies.build(),
-        combinedSkipIfEmpty);
+        this.htmlTagSkipType.and(p.htmlTagSkipType));
   }
 
   ElementAndAttributePolicies andGlobals(
@@ -130,7 +117,7 @@ final class ElementAndAttributePolicies {
     }
     if (anded == null) { return this; }
     return new ElementAndAttributePolicies(
-        elementName, elPolicy, anded, skipIfEmpty);
+        elementName, elPolicy, anded, htmlTagSkipType);
   }
 
 }
