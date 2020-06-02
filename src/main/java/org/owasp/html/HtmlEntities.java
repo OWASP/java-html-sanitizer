@@ -40,6 +40,8 @@ final class HtmlEntities {
   /** A trie that maps entity names to strings of referenced code points. */
   public static final Trie<String> ENTITY_TRIE;
 
+  private static final int LONGEST_ENTITY_NAME;
+
   static {
     // Source data: https://html.spec.whatwg.org/multipage/named-characters.html
     // More readable: https://html.spec.whatwg.org/entities.json
@@ -2279,15 +2281,20 @@ final class HtmlEntities {
 
     final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
 
+    int longestEntityName = 0;
     for (int i = 0, n = pairs.length; i < n; i += 2) {
       String entityName = pairs[i];
       String encodedText = pairs[i + 1];
       builder.put(entityName, encodedText);
+      if (entityName.length() > longestEntityName) {
+        longestEntityName = entityName.length();
+      }
     }
 
     final Map<String, String> entityNameToCodePointMap = builder.build();
 
     ENTITY_TRIE = new Trie<String>(entityNameToCodePointMap);
+    LONGEST_ENTITY_NAME = longestEntityName;
   }
 
   /**
@@ -2313,6 +2320,10 @@ final class HtmlEntities {
       sb.append('&');
       return offset + 1;
     }
+    // Cap limit to limit the amount of time spent processing inputs like
+    // &a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a&a
+    limit = Math.min(limit, offset + (1 + LONGEST_ENTITY_NAME));
+
     // Now we know where the entity ends, and that there is at least one
     // character in the entity name
     char ch1 = html.charAt(offset + 1);
