@@ -5,7 +5,7 @@ import org.owasp.html.CssSchema;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;
 
-public final class NaverPolicyExample {
+public class NaverPolicyExample {
 
   private static String[] mdnGlobalAttributeArray = {"accesskey", "class", "dir", "exportparts", "hidden", "id", "lang", "style", "tabindex", "title"}; // exclude attribute : autocapitalize contenteditable contextmenu data-* draggable dropzone inputmode is itemid itemprop itemref itemscope itemtype part slot spellcheck translate
   private static String[] aDefaultAttributeArray = {"charset", "coords", "href", "hreflang", "name", "rel", "rev", "shape", "target", "type"}; // exclude attribute : media
@@ -211,7 +211,7 @@ public final class NaverPolicyExample {
   // xmp(only include global attributes)
   // xcustom(exclude element)
 
-  private static PolicyFactory NAVER_POLICY;
+  public static final PolicyFactory POLICY_DEFINITION;
 
   static {
     // a
@@ -321,7 +321,7 @@ public final class NaverPolicyExample {
     // video
     String[] videoAttributeArray = appendGlobalAttributes(videoDefaultAttributeArray);
 
-    NAVER_POLICY = new HtmlPolicyBuilder()
+    POLICY_DEFINITION = new HtmlPolicyBuilder()
 
             .allowElements("a")
             .allowAttributes(aAttributeArray).onElements("a")
@@ -652,20 +652,7 @@ public final class NaverPolicyExample {
             .toFactory();
   }
 
-  private NaverPolicyExample() {
-  }
-
-  public static String sanitize(String html) {
-    return getPolicy().sanitize(html);
-  }
-
-  public static PolicyFactory getExpandPolicy(PolicyFactory policyFactory) {
-    return getPolicy().and(policyFactory);
-  }
-
-  private static PolicyFactory getPolicy() {
-    assert NAVER_POLICY != null : "NAVER_POLICY init fail";
-    return NAVER_POLICY;
+  public static void main(String[] args) {
   }
 
   private static String[] appendGlobalAttributes(String[] defaultAttributeArray) {
