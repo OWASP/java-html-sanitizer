@@ -312,6 +312,7 @@ public class ExamplesTest extends TestCase {
 
   }
 
+  @Test
   public void testSpecialTags() {
     String attackString = "<meta http-equiv=\"refresh\" content=\"0; url=//portswigger-labs.net\">";
     String cleanString = NaverPolicyExample.POLICY_DEFINITION.sanitize(attackString);
@@ -342,6 +343,7 @@ public class ExamplesTest extends TestCase {
     assertEquals("", cleanString);
   }
 
+  @Test
   public void testEncoding() {
     String attackString = "%C0%BCscript>alert(1)</script>";
     String cleanString = NaverPolicyExample.POLICY_DEFINITION.sanitize(attackString);
@@ -450,6 +452,7 @@ public class ExamplesTest extends TestCase {
     assertEquals("<a>XSS</a>", cleanString);
   }
 
+  @Test
   public void testObfuscation() {
     String attackString = "<script src=data:text/javascript;base64,YWxlcnQoMSk=></script>";
     String cleanString = NaverPolicyExample.POLICY_DEFINITION.sanitize(attackString);
@@ -476,6 +479,7 @@ public class ExamplesTest extends TestCase {
     assertEquals("", cleanString);
   }
 
+  @Test
   public void testClientSideTemplateInjection() {
     String attackString = "<div v-html=\"''.constructor.constructor('alert(1)')()\">a</div>";
     String cleanString = NaverPolicyExample.POLICY_DEFINITION.sanitize(attackString);
@@ -502,6 +506,7 @@ public class ExamplesTest extends TestCase {
     assertEquals("<div><div id=\"f\" tabindex=\"0\">foo</div><div><div>{<!-- -->{ [1].reduce(value.alert, 1); }}</div></div></div>", cleanString);
   }
 
+  @Test
   public void testScriptlessAttacks() {
     String attackString = "<body background=\"//evil?\n"
             + "<table background=\"//evil?\n"
@@ -615,6 +620,7 @@ public class ExamplesTest extends TestCase {
     assertEquals("<frameset><frame src=\"http://subdomain1.portswigger-labs.net/dangling_markup/name.html\" name=\"\"></frame></frameset>", cleanString);
   }
 
+  @Test
   public void testPolyglots() {
     String attackString = "javascript:/*--></title></style></textarea></script></xmp><svg/onload='+/\"/+/onmouseover=1/+/[*/[]/+alert(1)//'>";
     String cleanString = NaverPolicyExample.POLICY_DEFINITION.sanitize(attackString);
@@ -626,6 +632,7 @@ public class ExamplesTest extends TestCase {
     assertEquals("javascript:&#34;/*&#39;/*&#96;/*--&gt;<html></html>", cleanString);
   }
 
+  @Test
   public void testClassicVectors() {
     String attackString = "<img src=\"javascript:alert(1)\">";
     String cleanString = NaverPolicyExample.POLICY_DEFINITION.sanitize(attackString);
