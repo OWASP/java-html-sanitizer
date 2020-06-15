@@ -1,8 +1,11 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Pending
-    * Fix table formatting
+  * Release 20200615.1
+    * Change `.and` when combining two policies to respect explicit `skipIfEmpty` decisions.
+    * HTML entity decoding now follows HTML standard rules about when a semicolon is optional.
+      [Fixes #193](https://github.com/OWASP/java-html-sanitizer/issues/193)
+    * Fix table formatting [#137](https://github.com/OWASP/java-html-sanitizer/issues/137)
   * Release 20191001.1
     * Package as an OSGI bundle
   * Release 20190610.1
