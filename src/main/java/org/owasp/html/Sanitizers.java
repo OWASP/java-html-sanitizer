@@ -93,6 +93,7 @@ public final class Sanitizers {
     .onElements("table", "tr", "td", "th",
                 "colgroup", "col",
                 "thead", "tbody", "tfoot")
+    .allowAttributes("colspan").onElements("td", "th)
     .allowTextIn("table")  // WIDGY
     .toFactory();
 
