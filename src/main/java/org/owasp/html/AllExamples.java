@@ -34,6 +34,7 @@ final class AllExamples {
     org.owasp.html.examples.EbayPolicyExample.class,
     org.owasp.html.examples.SlashdotPolicyExample.class,
     org.owasp.html.examples.UrlTextExample.class,
+    org.owasp.html.examples.NaverPolicyExample.class,
   };
 
   private AllExamples() {
