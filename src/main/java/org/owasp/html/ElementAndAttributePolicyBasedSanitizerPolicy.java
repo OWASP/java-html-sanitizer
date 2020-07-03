@@ -144,7 +144,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
       adjustedElementName = policies.elPolicy.apply(elementName, attrs);
       if (adjustedElementName != null) {
-        adjustedElementName = HtmlLexer.canonicalName(adjustedElementName);
+        adjustedElementName = HtmlLexer.canonicalElementName(adjustedElementName);
       }
     } else {
       adjustedElementName = null;

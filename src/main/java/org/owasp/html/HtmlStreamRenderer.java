@@ -187,7 +187,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
          attrIt.hasNext();) {
       String name = attrIt.next();
       String value = attrIt.next();
-      name = HtmlLexer.canonicalName(name);
+      name = HtmlLexer.canonicalAttributeName(name);
       if (!isValidHtmlName(name)) {
         error("Invalid attr name", name);
         continue;
@@ -234,7 +234,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final void writeCloseTag(String uncanonElementName)
       throws IOException {
     if (!open) { throw new IllegalStateException(); }
-    String elementName = HtmlLexer.canonicalName(uncanonElementName);
+    String elementName = HtmlLexer.canonicalElementName(uncanonElementName);
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
@@ -386,7 +386,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * that has more consistent semantics.
    */
   static String safeName(String unsafeElementName) {
-    String elementName = HtmlLexer.canonicalName(unsafeElementName);
+    String elementName = HtmlLexer.canonicalElementName(unsafeElementName);
 
     // Substitute a reliably non-raw-text element for raw-text and
     // plain-text elements.
