@@ -633,7 +633,7 @@ public final class CssSchema {
     Property fontWeight = new Property(
         0, union(fontLiterals0, fontStyleLiterals0), zeroFns);
     builder.put("font-weight", fontWeight);
-    Property height = new Property(5, bottomLiterals0, zeroFns);
+    Property height = new Property(1, bottomLiterals0, zeroFns);
     builder.put("height", height);
     Property letterSpacing = new Property(5, fontStyleLiterals0, zeroFns);
     builder.put("letter-spacing", letterSpacing);
@@ -654,8 +654,7 @@ public final class CssSchema {
     Property listStyleType = new Property(
         0, union(listStyleLiterals0, listStyleLiterals2), zeroFns);
     builder.put("list-style-type", listStyleType);
-    Property margin = new Property(1, bottomLiterals0, zeroFns);
-    builder.put("margin", margin);
+    builder.put("margin", bottom);
     Property maxHeight = new Property(1, maxHeightLiterals0, zeroFns);
     builder.put("max-height", maxHeight);
     Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);
@@ -803,14 +802,14 @@ public final class CssSchema {
     builder.put("border-width", mozOutlineWidth);
     builder.put("cue-after", cue);
     builder.put("cue-before", cue);
-    builder.put("left", height);
-    builder.put("margin-bottom", margin);
-    builder.put("margin-left", margin);
-    builder.put("margin-right", margin);
-    builder.put("margin-top", margin);
+    builder.put("left", bottom);
+    builder.put("margin-bottom", bottom);
+    builder.put("margin-left", bottom);
+    builder.put("margin-right", bottom);
+    builder.put("margin-top", bottom);
     builder.put("max-width", maxHeight);
-    builder.put("min-height", margin);
-    builder.put("min-width", margin);
+    builder.put("min-height", maxHeight);
+    builder.put("min-width", maxHeight);
     builder.put("outline", mozOutline);
     builder.put("outline-color", mozOutlineColor);
     builder.put("outline-style", mozOutlineStyle);
@@ -826,13 +825,13 @@ public final class CssSchema {
     builder.put("pause-before", borderSpacing);
     builder.put("pitch-range", borderSpacing);
     builder.put("richness", borderSpacing);
-    builder.put("right", height);
+    builder.put("right", bottom);
     builder.put("stress", borderSpacing);
     builder.put("text-indent", borderSpacing);
     builder.put("text-overflow", oTextOverflow);
     builder.put("text-shadow", boxShadow);
-    builder.put("top", height);
-    builder.put("width", margin);
+    builder.put("top", bottom);
+    builder.put("width", height);
     builder.put("word-spacing", letterSpacing);
     builder.put("z-index", bottom);
     builder.put("rgba()", rgb$Fun);
