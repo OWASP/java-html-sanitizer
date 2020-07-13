@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>parent</artifactId>
-  <version>20200713.1</version>
+  <version>20200713.2-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
