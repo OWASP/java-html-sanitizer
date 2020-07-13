@@ -975,6 +975,25 @@ public class HtmlPolicyBuilderTest extends TestCase {
         sanitized);
   }
 
+  @Test
+  public static final void testSvgNames() {
+    PolicyFactory policyFactory = new HtmlPolicyBuilder()
+            .allowElements("svg", "animateColor")
+            .allowAttributes("viewBox").onElements("svg")
+            .toFactory();
+    String svg = "<svg viewBox=\"0 0 0 0\"><animateColor></animateColor></svg>";
+    assertEquals(svg, policyFactory.sanitize(svg));
+  }
+
+  @Test
+  public static final void testTextareaIsNotTextArea() {
+    String input = "<textarea>x</textarea><textArea>y</textArea>";
+    PolicyFactory textareaPolicy = new HtmlPolicyBuilder().allowElements("textarea").toFactory();
+    PolicyFactory textAreaPolicy = new HtmlPolicyBuilder().allowElements("textArea").toFactory();
+    assertEquals("<textarea>x</textarea>y", textareaPolicy.sanitize(input));
+    assertEquals("x<textArea>y</textArea>", textAreaPolicy.sanitize(input));
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }

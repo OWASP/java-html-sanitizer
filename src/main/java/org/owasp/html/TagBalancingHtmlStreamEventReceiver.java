@@ -97,7 +97,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (DEBUG) {
       dumpState("open " + elementName);
     }
-    String canonElementName = HtmlLexer.canonicalName(elementName);
+    String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
@@ -238,7 +238,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (DEBUG) {
       dumpState("close " + elementName);
     }
-    String canonElementName = HtmlLexer.canonicalName(elementName);
+    String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
     if (elIndex == UNRECOGNIZED_TAG) {  // Allow unrecognized end tags through.
