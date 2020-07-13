@@ -1,6 +1,6 @@
 # OWASP Java HTML Sanitizer
 
-[<img src="https://travis-ci.org/OWASP/java-html-sanitizer.svg">](https://travis-ci.org/OWASP/java-html-sanitizer) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=master)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=master) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/badge.png?style=plastic)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+[<img src="https://travis-ci.org/OWASP/java-html-sanitizer.svg">](https://travis-ci.org/OWASP/java-html-sanitizer) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=main)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=main) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/badge.png?style=plastic)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
@@ -45,7 +45,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Crafting a policy
 
 The
-[tests](https://github.com/OWASP/java-html-sanitizer/blob/master/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
+[tests](https://github.com/OWASP/java-html-sanitizer/blob/main/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
 [policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20200713.1/org/owasp/html/HtmlPolicyBuilder.html):
 
@@ -187,7 +187,7 @@ used HTML parsers will agree on the meaning of, but the absence of
 notifications does not mean that the input is in such a sub-set,
 only that it does not contain elements or attributes that were removed.
 
-See ["Why sanitize when you can validate"](https://github.com/OWASP/java-html-sanitizer/blob/master/docs/html-validation.md) for more on this topic.
+See ["Why sanitize when you can validate"](https://github.com/OWASP/java-html-sanitizer/blob/main/docs/html-validation.md) for more on this topic.
 
 ## Questions?
 
@@ -206,7 +206,7 @@ We welcome [issue reports](https://github.com/OWASP/java-html-sanitizer/issues) 
 PRs that change behavior or that add functionality should include both positive and
 [negative tests](https://www.guru99.com/negative-testing.html).
 
-Please be aware that contributions fall under the [Apache 2.0 License](https://github.com/OWASP/java-html-sanitizer/blob/master/COPYING).
+Please be aware that contributions fall under the [Apache 2.0 License](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING).
 
 ## Credits
 

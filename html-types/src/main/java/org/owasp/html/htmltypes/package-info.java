@@ -28,9 +28,9 @@
 
 /**
  * Wraps HTML policy builders to produce
- * <a href="https://github.com/google/safe-html-types/blob/master/doc/safehtml-types.md">Safe HTML</a>.
+ * <a href="https://github.com/google/safe-html-types/blob/main/doc/safehtml-types.md">Safe HTML</a>.
  * <p>
- * @see <a href="https://github.com/OWASP/java-html-sanitizer/blob/master/docs/credits.md">usage</a>
+ * @see <a href="https://github.com/OWASP/java-html-sanitizer/blob/main/docs/credits.md">usage</a>
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
 @javax.annotation.ParametersAreNonnullByDefault
