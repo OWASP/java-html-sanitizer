@@ -1,0 +1,27 @@
+package anonymousObject;
+
+class factorial{
+	void fact (int n) {
+    int fact =1;
+	for(int i = 1; i<=n; i++)
+	{
+		
+		fact = fact*i;
+		
+	}
+	System.out.print(fact);
+	
+}
+}
+
+public class Anonymous_me1 {
+
+	public static void main(String[] args) {
+		
+		new factorial().fact(5);
+
+	}
+
+}
+//chaining of const
+//should be on top
