@@ -33,9 +33,9 @@ package org.owasp.html;
  * {@code http}, {@code https}, {@code mailto}.
  */
 @TCB
-final class StandardUrlAttributePolicy implements AttributePolicy {
+public final class StandardUrlAttributePolicy implements AttributePolicy {
 
-  static final StandardUrlAttributePolicy INSTANCE
+  public static final StandardUrlAttributePolicy INSTANCE
       = new StandardUrlAttributePolicy();
 
   private StandardUrlAttributePolicy() { /* singleton */ }
