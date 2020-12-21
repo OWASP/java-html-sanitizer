@@ -968,11 +968,12 @@ public class HtmlPolicyBuilder {
      */
     @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder globally() {
-      if(attributeNames.get(0).equals("style"))
-    		return allowStyling();
-    	else
-    		return HtmlPolicyBuilder.this.allowAttributesGlobally(
-    			policy, attributeNames);
+      if(attributeNames.get(0).equals("style")) {
+        return allowStyling();
+      } else {
+        return HtmlPolicyBuilder.this.allowAttributesGlobally(
+            policy, attributeNames);
+      }
     }
 
     /**
