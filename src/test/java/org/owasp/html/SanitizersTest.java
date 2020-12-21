@@ -434,6 +434,17 @@ public class SanitizersTest extends TestCase {
         pf.sanitize(input));
   }
 
+  @Test
+  public static final void testStyleGlobally() {
+    PolicyFactory policyBuilder = new HtmlPolicyBuilder()
+        .allowAttributes("style").globally()
+        .allowElements("a", "label", "h1", "h2", "h3", "h4", "h5", "h6")
+        .toFactory();
+    String input = "<h1 style=\"color:green ;name:user ;\">This is some green text</h1>";
+    String want = "<h1 style=\"color:green\">This is some green text</h1>";
+    assertEquals(want, policyBuilder.sanitize(input));
+  }
+  
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
