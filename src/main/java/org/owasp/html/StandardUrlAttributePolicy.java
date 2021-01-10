@@ -46,6 +46,11 @@ final class StandardUrlAttributePolicy implements AttributePolicy {
     protocol_loop:
     for (int i = 0, n = url.length(); i < n; ++i) {
       switch (url.charAt(i)) {
+        case '&': // https://github.com/OWASP/java-html-sanitizer/issues/213
+          if (isHtmlSpecialLetter(url, i, n)) {
+            return null;
+          }
+          break protocol_loop;
         case '/': case '#': case '?':  // No protocol.
           break protocol_loop;
         case ':':
@@ -71,6 +76,10 @@ final class StandardUrlAttributePolicy implements AttributePolicy {
       }
     }
     return FilterUrlByProtocolAttributePolicy.normalizeUri(url);
+  }
+
+  private boolean isHtmlSpecialLetter(String url, int i, int n) {
+    return i < n - 2 && url.charAt(i + 1) == '#' && Character.isDigit(url.charAt(i+2));
   }
 
 }
