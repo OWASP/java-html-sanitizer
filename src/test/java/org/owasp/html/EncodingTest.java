@@ -215,8 +215,8 @@ public final class EncodingTest extends TestCase {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
     for (int codepoint : new int[] {
-        0, 9, '\n', '@', 0x80, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xffff,
-        0x10000, Character.MAX_CODE_POINT }) {
+        9, '\n', '@', 0xa0, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xfffd,
+        0x10000, Character.MAX_CODE_POINT-2 }) {
       Encoding.appendNumericEntity(codepoint, sb);
       sb.append(' ');
 
@@ -224,15 +224,15 @@ public final class EncodingTest extends TestCase {
     }
 
     assertEquals(
-         "&#0; &#9; &#10; &#64; &#x80; &#xff; &#x100; &#xfff; &#x1000; "
-         + "&#x123a; &#xffff; &#x10000; &#x10ffff; ",
+         "&#9; &#10; &#64; &#xa0; &#xff; &#x100; &#xfff; &#x1000; "
+         + "&#x123a; &#xfffd; &#x10000; &#x10fffd; ",
          sb.toString());
 
     StringBuilder out = new StringBuilder();
     Encoding.encodeHtmlAttribOnto(cps.toString(), out);
     assertEquals(
-        " \t \n &#64; \u0080 \u00ff \u0100 \u0fff \u1000 "
-        + "\u123a  &#x10000; &#x10ffff; ",
+        "\t \n &#64; \u00a0 \u00ff \u0100 \u0fff \u1000 "
+        + "\u123a \ufffd &#x10000; &#x10fffd; ",
         out.toString());
   }
 
@@ -276,8 +276,20 @@ public final class EncodingTest extends TestCase {
     assertStripped("foo\ud800\udc00bar", "foo\udc00\ud800\udc00bar");
     assertStripped("foo\ud834\udd1ebar", "foo\ud834\udd1ebar");
     assertStripped("foo\ud834\udd1e", "foo\ud834\udd1e");
-    assertStripped("\uffef\ufffd", "\uffef\ufffd\ufffe\uffff");
+
+    // Check stripping of non-characters from all planes
+    for(int i=0;i<=16;i++) {
+      int o = 0x10000 * i;
+      String s = new StringBuilder().append(String.format("%02x",i)).appendCodePoint(o+0xffef).appendCodePoint(o+0xfffd)
+          .appendCodePoint(o+0xfffe).appendCodePoint(o+0xffff).toString();
+      String t = s.substring(0,(i==0)?4:6);
+      assertStripped(t,s);
+
+      s = new StringBuilder().append("foo").appendCodePoint(o+0xfffe).appendCodePoint(o+0xffff).append("bar").toString();
+      assertStripped("foobar",s);
+    }
   }
+
 
   @Test
   public static final
