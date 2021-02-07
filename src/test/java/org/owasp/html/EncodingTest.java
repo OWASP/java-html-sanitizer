@@ -214,6 +214,7 @@ public final class EncodingTest extends TestCase {
       throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
+    // Test with a set of legal code points
     for (int codepoint : new int[] {
         9, '\n', '@', 0xa0, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xfffd,
         0x10000, Character.MAX_CODE_POINT-2 }) {
@@ -236,6 +237,31 @@ public final class EncodingTest extends TestCase {
         out.toString());
   }
 
+  @Test
+  public static final void testAppendIllegalNumericEntityAndEncodeOnto()
+      throws Exception {
+    StringBuilder sb = new StringBuilder();
+    StringBuilder cps = new StringBuilder();
+    // Test with a set of legal code points
+    for (int codepoint : new int[] { 8, '\r', 0x7f, 0x85, 0xfdd0, 0xfffe, 0x1fffe, 0x3ffff }) {
+      try {
+        Encoding.appendNumericEntity(codepoint, sb);
+        fail("Illegal character was accepted: "+codepoint);
+      } catch ( IllegalArgumentException e ) {
+        // expected behaviour
+      }
+
+      cps.appendCodePoint(codepoint).append(',');
+    }
+
+    assertEquals("", sb.toString());
+
+    StringBuilder out = new StringBuilder();
+    Encoding.encodeHtmlAttribOnto(cps.toString(), out);
+    assertEquals(
+        ",\n,,,,,,,",
+        out.toString());
+  }
   @Test
   public static final void testAngularJsBracesInTextNode() throws Exception {
     StringBuilder sb = new StringBuilder();
@@ -317,4 +343,5 @@ public final class EncodingTest extends TestCase {
     Encoding.encodeHtmlAttribOnto("a nonce=xyz ", attrib);
     assertEquals("a nonce&#61;xyz ", attrib.toString());
   }
+
 }

@@ -265,9 +265,22 @@ public final class Encoding {
       char ch = plainText.charAt(i);
       if (ch < REPLACEMENTS.length) {  // Handles all ASCII.
         String repl = REPLACEMENTS[ch];
-        if (ch == '{' && repl == null) {
-          if (i + 1 == n || plainText.charAt(i + 1) == '{') {
-            repl = braceReplacement;
+        if( repl==null ) {
+          if (ch == '{') {
+            if (i + 1 == n || plainText.charAt(i + 1) == '{') {
+              // "{{" detected, so use the brace replacement
+              repl = braceReplacement;
+            }
+          }
+          if (ch == '\r') {
+            // If this CR is followed by a LF, just remove it. Otherwise replace it with a LF.
+            if (i + 1 == n || plainText.charAt(i + 1) != '\n' ) {
+              // CR not followed by LF, so turn into LF
+              repl = "\n";
+            } else {
+              // CRLF, so remove CR
+              repl = "";
+            }
           }
         }
         if (repl != null) {
@@ -334,7 +347,7 @@ public final class Encoding {
   @TCB
   static void appendNumericEntity(int codepoint, Appendable output)
       throws IOException {
-    if (((codepoint <= 1f) && (codepoint != 9 && codepoint != 0xa)) || (0x7f <= codepoint && codepoint <= 0x9f)) {
+    if (((codepoint <= 0x1f) && (codepoint != 9 && codepoint != 0xa)) || (0x7f <= codepoint && codepoint <= 0x9f)) {
       throw new IllegalArgumentException("Illegal numeric escape. Cannot represent control code: " + codepoint);
     }
     if ((0xfdd0 <= codepoint && codepoint <= 0xfdef) || ((codepoint & 0xfffe) == 0xfffe)) {
