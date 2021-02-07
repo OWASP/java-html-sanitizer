@@ -47,9 +47,7 @@ public final class Encoding {
   public static String decodeHtml(String s) {
     int firstAmp = s.indexOf('&');
     int safeLimit = longestPrefixOfGoodCodeunits(s);
-    if ((firstAmp & safeLimit) < 0) {
-      return s;
-    }
+    if ((firstAmp & safeLimit) < 0) { return s; }
 
     StringBuilder sb;
     {
@@ -69,9 +67,9 @@ public final class Encoding {
     stripBannedCodeunits(
         sb,
         firstAmp < 0
-            ? safeLimit : safeLimit < 0
-            ? firstAmp : Math.min(firstAmp, safeLimit)
-    );
+          ? safeLimit : safeLimit < 0
+          ? firstAmp : Math.min(firstAmp, safeLimit));
+
     return sb.toString();
   }
 
@@ -110,8 +108,8 @@ public final class Encoding {
         }
       } else if (0xd800 <= ch) {
         if (ch <= 0xdfff) {
-          if (i + 1 < n) {
-            char next = sb.charAt(i + 1);
+          if (i+1 < n) {
+            char next = sb.charAt(i+1);
             if (Character.isSurrogatePair(ch, next)) {
               // The last two code points in each plane are non-characters that should be elided.
               if ((ch & 0xfc3f) != 0xd83f || (next & 0xfffe) != 0xdffe) {
@@ -181,10 +179,10 @@ public final class Encoding {
    * the appended chunk as part of an attribute or tag boundary.
    *
    * @param plainText text/plain
-   * @param output    a buffer of text/html that has a well-formed HTML prefix that
-   *                  ends after the open-quote of an attribute value and does not yet contain
-   *                  a corresponding close quote.
-   *                  Modified in place.
+   * @param output a buffer of text/html that has a well-formed HTML prefix that
+   *     ends after the open-quote of an attribute value and does not yet contain
+   *     a corresponding close quote.
+   *     Modified in place.
    */
   static void encodeHtmlAttribOnto(String plainText, Appendable output)
       throws IOException {
@@ -203,11 +201,11 @@ public final class Encoding {
    * step 4</a>.)
    *
    * @param plainText text/plain
-   * @param output    a buffer of text/html that has a well-formed HTML prefix that
-   *                  would leave an HTML parser in the Data state if it were to encounter a space
-   *                  character as the next character.  In practice this means that the buffer
-   *                  does not contain partial tags or comments, and does not have an unclosed
-   *                  element with a special content model.
+   * @param output a buffer of text/html that has a well-formed HTML prefix that
+   *     would leave an HTML parser in the Data state if it were to encounter a space
+   *     character as the next character.  In practice this means that the buffer
+   *     does not contain partial tags or comments, and does not have an unclosed
+   *     element with a special content model.
    */
   static void encodePcdataOnto(String plainText, Appendable output)
       throws IOException {
@@ -230,11 +228,11 @@ public final class Encoding {
    * {@code <title>} element outside foreign content.
    *
    * @param plainText text/plain
-   * @param output    a buffer of text/html that has a well-formed HTML prefix that
-   *                  would leave an HTML parser in the Data state if it were to encounter a space
-   *                  character as the next character.  In practice this means that the buffer
-   *                  does not contain partial tags or comments, and the most recently opened
-   *                  element is `<textarea>` or `<title>` and that element is still open.
+   * @param output a buffer of text/html that has a well-formed HTML prefix that
+   *     would leave an HTML parser in the Data state if it were to encounter a space
+   *     character as the next character.  In practice this means that the buffer
+   *     does not contain partial tags or comments, and the most recently opened
+   *     element is `<textarea>` or `<title>` and that element is still open.
    */
   public static void encodeRcdataOnto(String plainText, Appendable output)
       throws IOException {
@@ -256,9 +254,8 @@ public final class Encoding {
    */
   @TCB
   private static void encodeHtmlOnto(
-      String plainText, Appendable output, @Nullable String braceReplacement
-  )
-      throws IOException {
+      String plainText, Appendable output, @Nullable String braceReplacement)
+          throws IOException {
     int n = plainText.length();
     int pos = 0;
     for (int i = 0; i < n; ++i) {
@@ -367,17 +364,16 @@ public final class Encoding {
       }
     }
     // "&#34;" is shorter than "&quot;"
-    REPLACEMENTS['"'] = "&#" + ((int) '"') + ";";  // Attribute delimiter.
-    REPLACEMENTS['&'] = "&amp;";                    // HTML special.
+    REPLACEMENTS['"']  = "&#" + ((int) '"')  + ";";  // Attribute delimiter.
+    REPLACEMENTS['&']  = "&amp;";                    // HTML special.
     // We don't use &apos; since that is not in the intersection of HTML&XML.
     REPLACEMENTS['\''] = "&#" + ((int) '\'') + ";";  // Attribute delimiter.
-    REPLACEMENTS['+'] = "&#" + ((int) '+') + ";";  // UTF-7 special.
-    REPLACEMENTS['<'] = "&lt;";                     // HTML special.
-    REPLACEMENTS['='] = "&#" + ((int) '=') + ";";  // Special in attributes.
-    REPLACEMENTS['>'] = "&gt;";                     // HTML special.
-    REPLACEMENTS['@'] = "&#" + ((int) '@') + ";";  // Conditional compilation.
-    REPLACEMENTS['`'] = "&#" + ((int) '`') + ";";  // Attribute delimiter.
-    REPLACEMENTS['\u007f'] = ""; // Elide DELETE
+    REPLACEMENTS['+']  = "&#" + ((int) '+')  + ";";  // UTF-7 special.
+    REPLACEMENTS['<']  = "&lt;";                     // HTML special.
+    REPLACEMENTS['=']  = "&#" + ((int) '=')  + ";";  // Special in attributes.
+    REPLACEMENTS['>']  = "&gt;";                     // HTML special.
+    REPLACEMENTS['@']  = "&#" + ((int) '@')  + ";";  // Conditional compilation.
+    REPLACEMENTS['`']  = "&#" + ((int) '`')  + ";";  // Attribute delimiter.
   }
 
   /**
