@@ -88,7 +88,7 @@ application while protecting against XSS.
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <guava.version>27.1-jre</guava.version>
+    <guava.version>30.1-jre</guava.version>
   </properties>
 
   <build>
