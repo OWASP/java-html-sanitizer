@@ -29,8 +29,6 @@
 package org.owasp.html;
 
 import java.io.IOException;
-import java.text.Normalizer;
-import java.text.Normalizer.Form;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
