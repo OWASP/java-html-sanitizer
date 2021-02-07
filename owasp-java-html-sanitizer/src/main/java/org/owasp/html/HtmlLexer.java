@@ -552,7 +552,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
             break;
           }
         }
-      } else if (!Character.isWhitespace(ch)) {
+      } else if (!Strings.isHtmlSpace(ch)) {
         type = HtmlTokenType.TEXT;
         for (; end < limit; ++end) {
           ch = input.charAt(end);
@@ -563,12 +563,12 @@ final class HtmlInputSplitter extends AbstractTokenStream {
               && '>' == input.charAt(end + 1)) {
             break;
           } else if ('>' == ch || '=' == ch
-                     || Character.isWhitespace(ch)) {
+                     || Strings.isHtmlSpace(ch)) {
             break;
           } else if ('"' == ch || '\'' == ch) {
             if (end + 1 < limit) {
               char ch2 = input.charAt(end + 1);
-              if (Character.isWhitespace(ch2)
+              if (Strings.isHtmlSpace(ch2)
                   || ch2 == '>' || ch2 == '/') {
                 ++end;
                 break;
@@ -579,7 +579,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
       } else {
         // We skip whitespace tokens inside tag bodies.
         type = HtmlTokenType.IGNORABLE;
-        while (end < limit && Character.isWhitespace(input.charAt(end))) {
+        while (end < limit && Strings.isHtmlSpace(input.charAt(end))) {
           ++end;
         }
       }
@@ -629,7 +629,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
               ch = input.charAt(end);
               switch (state) {
                 case TAGNAME:
-                  if (Character.isWhitespace(ch)
+                  if (Strings.isHtmlSpace(ch)
                       || '>' == ch || '/' == ch || '<' == ch) {
                     // End processing of an escape exempt block when we see
                     // a corresponding end tag.

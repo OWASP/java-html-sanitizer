@@ -27,6 +27,10 @@
 
 package org.owasp.html;
 
+import java.io.IOException;
+import java.text.Normalizer;
+import java.text.Normalizer.Form;
+
 import org.junit.Test;
 
 import junit.framework.TestCase;
@@ -144,6 +148,18 @@ public final class EncodingTest extends TestCase {
         "?foo&para=bar",
         "?foo&para=bar"
     );
+
+    // Banned code units are stripped after character references are decoded,
+    // so a banned code unit cannot split text that would otherwise be a
+    // character reference into one.
+    assertDecodedHtml("lt<", "lt&lt;");
+    assertDecodedHtml("ltlt;", "ltlt;");
+    assertDecodedHtml("lt&lt;", "lt&&#108;t;");
+    assertDecodedHtml("lt&<", "lt&&lt;");
+
+    assertDecodedHtml("lt&&lt;gt", "\ufdddlt&&l\ufffet;\udc9c\ud835gt");
+    assertDecodedHtml("lt&<", "lt&&lt;\udc9c");
+    assertDecodedHtml("lt&<", "lt&&lt;\ud835");
   }
 
   @Test
@@ -151,9 +167,10 @@ public final class EncodingTest extends TestCase {
       throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
+    // Test with a set of legal code points
     for (int codepoint : new int[] {
-        0, 9, '\n', '@', 0x80, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xffff,
-        0x10000, Character.MAX_CODE_POINT }) {
+        9, '\n', '@', 0xa0, 0xff, 0x100, 0xfff, 0x1000, 0x123a, 0xfffd,
+        0x10000, Character.MAX_CODE_POINT-2 }) {
       Encoding.appendNumericEntity(codepoint, sb);
       sb.append(' ');
 
@@ -161,18 +178,43 @@ public final class EncodingTest extends TestCase {
     }
 
     assertEquals(
-         "&#0; &#9; &#10; &#64; &#x80; &#xff; &#x100; &#xfff; &#x1000; "
-         + "&#x123a; &#xffff; &#x10000; &#x10ffff; ",
+         "&#9; &#10; &#64; &#xa0; &#xff; &#x100; &#xfff; &#x1000; "
+         + "&#x123a; &#xfffd; &#x10000; &#x10fffd; ",
          sb.toString());
 
     StringBuilder out = new StringBuilder();
     Encoding.encodeHtmlAttribOnto(cps.toString(), out);
     assertEquals(
-        " \t \n &#64; \u0080 \u00ff \u0100 \u0fff \u1000 "
-        + "\u123a  &#x10000; &#x10ffff; ",
+        "\t \n &#64; \u00a0 \u00ff \u0100 \u0fff \u1000 "
+        + "\u123a \ufffd &#x10000; &#x10fffd; ",
         out.toString());
   }
 
+  @Test
+  public static final void testAppendIllegalNumericEntityAndEncodeOnto()
+      throws Exception {
+    StringBuilder sb = new StringBuilder();
+    StringBuilder cps = new StringBuilder();
+    // Test with a set of legal code points
+    for (int codepoint : new int[] { 8, '\r', 0x7f, 0x85, 0xfdd0, 0xfffe, 0x1fffe, 0x3ffff }) {
+      try {
+        Encoding.appendNumericEntity(codepoint, sb);
+        fail("Illegal character was accepted: "+codepoint);
+      } catch ( IllegalArgumentException e ) {
+        // expected behaviour
+      }
+
+      cps.appendCodePoint(codepoint).append(',');
+    }
+
+    assertEquals("", sb.toString());
+
+    StringBuilder out = new StringBuilder();
+    Encoding.encodeHtmlAttribOnto(cps.toString(), out);
+    assertEquals(
+        ",\n,,,,,,,",
+        out.toString());
+  }
   @Test
   public static final void testAngularJsBracesInTextNode() throws Exception {
     StringBuilder sb = new StringBuilder();
@@ -213,8 +255,20 @@ public final class EncodingTest extends TestCase {
     assertStripped("foo\ud800\udc00bar", "foo\udc00\ud800\udc00bar");
     assertStripped("foo\ud834\udd1ebar", "foo\ud834\udd1ebar");
     assertStripped("foo\ud834\udd1e", "foo\ud834\udd1e");
-    assertStripped("\uffef\ufffd", "\uffef\ufffd\ufffe\uffff");
+
+    // Check stripping of non-characters from all planes
+    for(int i=0;i<=16;i++) {
+      int o = 0x10000 * i;
+      String s = new StringBuilder().append(String.format("%02x",i)).appendCodePoint(o+0xffef).appendCodePoint(o+0xfffd)
+          .appendCodePoint(o+0xfffe).appendCodePoint(o+0xffff).toString();
+      String t = s.substring(0,(i==0)?4:6);
+      assertStripped(t,s);
+
+      s = new StringBuilder().append("foo").appendCodePoint(o+0xfffe).appendCodePoint(o+0xffff).append("bar").toString();
+      assertStripped("foobar",s);
+    }
   }
+
 
   @Test
   public static final
@@ -241,5 +295,67 @@ public final class EncodingTest extends TestCase {
     StringBuilder attrib = new StringBuilder();
     Encoding.encodeHtmlAttribOnto("a nonce=xyz ", attrib);
     assertEquals("a nonce&#61;xyz ", attrib.toString());
+  }
+
+  @Test
+  public static final void testRiskyNormalizationSetContents() {
+    // Test that the risky normalization set contains the expected values
+    for(char toTest='\u0080'; toTest<'\ufffe'; toTest++) {
+      boolean isRisky = false;
+      String decomposed = Normalizer.normalize(Character.toString(toTest), Form.NFKD);
+      for(int i=0;i<decomposed.length();i++) {
+        char ch = decomposed.charAt(i);
+        if( (' '<ch && ch<'0') || ('9'<ch && ch<'A') || ('Z'<ch && ch<'a') || ('z'<ch && ch<'\u007f') ) {
+          // Contains a non-alpha-numeric ASCII printable character, so we consider it a risky decomposition.
+          isRisky = true;
+          break;
+        }
+      }
+
+      if( isRisky ) {
+        assertTrue(Encoding.RISKY_NORMALIZATION.contains(toTest));
+      } else {
+        assertFalse(Encoding.RISKY_NORMALIZATION.contains(toTest));
+      }
+    }
+  }
+
+
+  @Test
+  public static final void testRiskyNormalization() throws IOException {
+    StringBuilder attrib = new StringBuilder();
+    Encoding.encodeRcdataOnto("Small Less-than Sign : \ufe64",attrib);
+    assertEquals("Small Less-than Sign : &#xfe64;",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("Fullwidth Quotation Mark : \uff02",attrib);
+    assertEquals("Fullwidth Quotation Mark : &#xff02;",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("Greek Varia : \u1fef",attrib);
+    assertEquals("Greek Varia : &#x1fef;",attrib.toString());
+  }
+
+  @Test
+  public static final void testNewLineNormalization() throws IOException {
+    StringBuilder attrib = new StringBuilder();
+    Encoding.encodeRcdataOnto("\rone\ntwo\r",attrib);
+    assertEquals("\none\ntwo\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\none\rtwo\n",attrib);
+    assertEquals("\none\ntwo\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\r\none\r\ntwo\r\n",attrib);
+    assertEquals("\none\ntwo\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\n\rone\n\rtwo\n\r",attrib);
+    assertEquals("\n\none\n\ntwo\n\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\r\rone\n\ntwo\r\r",attrib);
+    assertEquals("\n\none\n\ntwo\n\n",attrib.toString());
   }
 }
