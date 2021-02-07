@@ -374,6 +374,7 @@ public final class Encoding {
     REPLACEMENTS['>']  = "&gt;";                     // HTML special.
     REPLACEMENTS['@']  = "&#" + ((int) '@')  + ";";  // Conditional compilation.
     REPLACEMENTS['`']  = "&#" + ((int) '`')  + ";";  // Attribute delimiter.
+    REPLACEMENTS['\u007f']  = "";                    // Elide delete
   }
 
   /**
