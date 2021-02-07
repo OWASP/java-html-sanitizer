@@ -29,6 +29,8 @@
 package org.owasp.html;
 
 import java.io.IOException;
+import java.text.Normalizer;
+import java.text.Normalizer.Form;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -122,7 +124,7 @@ public final class Encoding {
             }
           }
           continue;
-        } else if ((ch & 0xfffe) == 0xfffe) {
+        } else if ((ch & 0xfffe) == 0xfffe || (0xfdd0 <= ch && ch <= 0xfdef)) {
           continue;
         }
       }
@@ -287,48 +289,35 @@ public final class Encoding {
           output.append(plainText, pos, i).append(repl);
           pos = i + 1;
         }
+      } else if (RISKY_NORMALIZATION.contains(ch)) {
+        // Application of unicode compatibility normalization produces a risky character.
+        output.append(plainText, pos, i);
+        pos = i + 1;
+        appendNumericEntity(ch,output);
       } else if ((ch <= 0x9f) || (0xfdd0 <= ch && ch <= 0xfdef) || ((ch & 0xfffe) == 0xfffe)) {
         // Elide C1 escapes and BMP non-characters.
         output.append(plainText, pos, i);
         pos = i + 1;
-      } else if (((char) 0xd800) <= ch) {
-        if (ch <= ((char) 0xdfff)) {
-          char next;
-          if (i + 1 < n
-              && Character.isSurrogatePair(
-              ch, next = plainText.charAt(i + 1))) {
-            // Emit supplemental codepoints as entity so that they cannot
-            // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
-            // and get involved in UTF-16/UCS-2 confusion.
-            int codepoint = Character.toCodePoint(ch, next);
-            output.append(plainText, pos, i);
-            // do not append 0xfffe and 0xffff from any plane
-            if( (codepoint & 0xfffe) != 0xfffe ) {
-              appendNumericEntity(codepoint, output);
-            }
-            ++i;
-            pos = i + 1;
-          } else {
-            output.append(plainText, pos, i);
-            // Elide the orphaned surrogate.
-            pos = i + 1;
-          }
-        } else if ((0xfe50 <= ch && ch<=0xfe6f) || (0xff01 <= ch && ch <= 0xff5e)) {
-          // The Unicode block U+FE50 to U+FE6F contains the "small form variants" of '<', '>', '&', ';', '=', '#' and others.
-          // To prevent these characters being interpreted as their normal forms, we encode the entire block as numeric escapes.
-          //
-          // The Unicode range U+FF01 to U+FF5E is the part of the "Halfwidth and Fullwidth forms" which contains the fullwidth version
-          // of every ASCII character from '!' to '~'. To prevent these characters being interpreted as their normal forms, we encode this
-          // part of the block as numeric escapes.
+      } else if (0xd800 <= ch && ch <= 0xdfff) {
+        // handle surrogates
+        char next;
+        if (i + 1 < n && Character.isSurrogatePair(ch, next = plainText.charAt(i + 1))) {
+          // Emit supplemental codepoints as entity so that they cannot
+          // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
+          // and get involved in UTF-16/UCS-2 confusion.
+          int codepoint = Character.toCodePoint(ch, next);
           output.append(plainText, pos, i);
+          // do not append 0xfffe and 0xffff from any plane
+          if( (codepoint & 0xfffe) != 0xfffe ) {
+            appendNumericEntity(codepoint, output);
+          }
+          ++i;
           pos = i + 1;
-          appendNumericEntity(ch, output);
+        } else {
+          output.append(plainText, pos, i);
+          // Elide the orphaned surrogate.
+          pos = i + 1;
         }
-      } else if (BAD_NORMALIZATION.contains(Character.valueOf(ch))) {
-        // Application of a unicode normalization produces a risky character
-        output.append(plainText, pos, i);
-        pos = i + 1;
-        appendNumericEntity(ch,output);
       }
     }
     output.append(plainText, pos, n);
@@ -397,56 +386,34 @@ public final class Encoding {
    * IS_BANNED_ASCII[i] where is an ASCII control character codepoint (&lt; 0x20)
    * is true for control characters that are not allowed in an XML source text.
    */
-  private static boolean[] IS_BANNED_ASCII = new boolean[0x20];
+  private static final boolean[] IS_BANNED_ASCII = new boolean[0x20];
   static {
     for (int i = 0; i < IS_BANNED_ASCII.length; ++i) {
       IS_BANNED_ASCII[i] = !(i == '\t' || i == '\n' || i == '\r');
     }
   }
 
-  /** Set of all Unicode characters which when normalized may contain one of the ASCII characters that require a numeric escape. */
-  private static Set<Character> BAD_NORMALIZATION;
+  /** Set of all Unicode characters which when processed with unicode compatibility decomposition will include a non-alphanumeric ascii character. */
+  static final Set<Character> RISKY_NORMALIZATION;
   static {
-    // This list was produced by attempting all forms of normalization on all Unicode code points and identifying those whose normalized form contains one of
-    // these nine characters: '"', ''', '`', '&', '<', '>', '+', '=', ';', '/'.
     HashSet<Character> set = new HashSet<Character>();
-    set.add('\u037e'); // GREEK QUESTION MARK normalizes to ';'
-    set.add('\u1fef'); // GREEK VARIA normalizes to '`'
-    set.add('\u207a'); // SUPERSCRIPT PLUS SIGN normalizes to '+'
-    set.add('\u207c'); // SUPERSCRIPT EQUALS SIGN normalizes to '='
-    set.add('\u208a'); // SUBSCRIPT PLUS SIGN normalizes to '+'
-    set.add('\u208c'); // SUBSCRIPT EQUALS SIGN normalizes to '='
-    set.add('\u2100'); // ACCOUNT OF normalizes to '/'
-    set.add('\u2101'); // ADDRESSED TO THE SUBJECT normalizes to '/'
-    set.add('\u2105'); // CARE OF normalizes to '/'
-    set.add('\u2106'); // CADA UNA normalizes to '/'
-    set.add('\u2260'); // NOT EQUAL TO normalizes to '='
-    set.add('\u226e'); // NOT LESS-THAN normalizes to '<'
-    set.add('\u226f'); // NOT GREATER-THAN normalizes to '>'
-    set.add('\u2a74'); // DOUBLE COLON EQUAL normalizes to '='
-    set.add('\u2a75'); // TWO CONSECUTIVE EQUALS SIGNS normalizes to '='
-    set.add('\u2a76'); // THREE CONSECUTIVE EQUALS SIGNS normalizes to '='
-    set.add('\ufb29'); // HEBREW LETTER ALTERNATIVE PLUS SIGN normalizes to '+'
-    set.add('\ufe14'); // PRESENTATION FORM FOR VERTICAL SEMICOLON normalizes to ';'
-    set.add('\ufe54'); // SMALL SEMICOLON normalizes to ';'
-    set.add('\ufe5f'); // SMALL NUMBER SIGN normalizes to '#'
-    set.add('\ufe60'); // SMALL AMPERSAND normalizes to '&'
-    set.add('\ufe62'); // SMALL PLUS SIGN normalizes to '+'
-    set.add('\ufe64'); // SMALL LESS-THAN SIGN normalizes to '<'
-    set.add('\ufe65'); // SMALL GREATER-THAN SIGN normalizes to '>'
-    set.add('\ufe66'); // SMALL EQUALS SIGN normalizes to '='
-    set.add('\uff02'); // FULLWIDTH QUOTATION MARK normalizes to '"'
-    set.add('\uff03'); // FULLWIDTH NUMBER SIGN normalizes to '#'
-    set.add('\uff06'); // FULLWIDTH AMPERSAND normalizes to '&'
-    set.add('\uff07'); // FULLWIDTH APOSTROPHE normalizes to '''
-    set.add('\uff0b'); // FULLWIDTH PLUS SIGN normalizes to '+'
-    set.add('\uff0f'); // FULLWIDTH SOLIDUS normalizes to '/'
-    set.add('\uff1b'); // FULLWIDTH SEMICOLON normalizes to ';'
-    set.add('\uff1c'); // FULLWIDTH LESS-THAN SIGN normalizes to '<'
-    set.add('\uff1d'); // FULLWIDTH EQUALS SIGN normalizes to '='
-    set.add('\uff1e'); // FULLWIDTH GREATER-THAN SIGN normalizes to '>'
-    set.add('\uff40'); // FULLWIDTH GRAVE ACCENT normalizes to '`'
 
-    BAD_NORMALIZATION = Collections.unmodifiableSet(set);
+    // These characters all decompose riskily
+    String singles = "\u037e\u1fef\u203c\u207a\u208a\u2100\u2101\u2105\u2106\u2260\u226e\u226f\u33c2\u33c7\u33d8\ufb29\ufe10\ufe19\ufe30\ufe47\ufe48\ufe52";
+    for(char ch : singles.toCharArray()) {
+      set.add(ch);
+    }
+
+    // This string is composed of pairs of characters defining inclusive start and end ranges.
+    String pairs =
+              "\u2024\u2026\u2047\u2049\u207c\u207e\u208c\u208e\u2474\u24b5\u2a74\u2a76\u3200\u321e\u3220\u3243\ufe13\ufe16\ufe33"
+            + "\ufe38\ufe4d\ufe50\ufe54\ufe57\ufe59\ufe5c\ufe5f\ufe66\ufe68\ufe6b\uff01\uff0f\uff1a\uff20\uff3b\uff40\uff5b\uff5e";
+    for(int i=0;i<pairs.length();i+=2) {
+      for(char ch=pairs.charAt(i);ch<=pairs.charAt(i+1);ch++) {
+        set.add(ch);
+      }
+    }
+
+    RISKY_NORMALIZATION = Collections.unmodifiableSet(set);
   }
 }

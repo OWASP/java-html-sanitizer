@@ -28,6 +28,11 @@
 
 package org.owasp.html;
 
+import java.io.IOException;
+import java.text.Normalizer;
+import java.text.Normalizer.Form;
+import java.util.HashSet;
+
 import org.junit.Test;
 
 import junit.framework.TestCase;
@@ -207,6 +212,29 @@ public final class EncodingTest extends TestCase {
     assertEquals(
         "&bogus;",
         Encoding.decodeHtml("&bogus;"));
+
+    assertEquals(
+        "lt<",
+        Encoding.decodeHtml("lt&lt;"));
+    assertEquals(
+        "ltlt;",
+        Encoding.decodeHtml("ltlt;"));
+    assertEquals(
+        "lt&lt;",
+        Encoding.decodeHtml("lt&&#108;t;"));
+    assertEquals(
+        "lt&<",
+        Encoding.decodeHtml("lt&&lt;"));
+
+    assertEquals(
+        "lt&&lt;gt",
+        Encoding.decodeHtml("\ufdddlt&&l\ufffet;\udc9c\ud835gt"));
+    assertEquals(
+        "lt&<",
+        Encoding.decodeHtml("lt&&lt;\udc9c"));
+    assertEquals(
+        "lt&<",
+        Encoding.decodeHtml("lt&&lt;\ud835"));
   }
 
   @Test
@@ -344,4 +372,65 @@ public final class EncodingTest extends TestCase {
     assertEquals("a nonce&#61;xyz ", attrib.toString());
   }
 
+  @Test
+  public static final void testRiskyNormalizationSetContents() {
+    // Test that the risky normalization set contains the expected values
+    for(char toTest='\u0080'; toTest<'\ufffe'; toTest++) {
+      boolean isRisky = false;
+      String decomposed = Normalizer.normalize(Character.toString(toTest), Form.NFKD);
+      for(int i=0;i<decomposed.length();i++) {
+        char ch = decomposed.charAt(i);
+        if( (' '<ch && ch<'0') || ('9'<ch && ch<'A') || ('Z'<ch && ch<'a') || ('z'<ch && ch<'\u007f') ) {
+          // Contains a non-alpha-numeric ASCII printable character, so we consider it a risky decomposition.
+          isRisky = true;
+          break;
+        }
+      }
+
+      if( isRisky ) {
+        assertTrue(Encoding.RISKY_NORMALIZATION.contains(toTest));
+      } else {
+        assertFalse(Encoding.RISKY_NORMALIZATION.contains(toTest));
+      }
+    }
+  }
+
+
+  @Test
+  public static final void testRiskyNormalization() throws IOException {
+    StringBuilder attrib = new StringBuilder();
+    Encoding.encodeRcdataOnto("Small Less-than Sign : \ufe64",attrib);
+    assertEquals("Small Less-than Sign : &#xfe64;",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("Fullwidth Quotation Mark : \uff02",attrib);
+    assertEquals("Fullwidth Quotation Mark : &#xff02;",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("Greek Varia : \u1fef",attrib);
+    assertEquals("Greek Varia : &#x1fef;",attrib.toString());
+  }
+
+  @Test
+  public static final void testNewLineNormalization() throws IOException {
+    StringBuilder attrib = new StringBuilder();
+    Encoding.encodeRcdataOnto("\rone\ntwo\r",attrib);
+    assertEquals("\none\ntwo\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\none\rtwo\n",attrib);
+    assertEquals("\none\ntwo\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\r\none\r\ntwo\r\n",attrib);
+    assertEquals("\none\ntwo\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\n\rone\n\rtwo\n\r",attrib);
+    assertEquals("\n\none\n\ntwo\n\n",attrib.toString());
+
+    attrib.setLength(0);
+    Encoding.encodeRcdataOnto("\r\rone\n\ntwo\r\r",attrib);
+    assertEquals("\n\none\n\ntwo\n\n",attrib.toString());
+  }
 }
