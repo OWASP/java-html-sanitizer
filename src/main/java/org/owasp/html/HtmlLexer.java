@@ -527,7 +527,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
             break;
           }
         }
-      } else if (!Character.isWhitespace(ch)) {
+      } else if (!isAsciiWhitespace(ch)) {
         type = HtmlTokenType.TEXT;
         for (; end < limit; ++end) {
           ch = input.charAt(end);
@@ -538,12 +538,12 @@ final class HtmlInputSplitter extends AbstractTokenStream {
               && '>' == input.charAt(end + 1)) {
             break;
           } else if ('>' == ch || '=' == ch
-                     || Character.isWhitespace(ch)) {
+                     || isAsciiWhitespace(ch)) {
             break;
           } else if ('"' == ch || '\'' == ch) {
             if (end + 1 < limit) {
               char ch2 = input.charAt(end + 1);
-              if (Character.isWhitespace(ch2)
+              if (isAsciiWhitespace(ch2)
                   || ch2 == '>' || ch2 == '/') {
                 ++end;
                 break;
@@ -554,7 +554,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
       } else {
         // We skip whitespace tokens inside tag bodies.
         type = HtmlTokenType.IGNORABLE;
-        while (end < limit && Character.isWhitespace(input.charAt(end))) {
+        while (end < limit && isAsciiWhitespace(input.charAt(end))) {
           ++end;
         }
       }
@@ -604,7 +604,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
               ch = input.charAt(end);
               switch (state) {
                 case TAGNAME:
-                  if (Character.isWhitespace(ch)
+                  if (isAsciiWhitespace(ch)
                       || '>' == ch || '/' == ch || '<' == ch) {
                     // End processing of an escape exempt block when we see
                     // a corresponding end tag.
@@ -747,6 +747,17 @@ final class HtmlInputSplitter extends AbstractTokenStream {
 
   private String canonicalElementName(int start, int end) {
     return HtmlLexer.canonicalElementName(input.substring(start, end));
+  }
+
+  /**
+   * Test if a character is an ASCII whitespace according to the HTML rules. Other Unicode whitespace characters do not count.
+   *
+   * @param ch the character to test
+   *
+   * @return true if it is one of TAB, LF, FF, CR or SPACE
+   */
+  private static boolean isAsciiWhitespace(int ch) {
+    return (ch == ' ') || (ch == '\t') || (ch == '\n') || (ch == '\r') || (ch == '\f');
   }
 
   private static boolean isIdentStart(char ch) {

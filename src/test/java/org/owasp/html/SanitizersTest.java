@@ -313,7 +313,10 @@ public class SanitizersTest extends TestCase {
       .and(Sanitizers.STYLES)
       .and(Sanitizers.IMAGES)
       .and(Sanitizers.TABLES);
-    assertEquals("<table></table>Hallo\r\n\nEnde\n\r", pf.sanitize(input));
+    // The CRLF after "Hallo" becomes LF
+    // The LF before "Ende" becomes LF
+    // The LF CR after "Ende" becomes LF LF
+    assertEquals("<table></table>Hallo\n\nEnde\n\n", pf.sanitize(input));
   }
 
   @Test

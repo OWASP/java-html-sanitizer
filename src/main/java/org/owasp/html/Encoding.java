@@ -29,7 +29,9 @@
 package org.owasp.html;
 
 import java.io.IOException;
-
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Encoders and decoders for HTML. */
@@ -94,6 +96,7 @@ public final class Encoding {
     stripBannedCodeunits(sb, 0);
   }
 
+
   @TCB
   private static void stripBannedCodeunits(StringBuilder sb, int start) {
     int k = start;
@@ -108,13 +111,16 @@ public final class Encoding {
           if (i+1 < n) {
             char next = sb.charAt(i+1);
             if (Character.isSurrogatePair(ch, next)) {
-              sb.setCharAt(k++, ch);
-              sb.setCharAt(k++, next);
+              // The last two code points in each plane are non-characters that should be elided.
+              if ((ch & 0xfc3f) != 0xd83f || (next & 0xfffe) != 0xdffe) {
+                sb.setCharAt(k++, ch);
+                sb.setCharAt(k++, next);
+              }
               ++i;
             }
           }
           continue;
-        } else if ((ch & 0xfffe) == 0xfffe) {
+        } else if ((ch & 0xfffe) == 0xfffe || (0xfdd0 <= ch && ch <= 0xfdef)) {
           continue;
         }
       }
@@ -139,19 +145,34 @@ public final class Encoding {
         }
       } else if (0xd800 <= ch) {
         if (ch <= 0xdfff) {
-          if (i+1 < n && Character.isSurrogatePair(ch, s.charAt(i+1))) {
-            ++i;  // Skip over low surrogate since we know it's ok.
+          if (i + 1 < n ) {
+            // could be a surrogate pair
+            char cn = s.charAt(i+1);
+            if( Character.isSurrogatePair(ch,cn) ) {
+              int cp = Character.toCodePoint(ch, cn);
+              // Could be a non-character
+              if ((cp & 0xfffe) == 0xfffe) {
+                // not valid
+                return i;
+              }
+
+              // skip over trailing surrogate since we know it is OK
+              i++;
+            } else {
+              // not a surrogate pair
+              return i;
+            }
           } else {
+            // isolated surrogate at end of string
             return i;
           }
-        } else if ((ch & 0xfffe) == 0xfffe) {
+        } else if ((ch & 0xfffe) == 0xfffe || (0xfdd0 <= ch && ch <= 0xfdef)) {
           return i;
         }
       }
     }
     return -1;
   }
-
   /**
    * Appends an encoded form of plainText to output where the encoding is
    * sufficient to prevent an HTML parser from interpreting any characters in
@@ -195,6 +216,7 @@ public final class Encoding {
     // executing expressions in sanitized text.
     encodeHtmlOnto(plainText, output, "{<!-- -->");
   }
+
 
   /**
    * Appends an encoded form of plainText to putput where the encoding is
@@ -240,126 +262,93 @@ public final class Encoding {
       char ch = plainText.charAt(i);
       if (ch < REPLACEMENTS.length) {  // Handles all ASCII.
         String repl = REPLACEMENTS[ch];
-        if (ch == '{' && repl == null) {
-          if (i + 1 == n || plainText.charAt(i + 1) == '{') {
-            repl = braceReplacement;
+        if( repl==null ) {
+          if (ch == '{') {
+            if (i + 1 == n || plainText.charAt(i + 1) == '{') {
+              // "{{" detected, so use the brace replacement
+              repl = braceReplacement;
+            }
+          }
+          if (ch == '\r') {
+            // If this CR is followed by a LF, just remove it. Otherwise replace it with a LF.
+            if (i + 1 == n || plainText.charAt(i + 1) != '\n' ) {
+              // CR not followed by LF, so turn into LF
+              repl = "\n";
+            } else {
+              // CRLF, so remove CR
+              repl = "";
+            }
           }
         }
         if (repl != null) {
           output.append(plainText, pos, i).append(repl);
           pos = i + 1;
         }
-      } else if ((0x93A <= ch && ch <= 0xC4C)
-          && (
-              // Devanagari vowel
-              ch <= 0x94F
-              // Benagli vowels
-              || 0x985 <= ch && ch <= 0x994
-              || 0x9BE <= ch && ch < 0x9CC  // 0x9CC (Bengali AU) is ok
-              || 0x9E0 <= ch && ch <= 0x9E3
-              // Telugu vowels
-              || 0xC05 <= ch && ch <= 0xC14
-              || 0xC3E <= ch && ch != 0xC48 /* 0xC48 (Telugu AI) is ok */)) {
-        // https://manishearth.github.io/blog/2018/02/15/picking-apart-the-crashing-ios-string/
-        // > So, ultimately, the full set of cases that cause the crash are:
-        // >   Any sequence <consonant1, virama, consonant2, ZWNJ, vowel>
-        // > in Devanagari, Bengali, and Telugu, where: ...
-
-        // TODO: This is needed as of February 2018, but hopefully not long after that.
-        // We eliminate the ZWNJ which seems the minimally damaging thing to do to
-        // Telugu rendering per the article above:
-        // > a ZWNJ before a vowel doesn’t really do anything for most Indic scripts.
-
-        if (pos < i) {
-          if (plainText.charAt(i - 1) == 0x200C /* ZWNJ */) {
-            output.append(plainText, pos, i - 1);
-            // Drop the ZWNJ on the floor.
-            pos = i;
-          }
-        } else if (output instanceof StringBuilder) {
-          StringBuilder sb = (StringBuilder) output;
-          int len = sb.length();
-          if (len != 0) {
-            if (sb.charAt(len - 1) == 0x200C /* ZWNJ */) {
-              sb.setLength(len - 1);
-            }
-          }
-        }
-      } else if (((char) 0xd800) <= ch) {
-        if (ch <= ((char) 0xdfff)) {
-          char next;
-          if (i + 1 < n
-              && Character.isSurrogatePair(
-                  ch, next = plainText.charAt(i + 1))) {
-            // Emit supplemental codepoints as entity so that they cannot
-            // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
-            // and get involved in UTF-16/UCS-2 confusion.
-            int codepoint = Character.toCodePoint(ch, next);
-            output.append(plainText, pos, i);
-            appendNumericEntity(codepoint, output);
-            ++i;
-            pos = i + 1;
-          } else {
-            output.append(plainText, pos, i);
-            // Elide the orphaned surrogate.
-            pos = i + 1;
-          }
-        } else if (0xfe60 <= ch) {
-          // Is a control character or possible full-width version of a
-          // special character, a BOM, or one of the FE60 block that might
-          // be elided or normalized to an HTML special character.
-          // Running
-          //   cat NormalizationText.txt \
-          //     | perl -pe 's/ ?#.*//' \
-          //     | egrep '(;003C(;|$)|003E|0026|0022|0027|0060)'
-          // dumps a list of code-points that can normalize to HTML special
-          // characters.
-          output.append(plainText, pos, i);
-          pos = i + 1;
-          if ((ch & 0xfffe) == 0xfffe) {
-            // Elide since not an the XML Character.
-          } else {
-            appendNumericEntity(ch, output);
-          }
-        }
-      } else if (ch == '\u1FEF') {  // Normalizes to backtick.
-        output.append(plainText, pos, i).append("&#8175;");
+      } else if (RISKY_NORMALIZATION.contains(ch)) {
+        // Application of unicode compatibility normalization produces a risky character.
+        output.append(plainText, pos, i);
         pos = i + 1;
+        appendNumericEntity(ch,output);
+      } else if ((ch <= 0x9f) || (0xfdd0 <= ch && ch <= 0xfdef) || ((ch & 0xfffe) == 0xfffe)) {
+        // Elide C1 escapes and BMP non-characters.
+        output.append(plainText, pos, i);
+        pos = i + 1;
+      } else if (0xd800 <= ch && ch <= 0xdfff) {
+        // handle surrogates
+        char next;
+        if (i + 1 < n && Character.isSurrogatePair(ch, next = plainText.charAt(i + 1))) {
+          // Emit supplemental codepoints as entity so that they cannot
+          // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
+          // and get involved in UTF-16/UCS-2 confusion.
+          int codepoint = Character.toCodePoint(ch, next);
+          output.append(plainText, pos, i);
+          // do not append 0xfffe and 0xffff from any plane
+          if( (codepoint & 0xfffe) != 0xfffe ) {
+            appendNumericEntity(codepoint, output);
+          }
+          ++i;
+          pos = i + 1;
+        } else {
+          output.append(plainText, pos, i);
+          // Elide the orphaned surrogate.
+          pos = i + 1;
+        }
       }
     }
     output.append(plainText, pos, n);
   }
 
+
+  /**
+   * Append a codepoint to the output as a numeric entity.
+   *
+   * @param codepoint the codepoint
+   * @param output    the output
+   *
+   * @throws IOException              if the output cannot be written to
+   * @throws IllegalArgumentException if the codepoint cannot be represented as a numeric escape.
+   */
   @TCB
   static void appendNumericEntity(int codepoint, Appendable output)
       throws IOException {
+    if (((codepoint <= 0x1f) && (codepoint != 9 && codepoint != 0xa)) || (0x7f <= codepoint && codepoint <= 0x9f)) {
+      throw new IllegalArgumentException("Illegal numeric escape. Cannot represent control code: " + codepoint);
+    }
+    if ((0xfdd0 <= codepoint && codepoint <= 0xfdef) || ((codepoint & 0xfffe) == 0xfffe)) {
+      throw new IllegalArgumentException("Illegal numeric escape. Cannot represent non-character: " + codepoint);
+    }
+
     output.append("&#");
     if (codepoint < 100) {
-      // TODO: is this dead code due to REPLACEMENTS above.
-      if (codepoint < 10) {
-        output.append((char) ('0' + codepoint));
-      } else {
-        output.append((char) ('0' + (codepoint / 10)));
-        output.append((char) ('0' + (codepoint % 10)));
-      }
+      // Below 100, a decimal representation is shortest
+      output.append(Integer.toString(codepoint));
     } else {
-      int nDigits = (codepoint < 0x1000
-                     ? codepoint < 0x100 ? 2 : 3
-                     : (codepoint < 0x10000 ? 4
-                        : codepoint < 0x100000 ? 5 : 6));
+      // Append a hexadecimal value
       output.append('x');
-      for (int digit = nDigits; --digit >= 0;) {
-        int hexDigit = (codepoint >>> (digit << 2)) & 0xf;
-        output.append(HEX_NUMERAL[hexDigit]);
-      }
+      output.append(Integer.toHexString(codepoint));
     }
     output.append(";");
   }
-
-  private static final char[] HEX_NUMERAL = {
-   '0', '1', '2', '3', '4', '5', '6', '7',
-   '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-  };
 
   /** Maps ASCII chars that need to be encoded to an equivalent HTML entity. */
   private static final String[] REPLACEMENTS = new String[0x80];
@@ -385,17 +374,41 @@ public final class Encoding {
     REPLACEMENTS['>']  = "&gt;";                     // HTML special.
     REPLACEMENTS['@']  = "&#" + ((int) '@')  + ";";  // Conditional compilation.
     REPLACEMENTS['`']  = "&#" + ((int) '`')  + ";";  // Attribute delimiter.
+    REPLACEMENTS['\u007f']  = "";                    // Elide delete
   }
 
   /**
    * IS_BANNED_ASCII[i] where is an ASCII control character codepoint (&lt; 0x20)
    * is true for control characters that are not allowed in an XML source text.
    */
-  private static boolean[] IS_BANNED_ASCII = new boolean[0x20];
+  private static final boolean[] IS_BANNED_ASCII = new boolean[0x20];
   static {
     for (int i = 0; i < IS_BANNED_ASCII.length; ++i) {
       IS_BANNED_ASCII[i] = !(i == '\t' || i == '\n' || i == '\r');
     }
   }
 
+  /** Set of all Unicode characters which when processed with unicode compatibility decomposition will include a non-alphanumeric ascii character. */
+  static final Set<Character> RISKY_NORMALIZATION;
+  static {
+    HashSet<Character> set = new HashSet<Character>();
+
+    // These characters all decompose riskily
+    String singles = "\u037e\u1fef\u203c\u207a\u208a\u2100\u2101\u2105\u2106\u2260\u226e\u226f\u33c2\u33c7\u33d8\ufb29\ufe10\ufe19\ufe30\ufe47\ufe48\ufe52";
+    for(char ch : singles.toCharArray()) {
+      set.add(ch);
+    }
+
+    // This string is composed of pairs of characters defining inclusive start and end ranges.
+    String pairs =
+              "\u2024\u2026\u2047\u2049\u207c\u207e\u208c\u208e\u2474\u24b5\u2a74\u2a76\u3200\u321e\u3220\u3243\ufe13\ufe16\ufe33"
+            + "\ufe38\ufe4d\ufe50\ufe54\ufe57\ufe59\ufe5c\ufe5f\ufe66\ufe68\ufe6b\uff01\uff0f\uff1a\uff20\uff3b\uff40\uff5b\uff5e";
+    for(int i=0;i<pairs.length();i+=2) {
+      for(char ch=pairs.charAt(i);ch<=pairs.charAt(i+1);ch++) {
+        set.add(ch);
+      }
+    }
+
+    RISKY_NORMALIZATION = Collections.unmodifiableSet(set);
+  }
 }
