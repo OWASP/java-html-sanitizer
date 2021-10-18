@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 .
   * v20211018.2
-    * Changes how we avoid problems with special tags inside &lt;select&gt; elements. 
+    * Changes how we avoid problems with special tags inside &lt;select&gt; elements. We recommend using this version over v20211018.1.
   * Release 20191001.1
     * Package as an OSGI bundle
   * Release 20190610.1
