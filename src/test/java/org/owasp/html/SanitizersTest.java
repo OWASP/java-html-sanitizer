@@ -439,11 +439,7 @@ public class SanitizersTest extends TestCase {
     String input = ""
       + "<select><option><style><script>alert(1)</script></style></option></select>"
       + "<svg><style>.r { color: red }</style></svg>"
-      + "<style>.b { color: blue }</style>"
-      + "<style>#a { content: \"<!--\" }</style>"
-      + "<style>#a { content: \"<![CDATA[\" }</style>"
-      + "<style>#a { content: \"-->\" }</style>"
-      + "<style>#a { content: \"]]>\" }</style>";
+      + "<style>.b { color: blue }</style>";
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("option", "select", "style", "svg")
         .allowTextIn("style")
@@ -451,33 +447,46 @@ public class SanitizersTest extends TestCase {
     assertEquals(
         ""
         + "<select><option>"
-        + "<style>/*<![CDATA[<!--*/\n<script>alert(1)</script>\n/*-->]]>*/</style>"
+        + "<style></style>&lt;script&gt;alert(1)&lt;/script&gt;"
         + "</option></select>"
         + "<svg>"
-        + "<style>/*<![CDATA[<!--*/\n.r { color: red }\n/*-->]]>*/</style>"
+        + "<style>.r { color: red }</style>"
         + "</svg>"
-        + "<style>/*<![CDATA[<!--*/\n.b { color: blue }\n/*-->]]>*/</style>"
-        + "<style></style>"
-        + "<style></style>"
-        + "<style></style>"
-        + "<style></style>",
+        + "<style>.b { color: blue }</style>",
         pf.sanitize(input)
     );
   }
 
   @Test
   public static final void testSelectIsOdd() {
+    // Special text modes interact badly with select and option
     String input = "<select><option><xmp><script>alert(1)</script></xmp></option></select>";
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("option", "select", "xmp")
-        .allowTextIn("xmp")
+        .allowTextIn("xmp", "option")
         .toFactory();
     assertEquals(
         ""
-        + "<select><option>"
-        + "<pre>&lt;script&gt;alert(1)&lt;/script&gt;</pre>"
+        + "<select><option><pre></pre>"
+        + "&lt;script&gt;alert(1)&lt;/script&gt;"
         + "</option></select>",
         pf.sanitize(input)
+    );
+  }
+
+  @Test
+  public static final void testOptionAllowsText() {
+    String input = "<select><option><pre>code goes here</pre></option></select>";
+    PolicyFactory pf = new HtmlPolicyBuilder()
+            .allowElements("option", "select", "pre")
+            .allowTextIn("pre", "option")
+            .toFactory();
+    assertEquals(
+            ""
+                    + "<select><option>"
+                    + "<pre>code goes here</pre>"
+                    + "</option></select>",
+            pf.sanitize(input)
     );
   }
 

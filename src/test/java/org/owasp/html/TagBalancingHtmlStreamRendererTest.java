@@ -158,9 +158,9 @@ public class TagBalancingHtmlStreamRendererTest extends TestCase {
         + "<p>Hello, <textarea>World!</textarea></p>"
         + "<h1>Hello"
         // Text allowed in special style tag.
-        + "<style type=\"text/css\">/*<![CDATA[<!--*/\n"
-        + "\n.World {\n  color: blue\n}\n"
-        + "\n/*-->]]>*/</style></h1>"
+        + "<style type=\"text/css\">\n"
+        + ".World {\n  color: blue\n}\n"
+        + "</style></h1>"
         // Whitespace allowed inside <ul> but non-whitespace text nodes are
         // moved inside <li>.
         + "<ul><li>Hello,</li><li>World!</li></ul>",
