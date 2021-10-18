@@ -1,6 +1,12 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20211018.1
+    * Fix [CVE-2021-42575](https://docs.google.com/document/d/11SoX296sMS0XoQiQbpxc5pNxSdbJKDJkm5BDv0zrX50/edit#)
+    * Changes rendering of `<style>` elements by wrapping text content
+      in HTML comments and CDATA section tags so that even when
+      content is not treated as CDATA, it will not be treated as
+      active content.
   * Release 20200713.1
     * Do not lower-case SVG/MathML names.
       This shouldn't cause problems since it was hard to write policies for

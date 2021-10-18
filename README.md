@@ -35,7 +35,7 @@ how to get started with or without Maven.
 ## Prepackaged Policies
 
 You can use
-[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20200713.1/org/owasp/html/Sanitizers.html):
+[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20211018.1/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
@@ -47,7 +47,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 The
 [tests](https://github.com/OWASP/java-html-sanitizer/blob/main/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
-[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20200713.1/org/owasp/html/HtmlPolicyBuilder.html):
+[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20211018.1/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -62,7 +62,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Custom Policies
 
 You can write
-[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20200713.1/org/owasp/html/ElementPolicy.html)
+[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20211018.1/org/owasp/html/ElementPolicy.html)
 to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
@@ -85,7 +85,7 @@ need to be explicitly whitelisted using the `allowWithoutAttributes()`
 method if you want them to be allowed through the filter when these
 elements do not include any attributes.
 
-[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20200713.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
+[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20211018.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
 
 ```Java
 new HtmlPolicyBuilder = new HtmlPolicyBuilder()
@@ -153,7 +153,7 @@ of the output.
 
 ## Telemetry
 
-When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20200713.1/org/owasp/html/HtmlChangeListener.html).
+When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20211018.1/org/owasp/html/HtmlChangeListener.html).
 
 You can use this to keep track of policy violation trends and find out when someone
 is making an effort to breach your security.
