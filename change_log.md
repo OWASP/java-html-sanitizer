@@ -1,6 +1,10 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20211018.2
+    * Tweak how we address CVE-2021-42575 to be more tailored and to
+      interfere less with `<style>` element content in general.  We
+      still advise not allowing attacker controlled `<style>` content.
   * Release 20211018.1
     * Fix [CVE-2021-42575](https://docs.google.com/document/d/11SoX296sMS0XoQiQbpxc5pNxSdbJKDJkm5BDv0zrX50/edit#)
     * Changes rendering of `<style>` elements by wrapping text content
