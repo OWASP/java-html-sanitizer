@@ -1,4 +1,6 @@
 # OWASP Java HTML Sanitizer Change Log
+ 
+  Additional detail can be found at https://github.com/OWASP/java-html-sanitizer/releases
 .
   * Release 20211018.2
     * Changes how we avoid problems with special tags inside &lt;select&gt; elements. We recommend using this version over v20211018.1.
