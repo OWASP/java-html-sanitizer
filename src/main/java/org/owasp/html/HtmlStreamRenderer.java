@@ -29,11 +29,15 @@
 package org.owasp.html;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
+
 import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -250,7 +254,26 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         Encoding.stripBannedCodeunits(cdataContent);
         int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
         if (problemIndex == -1) {
-          output.append(cdataContent);
+          String prefix = "";
+          String suffix = "";
+          Set<String> bannedSubstrings = Collections.emptySet();
+          if ("style".equals(elementName)) {
+            prefix = "/*<![CDATA[<!--*/\n";
+            suffix = "\n/*-->]]>*/";
+            bannedSubstrings = BANNED_IN_STYLE_ELEMENTS;
+          }
+
+          for (String bannedSubstring : bannedSubstrings) {
+            if (cdataContent.indexOf(bannedSubstring) >= 0) {
+              cdataContent.setLength(0);
+            }
+          }
+
+          if (cdataContent.length() != 0) {
+            output.append(prefix);
+            output.append(cdataContent);
+            output.append(suffix);
+          }
         } else {
           error(
               "Invalid CDATA text content",
@@ -434,4 +457,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private static boolean isTagEnd(char ch) {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
+
+  private static Set<String> BANNED_IN_STYLE_ELEMENTS = ImmutableSet.of(
+    "<![CDATA[", "]]>", "<!--", "-->"
+  );
 }

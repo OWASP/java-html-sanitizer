@@ -435,6 +435,53 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testStyleTagsInAllTheWrongPlaces() {
+    String input = ""
+      + "<select><option><style><script>alert(1)</script></style></option></select>"
+      + "<svg><style>.r { color: red }</style></svg>"
+      + "<style>.b { color: blue }</style>"
+      + "<style>#a { content: \"<!--\" }</style>"
+      + "<style>#a { content: \"<![CDATA[\" }</style>"
+      + "<style>#a { content: \"-->\" }</style>"
+      + "<style>#a { content: \"]]>\" }</style>";
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("option", "select", "style", "svg")
+        .allowTextIn("style")
+        .toFactory();
+    assertEquals(
+        ""
+        + "<select><option>"
+        + "<style>/*<![CDATA[<!--*/\n<script>alert(1)</script>\n/*-->]]>*/</style>"
+        + "</option></select>"
+        + "<svg>"
+        + "<style>/*<![CDATA[<!--*/\n.r { color: red }\n/*-->]]>*/</style>"
+        + "</svg>"
+        + "<style>/*<![CDATA[<!--*/\n.b { color: blue }\n/*-->]]>*/</style>"
+        + "<style></style>"
+        + "<style></style>"
+        + "<style></style>"
+        + "<style></style>",
+        pf.sanitize(input)
+    );
+  }
+
+  @Test
+  public static final void testSelectIsOdd() {
+    String input = "<select><option><xmp><script>alert(1)</script></xmp></option></select>";
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("option", "select", "xmp")
+        .allowTextIn("xmp")
+        .toFactory();
+    assertEquals(
+        ""
+        + "<select><option>"
+        + "<pre>&lt;script&gt;alert(1)&lt;/script&gt;</pre>"
+        + "</option></select>",
+        pf.sanitize(input)
+    );
+  }
+
+  @Test
   public static final void testStyleGlobally() {
     PolicyFactory policyBuilder = new HtmlPolicyBuilder()
         .allowAttributes("style").globally()
@@ -449,7 +496,7 @@ public class SanitizersTest extends TestCase {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
       int ifacp = ifac * i;
-      if (ifacp < ifac) { throw new IllegalArgumentException("undeflow"); }
+      if (ifacp < ifac) { throw new IllegalArgumentException("underflow"); }
       ifac = ifacp;
     }
     return ifac;
