@@ -511,6 +511,18 @@ public class SanitizersTest extends TestCase {
     String want = "<h1 style=\"color:green\" align=\"center\">This is some green centered text</h1>";
     assertEquals(want, policyBuilder.sanitize(input));
   }
+
+  @Test
+  public static final void testStyleGloballyWithCustomPolicy() {
+    PolicyFactory policyBuilder = new HtmlPolicyBuilder()
+            .allowAttributes("style")
+            .matching(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY).globally()
+            .allowElements("a", "label", "h1", "h2", "h3", "h4", "h5", "h6")
+            .toFactory();
+    String input = "<h1 style=\"color:green; display: grid;\">This is some green centered text</h1>";
+    String want = "<h1 style=\"color:green; display: grid;\">This is some green centered text</h1>";
+    assertEquals(want, policyBuilder.sanitize(input));
+  }
   
   static int fac(int n) {
     int ifac = 1;
