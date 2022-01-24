@@ -994,6 +994,11 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals("x<textArea>y</textArea>", textAreaPolicy.sanitize(input));
   }
 
+  @Test
+  public static final void testHtmlPolicyBuilderDefinitionWithNoAttributesDefinedGlobally() {
+    new HtmlPolicyBuilder().allowElements().allowAttributes().globally().toFactory();
+  }
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
