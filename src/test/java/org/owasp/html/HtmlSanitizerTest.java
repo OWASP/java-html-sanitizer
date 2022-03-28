@@ -440,6 +440,13 @@ public class HtmlSanitizerTest extends TestCase {
     }
   }
 
+  @Test
+  public static final void testIssue254SemicolonlessNamedCharactersInUrls() {
+    String input = "<a href=\"/test/?param1=valueOne&param2=valueTwo\">click me</a>";
+    String want = "<a href=\"/test/?param1&#61;valueOne&amp;param2&#61;valueTwo\">click me</a>";
+    assertEquals(want, sanitize(input));
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
