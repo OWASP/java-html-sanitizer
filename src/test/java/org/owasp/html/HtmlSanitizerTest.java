@@ -447,6 +447,13 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(want, sanitize(input));
   }
 
+  @Test
+  public static final void testStylingCornerCase() {
+    String input = "<a style=\\006-\\000038";
+    String want = "";
+    assertEquals(want, sanitize(input));
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
