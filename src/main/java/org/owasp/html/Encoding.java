@@ -41,8 +41,21 @@ public final class Encoding {
    *
    * @param s text/html
    * @return text/plain
+   * @deprecated specify whether s is in an attribute value
    */
   public static String decodeHtml(String s) {
+    return decodeHtml(s, false);
+  }
+
+  /**
+   * Decodes HTML entities to produce a string containing only valid
+   * Unicode scalar values.
+   *
+   * @param s text/html
+   * @param inAttribute is s in an attribute value?
+   * @return text/plain
+   */
+  public static String decodeHtml(String s, boolean inAttribute) {
     int firstAmp = s.indexOf('&');
     int safeLimit = longestPrefixOfGoodCodeunits(s);
     if ((firstAmp & safeLimit) < 0) { return s; }
@@ -55,7 +68,7 @@ public final class Encoding {
       int amp = firstAmp;
       while (amp >= 0) {
         sb.append(s, pos, amp);
-        int end = HtmlEntities.appendDecodedEntity(s, amp, n, sb);
+        int end = HtmlEntities.appendDecodedEntity(s, amp, n, inAttribute, sb);
         pos = end;
         amp = s.indexOf('&', end);
       }

@@ -144,7 +144,7 @@ public final class HtmlSanitizer {
       switch (token.type) {
         case TEXT:
           receiver.text(
-              Encoding.decodeHtml(htmlContent.substring(token.start, token.end)));
+              Encoding.decodeHtml(htmlContent.substring(token.start, token.end), false));
           break;
         case UNESCAPED:
           receiver.text(Encoding.stripBannedCodeunits(
@@ -177,8 +177,9 @@ public final class HtmlSanitizer {
                       htmlContent.substring(tagBodyToken.start, tagBodyToken.end)));
                   break;
                 case ATTRVALUE:
-                  attrs.add(Encoding.decodeHtml(stripQuotes(
-                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end))));
+                  String attributeContentRaw =
+                          stripQuotes(htmlContent.substring(tagBodyToken.start, tagBodyToken.end));
+                  attrs.add(Encoding.decodeHtml(attributeContentRaw, true));
                   attrsReadyForName = true;
                   break;
                 case TAGEND:
