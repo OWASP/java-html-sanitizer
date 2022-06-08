@@ -453,7 +453,7 @@ final class CssTokens implements Iterable<String> {
         char ch = css.charAt(pos);
         int startOfToken = pos;
         int startOfOutputToken = sb.length();
-        final TokenType type;
+        TokenType type;
         switch (ch) {
           case '\t': case '\n': case '\f': case '\r': case ' ': case '\ufeff':
             consumeIgnorable();
@@ -514,6 +514,7 @@ final class CssTokens implements Iterable<String> {
               type = TokenType.UNICODE_RANGE;
             } else {
               type = consumeIdentOrUrlOrFunction();
+              assert type != null;
             }
             break;
           case '0': case '1': case '2': case '3': case '4':
@@ -533,7 +534,14 @@ final class CssTokens implements Iterable<String> {
               if (consumeIgnorable()) {  // -->
                 type = TokenType.WHITESPACE;
               } else {
-                type = consumeIdentOrUrlOrFunction();
+                TokenType identType = consumeIdentOrUrlOrFunction();
+                if (identType == null) {
+                  breakOutput();
+                  consumeDelim(ch);
+                  type = TokenType.DELIM;
+                } else {
+                  type = identType;
+                }
               }
             } else if (isIdentPart(lookahead)) {
               // treat ".<IDENT>" as one token.
@@ -589,9 +597,17 @@ final class CssTokens implements Iterable<String> {
             }
             break;
           }
-          case '_':
-            type = consumeIdentOrUrlOrFunction();
+          case '_': {
+            TokenType identType = consumeIdentOrUrlOrFunction();
+            if (identType != null) {
+              type = identType;
+            } else {
+              ++pos;  // drop
+              breakOutput();
+              type = TokenType.WHITESPACE;
+            }
             break;
+          }
           case '\\': {
             // Optimistically parse as an ident.
             TokenType identType = consumeIdentOrUrlOrFunction();
@@ -624,7 +640,13 @@ final class CssTokens implements Iterable<String> {
               type = TokenType.WHITESPACE;
             }
         }
-        assert pos > startOfToken
+        // Make progress even in the face of errors above.
+        if (type == null && pos == startOfToken) {
+          type = TokenType.WHITESPACE;
+          breakOutput();
+          ++pos;
+        }
+        assert type != null && pos > startOfToken
             : "empty token at " + pos + ", ch0=" + css.charAt(startOfToken)
             + ":U+" + Integer.toHexString(css.charAt(startOfToken));
         int endOfOutputToken = sb.length();
