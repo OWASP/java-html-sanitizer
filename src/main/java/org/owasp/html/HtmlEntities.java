@@ -2322,6 +2322,7 @@ final class HtmlEntities {
    * @param offset the position of the sequence to decode in {@code html}.
    * @param limit the last position that could be part of the sequence to decode
    *    in {@code html}.
+   * @param inAttribute is html in an attribute value?
    * @param sb string builder to append to.
    * @return The offset after the end of the decoded sequence in {@code html}.
    */
@@ -2439,7 +2440,7 @@ final class HtmlEntities {
         char nameChar = html.charAt(i);
         t = t.lookup(nameChar);
         if (t == null) { break; }
-        if (t.isTerminal() && mayComplete(inAttribute, html, i, limit)) {
+        if (t.isTerminal() && mayComplete(html, inAttribute, i, limit)) {
           longestDecode = t;
           tail = i + 1;
         }
@@ -2452,7 +2453,7 @@ final class HtmlEntities {
           if ('Z' >= nameChar && nameChar >= 'A') { nameChar |= 32; }
           t = t.lookup(nameChar);
           if (t == null) { break; }
-          if (t.isTerminal() && mayComplete(inAttribute, html, i, limit)) {
+          if (t.isTerminal() && mayComplete(html, inAttribute, i, limit)) {
             longestDecode = t;
             tail = i + 1;
           }
@@ -2480,7 +2481,7 @@ final class HtmlEntities {
   }
 
   /** True if the character at i in html may complete a named character reference */
-  private static boolean mayComplete(boolean inAttribute, String html, int i, int limit) {
+  private static boolean mayComplete(String html, boolean inAttribute, int i, int limit) {
     if (inAttribute && html.charAt(i) != ';' && i + 1 < limit) {
       // See if the next character blocks treating this as a full match.
       // This avoids problems like "&para" being treated as a decoding in
