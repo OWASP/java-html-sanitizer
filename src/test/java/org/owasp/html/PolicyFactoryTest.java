@@ -32,10 +32,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
-
-import com.google.common.base.Joiner;
 
 import junit.framework.TestCase;
 
@@ -619,7 +618,7 @@ public final class PolicyFactoryTest extends TestCase {
           outParts.add(part);
         }
       }
-      return Joiner.on(" , ").join(outParts);
+      return outParts.stream().collect(Collectors.joining(" , "));
     }
   }
 }

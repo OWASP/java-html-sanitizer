@@ -1,7 +1,5 @@
 package org.owasp.html;
 
-import com.google.common.base.Preconditions;
-
 final class IntVector {
   private int[] contents = ZERO_INTS;
   private int left, size;
@@ -39,7 +37,9 @@ final class IntVector {
   }
 
   public int remove(int i) {
-    Preconditions.checkArgument(0 <= i && i < size);
+    if (i < 0 || i >= size) {
+      throw new IllegalArgumentException("Invalid index");
+    }
     int bufsize = contents.length;
     int idx = (left + i) % bufsize;
     int result = contents[idx];
@@ -56,7 +56,9 @@ final class IntVector {
       // They do.
       int itemShiftedAround = contents[0];
       int right = (left + size) % bufsize;
-      Preconditions.checkState(right <= left);
+      if (right > left) {
+        throw new IllegalStateException();
+      }
       System.arraycopy(contents, 1, contents, 0, right);
       System.arraycopy(contents, idx + 1, contents, idx, bufsize - idx - 1);
       contents[bufsize - 1] = itemShiftedAround;

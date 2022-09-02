@@ -28,9 +28,8 @@
 
 package org.owasp.html;
 
+import java.util.HashMap;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Utilities for decoding HTML entities, e.g., {@code &amp;}.
@@ -2279,7 +2278,7 @@ final class HtmlEntities {
       "zwnj;", "\u200c",
     };
 
-    final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    final Map<String, String> builder = new HashMap<>();
 
     int longestEntityName = 0;
     for (int i = 0, n = pairs.length; i < n; i += 2) {
@@ -2291,7 +2290,7 @@ final class HtmlEntities {
       }
     }
 
-    final Map<String, String> entityNameToCodePointMap = builder.build();
+    final Map<String, String> entityNameToCodePointMap = Map.copyOf(builder);
 
     ENTITY_TRIE = new Trie<String>(entityNameToCodePointMap);
     LONGEST_ENTITY_NAME = longestEntityName;

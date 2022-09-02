@@ -28,26 +28,23 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import org.owasp.html.ElementPolicy.JoinableElementPolicy;
-
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-
 
 /**
  * Conveniences for configuring policies for the {@link HtmlSanitizer}.
@@ -165,16 +162,16 @@ public class HtmlPolicyBuilder {
    * and it has no other attributes that would warrant it appearing in the
    * output.
    */
-  public static final ImmutableSet<String> DEFAULT_SKIP_IF_EMPTY
-      = ImmutableSet.of("a", "font", "img", "input", "span");
+  public static final Set<String> DEFAULT_SKIP_IF_EMPTY
+      = Set.of("a", "font", "img", "input", "span");
 
-  static final ImmutableMap<String, HtmlTagSkipType> DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR;
+  static final Map<String, HtmlTagSkipType> DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR;
   static {
-    ImmutableMap.Builder<String, HtmlTagSkipType> b = ImmutableMap.builder();
+    Map<String, HtmlTagSkipType> builder = new HashMap<>();
     for (String elementName : DEFAULT_SKIP_IF_EMPTY) {
-      b.put(elementName, HtmlTagSkipType.SKIP_BY_DEFAULT);
+      builder.put(elementName, HtmlTagSkipType.SKIP_BY_DEFAULT);
     }
-    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = b.build();
+    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = Map.copyOf(builder);
   }
 
   /**
@@ -187,20 +184,20 @@ public class HtmlPolicyBuilder {
    * @see <a href="https://mathiasbynens.github.io/rel-noopener/"
    *      >About rel=noopener</a>
    */
-  public static final ImmutableSet<String> DEFAULT_RELS_ON_TARGETTED_LINKS
-      = ImmutableSet.of("noopener", "noreferrer");
+  public static final List<String> DEFAULT_RELS_ON_TARGETTED_LINKS
+      = List.of("noopener", "noreferrer");
 
   static final String DEFAULT_RELS_ON_TARGETTED_LINKS_STR
-      = Joiner.on(' ').join(DEFAULT_RELS_ON_TARGETTED_LINKS);
+      = DEFAULT_RELS_ON_TARGETTED_LINKS.stream().collect(Collectors.joining(" "));
 
-  private final Map<String, ElementPolicy> elPolicies = Maps.newLinkedHashMap();
+  private final Map<String, ElementPolicy> elPolicies = new LinkedHashMap<>();
   private final Map<String, Map<String, AttributePolicy>> attrPolicies
-      = Maps.newLinkedHashMap();
+      = new LinkedHashMap<>();
   private final Map<String, AttributePolicy> globalAttrPolicies
-      = Maps.newLinkedHashMap();
-  private final Set<String> allowedProtocols = Sets.newLinkedHashSet();
-  private final Map<String, HtmlTagSkipType> skipIssueTagMap = Maps.newLinkedHashMap(DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR);
-  private final Map<String, Boolean> textContainers = Maps.newLinkedHashMap();
+      = new LinkedHashMap<>();
+  private final Set<String> allowedProtocols = new HashSet<>();
+  private final Map<String, HtmlTagSkipType> skipIssueTagMap = new LinkedHashMap<>(DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR);
+  private final Map<String, Boolean> textContainers = new LinkedHashMap<>();
   private HtmlStreamEventProcessor postprocessor =
       HtmlStreamEventProcessor.Processors.IDENTITY;
   private HtmlStreamEventProcessor preprocessor =
@@ -347,11 +344,11 @@ public class HtmlPolicyBuilder {
    * attributes, and allow them globally or on specific elements.
    */
   public AttributeBuilder allowAttributes(String... attributeNames) {
-    ImmutableList.Builder<String> b = ImmutableList.builder();
+    List<String> builder = new ArrayList<>();
     for (String attributeName : attributeNames) {
-      b.add(HtmlLexer.canonicalAttributeName(attributeName));
+      builder.add(HtmlLexer.canonicalAttributeName(attributeName));
     }
-    return new AttributeBuilder(b.build());
+    return new AttributeBuilder(List.copyOf(builder));
   }
 
   /**
@@ -392,7 +389,7 @@ public class HtmlPolicyBuilder {
     for (String elementName : elementNames) {
       Map<String, AttributePolicy> policies = attrPolicies.get(elementName);
       if (policies == null) {
-        policies = Maps.newLinkedHashMap();
+        policies = new LinkedHashMap<>();
         attrPolicies.put(elementName, policies);
       }
       for (String attributeName : attributeNames) {
@@ -429,13 +426,13 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder requireRelsOnLinks(String... linkValues) {
     this.invalidateCompiledState();
     if (this.extraRelsForLinks == null) {
-      this.extraRelsForLinks = Sets.newLinkedHashSet();
+      this.extraRelsForLinks = new HashSet<>();
     }
     for (String linkValue : linkValues) {
       linkValue = HtmlLexer.canonicalKeywordAttributeValue(linkValue);
-      Preconditions.checkArgument(
-          !Strings.containsHtmlSpace(linkValue),
-          "spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
+      if (Strings.containsHtmlSpace(linkValue)) {
+        throw new IllegalArgumentException("spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
+      }
       this.extraRelsForLinks.add(linkValue);
     }
     if (this.skipRelsForLinks != null) {
@@ -453,13 +450,13 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder skipRelsOnLinks(String... linkValues) {
     this.invalidateCompiledState();
     if (this.skipRelsForLinks == null) {
-      this.skipRelsForLinks = Sets.newLinkedHashSet();
+      this.skipRelsForLinks = new HashSet<>();
     }
     for (String linkValue : linkValues) {
       linkValue = HtmlLexer.canonicalKeywordAttributeValue(linkValue);
-      Preconditions.checkArgument(
-          !Strings.containsHtmlSpace(linkValue),
-          "spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
+      if (Strings.containsHtmlSpace(linkValue)) {
+        throw new IllegalArgumentException("spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
+      }
       this.skipRelsForLinks.add(linkValue);
     }
     if (this.extraRelsForLinks != null) {
@@ -542,7 +539,7 @@ public class HtmlPolicyBuilder {
     // still not allowing styles when allowStyling is followed by a call to
     // disallowAttributesGlobally("style").
     this.allowAttributesGlobally(
-        AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, ImmutableList.of("style"));
+        AttributePolicy.IDENTITY_ATTRIBUTE_POLICY, List.of("style"));
 
     return this;
   }
@@ -607,8 +604,8 @@ public class HtmlPolicyBuilder {
     // allowing the attribute "href" globally with the identity policy but
     // not white-listing any protocols, effectively disallows the "href"
     // attribute globally.
-    ImmutableMap.Builder<String, AttributeGuardMaker> b =
-        ImmutableMap.builder();
+    Map<String, AttributeGuardMaker> builder =
+        new HashMap<>();
     AttributeGuardMaker identityGuard = new AttributeGuardMaker() {
       @Override
       AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
@@ -620,9 +617,9 @@ public class HtmlPolicyBuilder {
         "dsync", "formaction", "href", "icon", "longdesc", "manifest", "poster",
         "profile", "src", "usemap",
     }) {
-      b.put(urlAttributeName, identityGuard);
+      builder.put(urlAttributeName, identityGuard);
     }
-    b.put("style", new AttributeGuardMaker() {
+    builder.put("style", new AttributeGuardMaker() {
 
       @Override
       AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
@@ -643,7 +640,7 @@ public class HtmlPolicyBuilder {
       }
 
     });
-    b.put("srcset", new AttributeGuardMaker() {
+    builder.put("srcset", new AttributeGuardMaker() {
 
       @Override
       AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
@@ -651,7 +648,7 @@ public class HtmlPolicyBuilder {
       }
 
     });
-    ATTRIBUTE_GUARDS = b.build();
+    ATTRIBUTE_GUARDS = Map.copyOf(builder);
   }
 
   /**
@@ -690,7 +687,7 @@ public class HtmlPolicyBuilder {
    * each backed by a different output channel.
    */
   public PolicyFactory toFactory() {
-    ImmutableSet.Builder<String> textContainerSet = ImmutableSet.builder();
+    Set<String> textContainerSet = new HashSet<>();
     for (Map.Entry<String, Boolean> textContainer
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
@@ -700,8 +697,8 @@ public class HtmlPolicyBuilder {
     CompiledState compiled = compilePolicies();
 
     return new PolicyFactory(
-        compiled.compiledPolicies, textContainerSet.build(),
-        ImmutableMap.copyOf(compiled.globalAttrPolicies),
+        compiled.compiledPolicies, Set.copyOf(textContainerSet),
+        Map.copyOf(compiled.globalAttrPolicies),
         preprocessor, postprocessor);
   }
 
@@ -710,11 +707,11 @@ public class HtmlPolicyBuilder {
 
   private static final class CompiledState {
     final Map<String, AttributePolicy> globalAttrPolicies;
-    final ImmutableMap<String, ElementAndAttributePolicies> compiledPolicies;
+    final Map<String, ElementAndAttributePolicies> compiledPolicies;
 
     CompiledState(
         Map<String, AttributePolicy> globalAttrPolicies,
-        ImmutableMap<String, ElementAndAttributePolicies> compiledPolicies) {
+        Map<String, ElementAndAttributePolicies> compiledPolicies) {
       this.globalAttrPolicies = globalAttrPolicies;
       this.compiledPolicies = compiledPolicies;
     }
@@ -731,19 +728,19 @@ public class HtmlPolicyBuilder {
     // Copy maps before normalizing in case builder is reused.
     @SuppressWarnings("hiding")
     Map<String, ElementPolicy> elPolicies
-        = Maps.newLinkedHashMap(this.elPolicies);
+        = new LinkedHashMap<>(this.elPolicies);
     @SuppressWarnings("hiding")
     Map<String, Map<String, AttributePolicy>> attrPolicies
-        = Maps.newLinkedHashMap(this.attrPolicies);
+        = new LinkedHashMap<>(this.attrPolicies);
     for (Map.Entry<String, Map<String, AttributePolicy>> e :
          attrPolicies.entrySet()) {
-      e.setValue(Maps.newLinkedHashMap(e.getValue()));
+      e.setValue(new LinkedHashMap<>(e.getValue()));
     }
     @SuppressWarnings("hiding")
     Map<String, AttributePolicy> globalAttrPolicies
-        = Maps.newLinkedHashMap(this.globalAttrPolicies);
+        = new LinkedHashMap<>(this.globalAttrPolicies);
     @SuppressWarnings("hiding")
-    Set<String> allowedProtocols = ImmutableSet.copyOf(this.allowedProtocols);
+    Set<String> allowedProtocols = Set.copyOf(this.allowedProtocols);
 
     // Implement requireRelsOnLinks & skip...
     {
@@ -751,9 +748,9 @@ public class HtmlPolicyBuilder {
       if (linkPolicy != null) {
         RelsOnLinksPolicy relsOnLinksPolicy = RelsOnLinksPolicy.create(
             this.extraRelsForLinks != null
-            ? this.extraRelsForLinks : ImmutableSet.<String>of(),
+            ? this.extraRelsForLinks : Set.<String>of(),
             this.skipRelsForLinks != null
-            ? this.skipRelsForLinks : ImmutableSet.<String>of());
+            ? this.skipRelsForLinks : Set.<String>of());
         elPolicies.put(
             "a",
             ElementPolicy.Util.join(linkPolicy, relsOnLinksPolicy));
@@ -773,7 +770,7 @@ public class HtmlPolicyBuilder {
             allowedProtocols);
       }
 
-      Set<String> toGuard = Sets.newLinkedHashSet(ATTRIBUTE_GUARDS.keySet());
+      Set<String> toGuard = new HashSet<>(ATTRIBUTE_GUARDS.keySet());
       AttributeGuardIntermediates intermediates = new AttributeGuardIntermediates(
           urlAttributePolicy, this.styleUrlPolicy, this.stylingPolicySchema);
       for (Map.Entry<String, AttributeGuardMaker> e : ATTRIBUTE_GUARDS.entrySet()) {
@@ -801,8 +798,8 @@ public class HtmlPolicyBuilder {
       }
     }
 
-    ImmutableMap.Builder<String, ElementAndAttributePolicies> policiesBuilder
-        = ImmutableMap.builder();
+    Map<String, ElementAndAttributePolicies> policiesBuilder
+        = new HashMap<>();
     for (Map.Entry<String, ElementPolicy> e : elPolicies.entrySet()) {
       String elementName = e.getKey();
       ElementPolicy elPolicy = e.getValue();
@@ -813,16 +810,16 @@ public class HtmlPolicyBuilder {
       Map<String, AttributePolicy> elAttrPolicies
           = attrPolicies.get(elementName);
       if (elAttrPolicies == null) {
-        elAttrPolicies = ImmutableMap.of();
+        elAttrPolicies = Map.of();
       }
 
-      ImmutableMap.Builder<String, AttributePolicy> attrs
-          = ImmutableMap.builder();
+      Map<String, AttributePolicy> attrs
+          = new HashMap<>();
 
       for (Map.Entry<String, AttributePolicy> ape : elAttrPolicies.entrySet()) {
         String attributeName = ape.getKey();
         // Handle below so we don't end up putting the same key into the map
-        // twice.  ImmutableMap.Builder hates that.
+        // twice.  Map.Builder hates that.
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
         AttributePolicy policy = ape.getValue();
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
@@ -843,13 +840,13 @@ public class HtmlPolicyBuilder {
           elementName,
           new ElementAndAttributePolicies(
               elementName,
-              elPolicy, attrs.build(),
+              elPolicy, Map.copyOf(attrs),
               getHtmlTagSkipType(elementName)
           )
       );
     }
     compiledState = new CompiledState(
-        globalAttrPolicies, policiesBuilder.build());
+        globalAttrPolicies, Map.copyOf(policiesBuilder));
     return compiledState;
   }
 
@@ -877,7 +874,7 @@ public class HtmlPolicyBuilder {
     private AttributePolicy policy = AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
 
     AttributeBuilder(List<? extends String> attributeNames) {
-      this.attributeNames = ImmutableList.copyOf(attributeNames);
+      this.attributeNames = List.copyOf(attributeNames);
     }
 
     /**
@@ -918,7 +915,7 @@ public class HtmlPolicyBuilder {
       return matching(new AttributePolicy() {
         public @Nullable String apply(
             String elementName, String attributeName, String value) {
-          return filter.apply(value) ? value : null;
+          return filter.test(value) ? value : null;
         }
       });
     }
@@ -931,7 +928,7 @@ public class HtmlPolicyBuilder {
      */
     public AttributeBuilder matching(
         boolean ignoreCase, String... allowedValues) {
-      return matching(ignoreCase, ImmutableSet.copyOf(allowedValues));
+      return matching(ignoreCase, Set.of(allowedValues));
     }
 
     /**
@@ -942,7 +939,7 @@ public class HtmlPolicyBuilder {
      */
     public AttributeBuilder matching(
         final boolean ignoreCase, Set<? extends String> allowedValues) {
-      final ImmutableSet<String> allowed = ImmutableSet.copyOf(allowedValues);
+      final Set<String> allowed = Set.copyOf(allowedValues);
       return matching(new AttributePolicy() {
         public @Nullable String apply(
             String elementName, String attributeName, String uncanonValue) {
@@ -982,24 +979,24 @@ public class HtmlPolicyBuilder {
      */
     @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder onElements(String... elementNames) {
-      ImmutableList.Builder<String> b = ImmutableList.builder();
+      List<String> builder = new ArrayList<>();
       for (String elementName : elementNames) {
-        b.add(HtmlLexer.canonicalElementName(elementName));
+        builder.add(HtmlLexer.canonicalElementName(elementName));
       }
       return HtmlPolicyBuilder.this.allowAttributesOnElements(
-          policy, attributeNames, b.build());
+          policy, attributeNames, List.copyOf(builder));
     }
   }
 
 
   private static final class RelsOnLinksPolicy
       implements ElementPolicy.JoinableElementPolicy {
-    final ImmutableSet<String> extra;
-    final ImmutableSet<String> skip;
-    final ImmutableSet<String> whenTargetPresent;
+    final Set<String> extra;
+    final Set<String> skip;
+    final List<String> whenTargetPresent;
 
     static final RelsOnLinksPolicy EMPTY = new RelsOnLinksPolicy(
-        ImmutableSet.<String>of(), ImmutableSet.<String>of());
+        Set.<String>of(), Set.<String>of());
 
     static RelsOnLinksPolicy create(
         Set<? extends String> extra,
@@ -1011,13 +1008,13 @@ public class HtmlPolicyBuilder {
     RelsOnLinksPolicy(
         Set<? extends String> extra,
         Set<? extends String> skip) {
-      this.extra = ImmutableSet.copyOf(extra);
-      this.skip = ImmutableSet.copyOf(skip);
-      Set<String> targetOnly = Sets.newLinkedHashSet();
+      this.extra = Set.copyOf(extra);
+      this.skip = Set.copyOf(skip);
+      Set<String> targetOnly = new HashSet<>();
       targetOnly.addAll(DEFAULT_RELS_ON_TARGETTED_LINKS);
       targetOnly.removeAll(extra);
       targetOnly.removeAll(skip);
-      this.whenTargetPresent = ImmutableSet.copyOf(targetOnly);
+      this.whenTargetPresent = List.copyOf(targetOnly);
     }
 
     private static int indexOfAttributeValue(
@@ -1105,8 +1102,8 @@ public class HtmlPolicyBuilder {
 
     public JoinableElementPolicy join(
         Iterable<? extends JoinableElementPolicy> toJoin) {
-      Set<String> extra = Sets.newLinkedHashSet();
-      Set<String> skip = Sets.newLinkedHashSet();
+      Set<String> extra = new HashSet<>();
+      Set<String> skip = new HashSet<>();
       for (JoinableElementPolicy ep : toJoin) {
         RelsOnLinksPolicy p = (RelsOnLinksPolicy) ep;
         extra.addAll(p.extra);

@@ -60,6 +60,11 @@
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
+        <configuration>
+          <instructions>
+            <Export-Package>org.owasp.html</Export-Package>
+          </instructions>
+        </configuration>
       </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -81,10 +86,6 @@
   </build>
 
   <dependencies>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-    </dependency>
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>

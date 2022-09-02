@@ -28,21 +28,21 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
 
 import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
 public class HtmlPolicyBuilderTest extends TestCase {
 
-  static final String EXAMPLE = Joiner.on('\n').join(
+  static final String EXAMPLE = Arrays.stream(new String[] {
       "<h1 id='foo'>Header</h1>",
       "<p onclick='alert(42)'>Paragraph 1<script>evil()</script></p>",
       ("<p><a href='java\0script:bad()'>Click</a> <a href='foo.html'>me</a>"
@@ -54,12 +54,12 @@ public class HtmlPolicyBuilderTest extends TestCase {
       "          /* direction: ltr */; font-weight: bold'>Stylish Para 1</p>",
       "<p style='color: red; font-weight; expression(foo());",
       "          direction: rtl; font-weight: bold'>Stylish Para 2</p>",
-      "");
+      ""}).collect(Collectors.joining("\n"));
 
   @Test
   public static final void testTextFilter() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -67,14 +67,14 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()));
   }
 
   @Test
   public static final void testCannedFormattingTagFilter() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -82,7 +82,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()));
   }
@@ -90,7 +90,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testCannedFormattingTagFilterNoItalics() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -98,7 +98,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<b>Fancy</b> with <b>soupy</b><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()
               .disallowElements("I")));
@@ -107,7 +107,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testSimpleTagFilter() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "<h1>Header</h1>",
             "Paragraph 1",
             "Click me out",
@@ -115,7 +115,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with <i>soupy</i> tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("h1", "i")));
   }
@@ -123,7 +123,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testLinksAllowed() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             // We haven't allowed any protocols so only relative URLs are OK.
@@ -132,7 +132,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               .allowAttributes("href").onElements("a")));
@@ -141,7 +141,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testExternalLinksAllowed() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click <a href=\"foo.html\">me</a>"
@@ -150,7 +150,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               // Allows http.
@@ -161,7 +161,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testLinksWithNofollow() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click <a href=\"foo.html\" rel=\"nofollow\">me</a> out",
@@ -169,7 +169,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               // Allows http.
@@ -192,7 +192,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testImagesAllowed() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -201,7 +201,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("img")
               .allowAttributes("src", "alt").onElements("img")
@@ -211,7 +211,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testStyleFiltering() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "<h1>Header</h1>",
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
@@ -221,7 +221,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
              + "Stylish Para 1</p>"),
             ("<p style=\"color:red;direction:rtl;font-weight:bold\">"
              + "Stylish Para 2</p>"),
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()
               .allowCommonBlockElements()
@@ -232,7 +232,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testElementTransforming() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "<div class=\"header-h1\">Header</div>",
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
@@ -240,7 +240,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<p>Fancy with soupy tags.",
             "</p><p>Stylish Para 1</p>",
             "<p>Stylish Para 2</p>",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("h1", "p", "div")
               .allowElements(
@@ -273,7 +273,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testAllowUrlProtocols() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -282,7 +282,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
             .allowElements("img")
             .allowAttributes("src", "alt").onElements("img")
@@ -807,14 +807,14 @@ public class HtmlPolicyBuilderTest extends TestCase {
       // Should be ("nofollow", "noreferrer")
       new HtmlPolicyBuilder().requireRelsOnLinks("nofollow noreferrer");
       failed = false;
-    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+	} catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
       failed = true;
     }
     assertTrue(failed);
     try {
       new HtmlPolicyBuilder().skipRelsOnLinks("nofollow noreferrer");
       failed = false;
-    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+	} catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
       failed = true;
     }
     assertTrue(failed);
@@ -919,7 +919,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
         // allow contents in this script tag
         .allowTextIn("script")
         // keep type attribute in application/json script tag
-        .allowAttributes("type").matching(true, ImmutableSet.of("application/json")).onElements("script")
+        .allowAttributes("type").matching(true, Set.of("application/json")).onElements("script")
         .toFactory();
 
     String mismatchedHtmlComments = "<script type=\"application/json\">\n" +

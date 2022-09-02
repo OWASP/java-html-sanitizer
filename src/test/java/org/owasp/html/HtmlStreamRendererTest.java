@@ -28,18 +28,17 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import java.util.stream.Collectors;
 
 import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
 public class HtmlStreamRendererTest extends TestCase {
 
-  private final List<String> errors = Lists.newArrayList();
+	private final List<String> errors = new ArrayList<>();
   private final StringBuilder rendered = new StringBuilder();
   private final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
       rendered, new Handler<String>() {
@@ -100,53 +99,53 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testIllegalElementName() throws Exception {
     renderer.openDocument();
-    renderer.openTag(":svg", ImmutableList.<String>of());
-    renderer.openTag("svg:", ImmutableList.<String>of());
-    renderer.openTag("-1", ImmutableList.<String>of());
-    renderer.openTag("svg::svg", ImmutableList.<String>of());
-    renderer.openTag("a@b", ImmutableList.<String>of());
+    renderer.openTag(":svg", List.<String>of());
+    renderer.openTag("svg:", List.<String>of());
+    renderer.openTag("-1", List.<String>of());
+    renderer.openTag("svg::svg", List.<String>of());
+    renderer.openTag("a@b", List.<String>of());
     renderer.closeDocument();
 
     String output = rendered.toString();
     assertFalse(output, output.contains("<"));
 
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Invalid element name : :svg",
             "Invalid element name : svg:",
             "Invalid element name : -1",
             "Invalid element name : svg::svg",
-            "Invalid element name : a@b"),
-        Joiner.on('\n').join(errors));
+            "Invalid element name : a@b"}).collect(Collectors.joining("\n")),
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
   public final void testIllegalAttributeName() throws Exception {
     renderer.openDocument();
-    renderer.openTag("div", ImmutableList.of(":svg", "x"));
-    renderer.openTag("div", ImmutableList.of("svg:", "x"));
-    renderer.openTag("div", ImmutableList.of("-1", "x"));
-    renderer.openTag("div", ImmutableList.of("svg::svg", "x"));
-    renderer.openTag("div", ImmutableList.of("a@b", "x"));
+    renderer.openTag("div", List.of(":svg", "x"));
+    renderer.openTag("div", List.of("svg:", "x"));
+    renderer.openTag("div", List.of("-1", "x"));
+    renderer.openTag("div", List.of("svg::svg", "x"));
+    renderer.openTag("div", List.of("a@b", "x"));
     renderer.closeDocument();
 
     String output = rendered.toString();
     assertFalse(output, output.contains("="));
 
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Invalid attr name : :svg",
             "Invalid attr name : svg:",
             "Invalid attr name : -1",
             "Invalid attr name : svg::svg",
-            "Invalid attr name : a@b"),
-        Joiner.on('\n').join(errors));
+            "Invalid attr name : a@b"}).collect(Collectors.joining("\n")),
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
   public final void testCdataContainsEndTag1() throws Exception {
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.of("type", "text/javascript"));
+    renderer.openTag("script", List.of("type", "text/javascript"));
     renderer.text("document.write('<SCRIPT>alert(42)</SCRIPT>')");
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -155,13 +154,13 @@ public class HtmlStreamRendererTest extends TestCase {
         "<script type=\"text/javascript\"></script>", rendered.toString());
     assertEquals(
         "Invalid CDATA text content : </SCRIPT>'",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
   public final void testCdataContainsEndTag2() throws Exception {
     renderer.openDocument();
-    renderer.openTag("style", ImmutableList.of("type", "text/css"));
+    renderer.openTag("style", List.of("type", "text/css"));
     renderer.text("/* </St");
     // Split into two text chunks, and insert NULs.
     renderer.text("\0yle> */");
@@ -172,13 +171,13 @@ public class HtmlStreamRendererTest extends TestCase {
         "<style type=\"text/css\"></style>", rendered.toString());
     assertEquals(
         "Invalid CDATA text content : </Style> *",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
   public final void testRcdataContainsEndTag() throws Exception {
     renderer.openDocument();
-    renderer.openTag("textarea", ImmutableList.<String>of());
+    renderer.openTag("textarea", List.<String>of());
     renderer.text("<textarea></textarea>");
     renderer.closeTag("textarea");
     renderer.closeDocument();
@@ -194,7 +193,7 @@ public class HtmlStreamRendererTest extends TestCase {
         "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>");
     assertEquals(
         "Invalid CDATA text content : <SCRIPT>al",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
@@ -205,7 +204,7 @@ public class HtmlStreamRendererTest extends TestCase {
         + "  console.log(example);\n";
 
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text(js);
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -215,7 +214,7 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <script>';",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
@@ -223,7 +222,7 @@ public class HtmlStreamRendererTest extends TestCase {
     String js = "if (x<!--y) { ... }\n";
 
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text(js);
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -233,7 +232,7 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <!--y) { .",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
@@ -241,7 +240,7 @@ public class HtmlStreamRendererTest extends TestCase {
     String js = "if (x-->y) { ... }\n";
 
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text(js);
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -252,7 +251,7 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : -->y) { ..",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
@@ -260,7 +259,7 @@ public class HtmlStreamRendererTest extends TestCase {
     String js = "// <!----> <!--->";
 
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text(js);
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -271,7 +270,7 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <!--->",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
@@ -279,7 +278,7 @@ public class HtmlStreamRendererTest extends TestCase {
     String js = "<!-- if ( player<script ) { ... } -->";
 
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text(js);
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -289,7 +288,7 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <script ) ",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
@@ -303,7 +302,7 @@ public class HtmlStreamRendererTest extends TestCase {
         + "-->";
 
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text(js);
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -323,10 +322,10 @@ public class HtmlStreamRendererTest extends TestCase {
     String str = "// <!----> <!---> <!--";
 
     renderer.openDocument();
-    renderer.openTag("title", ImmutableList.<String>of());
+    renderer.openTag("title", List.<String>of());
     renderer.text(str);
     renderer.closeTag("title");
-    renderer.openTag("textarea", ImmutableList.<String>of());
+    renderer.openTag("textarea", List.<String>of());
     renderer.text(str);
     renderer.closeTag("textarea");
     renderer.closeDocument();
@@ -339,9 +338,9 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testTagInCdata() throws Exception {
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text("alert('");
-    renderer.openTag("b", ImmutableList.<String>of());
+    renderer.openTag("b", List.<String>of());
     renderer.text("foo");
     renderer.closeTag("b");
     renderer.text("')");
@@ -351,16 +350,16 @@ public class HtmlStreamRendererTest extends TestCase {
     assertEquals(
         "<script>alert('foo')</script>", rendered.toString());
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Tag content cannot appear inside CDATA element : b",
-            "Tag content cannot appear inside CDATA element : b"),
-        Joiner.on('\n').join(errors));
+            "Tag content cannot appear inside CDATA element : b"}).collect(Collectors.joining("\n")),
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
   public final void testUnclosedEscapingTextSpan() throws Exception {
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text("<!--alert('</script>')");
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -368,13 +367,13 @@ public class HtmlStreamRendererTest extends TestCase {
     assertEquals("<script></script>", rendered.toString());
     assertEquals(
         "Invalid CDATA text content : </script>'",
-        Joiner.on('\n').join(errors));
+        errors.stream().collect(Collectors.joining("\n")));
     errors.clear();
   }
 
   public final void testAlmostCompleteEndTag() throws Exception {
     renderer.openDocument();
-    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.openTag("script", List.<String>of());
     renderer.text("//</scrip");
     renderer.closeTag("script");
     renderer.closeDocument();
@@ -384,7 +383,7 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testBalancedCommentInNoscript() throws Exception {
     renderer.openDocument();
-    renderer.openTag("noscript", ImmutableList.<String>of());
+    renderer.openTag("noscript", List.<String>of());
     renderer.text("<!--<script>foo</script>-->");
     renderer.closeTag("noscript");
     renderer.closeDocument();
@@ -396,10 +395,10 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testUnbalancedCommentInNoscript() throws Exception {
     renderer.openDocument();
-    renderer.openTag("noscript", ImmutableList.<String>of());
+    renderer.openTag("noscript", List.<String>of());
     renderer.text("<!--<script>foo</script>--");
     renderer.closeTag("noscript");
-    renderer.openTag("noscript", ImmutableList.<String>of());
+    renderer.openTag("noscript", List.<String>of());
     renderer.text("<script>foo</script>-->");
     renderer.closeTag("noscript");
     renderer.closeDocument();
@@ -423,7 +422,7 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testPreSubstitutes1() throws Exception {
     renderer.openDocument();
-    renderer.openTag("Xmp", ImmutableList.<String>of());
+    renderer.openTag("Xmp", List.<String>of());
     renderer.text("<form>Hello, World</form>");
     renderer.closeTag("Xmp");
     renderer.closeDocument();
@@ -434,7 +433,7 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testPreSubstitutes2() throws Exception {
     renderer.openDocument();
-    renderer.openTag("xmp", ImmutableList.<String>of());
+    renderer.openTag("xmp", List.<String>of());
     renderer.text("<form>Hello, World</form>");
     renderer.closeTag("xmp");
     renderer.closeDocument();
@@ -445,7 +444,7 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testPreSubstitutes3() throws Exception {
     renderer.openDocument();
-    renderer.openTag("LISTING", ImmutableList.<String>of());
+    renderer.openTag("LISTING", List.<String>of());
     renderer.text("<form>Hello, World</form>");
     renderer.closeTag("LISTING");
     renderer.closeDocument();
@@ -456,7 +455,7 @@ public class HtmlStreamRendererTest extends TestCase {
 
   public final void testPreSubstitutes4() throws Exception {
     renderer.openDocument();
-    renderer.openTag("plaintext", ImmutableList.<String>of());
+    renderer.openTag("plaintext", List.<String>of());
     renderer.text("<form>Hello, World</form>");
     renderer.closeDocument();
 
