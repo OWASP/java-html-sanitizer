@@ -60,7 +60,7 @@ public class HtmlStreamRendererTest extends TestCase {
   @Override
   protected void tearDown() throws Exception {
     super.tearDown();
-    assertTrue(errors.isEmpty());  // Catch any tests that don't check errors.
+    assertTrue(errors.toString(), errors.isEmpty());  // Catch any tests that don't check errors.
   }
 
   public final void testEmptyDocument() throws Exception {
@@ -188,10 +188,153 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testCdataContainsEndTagInEscapingSpan() throws Exception {
+  public final void testEndTagInsideScriptBodyInner() throws Exception {
     assertNormalized(
-        "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>",
+        "<script></script>&#39;)--&gt;",
         "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>");
+    assertEquals(
+        "Invalid CDATA text content : <SCRIPT>al",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  // Testcases from
+  // www.w3.org/TR/html51/semantics-scripting.html#restrictions-for-contents-of-script-elements
+  public final void testHtml51SemanticsScriptingExample5Part1() throws Exception {
+    String js = "  var example = 'Consider this string: <!-- <script>';\n"
+        + "  console.log(example);\n";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : <script>';",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testHtml51SemanticsScriptingExample5Part2() throws Exception {
+    String js = "if (x<!--y) { ... }\n";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : <!--y) { .",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testMoreUnbalancedHtmlCommentsInScripts() throws Exception {
+    String js = "if (x-->y) { ... }\n";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    // We could actually allow this since --> is not banned per 4.12.1.3
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : -->y) { ..",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testShortHtmlCommentInScript() throws Exception {
+    String js = "// <!----> <!--->";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    // We could actually allow this since --> is not banned per 4.12.1.3
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : <!--->",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testHtml51SemanticsScriptingExample5Part3() throws Exception {
+    String js = "<!-- if ( player<script ) { ... } -->";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<script></script>",
+        rendered.toString());
+    assertEquals(
+        "Invalid CDATA text content : <script ) ",
+        Joiner.on('\n').join(errors));
+    errors.clear();
+  }
+
+  public final void testHtml51SemanticsScriptingExample5Part4() throws Exception {
+    String js = "<!--\n"
+        + "if (x < !--y) { ... }\n"
+        + "if (!--y > x) { ... }\n"
+        + "if (!(--y) > x) { ... }\n"
+        + "if (player < script) { ... }\n"
+        + "if (script > player) { ... }\n"
+        + "-->";
+
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text(js);
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<script><!--\n"
+        + "if (x < !--y) { ... }\n"
+        + "if (!--y > x) { ... }\n"
+        + "if (!(--y) > x) { ... }\n"
+        + "if (player < script) { ... }\n"
+        + "if (script > player) { ... }\n"
+        + "--></script>",
+        rendered.toString());
+  }
+
+  public final void testHtmlCommentInRcdata() throws Exception {
+    String str = "// <!----> <!---> <!--";
+
+    renderer.openDocument();
+    renderer.openTag("title", ImmutableList.<String>of());
+    renderer.text(str);
+    renderer.closeTag("title");
+    renderer.openTag("textarea", ImmutableList.<String>of());
+    renderer.text(str);
+    renderer.closeTag("textarea");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<title>// &lt;!----&gt; &lt;!---&gt; &lt;!--</title>"
+        + "<textarea>// &lt;!----&gt; &lt;!---&gt; &lt;!--</textarea>",
+        rendered.toString());
   }
 
   public final void testTagInCdata() throws Exception {
@@ -224,9 +367,47 @@ public class HtmlStreamRendererTest extends TestCase {
 
     assertEquals("<script></script>", rendered.toString());
     assertEquals(
-        "Invalid CDATA text content : <!--alert(",
+        "Invalid CDATA text content : </script>'",
         Joiner.on('\n').join(errors));
     errors.clear();
+  }
+
+  public final void testAlmostCompleteEndTag() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("script", ImmutableList.<String>of());
+    renderer.text("//</scrip");
+    renderer.closeTag("script");
+    renderer.closeDocument();
+
+    assertEquals("<script>//</scrip</script>", rendered.toString());
+  }
+
+  public final void testBalancedCommentInNoscript() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("noscript", ImmutableList.<String>of());
+    renderer.text("<!--<script>foo</script>-->");
+    renderer.closeTag("noscript");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<noscript>&lt;!--&lt;script&gt;foo&lt;/script&gt;--&gt;</noscript>",
+        rendered.toString());
+  }
+
+  public final void testUnbalancedCommentInNoscript() throws Exception {
+    renderer.openDocument();
+    renderer.openTag("noscript", ImmutableList.<String>of());
+    renderer.text("<!--<script>foo</script>--");
+    renderer.closeTag("noscript");
+    renderer.openTag("noscript", ImmutableList.<String>of());
+    renderer.text("<script>foo</script>-->");
+    renderer.closeTag("noscript");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<noscript>&lt;!--&lt;script&gt;foo&lt;/script&gt;--</noscript>"
+        + "<noscript>&lt;script&gt;foo&lt;/script&gt;--&gt;</noscript>",
+        rendered.toString());
   }
 
   public final void testSupplementaryCodepoints() throws Exception {

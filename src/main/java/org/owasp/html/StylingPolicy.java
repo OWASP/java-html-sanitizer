@@ -32,7 +32,11 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.Lists;
 
 /**
@@ -41,12 +45,14 @@ import com.google.common.collect.Lists;
  * ones to reduce the attack-surface.
  */
 @TCB
-final class StylingPolicy implements AttributePolicy {
+final class StylingPolicy implements JoinableAttributePolicy {
 
   final CssSchema cssSchema;
+  final Function<String, String> urlRewriter;
 
-  StylingPolicy(CssSchema cssSchema) {
+  StylingPolicy(CssSchema cssSchema, Function<String, String> urlRewriter) {
     this.cssSchema = cssSchema;
+    this.urlRewriter = urlRewriter;
   }
 
   public @Nullable String apply(
@@ -70,6 +76,7 @@ final class StylingPolicy implements AttributePolicy {
       int propertyStart = 0;
       boolean hasTokens;
       boolean inQuotedIdents;
+      String lastToken = null;
 
       private void emitToken(String token) {
         closeQuotedIdents();
@@ -85,11 +92,28 @@ final class StylingPolicy implements AttributePolicy {
         }
       }
 
+      private void sanitizeAndAppendUrl(String urlContent) {
+        if (urlContent.length() < 1024) {
+          String rewrittenUrl = urlRewriter.apply(urlContent);
+          if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
+            if (hasTokens) { sanitizedCss.append(' '); }
+            sanitizedCss.append("url('").append(rewrittenUrl).append("')");
+            hasTokens = true;
+          }
+        }
+      }
+
       public void url(String token) {
         closeQuotedIdents();
-        //if ((schema.bits & CssSchema.BIT_URL) != 0) {
-        // TODO: sanitize the URL.
-        //}
+        if (cssProperty != null) {
+          if ((cssProperty.bits & CssSchema.BIT_URL) != 0) {
+            String urlContent = CssGrammar.cssContent(
+                Strings.stripHtmlSpaces(  // TODO: css spaces
+                    token.substring(4, token.length() - 1)));
+            sanitizeAndAppendUrl(urlContent);
+          }
+        }
+        lastToken = token;
       }
 
       public void startProperty(String propertyName) {
@@ -115,6 +139,7 @@ final class StylingPolicy implements AttributePolicy {
         if (cssProperty != CssSchema.DISALLOWED) {
           emitToken(token);
         }
+        lastToken = token;
       }
 
       public void quotedString(String token) {
@@ -130,13 +155,14 @@ final class StylingPolicy implements AttributePolicy {
         if ((meaning & (meaning - 1)) == 0) {  // meaning is unambiguous
           if (meaning == CssSchema.BIT_UNRESERVED_WORD
               && token.length() > 2
-              && isAlphanumericOrSpace(token, 1, token.length() - 1)) {
+              && isAlphanumericOrSpaceOrHyphen(token, 1, token.length() - 1)) {
             emitToken(Strings.toLowerCase(token));
           } else if (meaning == CssSchema.BIT_URL) {
             // convert to a URL token and hand-off to the appropriate method
-            // url("url(" + token + ")");  // TODO: %-encode properly
+            sanitizeAndAppendUrl(CssGrammar.cssContent(token));
           }
         }
+        lastToken = token;
       }
 
       public void quantity(String token) {
@@ -147,6 +173,7 @@ final class StylingPolicy implements AttributePolicy {
             || cssProperty.literals.contains(token)) {
           emitToken(token);
         }
+        lastToken = token;
       }
 
       public void punctuation(String token) {
@@ -154,13 +181,16 @@ final class StylingPolicy implements AttributePolicy {
         if (cssProperty.literals.contains(token)) {
           emitToken(token);
         }
+        lastToken = token;
       }
 
       private static final int IDENT_TO_STRING =
           CssSchema.BIT_UNRESERVED_WORD | CssSchema.BIT_STRING;
       public void identifier(String uncanonToken) {
         String token = Strings.toLowerCase(uncanonToken);
-        if (cssProperty.literals.contains(token)) {
+        if ("!".equals(lastToken) && "important".equals(token)) {
+          emitToken("!important");
+        } else if (cssProperty.literals.contains(token)) {
           emitToken(token);
         } else if ((cssProperty.bits & IDENT_TO_STRING) == IDENT_TO_STRING) {
           if (!inQuotedIdents) {
@@ -173,6 +203,7 @@ final class StylingPolicy implements AttributePolicy {
           }
           sanitizedCss.append(Strings.toLowerCase(token));
         }
+        lastToken = token;
       }
 
       public void hash(String token) {
@@ -180,6 +211,7 @@ final class StylingPolicy implements AttributePolicy {
         if ((cssProperty.bits & CssSchema.BIT_HASH_VALUE) != 0) {
           emitToken(Strings.toLowerCase(token));
         }
+        lastToken = token;
       }
 
       public void endProperty() {
@@ -188,17 +220,19 @@ final class StylingPolicy implements AttributePolicy {
         } else {
           closeQuotedIdents();
         }
+        lastToken = null;
       }
 
       public void endFunction(String token) {
         if (cssProperty != CssSchema.DISALLOWED) { emitToken(")"); }
         cssProperty = cssProperties.remove(cssProperties.size() - 1);
+        lastToken = ")";
       }
     });
     return sanitizedCss.length() == 0 ? null : sanitizedCss.toString();
   }
 
-  static boolean isAlphanumericOrSpace(
+  static boolean isAlphanumericOrSpaceOrHyphen(
       String token, int start, int end) {
     for (int i = start; i < end; ++i) {
       char ch = token.charAt(i);
@@ -209,7 +243,8 @@ final class StylingPolicy implements AttributePolicy {
       } else {
         int chLower = ch | 32;
         if (!(('0' <= chLower && chLower <= '9')
-              || ('a' <= chLower && chLower <= 'z'))) {
+              || ('a' <= chLower && chLower <= 'z')
+              || ('-' == ch))) {
           return false;
         }
       }
@@ -228,4 +263,31 @@ final class StylingPolicy implements AttributePolicy {
     return cssSchema.hashCode();
   }
 
+  public Joinable.JoinStrategy<JoinableAttributePolicy> getJoinStrategy() {
+    return StylingPolicyJoinStrategy.INSTANCE;
+  }
+
+  static final class StylingPolicyJoinStrategy
+  implements Joinable.JoinStrategy<JoinableAttributePolicy> {
+    static final StylingPolicyJoinStrategy INSTANCE =
+        new StylingPolicyJoinStrategy();
+
+    public JoinableAttributePolicy join(
+        Iterable<? extends JoinableAttributePolicy> toJoin) {
+      Function<String, String> identity = Functions.<String>identity();
+      CssSchema cssSchema = null;
+      Function<String, String> urlRewriter = identity;
+      for (JoinableAttributePolicy p : toJoin) {
+        StylingPolicy sp = (StylingPolicy) p;
+        cssSchema = cssSchema == null
+            ? sp.cssSchema : CssSchema.union(cssSchema, sp.cssSchema);
+        urlRewriter = urlRewriter.equals(identity)
+            || urlRewriter.equals(sp.urlRewriter)
+            ? sp.urlRewriter
+            : Functions.compose(urlRewriter, sp.urlRewriter);
+      }
+      return new StylingPolicy(cssSchema, urlRewriter);
+    }
+
+  }
 }

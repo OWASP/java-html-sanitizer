@@ -64,9 +64,8 @@ public class CssFuzzerTest extends FuzzyTestCase {
     public void run() {
       synchronized (this) {
         try {
-          while (true) {
+          while (input == null) {
             this.wait(1000 /* ms = 1s */);
-            if (input == null) { break; }  // Done
             long now = System.nanoTime();
             if (now - started >= 1000000000L /* ns = 1s */) {
               System.err.println(

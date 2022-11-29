@@ -1,0 +1,9 @@
+<configuration>
+  <class>
+    <name>com.google.common.html.types.UncheckedConversions</name>
+    <method>
+      <name>safeHtmlFromStringKnownToSatisfyTypeContract</name>
+      <trusts>org.owasp.html.htmltypes.SafeHtmlMint</trusts>
+    </method>
+  </class>
+</configuration>

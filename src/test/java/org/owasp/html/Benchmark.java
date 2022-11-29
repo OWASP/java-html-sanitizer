@@ -43,6 +43,13 @@ import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 
 /**
  * An executable that benchmarks the sanitizer against an alternative.
+ * <p>
+ * Can be run thus
+ * <pre>
+ * mvn exec:java -Dexec.mainClass=org.owasp.html.Benchmark \
+ *   -Dexec.classpathScope=test \
+ *   -Dexec.args=src/test/resources/benchmark-data/Yahoo\!.html
+ * </pre>
  */
 public class Benchmark {
 
@@ -52,7 +59,7 @@ public class Benchmark {
    * specifies a benchmark to run and unspecified ones are not run.
    */
   public static void main(String[] args) throws Exception {
-    String html = Files.toString(new File(args[0]), Charsets.UTF_8);
+    String html = Files.asCharSource(new File(args[0]), Charsets.UTF_8).read();
 
     boolean timeLibhtmlparser = true;
     boolean timeSanitize = true;

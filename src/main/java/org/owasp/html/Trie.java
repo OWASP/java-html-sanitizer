@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import javax.annotation.Nullable;
+
 /**
  * A trie used to separate punctuation tokens in a run of non-whitespace
  * characters by preferring the longest punctuation string possible in a
@@ -41,20 +43,20 @@ import java.util.TreeMap;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-final class Trie {
+final class Trie<T> {
   private final char[] childMap;
-  private final Trie[] children;
+  private final Trie<T>[] children;
   private final boolean terminal;
-  private final int value;
+  private final @Nullable T value;
 
   /**
    * @param elements not empty, non null.
    */
-  public Trie(Map<String, Integer> elements) {
+  public Trie(Map<String, T> elements) {
     this(sortedUniqEntries(elements), 0);
   }
 
-  private Trie(List<Map.Entry<String, Integer>> elements, int depth) {
+  private Trie(List<Map.Entry<String, T>> elements, int depth) {
     this(elements, depth, 0, elements.size());
   }
 
@@ -66,8 +68,9 @@ final class Trie {
    * @param end an index into punctuationStrings past the last string in this
    *   subtree.
    */
+  @SuppressWarnings("unchecked")
   private Trie(
-      List<Map.Entry<String, Integer>> elements, int depth,
+      List<Map.Entry<String, T>> elements, int depth,
       int start, int end) {
     int pos = start;
     this.terminal = depth == elements.get(pos).getKey().length();
@@ -75,13 +78,13 @@ final class Trie {
       this.value = elements.get(pos).getValue();
       if (pos + 1 == end) {  // base case
         this.childMap = ZERO_CHARS;
-        this.children = ZERO_TRIES;
+        this.children = ((Trie<T>[]) ZERO_TRIES);
         return;
       } else {
         ++pos;
       }
     } else {
-      this.value = Integer.MAX_VALUE;
+      this.value = null;
     }
     int childCount = 0;
     {
@@ -103,26 +106,26 @@ final class Trie {
       char ch = elements.get(i).getKey().charAt(depth);
       if (ch != lastCh) {
         childMap[childIndex] = lastCh;
-        children[childIndex++] = new Trie(
+        children[childIndex++] = new Trie<T>(
           elements, depth + 1, childStart, i);
         childStart = i;
         lastCh = ch;
       }
     }
     childMap[childIndex] = lastCh;
-    children[childIndex++] = new Trie(elements, depth + 1, childStart, end);
+    children[childIndex++] = new Trie<T>(elements, depth + 1, childStart, end);
   }
 
   /** Does this node correspond to a complete string in the input set. */
   public boolean isTerminal() { return terminal; }
 
-  public int getValue() { return value; }
+  public @Nullable T getValue() { return value; }
 
   /**
    * The child corresponding to the given character.
    * @return null if no such trie.
    */
-  public Trie lookup(char ch) {
+  public Trie<T> lookup(char ch) {
     int i = Arrays.binarySearch(childMap, ch);
     return i >= 0 ? children[i] : null;
   }
@@ -133,8 +136,8 @@ final class Trie {
    * @param s non null.
    * @return null if no such trie.
    */
-  public Trie lookup(CharSequence s) {
-    Trie t = this;
+  public Trie<T> lookup(CharSequence s) {
+    Trie<T> t = this;
     for (int i = 0, n = s.length(); i < n; ++i) {
       t = t.lookup(s.charAt(i));
       if (null == t) { break; }
@@ -146,14 +149,14 @@ final class Trie {
     return Arrays.binarySearch(childMap, ch) >= 0;
   }
 
-  private static <T> List<Map.Entry<String, T>> sortedUniqEntries(
-      Map<String, T> m) {
-    return new ArrayList<Map.Entry<String, T>>(
-        new TreeMap<String, T>(m).entrySet());
+  private static <U> List<Map.Entry<String, U>> sortedUniqEntries(
+      Map<String, U> m) {
+    return new ArrayList<Map.Entry<String, U>>(
+        new TreeMap<String, U>(m).entrySet());
   }
 
   private static final char[] ZERO_CHARS = new char[0];
-  private static final Trie[] ZERO_TRIES = new Trie[0];
+  private static final Trie<?>[] ZERO_TRIES = new Trie<?>[0];
 
   /**
    * Append all strings s such that {@code this.lookup(s).isTerminal()} to the

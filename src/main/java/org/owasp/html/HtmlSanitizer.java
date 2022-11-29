@@ -99,9 +99,134 @@ public final class HtmlSanitizer {
    *     {@link HtmlStreamRenderer} after filtering.
    *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
    */
-  public static void sanitize(@Nullable String html, final Policy policy) {
-    if (html == null) { html = ""; }
+  public static void sanitize(
+      @Nullable String html, final Policy policy) {
+    sanitize(html, policy, HtmlStreamEventProcessor.Processors.IDENTITY);
+  }
 
+  /**
+   * Sanitizes the given HTML by applying the given policy to it.
+   *
+   * <p>
+   * This method is not in the TCB.
+   *
+   * <p>
+   * This method has no return value since policies are assumed to render things
+   * they accept and do nothing on things they reject.
+   * Use {@link HtmlStreamRenderer} to render content to an output buffer.
+   *
+   * @param html A snippet of HTML to sanitize.  {@code null} is treated as the
+   *     empty string and will not result in a {@code NullPointerException}.
+   * @param policy The Policy that will receive events based on the tokens in
+   *     HTML.  Typically, this policy ends up routing the events to an
+   *     {@link HtmlStreamRenderer} after filtering.
+   *     {@link HtmlPolicyBuilder} provides an easy way to create policies.
+   * @param preprocessor A processor that may wrap the policy to reinterpret
+   *     parse events.
+   *     Since the policy encapsulates its output buffer, this is not in the
+   *     policy's TCB.
+   */
+  public static void sanitize(
+      @Nullable String html, final Policy policy,
+      HtmlStreamEventProcessor preprocessor) {
+    String htmlContent = html != null ? html : "";
+
+    HtmlStreamEventReceiver receiver = initializePolicy(policy, preprocessor);
+
+    receiver.openDocument();
+
+    HtmlLexer lexer = new HtmlLexer(htmlContent);
+    // Use a linked list so that policies can use Iterator.remove() in an O(1)
+    // way.
+    LinkedList<String> attrs = Lists.newLinkedList();
+    while (lexer.hasNext()) {
+      HtmlToken token = lexer.next();
+      switch (token.type) {
+        case TEXT:
+          receiver.text(
+              Encoding.decodeHtml(htmlContent.substring(token.start, token.end)));
+          break;
+        case UNESCAPED:
+          receiver.text(Encoding.stripBannedCodeunits(
+              htmlContent.substring(token.start, token.end)));
+          break;
+        case TAGBEGIN:
+          if (htmlContent.charAt(token.start + 1) == '/') {  // A close tag.
+            receiver.closeTag(HtmlLexer.canonicalName(
+                htmlContent.substring(token.start + 2, token.end)));
+            while (lexer.hasNext()
+                   && lexer.next().type != HtmlTokenType.TAGEND) {
+              // skip tokens until we see a ">"
+            }
+          } else {
+            attrs.clear();
+
+            boolean attrsReadyForName = true;
+            tagBody:
+            while (lexer.hasNext()) {
+              HtmlToken tagBodyToken = lexer.next();
+              switch (tagBodyToken.type) {
+                case ATTRNAME:
+                  if (!attrsReadyForName) {
+                    // Last attribute added was valueless.
+                    attrs.add(attrs.getLast());
+                  } else {
+                    attrsReadyForName = false;
+                  }
+                  attrs.add(HtmlLexer.canonicalName(
+                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end)));
+                  break;
+                case ATTRVALUE:
+                  attrs.add(Encoding.decodeHtml(stripQuotes(
+                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end))));
+                  attrsReadyForName = true;
+                  break;
+                case TAGEND:
+                  break tagBody;
+                default:
+                  // Just drop anything not recognized
+              }
+            }
+            if (!attrsReadyForName) {
+              attrs.add(attrs.getLast());
+            }
+            receiver.openTag(
+                HtmlLexer.canonicalName(
+                    htmlContent.substring(token.start + 1, token.end)),
+                attrs);
+          }
+          break;
+        default:
+          // Ignore comments, XML prologues, processing instructions, and other
+          // stuff that shouldn't show up in the output.
+          break;
+      }
+    }
+
+    receiver.closeDocument();
+  }
+
+  private static String stripQuotes(String encodedAttributeValue) {
+    int n = encodedAttributeValue.length();
+    if (n > 0) {
+      char last = encodedAttributeValue.charAt(n - 1);
+      if (last == '"' || last == '\'') {
+        int start = 0;
+        if (n != 1 && last == encodedAttributeValue.charAt(0)) {
+          start = 1;
+        } else {
+          // Browsers deal with missing left quotes : <img src=foo.png">
+          // but generally do not deal with missing right : <img src="foo.png>
+        }
+        return encodedAttributeValue.substring(start, n - 1);
+      }
+    }
+    return encodedAttributeValue;
+  }
+
+
+  private static HtmlStreamEventReceiver initializePolicy(
+      Policy policy, HtmlStreamEventProcessor preprocessor) {
     TagBalancingHtmlStreamEventReceiver balancer
         = new TagBalancingHtmlStreamEventReceiver(policy);
 
@@ -124,96 +249,6 @@ public final class HtmlSanitizer {
     // 256 is substantially larger than the lower bound and well clear of the
     // upper bound.
     balancer.setNestingLimit(256);
-
-    balancer.openDocument();
-
-    HtmlLexer lexer = new HtmlLexer(html);
-    // Use a linked list so that policies can use Iterator.remove() in an O(1)
-    // way.
-    LinkedList<String> attrs = Lists.newLinkedList();
-    while (lexer.hasNext()) {
-      HtmlToken token = lexer.next();
-      switch (token.type) {
-        case TEXT:
-          balancer.text(
-              Encoding.decodeHtml(html.substring(token.start, token.end)));
-          break;
-        case UNESCAPED:
-          balancer.text(Encoding.stripBannedCodeunits(
-              html.substring(token.start, token.end)));
-          break;
-        case TAGBEGIN:
-          if (html.charAt(token.start + 1) == '/') {  // A close tag.
-            balancer.closeTag(HtmlLexer.canonicalName(
-                html.substring(token.start + 2, token.end)));
-            while (lexer.hasNext()
-                   && lexer.next().type != HtmlTokenType.TAGEND) {
-              // skip tokens until we see a ">"
-            }
-          } else {
-            attrs.clear();
-
-            boolean attrsReadyForName = true;
-            tagBody:
-            while (lexer.hasNext()) {
-              HtmlToken tagBodyToken = lexer.next();
-              switch (tagBodyToken.type) {
-                case ATTRNAME:
-                  if (!attrsReadyForName) {
-                    // Last attribute added was valueless.
-                    attrs.add(attrs.getLast());
-                  } else {
-                    attrsReadyForName = false;
-                  }
-                  attrs.add(HtmlLexer.canonicalName(
-                      html.substring(tagBodyToken.start, tagBodyToken.end)));
-                  break;
-                case ATTRVALUE:
-                  attrs.add(Encoding.decodeHtml(stripQuotes(
-                      html.substring(tagBodyToken.start, tagBodyToken.end))));
-                  attrsReadyForName = true;
-                  break;
-                case TAGEND:
-                  break tagBody;
-                default:
-                  // Just drop anything not recognized
-              }
-            }
-            if (!attrsReadyForName) {
-              attrs.add(attrs.getLast());
-            }
-            balancer.openTag(
-                HtmlLexer.canonicalName(
-                    html.substring(token.start + 1, token.end)),
-                attrs);
-          }
-          break;
-        default:
-          // Ignore comments, XML prologues, processing instructions, and other
-          // stuff that shouldn't show up in the output.
-          break;
-      }
-    }
-
-    balancer.closeDocument();
+    return preprocessor.wrap(balancer);
   }
-
-  private static String stripQuotes(String encodedAttributeValue) {
-    int n = encodedAttributeValue.length();
-    if (n > 0) {
-      char last = encodedAttributeValue.charAt(n - 1);
-      if (last == '"' || last == '\'') {
-        int start = 0;
-        if (n != 1 && last == encodedAttributeValue.charAt(0)) {
-          start = 1;
-        } else {
-          // Browsers deal with missing left quotes : <img src=foo.png">
-          // but generally do not deal with missing right : <img src="foo.png>
-        }
-        return encodedAttributeValue.substring(start, n - 1);
-      }
-    }
-    return encodedAttributeValue;
-  }
-
 }

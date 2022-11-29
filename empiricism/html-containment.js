@@ -100,7 +100,7 @@ function runExperiment(makeHtmlString, checkDom, initialResult, onResult,
       advance();
     }
 
-    if (htmlString == null) { 
+    if (htmlString == null) {
       var endTime = Date.now();
       console.log('experiment took %d millis for %d runs',
                   (endTime - startTime), nRuns);
@@ -257,7 +257,7 @@ function Promise() {
   this.paused = [];
   this.satisfy = function () {
     var paused = this.paused;
-console.log('satisfying ' + paused.length);
+    console.log('satisfying ' + paused.length);
     for (var i = 0, n = paused.length; i < n; ++i) {
       setTimeout(paused[i], 0);
     }

@@ -137,7 +137,10 @@ TAGEND     [>]  :  1355-1356
 TEXT       [\n]  :  1356-1357
 TAGBEGIN   [<script]  :  1357-1364
 TAGEND     [>]  :  1364-1365
-UNESCAPED  [<!--/* </script> */alert('hi');-->]  :  1365-1399
+UNESCAPED  [<!--/* ]  :  1365-1372
+TAGBEGIN   [</script]  :  1372-1380
+TAGEND     [>]  :  1380-1381
+TEXT       [ */alert('hi');-->]  :  1381-1399
 TAGBEGIN   [</script]  :  1399-1407
 TAGEND     [>]  :  1407-1408
 TEXT       [\n\n]  :  1408-1410
@@ -154,13 +157,19 @@ TAGEND     [>]  :  1468-1469
 TEXT       [\n\n]  :  1469-1471
 TAGBEGIN   [<style]  :  1471-1477
 TAGEND     [>]  :  1477-1478
-UNESCAPED  [<!-- p { contentf: '</style>' } -->]  :  1478-1513
+UNESCAPED  [<!-- p { contentf: ']  :  1478-1498
+TAGBEGIN   [</style]  :  1498-1505
+TAGEND     [>]  :  1505-1506
+TEXT       [' } -->]  :  1506-1513
 TAGBEGIN   [</style]  :  1513-1520
 TAGEND     [>]  :  1520-1521
 TEXT       [\n\n]  :  1521-1523
 TAGBEGIN   [<style]  :  1523-1529
 TAGEND     [>]  :  1529-1530
-UNESCAPED  [Foo<!-- > </style> -->]  :  1530-1552
+UNESCAPED  [Foo<!-- > ]  :  1530-1540
+TAGBEGIN   [</style]  :  1540-1547
+TAGEND     [>]  :  1547-1548
+TEXT       [ -->]  :  1548-1552
 TAGBEGIN   [</style]  :  1552-1559
 TAGEND     [>]  :  1559-1560
 TEXT       [\n\n]  :  1560-1562

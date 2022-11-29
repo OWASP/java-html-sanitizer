@@ -28,8 +28,6 @@
 
 package org.owasp.html;
 
-import javax.annotation.Nullable;
-
 /**
  * Locale independent versions of String case-insensitive operations.
  * <p>
@@ -52,6 +50,7 @@ import javax.annotation.Nullable;
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
 final class Strings {
+  /*
   public static boolean equalsIgnoreCase(
       @Nullable String a, @Nullable String b) {
     if (a == null) { return b == null; }
@@ -71,6 +70,7 @@ final class Strings {
     }
     return true;
   }
+  */
 
   public static boolean regionMatchesIgnoreCase(
       CharSequence a, int aoffset, CharSequence b, int boffset, int n) {
@@ -90,6 +90,7 @@ final class Strings {
   }
 
   /** True iff {@code s.equals(String.toLowerCase(s))}. */
+  /*
   public static boolean isLowerCase(CharSequence s) {
     for (int i = s.length(); --i >= 0;) {
       char c = s.charAt(i);
@@ -99,6 +100,7 @@ final class Strings {
     }
     return true;
   }
+  */
 
   private static final char[] LCASE_CHARS = new char['Z' + 1];
   private static final char[] UCASE_CHARS = new char['z' + 1];
@@ -126,6 +128,7 @@ final class Strings {
     return s;
   }
 
+  /*
   public static String toUpperCase(String s) {
     for (int i = s.length(); --i >= 0;) {
       char c = s.charAt(i);
@@ -142,6 +145,126 @@ final class Strings {
       }
     }
     return s;
+  }
+  */
+
+  private static final long HTML_SPACE_CHAR_BITMASK =
+      (1L << ' ')
+    | (1L << '\t')
+    | (1L << '\n')
+    | (1L << '\u000c')
+    | (1L << '\r');
+
+  static boolean isHtmlSpace(int ch) {
+    return ch <= 0x20 && (HTML_SPACE_CHAR_BITMASK & (1L << ch)) != 0;
+  }
+
+  static boolean containsHtmlSpace(String s) {
+    for (int i = 0, n = s.length(); i < n; ++i) {
+      if (isHtmlSpace(s.charAt(i))) { return true; }
+    }
+    return false;
+  }
+
+  static String stripHtmlSpaces(String s) {
+    int i = 0, n = s.length();
+    for (; n > i; --n) {
+      if (!isHtmlSpace(s.charAt(n - 1))) {
+        break;
+      }
+    }
+    for (; i < n; ++i) {
+      if (!isHtmlSpace(s.charAt(i))) {
+        break;
+      }
+    }
+    if (i == 0 && n == s.length()) {
+      return s;
+    }
+    return s.substring(i, n);
+  }
+
+  /**
+   * Parses a valid floating point number per the HTML5 spec.
+   * https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#valid-floating-point-number
+   *
+   * @param start the start of the floating point number on s.
+   * @return the end of the floating point number if valid or -1 if not.
+   */
+  static int skipValidFloatingPointNumber(String value, int start) {
+    // A string is a valid floating-point number if it consists of:
+    int i = start;
+    final int n = value.length();
+
+    if (i >= n) {
+      return -1;
+    }
+
+    // 1. Optionally, a U+002D HYPHEN-MINUS character (-).
+    if (value.charAt(i) == '-') {
+      ++i;
+    }
+    // 2. One or both of the following, in the given order:
+    boolean hasMantissa = false;
+    //    1. A series of one or more ASCII digits.
+    while (i < n) {
+      char ch = value.charAt(i);
+      if ('0' <= ch && ch <= '9') {
+        ++i;
+        hasMantissa = true;
+      } else {
+        break;
+      }
+    }
+    //    2. Both of the following, in the given order:
+    //       1. A single U+002E FULL STOP character (.).
+    //       2. A series of one or more ASCII digits.
+    if (i < n && value.charAt(i) == '.') {
+      ++i;
+      // Even if there's an integer, you need digits after the decimal point.
+      hasMantissa = false;
+      while (i < n) {
+        char ch = value.charAt(i);
+        if ('0' <= ch && ch <= '9') {
+          ++i;
+          hasMantissa = true;
+        } else {
+          break;
+        }
+      }
+    }
+    if (!hasMantissa) {
+      return -1;
+    }
+    // 3. Optionally:
+    //    1. Either a U+0065 LATIN SMALL LETTER E character (e)
+    //       or a U+0045 LATIN CAPITAL LETTER E character (E).
+    if (i < n && (value.charAt(i) | 32) == 'e') {
+      ++i;
+      //    2. Optionally, a U+002D HYPHEN-MINUS character (-) or
+      //       U+002B PLUS SIGN character (+).
+      if (i < n) {
+        char ch = value.charAt(i);
+        if (ch == '+' || ch == '-') {
+          ++i;
+        }
+      }
+      //    3. A series of one or more ASCII digits.
+      boolean hasExponent = false;
+      while (i < n) {
+        char ch = value.charAt(i);
+        if ('0' <= ch && ch <= '9') {
+          ++i;
+          hasExponent = true;
+        } else {
+          break;
+        }
+      }
+      if (!hasExponent) {
+        return -1;
+      }
+    }
+    return i;
   }
 
   private Strings() { /* uninstantiable */ }

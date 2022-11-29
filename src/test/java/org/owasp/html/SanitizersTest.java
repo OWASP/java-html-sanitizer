@@ -319,7 +319,7 @@ public class SanitizersTest extends TestCase {
   @Test
   public static final void testAndOrdering() {
     String input = ""
-        + "xss<a href=\"http://www.google.de\" style=\"color:red;\""
+        + "xss<a href=\"http://www.google.de\" style=\"color:red\""
         + " onmouseover=alert(1) onmousemove=\"alert(2)\" onclick=alert(3)>"
         + "g"
         + "<img src=\"http://example.org\"/>oogle</a>";
@@ -384,6 +384,56 @@ public class SanitizersTest extends TestCase {
     assertEquals(safe, sanitized);
   }
 
+  @Test public static final void testIssue46() {
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowWithoutAttributes("span")
+        .allowElements("span")
+        .toFactory();
+
+    String unsafe = "<span onclick=alert(1337)>Foo</span>";
+
+    String safe = "<span>Foo</span>";
+
+    String sanitized = s.sanitize(unsafe);
+
+    assertEquals(safe, sanitized);
+  }
+
+  @Test
+  public static final void testSpacesAroundURLAttributeValues() {
+    PolicyFactory s = new HtmlPolicyBuilder()
+        .allowStandardUrlProtocols()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .toFactory();
+
+    String unsafe = "<a href=\" http://example.com/ foo \t \">text</a>";
+    String safe = "<a href=\"http://example.com/%20foo\">text</a>";
+
+    String sanitized = s.sanitize(unsafe);
+
+    assertEquals(safe, sanitized);
+  }
+
+  @Test
+  public static final void testStyleTagInTable() {
+    String input = ""
+        + "<table>"
+        + "<style></style>"
+        + "<tr><td>Foo</td></tr>"
+        + "<tr><td>Bar</td></tr>"
+        + "</table>";
+    PolicyFactory pf = Sanitizers.BLOCKS
+        .and(Sanitizers.FORMATTING)
+        .and(Sanitizers.TABLES);
+    assertEquals(
+        "<table><tbody>"
+        + "<tr><td>Foo</td></tr>"
+        + "<tr><td>Bar</td></tr>"
+        + "</tbody></table>",
+        pf.sanitize(input));
+  }
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
@@ -403,11 +453,11 @@ public class SanitizersTest extends TestCase {
     /** Permutation size. */
     final int k;
 
-    Permutations(T... elements) {
+    Permutations(@SuppressWarnings("unchecked") T... elements) {
       this(elements.length, elements);
     }
 
-    Permutations(int k, T... elements) {
+    Permutations(int k, @SuppressWarnings("unchecked") T... elements) {
       this.k = k;
       this.elements = ImmutableList.copyOf(elements);
     }

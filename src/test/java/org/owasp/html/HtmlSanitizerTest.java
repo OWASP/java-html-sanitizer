@@ -30,6 +30,8 @@ package org.owasp.html;
 
 import junit.framework.TestCase;
 
+import java.util.Arrays;
+
 import javax.annotation.Nullable;
 
 import org.junit.Test;
@@ -284,7 +286,8 @@ public class HtmlSanitizerTest extends TestCase {
 
   @Test
   public static final void testNabobsOfNegativism() {
-    // Treating <noscript> as raw-text gains us nothing security-wise.
+    // Treating <noscript> as raw-text gains us nothing security-wise
+    // and we don't want to push tag content outside.
     assertEquals("<noscript></noscript>",
                  sanitize("<noscript><evil></noscript>"));
     assertEquals("<noscript>I <b>&lt;3</b> Ponies</noscript>",
@@ -355,6 +358,86 @@ public class HtmlSanitizerTest extends TestCase {
             + "<span>my &nbsp;</span>"
             + " list of style names or a "
             + "</span>"));
+  }
+
+  @Test
+  public static final void testDuplicateAttributes() {
+    assertEquals(
+        sanitize("<br id=\"foo\">"),
+        sanitize("<br id=foo id=bar>"));
+  }
+
+  @Test
+  public static final void testNbsps() {
+    String input =
+        "test&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bob";
+
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .toFactory();
+
+    String got = policy.sanitize(input);
+    int[] codeUnits = new int[got.length()];
+    for (int i = 0, n = got.length(); i < n; ++i) {
+      codeUnits[i] = got.charAt(i);
+    }
+
+    assertTrue(
+        Arrays.toString(codeUnits),
+        Arrays.equals(
+            new int[] {
+                116, 101, 115, 116,
+                160, 160, 160, 160, 160, 160, 160, 160,
+                98, 111, 98,
+            },
+            codeUnits));
+  }
+
+  @Test
+  public static final void testMacOSAndIOSQueryOfDeath() {
+    // https://manishearth.github.io/blog/2018/02/15/picking-apart-the-crashing-ios-string/
+    String[][] tests = {
+        {
+          "\u0C1C\u0C4D\u0C1E\u200C\u0C3E",
+          "\u0C1C\u0C4D\u0C1E\u0C3E",
+        },
+        {
+          "\u09B8\u09CD\u09B0<interrupted>\u200C\u09C1",
+          "\u09B8\u09CD\u09B0\u09C1",
+        },
+        {
+          "\u0C1C\u0C4D\u0C1E\u200C\u0C3E",
+          "\u0C1C\u0C4D\u0C1E\u0C3E",
+        },
+        {
+          "\u09B8\u09CD\u09B0\u200C<interrupted>\u09C1",
+          "\u09B8\u09CD\u09B0\u09C1",
+        },
+        {
+          "&#x0C1C;&#x0C4D;&#x0C1E;&#x200C;&#x0C3E;",
+          "\u0C1C\u0C4D\u0C1E\u0C3E",
+        },
+        {
+          "&#x0C1C;&#x0C4D;&#x0C1E;<interrupted>&#x200C;&#x0C3E;",
+          "\u0C1C\u0C4D\u0C1E\u0C3E",
+        },
+        {
+          "&#x09B8;&#x09CD;&#x09B0;&#x200C;&#x09C1;",
+          "\u09B8\u09CD\u09B0\u09C1",
+        },
+        {
+          "&#x09B8;&#x09CD;&#x09B0;&#x200C;<interrupted>&#x09C1;",
+          "\u09B8\u09CD\u09B0\u09C1",
+        },
+        {
+          "\u0915\u094D\u0930\u200C\u093E",
+          "\u0915\u094D\u0930\u093E",
+        },
+    };
+
+    for (int i = 0, n = tests.length; i < n; ++i) {
+      String[] test = tests[i];
+      assertEquals(i + " : " + test[0], test[1], sanitize(test[0]));
+    }
   }
 
   private static String sanitize(@Nullable String html) {

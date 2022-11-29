@@ -40,26 +40,28 @@ final class StandardUrlAttributePolicy implements AttributePolicy {
 
   private StandardUrlAttributePolicy() { /* singleton */ }
 
-  public String apply(String elementName, String attributeName, String s) {
+  public String apply(String elementName, String attributeName, String value) {
+    String url = Strings.stripHtmlSpaces(value);
+
     protocol_loop:
-    for (int i = 0, n = s.length(); i < n; ++i) {
-      switch (s.charAt(i)) {
+    for (int i = 0, n = url.length(); i < n; ++i) {
+      switch (url.charAt(i)) {
         case '/': case '#': case '?':  // No protocol.
           break protocol_loop;
         case ':':
           switch (i) {
             case 4:
-              if (!Strings.regionMatchesIgnoreCase("http", 0, s, 0, 4)) {
+              if (!Strings.regionMatchesIgnoreCase("http", 0, url, 0, 4)) {
                 return null;
               }
               break;
             case 5:
-              if (!Strings.regionMatchesIgnoreCase("https", 0, s, 0, 5)) {
+              if (!Strings.regionMatchesIgnoreCase("https", 0, url, 0, 5)) {
                 return null;
               }
               break;
             case 6:
-              if (!Strings.regionMatchesIgnoreCase("mailto", 0, s, 0, 6)) {
+              if (!Strings.regionMatchesIgnoreCase("mailto", 0, url, 0, 6)) {
                 return null;
               }
               break;
@@ -68,7 +70,7 @@ final class StandardUrlAttributePolicy implements AttributePolicy {
           break protocol_loop;
       }
     }
-    return FilterUrlByProtocolAttributePolicy.normalizeUri(s);
+    return FilterUrlByProtocolAttributePolicy.normalizeUri(url);
   }
 
 }

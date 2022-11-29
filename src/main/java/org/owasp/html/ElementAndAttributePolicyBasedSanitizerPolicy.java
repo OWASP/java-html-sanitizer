@@ -104,7 +104,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     if (adjustedElementName != null
-        && !(attrs.isEmpty() && policies.skipIfEmpty)) {
+        && !(attrs.isEmpty() && policies.htmlTagSkipType.skipAvailability())) {
       writeOpenTag(policies, adjustedElementName, attrs);
       return;
     }
@@ -137,7 +137,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           }
         }
       }
+
+      // Now that we know which attributes are allowed, make sure the names
+      // are unique.
+      removeDuplicateAttributes(attrs);
+
       adjustedElementName = policies.elPolicy.apply(elementName, attrs);
+      if (adjustedElementName != null) {
+        adjustedElementName = HtmlLexer.canonicalName(adjustedElementName);
+      }
     } else {
       adjustedElementName = null;
     }
@@ -173,7 +181,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   void writeOpenTag(
       ElementAndAttributePolicies policies, String adjustedElementName,
       List<String> attrs) {
-    if (!policies.isVoid) {
+    if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
       openElementStack.add(policies.elementName);
       openElementStack.add(adjustedElementName);
       skipText = !allowedTextContainers.contains(adjustedElementName);
@@ -187,5 +195,70 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       openElementStack.add(null);
     }
     skipText = SKIPPABLE_ELEMENT_CONTENT.contains(elementName);
+  }
+
+  /**
+   * Remove attributes with the same name.
+   * <p>
+   * <a href="http://www.w3.org/TR/html5/syntax.html#attributes-0">HTML5</a>
+   * says
+   * <blockquote>
+   * There must never be two or more attributes on the same start tag whose
+   * names are an ASCII case-insensitive match for each other.
+   * </blockquote>
+   * <p>
+   * Empirically, given
+   * {@code
+   * <!doctype html><html><body>
+   * <script id="first" id="last">
+   * var scriptElement = document.getElementsByTagName('script')[0];
+   * document.body.appendChild(
+   *   document.createTextNode(scriptElement.getAttribute('id')));
+   * </script>}
+   * Firefox, Safari and Chrome all show "first" so we eliminate from the right.
+   */
+  private static void removeDuplicateAttributes(List<String> attrs) {
+    int firstLetterMask = 0;
+    int n = attrs.size();
+    // attrs.subList(0, k) contains the non-duplicate parts of attrs that
+    // have been processed thus far.
+    int k = 0;
+    attrLoop:
+    for (int i = 0; i < n; i += 2) {
+      String name = attrs.get(i);
+
+      if (name.length() == 0) {
+        continue attrLoop;
+      }
+
+      int firstCharIndex = name.charAt(0) - 'a';
+      checkForDuplicate: {
+        // Don't be O(n**2) in the common case by checking whether the first
+        // letter has been seen on any other attribute.
+        if (0 <= firstCharIndex && firstCharIndex <= 26) {
+          int firstCharBit = 1 << firstCharIndex;
+          if ((firstLetterMask & firstCharBit) == 0) {
+            firstLetterMask = firstLetterMask | firstCharBit;
+            break checkForDuplicate;
+          }
+        }
+        // Look for a duplicate.
+        for (int j = k; --j >= 0;) {
+          if (attrs.get(j).equals(name)) {
+            continue attrLoop;
+          }
+        }
+      }
+
+      // Preserve the attribute.
+      if (k != i) {
+        attrs.set(k, name);
+        attrs.set(k + 1, attrs.get(i + 1));
+      }
+      k += 2;
+    }
+    if (k != n) {
+      attrs.subList(k, n).clear();
+    }
   }
 }

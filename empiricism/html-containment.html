@@ -43,21 +43,26 @@ var elementNames =
   'textarea', 'td', 'tr', 'video', 'xmp'
 ]
 : [
-  'a', 'abbr', 'acronym', 'address', 'applet', 'area', 'article', 'aside',
-  'audio', 'b', 'base', 'basefont', 'bb', 'bdo', 'bgsound', 'big', 'blink',
-  'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'center', 'cite',
-  'code', 'col', 'colgroup', 'command', 'datagrid', 'datalist', 'dd', 'del',
-  'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'em', 'embed',
-  'fieldset', 'figure', 'font', 'footer', 'form', 'frame', 'frameset', 'h1',
-  'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hr', 'html', 'i', 'iframe',
-  'img', 'input', 'ins', 'isindex', 'kbd', 'label', 'legend', 'li', 'link',
-  'listing', 'map', 'mark', 'marquee', 'menu', 'meta', 'meter', 'nav', 'nobr',
-  'noembed', 'noframes', 'noscript', 'object', 'ol', 'optgroup', 'option',
-  'output', 'p', 'param', 'plaintext', 'pre', 'progress', 'q', 'rp', 'rt',
-  'ruby', 's', 'samp', 'script', 'section', 'select', 'small', 'source',
-  'spacer', 'span', 'strike', 'strong', 'style', 'sub', 'sup', 'table',
-  'tbody', 'td', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr',
-  'tt', 'u', 'ul', 'var', 'video', 'wbr', 'xmp',
+  'a', 'abbr', 'acronym', 'address', 'applet', 'area', 'article',
+  'aside', 'audio', 'b', 'base', 'basefont', 'bb', 'bdi', 'bdo',
+  'bgsound', 'big', 'blink', 'blockquote', 'body', 'br', 'button',
+  'canvas', 'caption', 'center', 'cite', 'code', 'col', 'colgroup',
+  'command', 'content', 'data', 'datagrid', 'datalist', 'dd', 'del',
+  'details', 'dfn', 'dialog', 'dir', 'div', 'dl', 'dt', 'element',
+  'em', 'embed', 'fieldset', 'figcaption', 'figure', 'font', 'footer',
+  'form', 'frame', 'frameset', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img',
+  'input', 'ins', 'isindex', 'kbd', 'keygen', 'label', 'legend', 'li',
+  'link', 'listing', 'main', 'map', 'mark', 'marquee', 'menu',
+  'menuitem', 'meta', 'meter', 'multicol', 'nav', 'nobr', 'noembed',
+  'noframes', 'noscript', 'object', 'ol', 'optgroup', 'option',
+  'output', 'p', 'param', 'picture', 'plaintext', 'pre', 'progress',
+  'q', 'rp', 'rt', 'rtc', 'ruby', 's', 'samp', 'script', 'section',
+  'select', 'shadow', 'slot', 'small', 'source', 'spacer', 'span',
+  'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'table',
+  'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead',
+  'time', 'title', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video',
+  'wbr', 'xmp',
 
   'xcustom'
 ];
@@ -120,10 +125,11 @@ to answer the following questions about how HTML browsers parse tag soup:</p>
   <li><a href="#text-content-model">Which elements can contain text content, comments, entities?</a></li>
   <li><a href="#containment-stack-json">Which elements can be introduced between the body and an element
       to allow it to nest properly?</a></li>
-  <li>Which elements are implied by which tags? (TODO)</li>
+  <li><a href="#implied-elements">Which elements are implied by which tags?</a></li>
   <li><a href="#explicit-closers">Which open tags close which other elements?</a></li>
   <li><a href="#closed-by-close">Which close tags close which elements?</a></li>
   <li><a href="#closed-by-open">Which open tags close which elements?</a></li>
+  <li><a href="#resumable">Which inline tags are resumed after misnested tags?</a></li>
 </ul>
 
 <p>A <a href="#result-dump">JSON dump</a>
@@ -246,6 +252,11 @@ function tagStackToHtml(stack, body) {
   function containmentStackMaker(canAppearIn) {
     var memoTable = newBlankObject();
     return function (elementName, opt_exclusions) {
+      if (elementName == 'body') {
+        // The experiment framework passes the body element so there's no
+        // need for an explicit body tag on the stack.
+        return [];
+      }
       var memoKey = opt_exclusions
           ? elementName + ' ' + opt_exclusions.join(' / ') : elementName;
 
@@ -296,7 +307,8 @@ function tagStackToHtml(stack, body) {
     }
 
     function checkCanContain(outer, inner, body, canContain) {
-      var outerEls = body.getElementsByTagName(outer);
+      var outerEls = outer == 'body'
+          ? [body] : body.getElementsByTagName(outer);
       if (outerEls.length) {
         var containees = getOwn(canContain, outer) || [];
         canContain[outer] = containees;
@@ -348,6 +360,18 @@ function tagStackToHtml(stack, body) {
     var toSatisfy = canContain;
     if (toSatisfy instanceof Promise) {
       canContain = sortedMultiMap(result);
+      // A limitation of our experimental framework is that it passes the body
+      // of the document to the result function which means we can't really
+      // test the relationship between the HTML and HEAD elements, for example.
+      //
+      // To work around that limitation, we hard code some canContain
+      // relationships here.
+      canContain['html'] = ['body', 'frameset', 'head'];
+      canContain['head'] = [
+          'base', 'command', 'link', 'meta', 'noscript', 'script', 'style',
+          'title'];
+      canContain['frameset'] = ['frame', 'frameset', 'noframes'];
+      // TODO: do the same for the text content model.
       toSatisfy.satisfy();
     }
     displayJson(canContain, document.getElementById('can-contain-json'));
@@ -379,7 +403,7 @@ function tagStackToHtml(stack, body) {
     for (var i = 0, n = elementNames.length; i < n; ++i) {
       var elementName = elementNames[i];
       var stack = containmentStackFor(elementName);
-      if (stack) { --stack.length; }
+      if (stack && stack.length) { --stack.length; }
       containmentStackMap[elementName] = stack;
     }
     displayJson(containmentStackMap,
@@ -400,8 +424,8 @@ a text node.</p>
 <code>&lt;x&gt;&lt;!--comment--&gt;&lt;/x&gt;</code> parses to an X element
 containing a comment node.</p>
 <p><code>textContentModel['x'].xml</code> is true when
-<code>&lt;x&gt;&amp;amp;<![[CDATA&amp;]]>;&lt;/x&gt;</code> parses to an X
-element contains text nodes that normalize to <code>&&amp;</code>.</p>
+<code>&lt;x&gt;&amp;amp;&lt;![[CDATA&amp;amp;]]>&lt;/x&gt;</code> parses to an X
+element that contains text nodes that normalize to <code>&&amp;</code>.</p>
 <p><code>textContentModel['x'].raw</code> is true when
 <code>&lt;x&gt;&lt;br&gt;&lt;/x&gt;</code> parses to an X element
 containing a text node.</p>
@@ -423,6 +447,9 @@ var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
       var el = body.getElementsByTagName(elementName)[0];
       var text = innerTextOf(el);
       var model = newBlankObject();
+      if (elementName === 'body') {  // Special case.
+        text = '/*1&2345*/';
+      }
       switch (text) {
         case '':
           if (elementContainsComment(el)) { model.comments = true; }
@@ -445,6 +472,11 @@ var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
           break;
         default:
           console.log('unexpected text `%s` in %s', text, elementName);
+      }
+      if (model.text) {
+        if (elementName != 'script' && elementName != 'style') {
+          model.plain_text = true;
+        }
       }
       result[elementName] = sortedMultiMap(model);
       return result;
@@ -470,6 +502,72 @@ var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
   }
 }());
 </script>
+
+<h2 id="implied-elements">Implied Elements</h2>
+<p>Which elements are implicitly created when one element is
+  nested in another?</p>
+
+<p><code>impliedElements['x']['z'] == ['y']</code> when parsing
+  <code>&lt;x&gt;&lt;z&gt;&lt;/z&gt;&lt;/x&gt;</code> produces
+  a tree equivalent to <code>&lt;x&gt;&lt;y&gt;&lt;z&gt;&lt;/z&gt;&lt;/y&gt;&lt;/x&gt;</code>
+
+<pre class="json" id="implied-elements-json"></pre>
+<script>
+var impliedElements = getOwn(cannedData, 'impliedElements') || new Promise();
+(function () {
+  // Generates HTML for the experiment.
+  function nestElements(elementNameA, elementNameB) {
+    if (elementNameA === 'html') { return ''; }  // Everything opens body.
+    return (
+        '<' + elementNameA + '>'
+        + '<' + elementNameB + ' id="inner-implied-el">'
+        + '</' + elementNameB + '>'
+        + '</' + elementNameA + '>');
+  }
+  // Examines the resulting body to fold a single experiment into the result.
+  function computeImpliedElements(elementNameA, elementNameB, body, result) {
+    var inner = body.querySelector(elementNameB + "[id='inner-implied-el']");
+    if (inner) {
+      var ancestors = [];
+      for (var el = inner.parentNode;
+           el != null && el.nodeType == Node.ELEMENT_NODE;
+           el = el.parentNode) {
+        var lcName = el.nodeName.toLowerCase();
+        if (lcName == elementNameA) {
+          if (ancestors.length) {
+            if (!Object.hasOwnProperty.call(result, elementNameA)) {
+              result[elementNameA] = newBlankObject();
+            }
+            ancestors.reverse();
+            result[elementNameA][elementNameB] = ancestors;
+            break;
+          }
+        } else {
+          ancestors.push(lcName);
+        }
+      }
+    }
+    return result;
+  }
+  // When the experiment is finished, replace the promise so that we can
+  // kick off experiments that depend on the result of this experiment.
+  function finish(result) {
+    var toSatisfy = impliedElements;
+    if (toSatisfy instanceof Promise) {
+      impliedElements = result;
+      toSatisfy.satisfy();
+    }
+    displayJson(result, document.getElementById('implied-elements-json'))
+  }
+  if (impliedElements instanceof Promise) {
+    runExperiment(
+        nestElements, computeImpliedElements, newBlankObject(), finish);
+  } else {
+    finish(impliedElements);
+  }
+}());
+</script>
+
 
 <h2>Tag Closers</h2>
 <h3 id="explicit-closers">Explicit closers</h3>
@@ -556,7 +654,6 @@ var explicitClosers = getOwn(cannedData, 'explicitClosers') || new Promise();
 }());
 </script>
 
-
 <h3 id="closed-by-open">Open tags close which elements</h3>
 <p>Which open tags close the element when embedded between it and content it
    could otherwise contain?</p>
@@ -630,7 +727,7 @@ var closedOnClose = getOwn(cannedData, 'closedOnClose') || new Promise();
       var innerTc = textContentModel[inner];
       if (outerTc && innerTc && outerTc.comments && innerTc.comments) {
         var stack = containmentStackFor(outer, [inner]);
-        if (stack) {
+        if (stack && stack.length) {
           --stack.length;  // strip outer.
           // <outer><inner></outer><!--X--></inner>
           return tagStackToHtml(
@@ -673,18 +770,66 @@ var closedOnClose = getOwn(cannedData, 'closedOnClose') || new Promise();
 }());
 </script>
 
+<h2 id="resumable">Resumable</h2>
+<p>If misnested with an inline tag, does the tag resume after the misnesting.
+<code>&lt;x&gt;</code> is resumable when
+<code>&lt;i&gt;&lt;x&gt;foo&lt;/i&gt;bar&lt;/x&gt;</code>
+</p>
+<pre id="resumable-json" class="json"></pre>
+<script>
+var resumable = getOwn(cannedData, 'resumable') || new Promise();
+(function () {
+  // Generates HTML for the experiment.
+  function misnest(elementName) {
+    var inline = elementName === 'i' ? 'b' : 'i';
+    return ('<' + inline + '><' + elementName + '>before</'
+        + inline + '>after</' + elementName + '>');
+  }
+  // Examines the resulting body to fold a single experiment into the result.
+  function isResumable(elementName, body, result) {
+    //result[elementName] = false;  // until proven otherwise
+    var els = body.getElementsByTagName(elementName);
+    for (var i = 0, n = els.length; i < n; ++i) {
+      if ('after' == els[i].textContent) {
+        result[elementName] = true;
+        break;
+      }
+    }
+    return result;
+  }
+  // When the experiment is finished, replace the promise so that we can
+  // kick off experiments that depend on the result of this experiment.
+  function finish(result) {
+    var toSatisfy = resumable;
+    if (toSatisfy instanceof Promise) {
+      resumable = result;
+      toSatisfy.satisfy();
+    }
+    displayJson(result, document.getElementById('resumable-json'))
+  }
+  if (resumable instanceof Promise) {
+    runExperiment(misnest, isResumable, newBlankObject(), finish);
+  } else {
+    finish(resumable);
+  }
+}());
+</script>
+
 <h2 id="result-dump">JSON Dump</h2>
 <p id="working"><em>working</em></p>
 <script>
 var fullJson = {
+  "canAppearIn":         canAppearIn,
   "canAppearInBody":     canAppearInBody,
   "canContain":          canContain,
-  "canAppearIn":         canAppearIn,
-  "containmentStackFor": containmentStackFor,
-  "textContentModel":    textContentModel,
-  "explicitClosers":     explicitClosers,
+  "closedOnClose":       closedOnClose,
   "closedOnOpen":        closedOnOpen,
-  "closedOnClose":       closedOnClose
+  "containmentStackFor": containmentStackFor,
+  "elementNames":        elementNames,
+  "explicitClosers":     explicitClosers,
+  "impliedElements":     impliedElements,
+  "resumable":           resumable,
+  "textContentModel":    textContentModel
 };
 
 (function () {

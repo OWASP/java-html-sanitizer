@@ -35,7 +35,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Sits between the HTML parser, and then policy, and the renderer so that it
+ * Sits between the HTML parser, the policy, and the renderer so that it
  * can report dropped elements and attributes to an {@link HtmlChangeListener}.
  *
  * <pre>

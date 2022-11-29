@@ -40,7 +40,6 @@ import org.owasp.html.HtmlStreamRenderer;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import com.google.common.io.CharStreams;
 
 /**
@@ -108,7 +107,8 @@ public class SlashdotPolicyExample {
         // Receives notifications on a failure to write to the output.
         new Handler<IOException>() {
           public void handle(IOException ex) {
-            Throwables.propagate(ex);  // System.out suppresses IOExceptions
+            // System.out suppresses IOExceptions
+            throw new AssertionError(null, ex);
           }
         },
         // Our HTML parser is very lenient, but this receives notifications on

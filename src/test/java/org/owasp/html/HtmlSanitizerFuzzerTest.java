@@ -34,7 +34,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Throwables;
 import com.google.common.io.Resources;
 
 /**
@@ -144,7 +143,11 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
     assertTrue("seed=" + seed, executor.isTerminated());
     Throwable failure = failures.poll();
     if (failure != null) {
-      Throwables.propagate(failure);
+      if (failure instanceof RuntimeException) {
+        throw (RuntimeException) failure;
+      } else {
+        throw new AssertionError(null, failure);
+      }
     }
   }
 

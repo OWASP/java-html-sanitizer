@@ -28,8 +28,6 @@
 
 package org.owasp.html;
 
-import com.google.common.base.Throwables;
-
 /**
  * Receives notification of problems.
  *
@@ -57,7 +55,11 @@ public interface Handler<T> {
    */
   public static final Handler<Throwable> PROPAGATE = new Handler<Throwable>() {
     public void handle(Throwable th) {
-      Throwables.propagate(th);
+      if (th instanceof RuntimeException) {
+        throw (RuntimeException) th;
+      } else {
+        throw new AssertionError(null, th);
+      }
     }
   };
 }

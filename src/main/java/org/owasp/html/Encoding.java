@@ -32,17 +32,17 @@ import java.io.IOException;
 
 import javax.annotation.Nullable;
 
-import com.google.common.annotations.VisibleForTesting;
-
 /** Encoders and decoders for HTML. */
-final class Encoding {
+public final class Encoding {
 
   /**
    * Decodes HTML entities to produce a string containing only valid
    * Unicode scalar values.
+   *
+   * @param s text/html
+   * @return text/plain
    */
-  @VisibleForTesting
-  static String decodeHtml(String s) {
+  public static String decodeHtml(String s) {
     int firstAmp = s.indexOf('&');
     int safeLimit = longestPrefixOfGoodCodeunits(s);
     if ((firstAmp & safeLimit) < 0) { return s; }
@@ -54,10 +54,8 @@ final class Encoding {
       int pos = 0;
       int amp = firstAmp;
       while (amp >= 0) {
-        long endAndCodepoint = HtmlEntities.decodeEntityAt(s, amp, n);
-        int end = (int) (endAndCodepoint >>> 32);
-        int codepoint = (int) endAndCodepoint;
-        sb.append(s, pos, amp).appendCodePoint(codepoint);
+        sb.append(s, pos, amp);
+        int end = HtmlEntities.appendDecodedEntity(s, amp, n, sb);
         pos = end;
         amp = s.indexOf('&', end);
       }
@@ -154,11 +152,40 @@ final class Encoding {
     return -1;
   }
 
+  /**
+   * Appends an encoded form of plainText to output where the encoding is
+   * sufficient to prevent an HTML parser from interpreting any characters in
+   * the appended chunk as part of an attribute or tag boundary.
+   *
+   * @param plainText text/plain
+   * @param output a buffer of text/html that has a well-formed HTML prefix that
+   *     ends after the open-quote of an attribute value and does not yet contain
+   *     a corresponding close quote.
+   *     Modified in place.
+   */
   static void encodeHtmlAttribOnto(String plainText, Appendable output)
       throws IOException {
     encodeHtmlOnto(plainText, output, "{\u200B");
   }
 
+  /**
+   * Appends an encoded form of plainText to putput where the encoding is
+   * sufficient to prevent an HTML parser from transitioning out of the
+   * <a href="https://html.spec.whatwg.org/multipage/parsing.html#data-state">
+   * Data state</a>.
+   *
+   * This is suitable for encoding a text node inside any element that does not
+   * require special handling as a context element (see "context element" in
+   * <a href="https://html.spec.whatwg.org/multipage/parsing.html#parsing-html-fragments">
+   * step 4</a>.)
+   *
+   * @param plainText text/plain
+   * @param output a buffer of text/html that has a well-formed HTML prefix that
+   *     would leave an HTML parser in the Data state if it were to encounter a space
+   *     character as the next character.  In practice this means that the buffer
+   *     does not contain partial tags or comments, and does not have an unclosed
+   *     element with a special content model.
+   */
   static void encodePcdataOnto(String plainText, Appendable output)
       throws IOException {
     // Avoid problems with client-side template languages like
@@ -169,7 +196,23 @@ final class Encoding {
     encodeHtmlOnto(plainText, output, "{<!-- -->");
   }
 
-  static void encodeRcdataOnto(String plainText, Appendable output)
+  /**
+   * Appends an encoded form of plainText to putput where the encoding is
+   * sufficient to prevent an HTML parser from transitioning out of the
+   * <a href="https://html.spec.whatwg.org/multipage/parsing.html#rcdata-state">
+   * RCDATA state</a>.
+   *
+   * This is suitable for encoding a text node inside a {@code <textarea>} or
+   * {@code <title>} element outside foreign content.
+   *
+   * @param plainText text/plain
+   * @param output a buffer of text/html that has a well-formed HTML prefix that
+   *     would leave an HTML parser in the Data state if it were to encounter a space
+   *     character as the next character.  In practice this means that the buffer
+   *     does not contain partial tags or comments, and the most recently opened
+   *     element is `<textarea>` or `<title>` and that element is still open.
+   */
+  public static void encodeRcdataOnto(String plainText, Appendable output)
       throws IOException {
     // Avoid problems with client-side template languages like
     // Angular & Polymer which attach special significance to text like
@@ -205,6 +248,42 @@ final class Encoding {
         if (repl != null) {
           output.append(plainText, pos, i).append(repl);
           pos = i + 1;
+        }
+      } else if ((0x93A <= ch && ch <= 0xC4C)
+          && (
+              // Devanagari vowel
+              ch <= 0x94F
+              // Benagli vowels
+              || 0x985 <= ch && ch <= 0x994
+              || 0x9BE <= ch && ch < 0x9CC  // 0x9CC (Bengali AU) is ok
+              || 0x9E0 <= ch && ch <= 0x9E3
+              // Telugu vowels
+              || 0xC05 <= ch && ch <= 0xC14
+              || 0xC3E <= ch && ch != 0xC48 /* 0xC48 (Telugu AI) is ok */)) {
+        // https://manishearth.github.io/blog/2018/02/15/picking-apart-the-crashing-ios-string/
+        // > So, ultimately, the full set of cases that cause the crash are:
+        // >   Any sequence <consonant1, virama, consonant2, ZWNJ, vowel>
+        // > in Devanagari, Bengali, and Telugu, where: ...
+
+        // TODO: This is needed as of February 2018, but hopefully not long after that.
+        // We eliminate the ZWNJ which seems the minimally damaging thing to do to
+        // Telugu rendering per the article above:
+        // > a ZWNJ before a vowel doesn’t really do anything for most Indic scripts.
+
+        if (pos < i) {
+          if (plainText.charAt(i - 1) == 0x200C /* ZWNJ */) {
+            output.append(plainText, pos, i - 1);
+            // Drop the ZWNJ on the floor.
+            pos = i;
+          }
+        } else if (output instanceof StringBuilder) {
+          StringBuilder sb = (StringBuilder) output;
+          int len = sb.length();
+          if (len != 0) {
+            if (sb.charAt(len - 1) == 0x200C /* ZWNJ */) {
+              sb.setLength(len - 1);
+            }
+          }
         }
       } else if (((char) 0xd800) <= ch) {
         if (ch <= ((char) 0xdfff)) {
@@ -283,7 +362,7 @@ final class Encoding {
   };
 
   /** Maps ASCII chars that need to be encoded to an equivalent HTML entity. */
-  static final String[] REPLACEMENTS = new String[0x80];
+  private static final String[] REPLACEMENTS = new String[0x80];
   static {
     for (int i = 0; i < ' '; ++i) {
       // We elide control characters so that we can ensure that our output is
@@ -309,8 +388,8 @@ final class Encoding {
   }
 
   /**
-   * {@code DECODES_TO_SELF[c]} is true iff the codepoint c decodes to itself in
-   * an HTML5 text node or properly quoted attribute value.
+   * IS_BANNED_ASCII[i] where is an ASCII control character codepoint (&lt; 0x20)
+   * is true for control characters that are not allowed in an XML source text.
    */
   private static boolean[] IS_BANNED_ASCII = new boolean[0x20];
   static {

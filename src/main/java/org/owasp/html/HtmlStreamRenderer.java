@@ -74,8 +74,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (output instanceof Closeable) {
       return new CloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
-    } else if (output instanceof AutoCloseable) {
-      return new AutoCloseableHtmlStreamRenderer(
+    } else if (AutoCloseableHtmlStreamRenderer.isAutoCloseable(output)) {
+      return AutoCloseableHtmlStreamRenderer.createAutoCloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
     } else {
       return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
@@ -96,7 +96,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return create(output, Handler.PROPAGATE, badHtmlHandler);
   }
 
-  private HtmlStreamRenderer(
+  protected HtmlStreamRenderer(
       Appendable output, Handler<? super IOException> ioExHandler,
       Handler<? super String> badHtmlHandler) {
     this.output = output;
@@ -288,66 +288,66 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
 
   private static int checkHtmlCdataCloseable(
       String localName, StringBuilder sb) {
-    int escapingTextSpanStart = -1;
+    // www.w3.org/TR/html51/semantics-scripting.html#restrictions-for-contents-of-script-elements
+    // www.w3.org/TR/html5/scripting-1.html#restrictions-for-contents-of-script-elements
+    // 4.12.1.3. Restrictions for contents of script elements
+    // The textContent of a script element must match the script production in the following ABNF, the character set for which is Unicode. [ABNF]
+    //
+    // script = outer *( comment-open inner comment-close outer )
+    //
+    // outer = < any string that doesn’t contain a substring that matches not-in-outer >
+    // not-in-outer = comment-open
+    // inner = < any string that doesn’t contain a substring that matches not-in-inner >
+    // not-in-inner = comment-close / script-open
+    //
+    // comment-open = "<!--"
+    // comment-close = "-->"
+    // script-open = "<" s c r i p t tag-end
+
+    // We apply the above restrictions to all CDATA (modulo local name).
+    int innerStart = -1;
     for (int i = 0, n = sb.length(); i < n; ++i) {
       char ch = sb.charAt(i);
       switch (ch) {
         case '<':
-          if (i + 3 < n
-              && '!' == sb.charAt(i + 1)
-              && '-' == sb.charAt(i + 2)
-              && '-' == sb.charAt(i + 3)) {
-            if (escapingTextSpanStart == -1) {
-              escapingTextSpanStart = i;
-            } else {
-              return i;
+          if (i + 3 < n && sb.charAt(i + 1) == '!') {
+            if (sb.charAt(i + 2) == '-'
+                && sb.charAt(i + 3) == '-') {
+              if (innerStart >= 0) { return i; }  // Nesting
+              innerStart = i;
             }
-          } else if (i + 1 + localName.length() < n
-                     && '/' == sb.charAt(i + 1)
-                     && Strings.regionMatchesIgnoreCase(
-                         sb, i + 2, localName, 0, localName.length())) {
-            // A close tag contained in the content.
-            if (escapingTextSpanStart < 0) {
-              // We could try some recovery strategies here.
-              // E.g. prepending "/<!--\n" to sb if "script".equals(localName)
-              return i;
+          } else {  // Look for embedded <script or </script
+            int start = i + 1;
+            if (start + 1 < n && sb.charAt(start) == '/') {
+              ++start;
+            } else if (innerStart < 0) {
+              break;
             }
-            if (!"script".equals(localName)) {
-              // Script tags are commonly included inside script tags.
-              // <script><!--document.write('<script>f()</script>');--></script>
-              // but this does not happen in other CDATA element types.
-              // Actually allowing an end tag inside others is problematic.
-              // Specifically,
-              // <style><!--</style>-->/* foo */</style>
-              // displays the text "/* foo */" on some browsers.
+            // We don't need to do any suffix checks to preserve concatenation safety
+            // since we buffer pending unescaped above.
+            int end = start + localName.length();
+            if (end <= n
+                && Strings.regionMatchesIgnoreCase(
+                    sb, start, localName, 0, end - start)
+                && (end == n || isTagEnd(sb.charAt(end)))) {
               return i;
             }
           }
           break;
         case '>':
-          // From the HTML5 spec:
-          //    The text in style, script, title, and textarea elements must not
-          //    have an escaping text span start that is not followed by an
-          //    escaping text span end.
-          // We look left since the HTML 5 spec allows the escaping text span
-          // end to share dashes with the start.
-          if (i >= 2 && '-' == sb.charAt(i - 1) && '-' == sb.charAt(i - 2)) {
-            if (escapingTextSpanStart < 0) { return i - 2; }
-            escapingTextSpanStart = -1;
+          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 2) == '-') {
+            if (innerStart < 0) { return i - 2; }
+            // Merged start and end like <!--->
+            if (innerStart + 6 > i) { return innerStart; }
+            innerStart = -1;
           }
           break;
         default:
           break;
       }
     }
-    if (escapingTextSpanStart >= 0) {
-      // We could try recovery strategies here.
-      // E.g. appending "//-->" to the buffer if "script".equals(localName)
-      return escapingTextSpanStart;
-    }
-    return -1;
+    return innerStart;
   }
-
 
   @VisibleForTesting
   static boolean isValidHtmlName(String name) {
@@ -364,6 +364,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           if (i == 0 || i + 1 == n) { return false; }
           break;
         case '-':
+        case '_':
           if (i == 0 || i + 1 == n) { return false; }
           break;
         default:
@@ -407,7 +408,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       implements Closeable {
     private final Closeable closeable;
 
-    @SuppressWarnings("synthetic-access")
     CloseableHtmlStreamRenderer(
         @WillCloseWhenClosed
         Appendable output, Handler<? super IOException> errorHandler,
@@ -422,22 +422,16 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
-  static class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
-  implements AutoCloseable {
-    private final AutoCloseable closeable;
+  private static final long TAG_ENDS = 0L
+      | (1L << '\t')
+      | (1L << '\n')
+      | (1L << '\f')
+      | (1L << '\r')
+      | (1L << ' ')
+      | (1L << '/')
+      | (1L << '>');
 
-    @SuppressWarnings("synthetic-access")
-    AutoCloseableHtmlStreamRenderer(
-        @WillCloseWhenClosed
-        Appendable output, Handler<? super IOException> errorHandler,
-        Handler<? super String> badHtmlHandler) {
-      super(output, errorHandler, badHtmlHandler);
-      this.closeable = (AutoCloseable) output;
-    }
-
-    public void close() throws Exception {
-      if (isDocumentOpen()) { closeDocument(); }
-      closeable.close();
-    }
+  private static boolean isTagEnd(char ch) {
+    return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
 }

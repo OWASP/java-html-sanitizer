@@ -1,16 +1,14 @@
-# Getting Started 
+# Getting Started
 
-## Getting the JARs 
+## Getting the JARs
 
 If you are using Maven then follow the [maven](maven.md) directions to
 add a dependency.  Otherwise,
-[download prebuilt jars](https://search.maven.org/#browse%7C-1545181754)
+[download prebuilt jars](https://search.maven.org/#artifactdetails%7Ccom.googlecode.owasp-java-html-sanitizer%7Cowasp-java-html-sanitizer%7C20180219.1%7Cjar)
 or `git clone git@github.com:OWASP/java-html-sanitizer.git` and build
 the latest source.
 
-Unless maven is managing your
-[CLASSPATH](http://download.oracle.com//javase/1.3/docs/tooldocs/win32/classpath.html)
-for you, you need to add both `owasp-java-html-sanitizer.jar` and the
+Unless maven is managing your CLASSPATH for you, you need to add both `owasp-java-html-sanitizer.jar` and the
 Guava JAR.
 
 Once you have your CLASSPATH set up correctly with the relevant JARs
@@ -22,28 +20,28 @@ import org.owasp.html.HtmlPolicyBuilder;
 
 to one of your project's `.java` files and compile it.
 
-## Using the APIs 
+## Using the APIs
 
 The
-[examples](https://github.com/OWASP/java-html-sanitizer/tree/master/src/main/org/owasp/html/examples)
+[examples](https://github.com/OWASP/java-html-sanitizer/tree/master/src/main/java/org/owasp/html/examples)
 include source code which defines a sanitization policy, and applies
 it to HTML.
 
 The
-[javadoc](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/index.html)
+[javadoc](http://javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/)
 covers more detailed topics, including
-[customization](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/HtmlPolicyBuilder.html).
+[customization](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlPolicyBuilder.html).
 
 Important classes are:
 
-  * [Sanitizers](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/Sanitizers.html) contains combinable pre-packaged policies.
-  * [HtmlPolicyBuilder](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/HtmlPolicyBuilder.html) lets you easily build custom policies.
+  * [Sanitizers](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/Sanitizers.html) contains combinable pre-packaged policies.
+  * [HtmlPolicyBuilder](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlPolicyBuilder.html) lets you easily build custom policies.
 
 For advanced use, see:
-  * [AttributePolicy](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/AttributePolicy.html) and [ElementPolicy](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/ElementPolicy.html) allow complex customization.
-  * [HtmlStreamEventReceiver](https://rawgit.com/OWASP/java-html-sanitizer/master/distrib/javadoc/org/owasp/html/HtmlStreamEventReceiver.html) if you don't just want a `String` as output.
+  * [AttributePolicy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/AttributePolicy.html) and [ElementPolicy](http://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20180219.1/org/owasp/html/ElementPolicy.html) allow complex customization.
+  * [HtmlStreamEventReceiver](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlStreamEventReceiver.html) if you don't just want a `String` as output.
 
-## Asking Questions 
+## Asking Questions
 
 Feel free to post questions at the
 [discussion group](http://groups.google.com/group/owasp-java-html-sanitizer-support)

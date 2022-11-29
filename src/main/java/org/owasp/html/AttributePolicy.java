@@ -28,13 +28,15 @@
 
 package org.owasp.html;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import java.util.Collection;
+
 import java.util.Set;
-import java.util.LinkedHashSet;
+
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+
+import org.owasp.html.Joinable.JoinHelper;
 
 /**
  * A policy that can be applied to an HTML attribute to decide whether or not to
@@ -67,24 +69,41 @@ import javax.annotation.concurrent.Immutable;
      */
     @CheckReturnValue
     public static final AttributePolicy join(AttributePolicy... policies) {
-      Set<AttributePolicy> uniq = new LinkedHashSet<AttributePolicy>();
+      AttributePolicyJoiner joiner = new AttributePolicyJoiner();
+
       for (AttributePolicy p : policies) {
-        if (p instanceof JoinedAttributePolicy) {
-          uniq.addAll(((JoinedAttributePolicy) p).policies);
-        } else if (p != null) {
-          uniq.add(p);
+        if (p != null) {
+          joiner.unroll(p);
         }
       }
 
-      if (uniq.contains(REJECT_ALL_ATTRIBUTE_POLICY)) {
-        return REJECT_ALL_ATTRIBUTE_POLICY;
+      return joiner.join();
+    }
+
+    static final class AttributePolicyJoiner
+    extends JoinHelper<AttributePolicy, JoinableAttributePolicy> {
+
+      AttributePolicyJoiner() {
+        super(AttributePolicy.class,
+            JoinableAttributePolicy.class,
+            REJECT_ALL_ATTRIBUTE_POLICY,
+            IDENTITY_ATTRIBUTE_POLICY);
       }
-      uniq.remove(IDENTITY_ATTRIBUTE_POLICY);
-      switch (uniq.size()) {
-        case 0:  return IDENTITY_ATTRIBUTE_POLICY;
-        case 1:  return uniq.iterator().next();
-        default: return new JoinedAttributePolicy(uniq);
+
+      @Override
+      Optional<ImmutableList<AttributePolicy>> split(AttributePolicy x) {
+        if (x instanceof JoinedAttributePolicy) {
+          return Optional.of(((JoinedAttributePolicy) x).policies);
+        } else {
+          return Optional.absent();
+        }
       }
+
+      @Override
+      AttributePolicy rejoin(Set<? extends AttributePolicy> xs) {
+        return new JoinedAttributePolicy(xs);
+      }
+
     }
   }
 
@@ -106,34 +125,9 @@ import javax.annotation.concurrent.Immutable;
         }
       };
 
-}
-
-@Immutable
-final class JoinedAttributePolicy implements AttributePolicy {
-  final ImmutableList<AttributePolicy> policies;
-
-  JoinedAttributePolicy(Collection<? extends AttributePolicy> policies) {
-    this.policies = ImmutableList.copyOf(policies);
-  }
-
-  public @Nullable String apply(
-      String elementName, String attributeName, @Nullable String rawValue) {
-    String value = rawValue;
-    for (AttributePolicy p : policies) {
-      if (value == null) { break; }
-      value = p.apply(elementName, attributeName, value);
-    }
-    return value;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return o != null && this.getClass() == o.getClass()
-        && policies.equals(((JoinedAttributePolicy) o).policies);
-  }
-
-  @Override
-  public int hashCode() {
-    return policies.hashCode();
+  /** An attribute policy that is joinable. */
+  static interface JoinableAttributePolicy
+  extends AttributePolicy, Joinable<JoinableAttributePolicy> {
+    // Parameterized Appropriately.
   }
 }

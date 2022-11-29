@@ -67,25 +67,26 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
   }
 
   public @Nullable String apply(
-      String elementName, String attributeName, String s) {
+      String elementName, String attributeName, String value) {
+    String url = Strings.stripHtmlSpaces(value);
     protocol_loop:
-    for (int i = 0, n = s.length(); i < n; ++i) {
-      switch (s.charAt(i)) {
+    for (int i = 0, n = url.length(); i < n; ++i) {
+      switch (url.charAt(i)) {
         case '/': case '#': case '?':  // No protocol.
           // Check for domain relative URLs like //www.evil.org/
-          if (s.startsWith("//")
+          if (url.startsWith("//")
               // or the protocols by which HTML is normally served are OK.
               && !allowProtocolRelativeUrls()) {
             return null;
           }
           break protocol_loop;
         case ':':
-          String protocol = Strings.toLowerCase(s.substring(0, i));
+          String protocol = Strings.toLowerCase(url.substring(0, i));
           if (!protocols.contains(protocol)) { return null; }
           break protocol_loop;
       }
     }
-    return normalizeUri(s);
+    return normalizeUri(url);
   }
 
   protected boolean allowProtocolRelativeUrls() {
@@ -110,6 +111,11 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
         case '\u2236':
         case '\uff1a':
           if (!colonsIrrelevant) {
+            return normalizeUriFrom(s, i, false);
+          }
+          break;
+        default:
+          if (ch <= 0x20) {
             return normalizeUriFrom(s, i, false);
           }
           break;
@@ -144,6 +150,8 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
               case '\u2236': repl = "%e2%88%b6"; break;
               case '\uff1a': repl = "%ef%bc%9a"; break;
             }
+          } else if (ch <= 0x20) {
+            repl = CONTROL_REPL[ch];
           }
           break;
       }
@@ -166,4 +174,12 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
     return protocols.hashCode();
   }
 
+  /** Replacements for control characters. */
+  private static String[] CONTROL_REPL = {
+      "",    "%01", "%02", "%03", "%04", "%05", "%06", "%07",
+      "%08", "%09", "%0a", "%0b", "%0c", "%0d", "%0e", "%0f",
+      "%10", "%11", "%12", "%13", "%14", "%15", "%16", "%17",
+      "%18", "%19", "%1a", "%1b", "%1c", "%1d", "%1e", "%1f",
+      "%20",
+  };
 }

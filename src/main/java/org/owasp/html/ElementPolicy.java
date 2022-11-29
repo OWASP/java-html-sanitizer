@@ -29,9 +29,15 @@
 package org.owasp.html;
 
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
+import org.owasp.html.Joinable.JoinHelper;
+
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 
 /**
  * A policy that can be applied to an element to decide whether or not to
@@ -65,39 +71,37 @@ import javax.annotation.concurrent.Immutable;
      * to applying them in order failing early if any of them fails.
      */
     public static final ElementPolicy join(ElementPolicy... policies) {
-
-      class PolicyJoiner {
-        ElementPolicy last = null;
-        ElementPolicy out = null;
-
-        void join(ElementPolicy p) {
-          if (p == REJECT_ALL_ELEMENT_POLICY) {
-            out = p;
-          } else if (out != REJECT_ALL_ELEMENT_POLICY) {
-            if (p instanceof JoinedElementPolicy) {
-              JoinedElementPolicy jep = (JoinedElementPolicy) p;
-              join(jep.first);
-              join(jep.second);
-            } else if (p != last) {
-              last = p;
-              if (out == null || out == IDENTITY_ELEMENT_POLICY) {
-                out = p;
-              } else if (p != IDENTITY_ELEMENT_POLICY) {
-                out = new JoinedElementPolicy(out, p);
-              }
-            }
-          }
+      PolicyJoiner joiner = new PolicyJoiner();
+      for (ElementPolicy p : policies) {
+        if (p != null) {
+          joiner.unroll(p);
         }
       }
-
-      PolicyJoiner pu = new PolicyJoiner();
-      for (ElementPolicy policy : policies) {
-        if (policy == null) { continue; }
-        pu.join(policy);
-      }
-      return pu.out != null ? pu.out : IDENTITY_ELEMENT_POLICY;
+      return joiner.join();
     }
 
+    static final class PolicyJoiner
+        extends JoinHelper<ElementPolicy, JoinableElementPolicy> {
+
+      PolicyJoiner() {
+        super(
+            ElementPolicy.class, JoinableElementPolicy.class,
+            REJECT_ALL_ELEMENT_POLICY, IDENTITY_ELEMENT_POLICY);
+      }
+
+      @Override
+      Optional<ImmutableList<ElementPolicy>> split(ElementPolicy x) {
+        if (x instanceof JoinedElementPolicy) {
+          return Optional.of(((JoinedElementPolicy) x).policies);
+        }
+        return Optional.absent();
+      }
+
+      @Override
+      ElementPolicy rejoin(Set<? extends ElementPolicy> xs) {
+        return new JoinedElementPolicy(xs);
+      }
+    }
   }
 
   /** An element policy that returns the element unchanged. */
@@ -116,21 +120,27 @@ import javax.annotation.concurrent.Immutable;
     }
   };
 
+  @SuppressWarnings("javadoc")
+  static interface JoinableElementPolicy
+  extends ElementPolicy, Joinable<JoinableElementPolicy> {
+    // Parameterized appropriately.
+  }
 }
 
 @Immutable
 final class JoinedElementPolicy implements ElementPolicy {
-  final ElementPolicy first, second;
+  final ImmutableList<ElementPolicy> policies;
 
-  JoinedElementPolicy(ElementPolicy first, ElementPolicy second) {
-    this.first = first;
-    this.second = second;
+  JoinedElementPolicy(Iterable<? extends ElementPolicy> policies) {
+    this.policies = ImmutableList.copyOf(policies);
   }
 
   public @Nullable String apply(String elementName, List<String> attrs) {
-    String filteredElementName = first.apply(elementName, attrs);
-    return filteredElementName != null
-        ? second.apply(filteredElementName, attrs)
-        : null;
+    String filteredElementName = elementName;
+    for (ElementPolicy part : policies) {
+      filteredElementName = part.apply(filteredElementName, attrs);
+      if (filteredElementName == null) { break; }
+    }
+    return filteredElementName;
   }
 }

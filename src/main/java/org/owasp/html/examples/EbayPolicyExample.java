@@ -40,7 +40,6 @@ import org.owasp.html.PolicyFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Predicate;
-import com.google.common.base.Throwables;
 import com.google.common.io.CharStreams;
 
 /**
@@ -217,7 +216,8 @@ public class EbayPolicyExample {
         // Receives notifications on a failure to write to the output.
         new Handler<IOException>() {
           public void handle(IOException ex) {
-            Throwables.propagate(ex);  // System.out suppresses IOExceptions
+            // System.out suppresses IOExceptions
+            throw new AssertionError(null, ex);
           }
         },
         // Our HTML parser is very lenient, but this receives notifications on
@@ -235,7 +235,16 @@ public class EbayPolicyExample {
       final Pattern a, final Pattern b) {
     return new Predicate<String>() {
       public boolean apply(String s) {
-        return a.matcher(s).matches()|| b.matcher(s).matches();
+        return a.matcher(s).matches() || b.matcher(s).matches();
+      }
+
+      // Needed for Java8 compatibility with later Guava that extends
+      // java.util.function.Predicate.
+      // For some reason the default test method implementation that calls
+      // through to apply is not assumed here.
+      @SuppressWarnings("all")
+      public boolean test(String s) {
+        return apply(s);
       }
     };
   }

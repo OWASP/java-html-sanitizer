@@ -34,8 +34,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 
-import com.google.common.base.Throwables;
-
 import org.junit.Test;
 import org.owasp.html.examples.EbayPolicyExample;
 
@@ -66,7 +64,11 @@ public class ExamplesTest extends TestCase {
         System.err.println(
             "Example " + exampleClass.getSimpleName() + "\n"
             + captured.toString("UTF-8"));
-        Throwables.propagate(ex);
+        if (ex instanceof RuntimeException) {
+          throw (RuntimeException) ex;
+        } else {
+          throw new AssertionError(null, ex);
+        }
       } finally {
         System.setIn(stdin);
         System.setOut(stdout);
@@ -95,7 +97,8 @@ public class ExamplesTest extends TestCase {
   public static final void testTextAllowedInLinks() {
     String input = "<a href=\"../good.html\">click here</a>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
-    assertEquals("<a href=\"../good.html\" rel=\"nofollow\">click here</a>",
-                 sanitized);
+    assertEquals(
+        "<a href=\"../good.html\" rel=\"nofollow\">click here</a>",
+        sanitized);
   }
 }

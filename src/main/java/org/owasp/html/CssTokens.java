@@ -1442,7 +1442,7 @@ final class CssTokens implements Iterable<String> {
    * See http://dev.w3.org/csswg/css-values/#lengths and
    *     http://dev.w3.org/csswg/css-values/#other-units
    */
-  private static final Trie UNIT_TRIE = new Trie(
+  private static final Trie<Integer> UNIT_TRIE = new Trie<Integer>(
       ImmutableMap.<String, Integer>builder()
         .put("em", LENGTH_UNIT_TYPE)
         .put("ex", LENGTH_UNIT_TYPE)
@@ -1473,7 +1473,7 @@ final class CssTokens implements Iterable<String> {
 
   static boolean isWellKnownUnit(CharSequence s, int start, int end) {
     if (start == end) { return false; }
-    Trie t = UNIT_TRIE;
+    Trie<Integer> t = UNIT_TRIE;
     for (int i = start; i < end; ++i) {
       char ch = s.charAt(i);
       t = t.lookup('A' <= ch && ch <= 'Z' ? (char) (ch | 32) : ch);
