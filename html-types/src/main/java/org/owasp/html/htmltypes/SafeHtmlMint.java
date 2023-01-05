@@ -45,7 +45,7 @@ import org.owasp.html.PolicyFactory;
  * This class is safe when the policy factories passed to it are safe.
  * <a href="https://github.com/mikesamuel/fences-maven-enforcer-rule">Fences</a>
  * can be used to control access to {@link SafeHtmlMint#fromPolicyFactory}
- * as needed, and <a href="https://github.com/mikesamuel/fences-maven-enforcer-rule/blob/master/src/site/markdown/caveats.md">the plausible deniability</a>
+ * as needed, and <a href="https://github.com/mikesamuel/fences-maven-enforcer-rule/blob/main/src/site/markdown/caveats.md">the plausible deniability</a>
  * standard can be extended to writing policies that white-list known-unsafe
  * content.
  */

@@ -16,7 +16,7 @@ mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit -f aggregate
 echo
 echo Browse to
 echo "file://$PWD/target/site"
-echo and check the findbugs and jacoco reports.
+echo and check the spotbugs and jacoco reports.
 
 echo
 echo Check https://central.sonatype.org/pages/apache-maven.html#nexus-staging-maven-plugin-for-deployment-and-release
@@ -92,7 +92,7 @@ find . -name pom.xml \
 
 git commit -am "Bumped dev version"
 
-git push origin master --tags
+git push origin main --tags
 
 # Now Release
 echo '1. Go to oss.sonatype.org'

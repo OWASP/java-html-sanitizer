@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>parent</artifactId>
-  <version>20191001.2-SNAPSHOT</version>
+  <version>20220608.2-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -88,7 +88,7 @@ application while protecting against XSS.
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <guava.version>27.1-jre</guava.version>
+    <guava.version>30.1-jre</guava.version>
   </properties>
 
   <build>
@@ -265,7 +265,7 @@ application while protecting against XSS.
       <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
-        <version>4.12</version>
+        <version>4.13.1</version>
         <scope>test</scope>
       </dependency>
     </dependencies>

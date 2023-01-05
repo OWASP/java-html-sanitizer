@@ -1,13 +1,30 @@
 # OWASP Java HTML Sanitizer Change Log
- 
-  Additional detail can be found at https://github.com/OWASP/java-html-sanitizer/releases
-.
+
+Most recent at top.
+  * Release 20220608.1
+    * Fix bugs in CSS tokenization
+    * Fix deocding of HTML character references that lack semicolons
+      like `&para` in HTML attribute values that affected
+      URL query parameters.
   * Release 20211018.2
-    * Changes how we avoid problems with special tags inside &lt;select&gt; elements. We recommend using this version over v20211018.1.
+    * Tweak how we address CVE-2021-42575 to be more tailored and to
+      interfere less with `<style>` element content in general.  We
+      still advise not allowing attacker controlled `<style>` content.
   * Release 20211018.1
-    * This release fixes a vulnerability as tracked by CVE-2021-42575
+    * Fix [CVE-2021-42575](https://docs.google.com/document/d/11SoX296sMS0XoQiQbpxc5pNxSdbJKDJkm5BDv0zrX50/edit#)
+    * Changes rendering of `<style>` elements by wrapping text content
+      in HTML comments and CDATA section tags so that even when
+      content is not treated as CDATA, it will not be treated as
+      active content.
   * Release 20200713.1
-    * Improves SVG and MathML support.
+    * Do not lower-case SVG/MathML names.
+      This shouldn't cause problems since it was hard to write policies for
+      SBG, but be aware that SVG's `<textArea>` is now distinct from HTML's `<textarea>`.
+  * Release 20200615.1
+    * Change `.and` when combining two policies to respect explicit `skipIfEmpty` decisions.
+    * HTML entity decoding now follows HTML standard rules about when a semicolon is optional.
+      [Fixes #193](https://github.com/OWASP/java-html-sanitizer/issues/193)
+    * Fix table formatting [#137](https://github.com/OWASP/java-html-sanitizer/issues/137)
   * Release 20191001.1
     * Package as an OSGI bundle
   * Release 20190610.1

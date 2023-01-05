@@ -55,11 +55,27 @@ final class HtmlLexer extends AbstractTokenStream {
 
   /**
    * Normalize case of names that are not name-spaced.  This lower-cases HTML
-   * element and attribute names, but not ones for embedded SVG or MATHML.
+   * element names, but not ones for embedded SVG or MathML.
    */
-  static String canonicalName(String elementOrAttribName) {
-    return elementOrAttribName.indexOf(':') >= 0
-        ? elementOrAttribName : Strings.toLowerCase(elementOrAttribName);
+  static String canonicalElementName(String elementName) {
+    return elementName.indexOf(':') >= 0 || mixedCaseForeignElementNames.contains(elementName)
+            ? elementName : Strings.toLowerCase(elementName);
+  }
+
+  /**
+   * Normalize case of names that are not name-spaced.  This lower-cases HTML
+   * attribute names, but not ones for embedded SVG or MathML.
+   */
+  static String canonicalAttributeName(String attribName) {
+    return attribName.indexOf(':') >= 0 || mixedCaseForeignAttributeNames.contains(attribName)
+            ? attribName : Strings.toLowerCase(attribName);
+  }
+
+  /**
+   * Normalize case of keywords in attribute values.
+   */
+  public static String canonicalKeywordAttributeValue(String keywordValue) {
+    return Strings.toLowerCase(keywordValue);
   }
 
   /**
@@ -243,9 +259,7 @@ final class HtmlLexer extends AbstractTokenStream {
 
   /** Can the attribute appear in HTML without a value. */
   private static boolean isValuelessAttribute(String attribName) {
-    boolean valueless = VALUELESS_ATTRIB_NAMES.contains(
-        Strings.toLowerCase(attribName));
-    return valueless;
+    return VALUELESS_ATTRIB_NAMES.contains(canonicalAttributeName(attribName));
   }
 
   // From http://issues.apache.org/jira/browse/XALANC-519
@@ -253,6 +267,125 @@ final class HtmlLexer extends AbstractTokenStream {
       "checked", "compact", "declare", "defer", "disabled",
       "ismap", "multiple", "nohref", "noresize", "noshade",
       "nowrap", "readonly", "selected");
+
+  private static final ImmutableSet<String> mixedCaseForeignAttributeNames = ImmutableSet.of(
+          "attributeName",
+          "attributeType",
+          "baseFrequency",
+          "baseProfile",
+          "calcMode",
+          "clipPathUnits",
+          "contentScriptType",
+          "defaultAction",
+          "definitionURL",
+          "diffuseConstant",
+          "edgeMode",
+          "externalResourcesRequired",
+          "filterUnits",
+          "focusHighlight",
+          "gradientTransform",
+          "gradientUnits",
+          "initialVisibility",
+          "kernelMatrix",
+          "kernelUnitLength",
+          "keyPoints",
+          "keySplines",
+          "keyTimes",
+          "lengthAdjust",
+          "limitingConeAngle",
+          "markerHeight",
+          "markerUnits",
+          "markerWidth",
+          "maskContentUnits",
+          "maskUnits",
+          "mediaCharacterEncoding",
+          "mediaContentEncodings",
+          "mediaSize",
+          "mediaTime",
+          "numOctaves",
+          "pathLength",
+          "patternContentUnits",
+          "patternTransform",
+          "patternUnits",
+          "playbackOrder",
+          "pointsAtX",
+          "pointsAtY",
+          "pointsAtZ",
+          "preserveAlpha",
+          "preserveAspectRatio",
+          "primitiveUnits",
+          "refX",
+          "refY",
+          "repeatCount",
+          "repeatDur",
+          "requiredExtensions",
+          "requiredFeatures",
+          "requiredFonts",
+          "requiredFormats",
+          "schemaLocation",
+          "snapshotTime",
+          "specularConstant",
+          "specularExponent",
+          "spreadMethod",
+          "startOffset",
+          "stdDeviation",
+          "stitchTiles",
+          "surfaceScale",
+          "syncBehavior",
+          "syncBehaviorDefault",
+          "syncMaster",
+          "syncTolerance",
+          "syncToleranceDefault",
+          "systemLanguage",
+          "tableValues",
+          "targetX",
+          "targetY",
+          "textLength",
+          "timelineBegin",
+          "transformBehavior",
+          "viewBox",
+          "xChannelSelector",
+          "yChannelSelector",
+          "zoomAndPan"
+  );
+
+  private static final ImmutableSet<String> mixedCaseForeignElementNames = ImmutableSet.of(
+          "animateColor",
+          "animateMotion",
+          "animateTransform",
+          "clipPath",
+          "feBlend",
+          "feColorMatrix",
+          "feComponentTransfer",
+          "feComposite",
+          "feConvolveMatrix",
+          "feDiffuseLighting",
+          "feDisplacementMap",
+          "feDistantLight",
+          "feDropShadow",
+          "feFlood",
+          "feFuncA",
+          "feFuncB",
+          "feFuncG",
+          "feFuncR",
+          "feGaussianBlur",
+          "feImage",
+          "feMerge",
+          "feMergeNode",
+          "feMorphology",
+          "feOffset",
+          "fePointLight",
+          "feSpecularLighting",
+          "feSpotLight",
+          "feTile",
+          "feTurbulence",
+          "foreignObject",
+          "linearGradient",
+          "radialGradient",
+          "solidColor",
+          "textArea",
+          "textPath"
+  );
 }
 
 /**
@@ -311,7 +444,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
       switch (token.type) {
         case TAGBEGIN:
           {
-            String canonTagName = canonicalName(
+            String canonTagName = canonicalElementName(
                 token.start + 1, token.end);
             if (HtmlTextEscapingMode.isTagFollowedByLiteralContent(
                     canonTagName)) {
@@ -478,7 +611,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                     if (this.inEscapeExemptBlock
                         && '/' == input.charAt(start + 1)
                         && textEscapingMode != HtmlTextEscapingMode.PLAIN_TEXT
-                        && canonicalName(start + 2, end)
+                        && canonicalElementName(start + 2, end)
                             .equals(escapeExemptTagName)) {
                       this.inEscapeExemptBlock = false;
                       this.escapeExemptTagName = null;
@@ -612,8 +745,8 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     return result;
   }
 
-  private String canonicalName(int start, int end) {
-    return HtmlLexer.canonicalName(input.substring(start, end));
+  private String canonicalElementName(int start, int end) {
+    return HtmlLexer.canonicalElementName(input.substring(start, end));
   }
 
   private static boolean isIdentStart(char ch) {

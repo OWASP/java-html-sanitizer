@@ -238,7 +238,7 @@ public class HtmlPolicyBuilder {
       ElementPolicy policy, String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = HtmlLexer.canonicalName(elementName);
+      elementName = HtmlLexer.canonicalElementName(elementName);
       ElementPolicy newPolicy = ElementPolicy.Util.join(
           elPolicies.get(elementName), policy);
       // Don't remove if newPolicy is the always reject policy since we want
@@ -286,7 +286,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder allowTextIn(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = HtmlLexer.canonicalName(elementName);
+      elementName = HtmlLexer.canonicalElementName(elementName);
       textContainers.put(elementName, true);
     }
     return this;
@@ -305,7 +305,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder disallowTextIn(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = HtmlLexer.canonicalName(elementName);
+      elementName = HtmlLexer.canonicalElementName(elementName);
       textContainers.put(elementName, false);
     }
     return this;
@@ -321,7 +321,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder allowWithoutAttributes(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = HtmlLexer.canonicalName(elementName);
+      elementName = HtmlLexer.canonicalElementName(elementName);
       skipIssueTagMap.put(elementName, HtmlTagSkipType.DO_NOT_SKIP);
     }
     return this;
@@ -357,7 +357,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder disallowWithoutAttributes(String... elementNames) {
     invalidateCompiledState();
     for (String elementName : elementNames) {
-      elementName = HtmlLexer.canonicalName(elementName);
+      elementName = HtmlLexer.canonicalElementName(elementName);
       skipIssueTagMap.put(elementName, HtmlTagSkipType.SKIP);
     }
     return this;
@@ -370,7 +370,7 @@ public class HtmlPolicyBuilder {
   public AttributeBuilder allowAttributes(String... attributeNames) {
     ImmutableList.Builder<String> b = ImmutableList.builder();
     for (String attributeName : attributeNames) {
-      b.add(HtmlLexer.canonicalName(attributeName));
+      b.add(HtmlLexer.canonicalAttributeName(attributeName));
     }
     return new AttributeBuilder(b.build());
   }
@@ -453,7 +453,7 @@ public class HtmlPolicyBuilder {
       this.extraRelsForLinks = Sets.newLinkedHashSet();
     }
     for (String linkValue : linkValues) {
-      linkValue = HtmlLexer.canonicalName(linkValue);
+      linkValue = HtmlLexer.canonicalKeywordAttributeValue(linkValue);
       Preconditions.checkArgument(
           !Strings.containsHtmlSpace(linkValue),
           "spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
@@ -477,7 +477,7 @@ public class HtmlPolicyBuilder {
       this.skipRelsForLinks = Sets.newLinkedHashSet();
     }
     for (String linkValue : linkValues) {
-      linkValue = HtmlLexer.canonicalName(linkValue);
+      linkValue = HtmlLexer.canonicalKeywordAttributeValue(linkValue);
       Preconditions.checkArgument(
           !Strings.containsHtmlSpace(linkValue),
           "spaces in input.  use f(\"foo\", \"bar\") not f(\"foo bar\")");
@@ -1015,8 +1015,12 @@ public class HtmlPolicyBuilder {
      */
     @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder globally() {
-      return HtmlPolicyBuilder.this.allowAttributesGlobally(
-          policy, attributeNames);
+      if(attributeNames.get(0).equals("style")) {
+        return allowStyling();
+      } else {
+        return HtmlPolicyBuilder.this.allowAttributesGlobally(
+            policy, attributeNames);
+      }
     }
 
     /**
@@ -1027,7 +1031,7 @@ public class HtmlPolicyBuilder {
     public HtmlPolicyBuilder onElements(String... elementNames) {
       ImmutableList.Builder<String> b = ImmutableList.builder();
       for (String elementName : elementNames) {
-        b.add(HtmlLexer.canonicalName(elementName));
+        b.add(HtmlLexer.canonicalElementName(elementName));
       }
       return HtmlPolicyBuilder.this.allowAttributesOnElements(
           policy, attributeNames, b.build());

@@ -1,6 +1,6 @@
 # OWASP Java HTML Sanitizer
 
-[<img src="https://travis-ci.org/OWASP/java-html-sanitizer.svg">](https://travis-ci.org/OWASP/java-html-sanitizer) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=master)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=master) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/badge.png?style=plastic)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+[<img src="https://travis-ci.org/OWASP/java-html-sanitizer.svg">](https://travis-ci.org/OWASP/java-html-sanitizer) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=main)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=main) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/badge.png?style=plastic)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
@@ -35,7 +35,7 @@ how to get started with or without Maven.
 ## Prepackaged Policies
 
 You can use
-[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/Sanitizers.html):
+[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20220608.1/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
@@ -45,9 +45,9 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Crafting a policy
 
 The
-[tests](https://github.com/OWASP/java-html-sanitizer/blob/master/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
+[tests](https://github.com/OWASP/java-html-sanitizer/blob/main/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
-[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlPolicyBuilder.html):
+[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20220608.1/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -62,7 +62,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Custom Policies
 
 You can write
-[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/ElementPolicy.html)
+[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20220608.1/org/owasp/html/ElementPolicy.html)
 to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
@@ -85,7 +85,7 @@ need to be explicitly whitelisted using the `allowWithoutAttributes()`
 method if you want them to be allowed through the filter when these
 elements do not include any attributes.
 
-[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
+[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20220608.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
 
 ```Java
 new HtmlPolicyBuilder = new HtmlPolicyBuilder()
@@ -153,7 +153,7 @@ of the output.
 
 ## Telemetry
 
-When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20191001.1/org/owasp/html/HtmlChangeListener.html).
+When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20220608.1/org/owasp/html/HtmlChangeListener.html).
 
 You can use this to keep track of policy violation trends and find out when someone
 is making an effort to breach your security.
@@ -187,7 +187,7 @@ used HTML parsers will agree on the meaning of, but the absence of
 notifications does not mean that the input is in such a sub-set,
 only that it does not contain elements or attributes that were removed.
 
-See ["Why sanitize when you can validate"](https://github.com/OWASP/java-html-sanitizer/blob/master/docs/html-validation.md) for more on this topic.
+See ["Why sanitize when you can validate"](https://github.com/OWASP/java-html-sanitizer/blob/main/docs/html-validation.md) for more on this topic.
 
 ## Questions?
 
@@ -206,7 +206,7 @@ We welcome [issue reports](https://github.com/OWASP/java-html-sanitizer/issues) 
 PRs that change behavior or that add functionality should include both positive and
 [negative tests](https://www.guru99.com/negative-testing.html).
 
-Please be aware that contributions fall under the [Apache 2.0 License](https://github.com/OWASP/java-html-sanitizer/blob/master/COPYING).
+Please be aware that contributions fall under the [Apache 2.0 License](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING).
 
 ## Credits
 
