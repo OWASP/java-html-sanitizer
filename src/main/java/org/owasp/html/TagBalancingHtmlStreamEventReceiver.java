@@ -97,7 +97,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (DEBUG) {
       dumpState("open " + elementName);
     }
-    String canonElementName = HtmlLexer.canonicalName(elementName);
+    String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
@@ -217,6 +217,15 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean canContain(
       int child, int container, int containerIndexOnStack) {
     Preconditions.checkArgument(containerIndexOnStack >= 0);
+    if (child == HtmlElementTables.TEXT_NODE && hasSpecialTextMode(container)) {
+      // If there's a select element on the stack, then we need to be extra careful.
+      int selectElementIndex = METADATA.indexForName("select");
+      for (int i = containerIndexOnStack; --i >= 0;) {
+        if (selectElementIndex == openElements.get(i)) {
+          return false;
+        }
+      }
+    }
     int anc = container;
     int ancIndexOnStack = containerIndexOnStack;
     while (true) {
@@ -238,7 +247,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (DEBUG) {
       dumpState("close " + elementName);
     }
-    String canonElementName = HtmlLexer.canonicalName(elementName);
+    String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
     if (elIndex == UNRECOGNIZED_TAG) {  // Allow unrecognized end tags through.
@@ -361,6 +370,17 @@ public class TagBalancingHtmlStreamEventReceiver
     return canonElementName.length() == 2
         && (canonElementName.charAt(0) | 32) == 'h'
         && canonElementName.charAt(1) <= '9';
+  }
+
+  private static boolean hasSpecialTextMode(int elementIndex) {
+    String name = METADATA.canonNameForIndex(elementIndex);
+    switch (HtmlTextEscapingMode.getModeForTag(name)) {
+      case PCDATA: case VOID:
+        return false;
+      case CDATA: case CDATA_SOMETIMES: case RCDATA: case PLAIN_TEXT:
+        return true;
+    }
+    throw new IllegalArgumentException(name);
   }
 
   private static final byte ALL_SCOPES;

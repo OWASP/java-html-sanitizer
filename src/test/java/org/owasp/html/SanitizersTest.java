@@ -434,11 +434,78 @@ public class SanitizersTest extends TestCase {
         pf.sanitize(input));
   }
 
+  @Test
+  public static final void testStyleTagsInAllTheWrongPlaces() {
+    String input = ""
+      + "<select><option><style><script>alert(1)</script></style></option></select>"
+      + "<svg><style>.r { color: red }</style></svg>"
+      + "<style>.b { color: blue }</style>";
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("option", "select", "style", "svg")
+        .allowTextIn("style")
+        .toFactory();
+    assertEquals(
+        ""
+        + "<select><option>"
+        + "<style></style>&lt;script&gt;alert(1)&lt;/script&gt;"
+        + "</option></select>"
+        + "<svg>"
+        + "<style>.r { color: red }</style>"
+        + "</svg>"
+        + "<style>.b { color: blue }</style>",
+        pf.sanitize(input)
+    );
+  }
+
+  @Test
+  public static final void testSelectIsOdd() {
+    // Special text modes interact badly with select and option
+    String input = "<select><option><xmp><script>alert(1)</script></xmp></option></select>";
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("option", "select", "xmp")
+        .allowTextIn("xmp", "option")
+        .toFactory();
+    assertEquals(
+        ""
+        + "<select><option><pre></pre>"
+        + "&lt;script&gt;alert(1)&lt;/script&gt;"
+        + "</option></select>",
+        pf.sanitize(input)
+    );
+  }
+
+  @Test
+  public static final void testOptionAllowsText() {
+    String input = "<select><option><pre>code goes here</pre></option></select>";
+    PolicyFactory pf = new HtmlPolicyBuilder()
+            .allowElements("option", "select", "pre")
+            .allowTextIn("pre", "option")
+            .toFactory();
+    assertEquals(
+            ""
+                    + "<select><option>"
+                    + "<pre>code goes here</pre>"
+                    + "</option></select>",
+            pf.sanitize(input)
+    );
+  }
+
+  @Test
+  public static final void testStyleGlobally() {
+    PolicyFactory policyBuilder = new HtmlPolicyBuilder()
+        .allowAttributes("style").globally()
+        .allowElements("a", "label", "h1", "h2", "h3", "h4", "h5", "h6")
+        .toFactory();
+    String input = "<h1 style=\"color:green ;name:user ;\">This is some green text</h1>";
+    String want = "<h1 style=\"color:green\">This is some green text</h1>";
+    assertEquals(want, policyBuilder.sanitize(input));
+  }
+  
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
       int ifacp = ifac * i;
-      if (ifacp < ifac) { throw new IllegalArgumentException("undeflow"); }
+      if (ifacp < ifac) { throw new IllegalArgumentException("underflow"); }
       ifac = ifacp;
     }
     return ifac;

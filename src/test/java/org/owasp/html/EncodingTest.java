@@ -34,6 +34,24 @@ import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
 public final class EncodingTest extends TestCase {
+  private static void assertDecodedHtml(String want, String inputHtml) {
+    assertDecodedHtml(want, want, inputHtml);
+  }
+
+  private static void assertDecodedHtml(
+      String wantText, String wantAttr, String inputHtml
+  ) {
+    assertEquals(
+        "!inAttribute: " + inputHtml,
+        wantText,
+        Encoding.decodeHtml(inputHtml, false)
+    );
+    assertEquals(
+        "inAttribute: " + inputHtml,
+        wantAttr,
+        Encoding.decodeHtml(inputHtml, true)
+    );
+  }
 
   @Test
   public static final void testDecodeHtml() {
@@ -43,170 +61,90 @@ public final class EncodingTest extends TestCase {
     // 123456789012345678901234567890123456789012345678901234567890123456789
     String golden =
       "The quick\u00a0brown fox\njumps over\r\nthe lazy dog\n";
-    assertEquals(golden, Encoding.decodeHtml(html));
+    assertDecodedHtml(golden, html);
 
     // Don't allocate a new string when no entities.
-    assertSame(golden, Encoding.decodeHtml(golden));
+    assertSame(golden, golden);
 
     // test interrupted escapes and escapes at end of file handled gracefully
-    assertEquals(
-        "\\\\u000a",
-        Encoding.decodeHtml("\\\\u000a"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#x000a;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#x00a;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#x0a;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#xa;"));
-    assertEquals(
+    assertDecodedHtml("\\\\u000a", "\\\\u000a");
+    assertDecodedHtml("\n", "&#x000a;");
+    assertDecodedHtml("\n", "&#x00a;");
+    assertDecodedHtml("\n", "&#x0a;");
+    assertDecodedHtml("\n", "&#xa;");
+    assertDecodedHtml(
         String.valueOf(Character.toChars(0x10000)),
-        Encoding.decodeHtml("&#x10000;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#xa"));
-    assertEquals(
-        "&#x00ziggy",
-        Encoding.decodeHtml("&#x00ziggy"));
-    assertEquals(
-        "&#xa00z;",
-        Encoding.decodeHtml("&#xa00z;"));
-    assertEquals(
-        "&#\n",
-        Encoding.decodeHtml("&#&#x000a;"));
-    assertEquals(
-        "&#x\n",
-        Encoding.decodeHtml("&#x&#x000a;"));
-    assertEquals(
-        "\n\n",
-        Encoding.decodeHtml("&#xa&#x000a;"));
-    assertEquals(
-        "&#\n",
-        Encoding.decodeHtml("&#&#xa;"));
-    assertEquals(
-        "&#x",
-        Encoding.decodeHtml("&#x"));
-    assertEquals(
-        "",  // NUL elided.
-        Encoding.decodeHtml("&#x0"));
-    assertEquals(
-        "&#",
-        Encoding.decodeHtml("&#"));
+        "&#x10000;"
+    );
+    assertDecodedHtml("\n", "&#xa");
+    assertDecodedHtml("&#x00ziggy", "&#x00ziggy");
+    assertDecodedHtml("&#xa00z;", "&#xa00z;");
+    assertDecodedHtml("&#\n", "&#&#x000a;");
+    assertDecodedHtml("&#x\n", "&#x&#x000a;");
+    assertDecodedHtml("\n\n", "&#xa&#x000a;");
+    assertDecodedHtml("&#\n", "&#&#xa;");
+    assertDecodedHtml("&#x", "&#x");
+    assertDecodedHtml("", "&#x0"); // NUL elided.
+    assertDecodedHtml("&#", "&#");
 
-    assertEquals(
-        "\\",
-        Encoding.decodeHtml("\\"));
-    assertEquals(
-        "&",
-        Encoding.decodeHtml("&"));
+    assertDecodedHtml("\\", "\\");
+    assertDecodedHtml("&", "&");
 
-    assertEquals(
-        "&#000a;",
-        Encoding.decodeHtml("&#000a;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#10;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#010;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#0010;"));
-    assertEquals(
-        "\t",
-        Encoding.decodeHtml("&#9;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#10"));
-    assertEquals(
-        "&#00ziggy",
-        Encoding.decodeHtml("&#00ziggy"));
-    assertEquals(
-        "&#\n",
-        Encoding.decodeHtml("&#&#010;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#0&#010;"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#01&#10;"));
-    assertEquals(
-        "&#\n",
-        Encoding.decodeHtml("&#&#10;"));
-    assertEquals(
-        "",  // Invalid XML char elided.
-        Encoding.decodeHtml("&#1"));
-    assertEquals(
-        "\t",
-        Encoding.decodeHtml("&#9"));
-    assertEquals(
-        "\n",
-        Encoding.decodeHtml("&#10"));
+    assertDecodedHtml("&#000a;", "&#000a;");
+    assertDecodedHtml("\n", "&#10;");
+    assertDecodedHtml("\n", "&#010;");
+    assertDecodedHtml("\n", "&#0010;");
+    assertDecodedHtml("\t", "&#9;");
+    assertDecodedHtml("\n", "&#10");
+    assertDecodedHtml("&#00ziggy", "&#00ziggy");
+    assertDecodedHtml("&#\n", "&#&#010;");
+    assertDecodedHtml("\n", "&#0&#010;");
+    assertDecodedHtml("\n", "&#01&#10;");
+    assertDecodedHtml("&#\n", "&#&#10;");
+    assertDecodedHtml("", "&#1"); // Invalid XML char elided.
+    assertDecodedHtml("\t", "&#9");
+    assertDecodedHtml("\n", "&#10");
 
     // test the named escapes
-    assertEquals(
-        "<",
-        Encoding.decodeHtml("&lt;"));
-    assertEquals(
-        ">",
-        Encoding.decodeHtml("&gt;"));
-    assertEquals(
-        "\"",
-        Encoding.decodeHtml("&quot;"));
-    assertEquals(
-        "'",
-        Encoding.decodeHtml("&apos;"));
-    assertEquals(
-        "'",
-        Encoding.decodeHtml("&#39;"));
-    assertEquals(
-        "'",
-        Encoding.decodeHtml("&#x27;"));
-    assertEquals(
-        "&",
-        Encoding.decodeHtml("&amp;"));
-    assertEquals(
-        "&lt;",
-        Encoding.decodeHtml("&amp;lt;"));
-    assertEquals(
-        "&",
-        Encoding.decodeHtml("&AMP;"));
-    assertEquals(
-        "&",
-        Encoding.decodeHtml("&AMP"));
-    assertEquals(
-        "&",
-        Encoding.decodeHtml("&AmP;"));
-    assertEquals(
-        "\u0391",
-        Encoding.decodeHtml("&Alpha;"));
-    assertEquals(
-        "\u03b1",
-        Encoding.decodeHtml("&alpha;"));
-    assertEquals(
-        "\ud835\udc9c",  // U+1D49C requires a surrogate pair in UTF-16.
-        Encoding.decodeHtml("&Ascr;"));
-    assertEquals(
-        "fj",  // &fjlig; refers to 2 characters.
-        Encoding.decodeHtml("&fjlig;"));
-    assertEquals(
-        "\u2233",  // HTML entity with the longest name.
-        Encoding.decodeHtml("&CounterClockwiseContourIntegral;"));
-    assertEquals( // Missing the semicolon.
-        "&CounterClockwiseContourIntegral",
-        Encoding.decodeHtml("&CounterClockwiseContourIntegral"));
+    assertDecodedHtml("<", "&lt;");
+    assertDecodedHtml(">", "&gt;");
+    assertDecodedHtml("\"", "&quot;");
+    assertDecodedHtml("'", "&apos;");
+    assertDecodedHtml("'", "&#39;");
+    assertDecodedHtml("'", "&#x27;");
+    assertDecodedHtml("&", "&amp;");
+    assertDecodedHtml("&lt;", "&amp;lt;");
+    assertDecodedHtml("&", "&AMP;");
+    assertDecodedHtml("&", "&AMP");
+    assertDecodedHtml("&", "&AmP;");
+    assertDecodedHtml("\u0391", "&Alpha;");
+    assertDecodedHtml("\u03b1", "&alpha;");
+    // U+1D49C requires a surrogate pair in UTF-16.
+    assertDecodedHtml("\ud835\udc9c", "&Ascr;");
+    // &fjlig; refers to 2 characters.
+    assertDecodedHtml("fj", "&fjlig;");
+    // HTML entity with the longest name.
+    assertDecodedHtml("\u2233", "&CounterClockwiseContourIntegral;");
+    // Missing the semicolon.
+    assertDecodedHtml(
+       "&CounterClockwiseContourIntegral",
+       "&CounterClockwiseContourIntegral"
+    );
 
-    assertEquals(
-        "&;",
-        Encoding.decodeHtml("&;"));
-    assertEquals(
-        "&bogus;",
-        Encoding.decodeHtml("&bogus;"));
+    assertDecodedHtml("&;", "&;");
+    assertDecodedHtml("&bogus;", "&bogus;");
+
+    // Some strings decode differently depending on whether or not they're in an HTML attribute.
+    assertDecodedHtml(
+        "?foo\u00B6m=bar",
+        "?foo&param=bar",
+        "?foo&param=bar"
+    );
+    assertDecodedHtml(
+        "?foo\u00B6=bar",
+        "?foo&para=bar",
+        "?foo&para=bar"
+    );
   }
 
   @Test

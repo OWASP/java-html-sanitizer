@@ -29,11 +29,15 @@
 package org.owasp.html;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
+
 import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -187,7 +191,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
          attrIt.hasNext();) {
       String name = attrIt.next();
       String value = attrIt.next();
-      name = HtmlLexer.canonicalName(name);
+      name = HtmlLexer.canonicalAttributeName(name);
       if (!isValidHtmlName(name)) {
         error("Invalid attr name", name);
         continue;
@@ -234,7 +238,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final void writeCloseTag(String uncanonElementName)
       throws IOException {
     if (!open) { throw new IllegalStateException(); }
-    String elementName = HtmlLexer.canonicalName(uncanonElementName);
+    String elementName = HtmlLexer.canonicalElementName(uncanonElementName);
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
@@ -250,7 +254,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         Encoding.stripBannedCodeunits(cdataContent);
         int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
         if (problemIndex == -1) {
-          output.append(cdataContent);
+          if (cdataContent.length() != 0) {
+            output.append(cdataContent);
+          }
         } else {
           error(
               "Invalid CDATA text content",
@@ -386,7 +392,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * that has more consistent semantics.
    */
   static String safeName(String unsafeElementName) {
-    String elementName = HtmlLexer.canonicalName(unsafeElementName);
+    String elementName = HtmlLexer.canonicalElementName(unsafeElementName);
 
     // Substitute a reliably non-raw-text element for raw-text and
     // plain-text elements.

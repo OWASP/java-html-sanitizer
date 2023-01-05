@@ -293,7 +293,9 @@ public final class CssSchema {
     ImmutableSet<String> mozOutlineLiterals3 = ImmutableSet.of(
         "hidden", "inherit", "inset", "invert", "medium", "none");
     ImmutableMap<String, String> mozOutlineFunctions =
-      ImmutableMap.<String, String>of("rgb(", "rgb()", "rgba(", "rgba()");
+      ImmutableMap.<String, String>of(
+        "rgb(", "rgb()", "rgba(", "rgba()",
+        "hsl(", "hsl()", "hsla(", "hsla()");
     ImmutableSet<String> mozOutlineColorLiterals0 =
       ImmutableSet.of("inherit", "invert");
     ImmutableSet<String> mozOutlineStyleLiterals0 =
@@ -324,6 +326,7 @@ public final class CssSchema {
       .put("repeating-linear-gradient(", "repeating-linear-gradient()")
       .put("repeating-radial-gradient(", "repeating-radial-gradient()")
       .put("rgb(", "rgb()").put("rgba(", "rgba()")
+      .put("hsl(", "hsl()").put("hsla(", "hsla()")
       .build();
     ImmutableSet<String> backgroundAttachmentLiterals0 =
       ImmutableSet.of(",", "fixed", "local", "scroll");
@@ -742,6 +745,9 @@ public final class CssSchema {
     builder.put("zoom", new Property(1, fontStretchLiterals1, zeroFns));
     Property rgb$Fun = new Property(1, rgb$FunLiterals0, zeroFns);
     builder.put("rgb()", rgb$Fun);
+    builder.put("rgba()", rgb$Fun);
+    builder.put("hsl()", rgb$Fun);
+    builder.put("hsla()", rgb$Fun);
     @SuppressWarnings("unchecked")
     Property image$Fun = new Property(
         18, union(mozOutlineLiterals0, rgb$FunLiterals0), mozOutlineFunctions);
@@ -835,7 +841,6 @@ public final class CssSchema {
     builder.put("width", margin);
     builder.put("word-spacing", letterSpacing);
     builder.put("z-index", bottom);
-    builder.put("rgba()", rgb$Fun);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
     builder.put("repeating-radial-gradient()", radialGradient$Fun);
     DEFINITIONS = builder.build();
@@ -961,6 +966,8 @@ public final class CssSchema {
       "repeating-radial-gradient()",
       "rgb()",
       "rgba()",
+      "hsl()",
+      "hsla()",
       "richness",
       "speak",
       "speak-header",

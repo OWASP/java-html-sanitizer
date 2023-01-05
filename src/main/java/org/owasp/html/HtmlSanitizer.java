@@ -144,7 +144,7 @@ public final class HtmlSanitizer {
       switch (token.type) {
         case TEXT:
           receiver.text(
-              Encoding.decodeHtml(htmlContent.substring(token.start, token.end)));
+              Encoding.decodeHtml(htmlContent.substring(token.start, token.end), false));
           break;
         case UNESCAPED:
           receiver.text(Encoding.stripBannedCodeunits(
@@ -152,7 +152,7 @@ public final class HtmlSanitizer {
           break;
         case TAGBEGIN:
           if (htmlContent.charAt(token.start + 1) == '/') {  // A close tag.
-            receiver.closeTag(HtmlLexer.canonicalName(
+            receiver.closeTag(HtmlLexer.canonicalElementName(
                 htmlContent.substring(token.start + 2, token.end)));
             while (lexer.hasNext()
                    && lexer.next().type != HtmlTokenType.TAGEND) {
@@ -173,12 +173,13 @@ public final class HtmlSanitizer {
                   } else {
                     attrsReadyForName = false;
                   }
-                  attrs.add(HtmlLexer.canonicalName(
+                  attrs.add(HtmlLexer.canonicalAttributeName(
                       htmlContent.substring(tagBodyToken.start, tagBodyToken.end)));
                   break;
                 case ATTRVALUE:
-                  attrs.add(Encoding.decodeHtml(stripQuotes(
-                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end))));
+                  String attributeContentRaw =
+                          stripQuotes(htmlContent.substring(tagBodyToken.start, tagBodyToken.end));
+                  attrs.add(Encoding.decodeHtml(attributeContentRaw, true));
                   attrsReadyForName = true;
                   break;
                 case TAGEND:
@@ -191,7 +192,7 @@ public final class HtmlSanitizer {
               attrs.add(attrs.getLast());
             }
             receiver.openTag(
-                HtmlLexer.canonicalName(
+                HtmlLexer.canonicalElementName(
                     htmlContent.substring(token.start + 1, token.end)),
                 attrs);
           }
