@@ -20,7 +20,8 @@ This is not an exhaustive list and creative attacks are welcome.
 If you find the web interface cumbersome, feel free to download and test the sanitizer directly.  See [GettingStarted](getting_started.md) for instructions.
 
 ## Reporting Vulnerabilities 
-Please report successful attacks with example input via [OWASP's bugcrowd queue](https://bugcrowd.com/owaspjavasanitizer).
+Please report successful attacks with example input via [OWASP's bugcrowd queue](https://bugcrowd.com/owaspjavasanitizer)
+or contact [@mikesamuel] and I will create a [repository security advisory](https://docs.github.com/en/code-security/security-advisories/repository-security-advisories/creating-a-repository-security-advisory) to coordinate.
 
 If you wish to be credited, please provide a name or handle for me to credit.
 
