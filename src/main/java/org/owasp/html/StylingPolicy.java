@@ -93,13 +93,11 @@ final class StylingPolicy implements JoinableAttributePolicy {
       }
 
       private void sanitizeAndAppendUrl(String urlContent) {
-        if (urlContent.length() < 1024) {
-          String rewrittenUrl = urlRewriter.apply(urlContent);
-          if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
-            if (hasTokens) { sanitizedCss.append(' '); }
-            sanitizedCss.append("url('").append(rewrittenUrl).append("')");
-            hasTokens = true;
-          }
+        String rewrittenUrl = urlRewriter.apply(urlContent);
+        if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
+          if (hasTokens) { sanitizedCss.append(' '); }
+          sanitizedCss.append("url('").append(rewrittenUrl).append("')");
+          hasTokens = true;
         }
       }
 
