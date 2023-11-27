@@ -383,7 +383,7 @@ public final class CssSchema {
         "bolder", "lighter");
     ImmutableSet<String> fontLiterals1 = ImmutableSet.of(
         "large", "larger", "small", "smaller", "x-large", "x-small",
-        "xx-large", "xx-small");
+        "xx-large", "xx-small","xxx-large","medium");
     ImmutableSet<String> fontLiterals2 = ImmutableSet.of(
         "caption", "icon", "menu", "message-box", "small-caption",
         "status-bar");
