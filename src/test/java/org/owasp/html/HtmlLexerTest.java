@@ -121,6 +121,31 @@ public class HtmlLexerTest extends TestCase {
         "TAGEND: >");
   }
 
+  @Test
+  public static final void testCommentDeclarationWith0CommentsAndXss() throws Exception
+  {
+    //check https://datatracker.ietf.org/doc/html/rfc1866#section-3.2.5
+    assertTokens("<!><img src=1 onError=alert(\"nice\")>",
+            "COMMENT: <!>",
+            "TAGBEGIN: <img",
+            "ATTRNAME: src",
+            "ATTRVALUE: 1",
+            "ATTRNAME: onError",
+            "ATTRVALUE: alert(\"nice\")",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
+  public static final void testCommentDeclarationWith0CommentsAndTag() throws Exception
+  {
+    assertTokens("<!--><img>",
+            "COMMENT: <!-->",
+            "TAGBEGIN: <img",
+            "TAGEND: >"
+    );
+  }
+
   private static void lex(String input, Appendable out) throws Exception {
     HtmlLexer lexer = new HtmlLexer(input);
     int maxTypeLength = 0;
