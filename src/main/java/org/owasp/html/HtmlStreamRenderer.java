@@ -341,7 +341,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           }
           break;
         case '>':
-          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 2) == '-') {
+          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 1) == '-') {
             if (innerStart < 0) { return i - 2; }
             // Merged start and end like <!--->
             if (innerStart + 6 > i) { return innerStart; }
