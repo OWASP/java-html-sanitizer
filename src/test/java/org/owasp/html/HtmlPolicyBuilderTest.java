@@ -994,6 +994,20 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals("x<textArea>y</textArea>", textAreaPolicy.sanitize(input));
   }
 
+   @Test
+  public static final void testCSSFontSize() {
+	 HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+ 	 PolicyFactory factory = builder.allowElements("span")
+ 	 .allowAttributes("style").onElements("span").allowStyling()
+ 	.toFactory();
+ 	 String toSanitizeXXXLarge = "the <span style=\"font-size:xxx-large\">large</span> formatting issue with chrome";
+ 	 assertEquals(toSanitizeXXXLarge, factory.sanitize(toSanitizeXXXLarge)); 
+ 	 
+ 	 String toSanitizeMedium = "the <span style=\"font-size:medium\">medium</span> formatting issue with chrome";
+ 	 assertEquals(toSanitizeMedium, factory.sanitize(toSanitizeMedium)); 
+  }
+
+
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
   }
