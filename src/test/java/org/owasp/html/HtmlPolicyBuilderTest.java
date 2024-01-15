@@ -994,7 +994,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals("x<textArea>y</textArea>", textAreaPolicy.sanitize(input));
   }
 
-   @Test
+  @Test
   public static final void testCSSFontSize() {
 	 HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
  	 PolicyFactory factory = builder.allowElements("span")
@@ -1007,6 +1007,41 @@ public class HtmlPolicyBuilderTest extends TestCase {
  	 assertEquals(toSanitizeMedium, factory.sanitize(toSanitizeMedium)); 
   }
 
+  @Test
+  public static final void testCSSChildCombinator() {
+	  HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+	 
+ 	  PolicyFactory factory = builder.allowElements("span","style","h1").allowTextIn("style","h1")
+ 	    .allowAttributes("type").onElements("style").allowStyling()
+ 	    .toFactory();
+ 	
+ 	 
+ 	  String toSanitize = "<style type=\"text/css\">\n"
+ 	 	  + "<!--\n"
+ 	 	  + ".hdg-1 {\n"
+ 	 	  + "width:100%;\n"
+ 	 	  + "}\n"
+ 	 	  + "\n"
+ 	 	  + ".hdg-1>._inner {\n"
+ 	 	  + "background-color: #999;\n"
+ 	 	  + "}\n"
+ 	 	  + "-->\n"
+ 	 	  + "</style>\n"
+ 	 	  + "<h1>Test</h1>\n"
+ 	 	  + "\n"
+ 	 	  + "<style>\n"
+ 	 	  + "<!--\n"
+ 	 	  + ".hdg-1 {\n"
+ 	 	  + "width:100%;\n"
+ 	 	  + "}\n"
+ 	 	  + "\n"
+ 	 	  + ".hdg-1>._inner {\n"
+ 	 	  + "background-color: #666;\n"
+ 	 	  + "}\n"
+ 	 	  + "-->\n"
+ 	 	  + "</style>";
+ 	  assertEquals(toSanitize, factory.sanitize(toSanitize));
+  }
 
   private static String apply(HtmlPolicyBuilder b) {
     return apply(b, EXAMPLE);
