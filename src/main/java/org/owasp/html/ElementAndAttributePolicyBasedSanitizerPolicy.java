@@ -28,15 +28,14 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 
 /**
  * A sanitizer policy that applies element and attribute policies to tags.
@@ -45,8 +44,8 @@ import com.google.common.collect.Lists;
 @NotThreadSafe
 class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy {
-  final ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies;
-  final ImmutableSet<String> allowedTextContainers;
+  final Map<String, ElementAndAttributePolicies> elAndAttrPolicies;
+  final Set<String> allowedTextContainers;
   private final HtmlStreamEventReceiver out;
   /**
    * True to skip textual content.  Used to ignore the content of embedded CDATA
@@ -57,19 +56,19 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * Alternating input names and adjusted names of elements opened by the
    * caller.
    */
-  private final List<String> openElementStack = Lists.newArrayList();
+  private final List<String> openElementStack = new ArrayList<>();
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
-      ImmutableMap<String, ElementAndAttributePolicies> elAndAttrPolicies,
-      ImmutableSet<String> allowedTextContainers) {
+      Map<String, ElementAndAttributePolicies> elAndAttrPolicies,
+      Set<String> allowedTextContainers) {
     this.out = out;
-    this.elAndAttrPolicies = elAndAttrPolicies;
-    this.allowedTextContainers = allowedTextContainers;
+    this.elAndAttrPolicies = Map.copyOf(elAndAttrPolicies);
+    this.allowedTextContainers = Set.copyOf(allowedTextContainers);
   }
 
-  static final ImmutableSet<String> SKIPPABLE_ELEMENT_CONTENT
-      = ImmutableSet.of(
+  static final Set<String> SKIPPABLE_ELEMENT_CONTENT
+      = Set.of(
           "script", "style", "noscript", "nostyle", "noembed", "noframes",
           "iframe", "object", "frame", "frameset", "title");
 

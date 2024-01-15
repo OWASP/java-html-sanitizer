@@ -28,11 +28,11 @@
 
 package org.owasp.html;
 
+import java.util.function.Function;
+
 import javax.annotation.Nullable;
 
 import org.junit.Test;
-
-import com.google.common.base.Function;
 
 import junit.framework.TestCase;
 

@@ -88,8 +88,11 @@ application while protecting against XSS.
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <guava.version>30.1-jre</guava.version>
+    <maven.compiler.source>9</maven.compiler.source>
+    <maven.compiler.target>9</maven.compiler.target>
+    <maven.compiler.release>9</maven.compiler.release>
   </properties>
+
 
   <build>
     <pluginManagement>
@@ -184,8 +187,8 @@ application while protecting against XSS.
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.3</version>
           <configuration>
-            <source>6</source>
-            <target>6</target>
+            <source>9</source>
+            <target>9</target>
           </configuration>
         </plugin>
         <plugin>
@@ -235,14 +238,9 @@ application while protecting against XSS.
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>${guava.version}</version>
-      </dependency>
-      <dependency>
         <groupId>commons-codec</groupId>
         <artifactId>commons-codec</artifactId>
-        <version>[1.4,)</version>
+        <version>[1.15,)</version>
       </dependency>
       <dependency>
         <groupId>com.google.code.findbugs</groupId>

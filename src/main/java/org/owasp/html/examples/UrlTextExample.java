@@ -30,16 +30,16 @@ package org.owasp.html.examples;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.HtmlStreamEventProcessor;
 import org.owasp.html.HtmlStreamEventReceiver;
 import org.owasp.html.HtmlStreamEventReceiverWrapper;
 import org.owasp.html.HtmlTextEscapingMode;
 import org.owasp.html.PolicyFactory;
-import org.owasp.html.HtmlStreamEventProcessor;
-
-import com.google.common.base.Joiner;
 
 /**
  * Uses a custom event receiver to emit the domain of a link or inline image
@@ -134,7 +134,7 @@ public class UrlTextExample {
           }
       ).toFactory();
 
-    out.append(policyBuilder.sanitize(Joiner.on('\n').join(inputs)));
+    out.append(policyBuilder.sanitize(Arrays.stream(inputs).collect(Collectors.joining("\n"))));
   }
 
   /**

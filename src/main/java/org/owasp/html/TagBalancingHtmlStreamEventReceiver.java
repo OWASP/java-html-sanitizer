@@ -28,13 +28,11 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 
 import org.owasp.html.HtmlElementTables.HtmlElementNames;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 /**
  * Wraps an HTML stream event receiver to fill in missing close tags.
@@ -125,7 +123,7 @@ public class TagBalancingHtmlStreamEventReceiver
       // Open implied elements, such as list-items and table cells & rows.
       int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
       if (impliedElIndices.length != 0) {
-        List<String> attrs = Lists.<String>newArrayList();
+        List<String> attrs = new ArrayList<>();
 
         int startPos = 0;
         for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
@@ -183,7 +181,7 @@ public class TagBalancingHtmlStreamEventReceiver
         if (openElements.size() < nestingLimit) {
           underlying.openTag(
               METADATA.canonNameForIndex(toResume),
-              Lists.<String>newArrayList());
+              new ArrayList<>());
         }
         openElements.add(toResume);
       } else {
@@ -216,7 +214,9 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private boolean canContain(
       int child, int container, int containerIndexOnStack) {
-    Preconditions.checkArgument(containerIndexOnStack >= 0);
+    if (containerIndexOnStack < 0) {
+      throw new IllegalArgumentException("negative container index");
+    }
     if (child == HtmlElementTables.TEXT_NODE && hasSpecialTextMode(container)) {
       // If there's a select element on the stack, then we need to be extra careful.
       int selectElementIndex = METADATA.indexForName("select");

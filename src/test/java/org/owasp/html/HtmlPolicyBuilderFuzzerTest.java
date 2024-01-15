@@ -28,13 +28,12 @@
 
 package org.owasp.html;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
-
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Function;
 
 import org.w3c.dom.Attr;
 import org.w3c.dom.NamedNodeMap;
@@ -93,7 +92,7 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
         HtmlSanitizer.Policy policy = policyFactory.apply(
             HtmlStreamRenderer.create(sb, Handler.DO_NOTHING));
         policy.openDocument();
-        List<String> attributes = Lists.newArrayList();
+        List<String> attributes = new ArrayList<>();
         for (int j = 50; --j >= 0;) {
           int r = rnd.nextInt(3);
           switch (r) {

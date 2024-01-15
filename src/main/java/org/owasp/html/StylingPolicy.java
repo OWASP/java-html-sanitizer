@@ -28,16 +28,13 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import javax.annotation.Nullable;
 
 import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.collect.Lists;
 
 /**
  * An HTML sanitizer policy that tries to preserve simple CSS by white-listing
@@ -67,7 +64,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
    *
    * @return A sanitized version of the input.
    */
-  @VisibleForTesting
+  //only visible for testing
   String sanitizeCssProperties(String style) {
     final StringBuilder sanitizedCss = new StringBuilder();
     CssGrammar.parsePropertyGroup(style, new CssGrammar.PropertyHandler() {
@@ -129,7 +126,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
 
       public void startFunction(String uncanonToken) {
         closeQuotedIdents();
-        if (cssProperties == null) { cssProperties = Lists.newArrayList(); }
+        if (cssProperties == null) { cssProperties = new ArrayList<>(); }
         cssProperties.add(cssProperty);
         String token = Strings.toLowerCase(uncanonToken);
         String key = cssProperty.fnKeys.get(token);
@@ -274,7 +271,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
 
     public JoinableAttributePolicy join(
         Iterable<? extends JoinableAttributePolicy> toJoin) {
-      Function<String, String> identity = Functions.<String>identity();
+      Function<String, String> identity = Function.<String>identity();
       CssSchema cssSchema = null;
       Function<String, String> urlRewriter = identity;
       for (JoinableAttributePolicy p : toJoin) {
@@ -284,7 +281,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
         urlRewriter = urlRewriter.equals(identity)
             || urlRewriter.equals(sp.urlRewriter)
             ? sp.urlRewriter
-            : Functions.compose(urlRewriter, sp.urlRewriter);
+            : urlRewriter.compose(sp.urlRewriter);
       }
       return new StylingPolicy(cssSchema, urlRewriter);
     }

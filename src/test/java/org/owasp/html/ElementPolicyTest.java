@@ -1,5 +1,6 @@
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -8,9 +9,6 @@ import javax.annotation.Nullable;
 import org.junit.Test;
 
 import junit.framework.TestCase;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import static org.owasp.html.ElementPolicy.REJECT_ALL_ELEMENT_POLICY;
 import static org.owasp.html.ElementPolicy.IDENTITY_ELEMENT_POLICY;
@@ -39,17 +37,17 @@ public final class ElementPolicyTest extends TestCase {
   }
 
   private static void assertPassed(ElementPolicy p, String... expected) {
-    List<String> attrs = Lists.newArrayList();
-    ImmutableList.Builder<String> actual = ImmutableList.builder();
+    List<String> attrs = new ArrayList<>();
+    List<String> actual = new ArrayList<>();
     for (String elName : TEST_EL_NAMES) {
       if (p.apply(elName, attrs) != null) {
         actual.add(elName);
       }
     }
-    assertEquals(p.toString(), Arrays.asList(expected), actual.build());
+    assertEquals(p.toString(), Arrays.asList(expected), actual);
   }
 
-  private static List<String> TEST_EL_NAMES = ImmutableList.of(
+  private static List<String> TEST_EL_NAMES = List.of(
       "abacus", "abracadabra", "bar", "foo", "far", "cadr", "cdr");
 
   @Test

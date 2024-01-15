@@ -2,11 +2,9 @@ package org.owasp.html;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 
 /**
  * Metadata about HTML elements.
@@ -124,7 +122,7 @@ public final class HtmlElementTables {
     COLGROUP_TAG = indexForName("colgroup");
     IFRAME_TAG = indexForName("iframe");
 
-    ImmutableList<FreeWrapper> freeWrappers = ImmutableList.of(
+    List<FreeWrapper> freeWrappers = List.of(
         new FreeWrapper(
             LI_TAG,
             // LI_TAG is allowed here since an LI can appear when an LI is on
@@ -396,18 +394,18 @@ public final class HtmlElementTables {
     /**
      * Canonical element names by element index.
      */
-    public final ImmutableList<String> canonNames;
-    private transient ImmutableMap<String, Integer> canonNameToIndex;
+    public final List<String> canonNames;
+    private transient Map<String, Integer> canonNameToIndex;
     private transient int customElementIndex;
 
     /** */
     public HtmlElementNames(List<String> canonNames) {
-      this.canonNames = ImmutableList.copyOf(canonNames);
+      this.canonNames = List.copyOf(canonNames);
     }
 
     /** */
     HtmlElementNames(String... canonNames) {
-      this.canonNames = ImmutableList.copyOf(canonNames);
+      this.canonNames = List.of(canonNames);
     }
 
     /**
@@ -416,13 +414,16 @@ public final class HtmlElementTables {
      */
     public int getElementNameIndex(String canonName) {
       if (canonNameToIndex == null) {
-        ImmutableMap.Builder<String, Integer> b = ImmutableMap.builder();
+        Map<String, Integer> builder = new HashMap<>();
         for (int i = 0, n = this.canonNames.size(); i < n; ++i) {
-          b.put(this.canonNames.get(i), i);
+          builder.put(this.canonNames.get(i), i);
         }
-        canonNameToIndex = b.build();
+        canonNameToIndex = Map.copyOf(builder);
         this.customElementIndex = canonNames.indexOf(CUSTOM_ELEMENT_NAME);
-        Preconditions.checkState(this.customElementIndex >= 0);
+        if (this.customElementIndex < 0) {
+          throw new IllegalStateException("Negative element index");
+        }
+
       }
       Integer index = canonNameToIndex.get(canonName);
       return index != null ? index.intValue() : customElementIndex;
@@ -438,7 +439,9 @@ public final class HtmlElementTables {
 
     /** */
     public DenseElementBinaryMatrix(boolean[] bits, int matrixLength) {
-      Preconditions.checkArgument(bits.length == matrixLength * matrixLength);
+      if (bits.length != matrixLength * matrixLength) {
+        throw new IllegalArgumentException("Invalid matrix size");
+      }
       this.matrixLength = matrixLength;
       this.bits = bits.clone();
     }
@@ -448,8 +451,12 @@ public final class HtmlElementTables {
      * @param b the second element name index.
      */
     public boolean get(int a, int b) {
-      Preconditions.checkElementIndex(a, matrixLength);
-      Preconditions.checkElementIndex(b, matrixLength);
+      if (a < 0 || a >= matrixLength) {
+        throw new IndexOutOfBoundsException("Invalid index for first element");
+      }
+      if (b < 0 && b >= matrixLength) {
+        throw new IndexOutOfBoundsException("Invalid index for second element");
+      }
       return bits[a * matrixLength + b];
     }
 
@@ -504,12 +511,16 @@ public final class HtmlElementTables {
       int last = -1;
       for (int i = 0, n = this.arrs.length; i < n; ++i) {
         int[] arr = arrs[i] = arrs[i].clone();
-        Preconditions.checkArgument(last < arr[0]);
+        if (last >= arr[0]) {
+          throw new IllegalArgumentException("Non sorted array");
+        }
         last = arr[0];
         int lastVal = -1;
         for (int j = 1, m = arr.length; j < m; ++j) {
           int val = arr[j];
-          Preconditions.checkArgument(val > lastVal, arr);
+          if (val <= lastVal) {
+            throw new IllegalArgumentException("Non sorted array");
+          }
           lastVal = val;
         }
       }
@@ -570,8 +581,9 @@ public final class HtmlElementTables {
           int[][] arrEl = this.arrs[j] = this.arrs[j].clone();
           for (int i = 0, m = arrEl.length; i < m; ++i) {
             int[] row = arrEl[i] = arrEl[i].clone();
-            Preconditions.checkState(
-                i == 0 || row[0] > arrEl[i - 1][0]);
+            if (i != 0 && row[0] <= arrEl[i - 1][0]) {
+              throw new IllegalStateException("Illegal array state");
+            }
           }
         }
       }

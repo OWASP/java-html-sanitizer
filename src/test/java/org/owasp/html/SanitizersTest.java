@@ -30,15 +30,14 @@ package org.owasp.html;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 import junit.framework.TestCase;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 @SuppressWarnings("javadoc")
 public class SanitizersTest extends TestCase {
@@ -516,7 +515,7 @@ public class SanitizersTest extends TestCase {
    * elements are assumed distinct.
    */
   private static class Permutations<T> implements Iterable<List<T>> {
-    final ImmutableList<T> elements;
+    final List<T> elements;
     /** Permutation size. */
     final int k;
 
@@ -526,7 +525,9 @@ public class SanitizersTest extends TestCase {
 
     Permutations(int k, @SuppressWarnings("unchecked") T... elements) {
       this.k = k;
-      this.elements = ImmutableList.copyOf(elements);
+      List<T> builder = new ArrayList<>();
+      Arrays.stream(elements).forEach(builder::add);
+      this.elements = List.copyOf(builder);
     }
 
     public Iterator<List<T>> iterator() {
@@ -559,7 +560,7 @@ public class SanitizersTest extends TestCase {
         private void fill() {
           if (pending != null || i == limit) { return; }
 
-          List<T> permutation = Lists.newArrayListWithCapacity(k);
+          List<T> permutation = new ArrayList<>(k);
           mask.clear();
 
           for (int j = 0, p = i; j < k; ++j) {
