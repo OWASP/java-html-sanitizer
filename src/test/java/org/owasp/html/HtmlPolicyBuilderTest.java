@@ -801,6 +801,19 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testRelLinksWhenRelisPartOfData() {
+	  PolicyFactory pf = new HtmlPolicyBuilder()
+		        .allowElements("a")
+		        .allowAttributes("href").onElements("a")
+		        .allowAttributes("rel").onElements("a")
+		        .allowAttributes("target").onElements("a")
+		        .allowStandardUrlProtocols()
+		        .toFactory();
+	  String toSanitize = "<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>";
+	  assertTrue("Failure in testRelLinksWhenRelisPartOfData", pf.sanitize(toSanitize).equals(toSanitize));
+  }
+
+  @Test
   public static final void testFailFastOnSpaceSeparatedStrings() {
     boolean failed;
     try {
