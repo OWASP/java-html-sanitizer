@@ -28,19 +28,19 @@
 
 package org.owasp.html.examples;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.owasp.html.Handler;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamRenderer;
 import org.owasp.html.PolicyFactory;
-
-import com.google.common.base.Charsets;
-import com.google.common.base.Predicate;
-import com.google.common.io.CharStreams;
 
 /**
  * Based on the
@@ -208,8 +208,10 @@ public class EbayPolicyExample {
     }
     System.err.println("[Reading from STDIN]");
     // Fetch the HTML to sanitize.
-    String html = CharStreams.toString(
-        new InputStreamReader(System.in, Charsets.UTF_8));
+	String html = new BufferedReader(
+        new InputStreamReader(System.in, StandardCharsets.UTF_8))
+            .lines()
+	        .collect(Collectors.joining("\n"));
     // Set up an output channel to receive the sanitized HTML.
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         System.out,

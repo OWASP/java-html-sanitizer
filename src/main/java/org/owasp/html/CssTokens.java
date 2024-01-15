@@ -31,11 +31,10 @@ package org.owasp.html;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Given a string of CSS, produces a string of normalized CSS with certain
@@ -453,7 +452,7 @@ final class CssTokens implements Iterable<String> {
         char ch = css.charAt(pos);
         int startOfToken = pos;
         int startOfOutputToken = sb.length();
-        final TokenType type;
+        TokenType type;
         switch (ch) {
           case '\t': case '\n': case '\f': case '\r': case ' ': case '\ufeff':
             consumeIgnorable();
@@ -514,6 +513,7 @@ final class CssTokens implements Iterable<String> {
               type = TokenType.UNICODE_RANGE;
             } else {
               type = consumeIdentOrUrlOrFunction();
+              assert type != null;
             }
             break;
           case '0': case '1': case '2': case '3': case '4':
@@ -533,7 +533,14 @@ final class CssTokens implements Iterable<String> {
               if (consumeIgnorable()) {  // -->
                 type = TokenType.WHITESPACE;
               } else {
-                type = consumeIdentOrUrlOrFunction();
+                TokenType identType = consumeIdentOrUrlOrFunction();
+                if (identType == null) {
+                  breakOutput();
+                  consumeDelim(ch);
+                  type = TokenType.DELIM;
+                } else {
+                  type = identType;
+                }
               }
             } else if (isIdentPart(lookahead)) {
               // treat ".<IDENT>" as one token.
@@ -589,9 +596,17 @@ final class CssTokens implements Iterable<String> {
             }
             break;
           }
-          case '_':
-            type = consumeIdentOrUrlOrFunction();
+          case '_': {
+            TokenType identType = consumeIdentOrUrlOrFunction();
+            if (identType != null) {
+              type = identType;
+            } else {
+              ++pos;  // drop
+              breakOutput();
+              type = TokenType.WHITESPACE;
+            }
             break;
+          }
           case '\\': {
             // Optimistically parse as an ident.
             TokenType identType = consumeIdentOrUrlOrFunction();
@@ -624,7 +639,13 @@ final class CssTokens implements Iterable<String> {
               type = TokenType.WHITESPACE;
             }
         }
-        assert pos > startOfToken
+        // Make progress even in the face of errors above.
+        if (type == null && pos == startOfToken) {
+          type = TokenType.WHITESPACE;
+          breakOutput();
+          ++pos;
+        }
+        assert type != null && pos > startOfToken
             : "empty token at " + pos + ", ch0=" + css.charAt(startOfToken)
             + ":U+" + Integer.toHexString(css.charAt(startOfToken));
         int endOfOutputToken = sb.length();
@@ -1442,34 +1463,34 @@ final class CssTokens implements Iterable<String> {
    * See http://dev.w3.org/csswg/css-values/#lengths and
    *     http://dev.w3.org/csswg/css-values/#other-units
    */
-  private static final Trie<Integer> UNIT_TRIE = new Trie<Integer>(
-      ImmutableMap.<String, Integer>builder()
-        .put("em", LENGTH_UNIT_TYPE)
-        .put("ex", LENGTH_UNIT_TYPE)
-        .put("ch", LENGTH_UNIT_TYPE)  // Width of zero character
-        .put("rem", LENGTH_UNIT_TYPE)  // Root element font-size
-        .put("vh", LENGTH_UNIT_TYPE)
-        .put("vw", LENGTH_UNIT_TYPE)
-        .put("vmin", LENGTH_UNIT_TYPE)
-        .put("vmax", LENGTH_UNIT_TYPE)
-        .put("px", LENGTH_UNIT_TYPE)
-        .put("mm", LENGTH_UNIT_TYPE)
-        .put("cm", LENGTH_UNIT_TYPE)
-        .put("in", LENGTH_UNIT_TYPE)
-        .put("pt", LENGTH_UNIT_TYPE)
-        .put("pc", LENGTH_UNIT_TYPE)
-        .put("deg", ANGLE_UNIT_TYPE)
-        .put("rad", ANGLE_UNIT_TYPE)
-        .put("grad", ANGLE_UNIT_TYPE)
-        .put("turn", ANGLE_UNIT_TYPE)
-        .put("s", TIME_UNIT_TYPE)
-        .put("ms", TIME_UNIT_TYPE)
-        .put("hz", FREQUENCY_UNIT_TYPE)
-        .put("khz", FREQUENCY_UNIT_TYPE)
-        .put("dpi", RESOLUTION_UNIT_TYPE)
-        .put("dpcm", RESOLUTION_UNIT_TYPE)
-        .put("dppx", RESOLUTION_UNIT_TYPE)
-        .build());
+  private static final Trie<Integer> UNIT_TRIE = new Trie<>(
+      Map.ofEntries(
+        Map.entry("em", LENGTH_UNIT_TYPE),
+        Map.entry("ex", LENGTH_UNIT_TYPE),
+        Map.entry("ch", LENGTH_UNIT_TYPE),  // Width of zero character
+        Map.entry("rem", LENGTH_UNIT_TYPE),  // Root element font-size
+        Map.entry("vh", LENGTH_UNIT_TYPE),
+        Map.entry("vw", LENGTH_UNIT_TYPE),
+        Map.entry("vmin", LENGTH_UNIT_TYPE),
+        Map.entry("vmax", LENGTH_UNIT_TYPE),
+        Map.entry("px", LENGTH_UNIT_TYPE),
+        Map.entry("mm", LENGTH_UNIT_TYPE),
+        Map.entry("cm", LENGTH_UNIT_TYPE),
+        Map.entry("in", LENGTH_UNIT_TYPE),
+        Map.entry("pt", LENGTH_UNIT_TYPE),
+        Map.entry("pc", LENGTH_UNIT_TYPE),
+        Map.entry("deg", ANGLE_UNIT_TYPE),
+        Map.entry("rad", ANGLE_UNIT_TYPE),
+        Map.entry("grad", ANGLE_UNIT_TYPE),
+        Map.entry("turn", ANGLE_UNIT_TYPE),
+        Map.entry("s", TIME_UNIT_TYPE),
+        Map.entry("ms", TIME_UNIT_TYPE),
+        Map.entry("hz", FREQUENCY_UNIT_TYPE),
+        Map.entry("khz", FREQUENCY_UNIT_TYPE),
+        Map.entry("dpi", RESOLUTION_UNIT_TYPE),
+        Map.entry("dpcm", RESOLUTION_UNIT_TYPE),
+        Map.entry("dppx", RESOLUTION_UNIT_TYPE))
+        );
 
   static boolean isWellKnownUnit(CharSequence s, int start, int end) {
     if (start == end) { return false; }

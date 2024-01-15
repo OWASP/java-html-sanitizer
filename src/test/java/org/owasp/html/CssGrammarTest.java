@@ -28,12 +28,12 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 
 import junit.framework.TestCase;
 
@@ -41,7 +41,7 @@ import junit.framework.TestCase;
 public class CssGrammarTest extends TestCase {
   @Test
   public static final void testLex() {
-    CssTokens tokens = CssTokens.lex(Joiner.on('\n').join(
+    CssTokens tokens = CssTokens.lex(Arrays.stream(new String[] {
         "/* A comment */",
         "words with-dashes #hashes .dots. -and-leading-dashes",
         "quantities: 3px 4ex -.5pt 12.5%",
@@ -50,9 +50,9 @@ public class CssGrammarTest extends TestCase {
         "rgb(255, 127, 127)",
         "'strings' \"oh \\\"my\" 'foo bar'",
         "color:blue!important",
-        ""));
+        ""}).collect(Collectors.joining("\n")));
 
-    List<String> actualTokens = Lists.newArrayList();
+    List<String> actualTokens = new ArrayList<>();
     for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
       CssTokens.TokenType type = it.type();
       String token = it.next();
@@ -62,7 +62,7 @@ public class CssGrammarTest extends TestCase {
     }
 
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             // "/* A comment */",  // Comments are elided.
             "words:IDENT",
             "with-dashes:IDENT",
@@ -103,8 +103,8 @@ public class CssGrammarTest extends TestCase {
             "!:DELIM",
             "important:IDENT",
             "]:RIGHT_SQUARE"  // Manufactured due to unmatched '['.
-            ),
-        Joiner.on('\n').join(actualTokens));
+        }).collect(Collectors.joining("\n")),
+        actualTokens.stream().collect(Collectors.joining("\n")));
   }
 
   @Test

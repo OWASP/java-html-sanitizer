@@ -28,9 +28,10 @@
 
 package org.owasp.html;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -38,10 +39,10 @@ import javax.annotation.concurrent.Immutable;
 
 @Immutable
 final class JoinedAttributePolicy implements AttributePolicy {
-  final ImmutableList<AttributePolicy> policies;
+	final List<AttributePolicy> policies;
 
-  JoinedAttributePolicy(Collection<? extends AttributePolicy> policies) {
-    this.policies = ImmutableList.copyOf(policies);
+	JoinedAttributePolicy(Collection<? extends AttributePolicy> policies) {
+		this.policies = Collections.unmodifiableList(policies.stream().collect(Collectors.<AttributePolicy>toList()));
   }
 
   public @Nullable String apply(

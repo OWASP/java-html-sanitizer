@@ -28,16 +28,12 @@
 
 package org.owasp.html;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
-
 import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -341,7 +337,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           }
           break;
         case '>':
-          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 2) == '-') {
+          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 1) == '-') {
             if (innerStart < 0) { return i - 2; }
             // Merged start and end like <!--->
             if (innerStart + 6 > i) { return innerStart; }
@@ -355,7 +351,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return innerStart;
   }
 
-  @VisibleForTesting
+  // only visible for testing
   static boolean isValidHtmlName(String name) {
     int n = name.length();
     if (n == 0) { return false; }

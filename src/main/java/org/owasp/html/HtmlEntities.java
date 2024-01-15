@@ -28,9 +28,8 @@
 
 package org.owasp.html;
 
+import java.util.HashMap;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Utilities for decoding HTML entities, e.g., {@code &amp;}.
@@ -2279,7 +2278,7 @@ final class HtmlEntities {
       "zwnj;", "\u200c",
     };
 
-    final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    final Map<String, String> builder = new HashMap<>();
 
     int longestEntityName = 0;
     for (int i = 0, n = pairs.length; i < n; i += 2) {
@@ -2291,7 +2290,7 @@ final class HtmlEntities {
       }
     }
 
-    final Map<String, String> entityNameToCodePointMap = builder.build();
+    final Map<String, String> entityNameToCodePointMap = Map.copyOf(builder);
 
     ENTITY_TRIE = new Trie<String>(entityNameToCodePointMap);
     LONGEST_ENTITY_NAME = longestEntityName;
@@ -2307,9 +2306,26 @@ final class HtmlEntities {
    *    in {@code html}.
    * @param sb string builder to append to.
    * @return The offset after the end of the decoded sequence in {@code html}.
+   * @deprecated specify whether html is in an attribute value.
    */
   public static int appendDecodedEntity(
-      String html, int offset, int limit, StringBuilder sb) {
+     String html, int offset, int limit, StringBuilder sb) {
+    return appendDecodedEntity(html, offset, limit, false, sb);
+  }
+
+  /**
+   * Decodes any HTML entity at the given location and appends it to a string
+   * builder.  This handles both named and numeric entities.
+   *
+   * @param html HTML text.
+   * @param offset the position of the sequence to decode in {@code html}.
+   * @param limit the last position that could be part of the sequence to decode
+   *    in {@code html}.
+   * @param sb string builder to append to.
+   * @return The offset after the end of the decoded sequence in {@code html}.
+   */
+  public static int appendDecodedEntity(
+      String html, int offset, int limit, boolean inAttribute, StringBuilder sb) {
     char ch = html.charAt(offset);
     if ('&' != ch) {
       sb.append(ch);
@@ -2422,11 +2438,12 @@ final class HtmlEntities {
         char nameChar = html.charAt(i);
         t = t.lookup(nameChar);
         if (t == null) { break; }
-        if (t.isTerminal()) {
+        if (t.isTerminal() && mayComplete(inAttribute, html, i, limit)) {
           longestDecode = t;
           tail = i + 1;
         }
       }
+      // Try again, case insensitively.
       if (longestDecode == null) {
         t = ENTITY_TRIE;
         for (int i = offset + 1; i < limit; ++i) {
@@ -2434,7 +2451,7 @@ final class HtmlEntities {
           if ('Z' >= nameChar && nameChar >= 'A') { nameChar |= 32; }
           t = t.lookup(nameChar);
           if (t == null) { break; }
-          if (t.isTerminal()) {
+          if (t.isTerminal() && mayComplete(inAttribute, html, i, limit)) {
             longestDecode = t;
             tail = i + 1;
           }
@@ -2456,9 +2473,33 @@ final class HtmlEntities {
 
   private static boolean isHtmlIdContinueChar(char ch) {
     int chLower = ch | 32;
-    return ('0' <= chLower && chLower <= '9')
+    return ('0' <= ch && ch <= '9')
             || ('a' <= chLower && chLower <= 'z')
             || ('-' == ch);
+  }
+
+  /** True if the character at i in html may complete a named character reference */
+  private static boolean mayComplete(boolean inAttribute, String html, int i, int limit) {
+    if (inAttribute && html.charAt(i) != ';' && i + 1 < limit) {
+      // See if the next character blocks treating this as a full match.
+      // This avoids problems like "&para" being treated as a decoding in
+      //     <a href="?foo&param=1">
+      if (continuesCharacterReferenceName(html.charAt(i + 1))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @see <a href="https://github.com/OWASP/java-html-sanitizer/issues/254#issuecomment-1080864368"
+   * >comments in issue 254</a>
+   */
+  private static boolean continuesCharacterReferenceName(char ch) {
+    int chLower = ch | 32;
+    return ('0' <= ch && ch <= '9')
+            || ('a' <= chLower && chLower <= 'z')
+            || (ch == '=');
   }
 
 //  /** A possible entity name like "amp" or "gt". */

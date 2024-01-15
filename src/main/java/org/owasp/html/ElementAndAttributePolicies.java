@@ -28,9 +28,9 @@
 
 package org.owasp.html;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -42,7 +42,7 @@ import javax.annotation.concurrent.Immutable;
 final class ElementAndAttributePolicies {
   final String elementName;
   final ElementPolicy elPolicy;
-  final ImmutableMap<String, AttributePolicy> attrPolicies;
+  final Map<String, AttributePolicy> attrPolicies;
   final HtmlTagSkipType htmlTagSkipType;
 
   ElementAndAttributePolicies(
@@ -53,15 +53,15 @@ final class ElementAndAttributePolicies {
       HtmlTagSkipType htmlTagSkipType) {
     this.elementName = elementName;
     this.elPolicy = elPolicy;
-    this.attrPolicies = ImmutableMap.copyOf(attrPolicies);
+    this.attrPolicies = Map.copyOf(attrPolicies);
     this.htmlTagSkipType = htmlTagSkipType;
   }
 
   ElementAndAttributePolicies and(ElementAndAttributePolicies p) {
     assert elementName.equals(p.elementName):
       elementName + " != " + p.elementName;
-    ImmutableMap.Builder<String, AttributePolicy> joinedAttrPolicies
-        = ImmutableMap.builder();
+    Map<String, AttributePolicy> joinedAttrPolicies
+        = new HashMap<>();
     for (Map.Entry<String, AttributePolicy> e : this.attrPolicies.entrySet()) {
       String attrName = e.getKey();
       AttributePolicy a = e.getValue();
@@ -81,7 +81,7 @@ final class ElementAndAttributePolicies {
     return new ElementAndAttributePolicies(
         elementName,
         ElementPolicy.Util.join(elPolicy, p.elPolicy),
-        joinedAttrPolicies.build(),
+        Map.copyOf(joinedAttrPolicies),
         this.htmlTagSkipType.and(p.htmlTagSkipType));
   }
 
@@ -98,7 +98,7 @@ final class ElementAndAttributePolicies {
             attrPolicy, globalAttrPolicy);
         if (!joined.equals(attrPolicy)) {
           if (anded == null) {
-            anded = Maps.newLinkedHashMap();
+            anded = new LinkedHashMap<>();
             anded.putAll(this.attrPolicies);
           }
           anded.put(attrName, joined);
@@ -109,7 +109,7 @@ final class ElementAndAttributePolicies {
       String attrName = e.getKey();
       if (!this.attrPolicies.containsKey(attrName)) {
         if (anded == null) {
-          anded = Maps.newLinkedHashMap();
+          anded = new LinkedHashMap<>();
           anded.putAll(this.attrPolicies);
         }
         anded.put(attrName, e.getValue());

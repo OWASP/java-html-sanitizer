@@ -28,9 +28,8 @@
 
 package org.owasp.html;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.annotation.CheckReturnValue;
@@ -91,11 +90,11 @@ import org.owasp.html.Joinable.JoinHelper;
       }
 
       @Override
-      Optional<ImmutableList<AttributePolicy>> split(AttributePolicy x) {
+		Optional<List<AttributePolicy>> split(AttributePolicy x) {
         if (x instanceof JoinedAttributePolicy) {
           return Optional.of(((JoinedAttributePolicy) x).policies);
         } else {
-          return Optional.absent();
+			return Optional.empty();
         }
       }
 

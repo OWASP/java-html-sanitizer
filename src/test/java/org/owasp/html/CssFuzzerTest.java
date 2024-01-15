@@ -36,8 +36,6 @@ import java.util.regex.Pattern;
 import org.junit.Test;
 import org.owasp.html.CssTokens.TokenType;
 
-import com.google.common.collect.Maps;
-
 @SuppressWarnings("javadoc")
 public class CssFuzzerTest extends FuzzyTestCase {
 
@@ -171,7 +169,7 @@ public class CssFuzzerTest extends FuzzyTestCase {
   }
 
   private static final EnumMap<CssTokens.TokenType, Pattern> TOKEN_TYPE_FILTERS
-    = Maps.newEnumMap(CssTokens.TokenType.class);
+    = new EnumMap<>(CssTokens.TokenType.class);
   static {
     String NUMBER = "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?(?:e-?[1-9][0-9]*)?";
     String IDENT_START = "[a-zA-Z_\\u0080-\udbff\udfff\\-]";

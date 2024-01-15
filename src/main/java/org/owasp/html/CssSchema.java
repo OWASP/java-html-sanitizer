@@ -28,17 +28,17 @@
 
 package org.owasp.html;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 import javax.annotation.Nullable;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /** Describes the kinds of tokens a CSS property's value can safely contain. */
 @TCB
@@ -54,11 +54,11 @@ public final class CssSchema {
     /** A bitfield of BIT_* constants describing groups of allowed tokens. */
     final int bits;
     /** Specific allowed values. */
-    final ImmutableSet<String> literals;
+	final Set<String> literals;
     /**
      * Maps lower-case function tokens to the schema key for their parameters.
      */
-    final ImmutableMap<String, String> fnKeys;
+	final Map<String, String> fnKeys;
 
     /**
      * @param bits A bitfield of BIT_* constants describing groups of allowed tokens.
@@ -66,11 +66,11 @@ public final class CssSchema {
      * @param fnKeys Maps lower-case function tokens to the schema key for their parameters.
      */
     public Property(
-        int bits, ImmutableSet<String> literals,
-        ImmutableMap<String, String> fnKeys) {
+        int bits, Set<String> literals,
+        Map<String, String> fnKeys) {
       this.bits = bits;
-      this.literals = literals;
-      this.fnKeys = fnKeys;
+      this.literals = Set.copyOf(literals);
+      this.fnKeys = Map.copyOf(fnKeys);
     }
 
     @Override
@@ -125,11 +125,11 @@ public final class CssSchema {
   static final int BIT_UNICODE_RANGE = 128;
 
   static final Property DISALLOWED = new Property(
-      0, ImmutableSet.<String>of(), ImmutableMap.<String, String>of());
+      0, Collections.emptySet(), Collections.emptyMap());
 
-  private final ImmutableMap<String, Property> properties;
+  private final Map<String, Property> properties;
 
-  private CssSchema(ImmutableMap<String, Property> properties) {
+  private CssSchema(Map<String, Property> properties) {
     if (properties == null) { throw new NullPointerException(); }
     this.properties = properties;
   }
@@ -144,14 +144,14 @@ public final class CssSchema {
    */
   public static CssSchema withProperties(
       Iterable<? extends String> propertyNames) {
-    ImmutableMap.Builder<String, Property> propertiesBuilder =
-        ImmutableMap.builder();
+    Map<String, Property> propertiesBuilder =
+        new HashMap<>();
     for (String propertyName : propertyNames) {
       Property prop = DEFINITIONS.get(propertyName);
       if (prop == null) { throw new IllegalArgumentException(propertyName); }
       propertiesBuilder.put(propertyName, prop);
     }
-    return new CssSchema(propertiesBuilder.build());
+    return new CssSchema(Map.copyOf(propertiesBuilder));
   }
 
   /**
@@ -161,8 +161,8 @@ public final class CssSchema {
    */
   public static CssSchema withProperties(
       Map<? extends String, ? extends Property> properties) {
-    ImmutableMap<String, Property> propertyMap =
-        ImmutableMap.copyOf(properties);
+    Map<String, Property> propertyMap =
+        new HashMap<>();
     // check that all fnKeys are defined in properties.
     for (Map.Entry<String, Property> e : propertyMap.entrySet()) {
       Property property = e.getValue();
@@ -174,7 +174,7 @@ public final class CssSchema {
         }
       }
     }
-    return new CssSchema(propertyMap);
+    return new CssSchema(Map.copyOf(propertyMap));
   }
 
   /**
@@ -187,13 +187,17 @@ public final class CssSchema {
    */
   public static CssSchema union(CssSchema... cssSchemas) {
     if (cssSchemas.length == 1) { return cssSchemas[0]; }
-    Map<String, Property> properties = Maps.newLinkedHashMap();
+    Map<String, Property> properties = new LinkedHashMap<>();
     for (CssSchema cssSchema : cssSchemas) {
       for (Map.Entry<String, Property> e : cssSchema.properties.entrySet()) {
         String name = e.getKey();
         Property newProp = e.getValue();
-        Preconditions.checkNotNull(name);
-        Preconditions.checkNotNull(newProp);
+        if (Objects.isNull(name)) {
+          throw new NullPointerException("An entry was returned with null key from cssSchema.properties");
+        }
+        if (Objects.isNull(newProp)) {
+          throw new NullPointerException("An entry was returned with null value from cssSchema.properties");
+        }
         Property oldProp = properties.put(name, newProp);
         if (oldProp != null && !oldProp.equals(newProp)) {
           throw new IllegalArgumentException(
@@ -201,7 +205,7 @@ public final class CssSchema {
         }
       }
     }
-    return new CssSchema(ImmutableMap.copyOf(properties));
+    return new CssSchema(Map.copyOf(properties));
   }
 
   /**
@@ -221,6 +225,7 @@ public final class CssSchema {
     int n = propertyNameCanon.length();
     if (n != 0 && propertyNameCanon.charAt(0) == '-') {
       String barePropertyNameCanon = stripVendorPrefix(propertyNameCanon);
+      if (barePropertyNameCanon == null) { return DISALLOWED; }
       property = properties.get(barePropertyNameCanon);
       if (property != null) { return property; }
     }
@@ -252,14 +257,13 @@ public final class CssSchema {
   }
 
   /** Maps lower-cased CSS property names to information about them. */
-  static final ImmutableMap<String, Property> DEFINITIONS;
+  static final Map<String, Property> DEFINITIONS;
   static {
-    ImmutableMap<String, String> zeroFns = ImmutableMap.of();
-    ImmutableMap.Builder<String, Property> builder
-        = ImmutableMap.builder();
-    ImmutableSet<String> mozBorderRadiusLiterals0 = ImmutableSet.of("/");
-    ImmutableSet<String> mozOpacityLiterals0 = ImmutableSet.of("inherit");
-    ImmutableSet<String> mozOutlineLiterals0 = ImmutableSet.of(
+    Map<String, String> zeroFns = Collections.emptyMap();
+    Map<String, Property> builder = new HashMap<>();
+    Set<String> mozBorderRadiusLiterals0 = Set.of("/");
+    Set<String> mozOpacityLiterals0 = Set.of("inherit");
+    Set<String> mozOutlineLiterals0 = Set.of(
         "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige",
         "bisque", "black", "blanchedalmond", "blue", "blueviolet", "brown",
         "burlywood", "cadetblue", "chartreuse", "chocolate", "coral",
@@ -287,122 +291,121 @@ public final class CssSchema {
         "silver", "skyblue", "slateblue", "slategray", "snow", "springgreen",
         "steelblue", "tan", "teal", "thistle", "tomato", "turquoise", "violet",
         "wheat", "white", "whitesmoke", "yellow", "yellowgreen");
-    ImmutableSet<String> mozOutlineLiterals1 = ImmutableSet.of(
+    Set<String> mozOutlineLiterals1 = Set.of(
         "dashed", "dotted", "double", "groove", "outset", "ridge", "solid");
-    ImmutableSet<String> mozOutlineLiterals2 = ImmutableSet.of("thick", "thin");
-    ImmutableSet<String> mozOutlineLiterals3 = ImmutableSet.of(
+    Set<String> mozOutlineLiterals2 = Set.of("thick", "thin");
+    Set<String> mozOutlineLiterals3 = Set.of(
         "hidden", "inherit", "inset", "invert", "medium", "none");
-    ImmutableMap<String, String> mozOutlineFunctions =
-      ImmutableMap.<String, String>of(
+    Map<String, String> mozOutlineFunctions =
+      Map.<String, String>of(
         "rgb(", "rgb()", "rgba(", "rgba()",
         "hsl(", "hsl()", "hsla(", "hsla()");
-    ImmutableSet<String> mozOutlineColorLiterals0 =
-      ImmutableSet.of("inherit", "invert");
-    ImmutableSet<String> mozOutlineStyleLiterals0 =
-      ImmutableSet.of("hidden", "inherit", "inset", "none");
-    ImmutableSet<String> mozOutlineWidthLiterals0 =
-      ImmutableSet.of("inherit", "medium");
-    ImmutableSet<String> oTextOverflowLiterals0 =
-      ImmutableSet.of("clip", "ellipsis");
-    ImmutableSet<String> azimuthLiterals0 = ImmutableSet.of(
+    Set<String> mozOutlineColorLiterals0 =
+      Set.of("inherit", "invert");
+    Set<String> mozOutlineStyleLiterals0 =
+      Set.of("hidden", "inherit", "inset", "none");
+    Set<String> mozOutlineWidthLiterals0 =
+      Set.of("inherit", "medium");
+    Set<String> oTextOverflowLiterals0 =
+      Set.of("clip", "ellipsis");
+    Set<String> azimuthLiterals0 = Set.of(
         "behind", "center-left", "center-right", "far-left", "far-right",
         "left-side", "leftwards", "right-side", "rightwards");
-    ImmutableSet<String> azimuthLiterals1 = ImmutableSet.of("left", "right");
-    ImmutableSet<String> azimuthLiterals2 =
-      ImmutableSet.of("center", "inherit");
-    ImmutableSet<String> backgroundLiterals0 = ImmutableSet.of(
+    Set<String> azimuthLiterals1 = Set.of("left", "right");
+    Set<String> azimuthLiterals2 =
+      Set.of("center", "inherit");
+    Set<String> backgroundLiterals0 = Set.of(
         "border-box", "contain", "content-box", "cover", "padding-box");
-    ImmutableSet<String> backgroundLiterals1 =
-      ImmutableSet.of("no-repeat", "repeat-x", "repeat-y", "round", "space");
-    ImmutableSet<String> backgroundLiterals2 = ImmutableSet.of("bottom", "top");
-    ImmutableSet<String> backgroundLiterals3 = ImmutableSet.of(
+    Set<String> backgroundLiterals1 =
+      Set.of("no-repeat", "repeat-x", "repeat-y", "round", "space");
+    Set<String> backgroundLiterals2 = Set.of("bottom", "top");
+    Set<String> backgroundLiterals3 = Set.of(
         ",", "/", "auto", "center", "fixed", "inherit", "local", "none",
         "repeat", "scroll", "transparent");
-    ImmutableMap<String, String> backgroundFunctions =
-      ImmutableMap.<String, String>builder()
-      .put("image(", "image()")
-      .put("linear-gradient(", "linear-gradient()")
-      .put("radial-gradient(", "radial-gradient()")
-      .put("repeating-linear-gradient(", "repeating-linear-gradient()")
-      .put("repeating-radial-gradient(", "repeating-radial-gradient()")
-      .put("rgb(", "rgb()").put("rgba(", "rgba()")
-      .put("hsl(", "hsl()").put("hsla(", "hsla()")
-      .build();
-    ImmutableSet<String> backgroundAttachmentLiterals0 =
-      ImmutableSet.of(",", "fixed", "local", "scroll");
-    ImmutableSet<String> backgroundColorLiterals0 =
-      ImmutableSet.of("inherit", "transparent");
-    ImmutableSet<String> backgroundImageLiterals0 =
-      ImmutableSet.of(",", "none");
-    ImmutableMap<String, String> backgroundImageFunctions =
-      ImmutableMap.<String, String>of(
+    Map<String, String> backgroundFunctions =
+      Map.of(
+      "image(", "image()",
+      "linear-gradient(", "linear-gradient()",
+      "radial-gradient(", "radial-gradient()",
+      "repeating-linear-gradient(", "repeating-linear-gradient()",
+      "repeating-radial-gradient(", "repeating-radial-gradient()",
+      "rgb(", "rgb()", "rgba(", "rgba()",
+      "hsl(", "hsl()", "hsla(", "hsla()");
+    Set<String> backgroundAttachmentLiterals0 =
+      Set.of(",", "fixed", "local", "scroll");
+    Set<String> backgroundColorLiterals0 =
+      Set.of("inherit", "transparent");
+    Set<String> backgroundImageLiterals0 =
+      Set.of(",", "none");
+    Map<String, String> backgroundImageFunctions =
+      Map.<String, String>of(
           "image(", "image()",
           "linear-gradient(", "linear-gradient()",
           "radial-gradient(", "radial-gradient()",
           "repeating-linear-gradient(", "repeating-linear-gradient()",
           "repeating-radial-gradient(", "repeating-radial-gradient()");
-    ImmutableSet<String> backgroundPositionLiterals0 = ImmutableSet.of(
+    Set<String> backgroundPositionLiterals0 = Set.of(
         ",", "center");
-    ImmutableSet<String> backgroundRepeatLiterals0 = ImmutableSet.of(
+    Set<String> backgroundRepeatLiterals0 = Set.of(
         ",", "repeat");
-    ImmutableSet<String> borderLiterals0 = ImmutableSet.of(
+    Set<String> borderLiterals0 = Set.of(
         "hidden", "inherit", "inset", "medium", "none", "transparent");
-    ImmutableSet<String> borderCollapseLiterals0 = ImmutableSet.of(
+    Set<String> borderCollapseLiterals0 = Set.of(
         "collapse", "inherit", "separate");
-    ImmutableSet<String> bottomLiterals0 = ImmutableSet.of("auto", "inherit");
-    ImmutableSet<String> boxShadowLiterals0 = ImmutableSet.of(
+    Set<String> bottomLiterals0 = Set.of("auto", "inherit");
+    Set<String> boxShadowLiterals0 = Set.of(
         ",", "inset", "none");
-    ImmutableSet<String> clearLiterals0 = ImmutableSet.of(
+    Set<String> clearLiterals0 = Set.of(
         "both", "inherit", "none");
-    ImmutableMap<String, String> clipFunctions =
-        ImmutableMap.<String, String>of("rect(", "rect()");
-    ImmutableSet<String> contentLiterals0 = ImmutableSet.of("none", "normal");
-    ImmutableSet<String> cueLiterals0 = ImmutableSet.of("inherit", "none");
-    ImmutableSet<String> cursorLiterals0 = ImmutableSet.of(
+    Map<String, String> clipFunctions =
+        Map.<String, String>of("rect(", "rect()");
+    Set<String> contentLiterals0 = Set.of("none", "normal");
+    Set<String> cueLiterals0 = Set.of("inherit", "none");
+    Set<String> cursorLiterals0 = Set.of(
         "all-scroll", "col-resize", "crosshair", "default", "e-resize",
         "hand", "help", "move", "n-resize", "ne-resize", "no-drop",
         "not-allowed", "nw-resize", "pointer", "progress", "row-resize",
         "s-resize", "se-resize", "sw-resize", "text", "vertical-text",
         "w-resize", "wait");
-    ImmutableSet<String> cursorLiterals1 = ImmutableSet.of(
+    Set<String> cursorLiterals1 = Set.of(
         ",", "auto", "inherit");
-    ImmutableSet<String> directionLiterals0 = ImmutableSet.of("ltr", "rtl");
-    ImmutableSet<String> displayLiterals0 = ImmutableSet.of(
+    Set<String> directionLiterals0 = Set.of("ltr", "rtl");
+    Set<String> displayLiterals0 = Set.of(
         "-moz-inline-box", "-moz-inline-stack", "block", "inline",
         "inline-block", "inline-table", "list-item", "run-in", "table",
         "table-caption", "table-cell", "table-column", "table-column-group",
         "table-footer-group", "table-header-group", "table-row",
         "table-row-group");
-    ImmutableSet<String> elevationLiterals0 = ImmutableSet.of(
+    Set<String> elevationLiterals0 = Set.of(
         "above", "below", "higher", "level", "lower");
-    ImmutableSet<String> emptyCellsLiterals0 = ImmutableSet.of("hide", "show");
-    //ImmutableMap<String, String> filterFunctions =
-    //  ImmutableMap.<String, String>of("alpha(", "alpha()");
-    ImmutableSet<String> fontLiterals0 = ImmutableSet.of(
+    Set<String> emptyCellsLiterals0 = Set.of("hide", "show");
+    //Map<String, String> filterFunctions =
+    //  Map.<String, String>of("alpha(", "alpha()");
+    Set<String> fontLiterals0 = Set.of(
         "100", "200", "300", "400", "500", "600", "700", "800", "900", "bold",
         "bolder", "lighter");
-    ImmutableSet<String> fontLiterals1 = ImmutableSet.of(
+    Set<String> fontLiterals1 = Set.of(
         "large", "larger", "small", "smaller", "x-large", "x-small",
-        "xx-large", "xx-small");
-    ImmutableSet<String> fontLiterals2 = ImmutableSet.of(
+        "xx-large", "xx-small", "xxx-large", "medium");
+    Set<String> fontLiterals2 = Set.of(
         "caption", "icon", "menu", "message-box", "small-caption",
         "status-bar");
-    ImmutableSet<String> fontLiterals3 = ImmutableSet.of(
+    Set<String> fontLiterals3 = Set.of(
         "cursive", "fantasy", "monospace", "sans-serif", "serif");
-    ImmutableSet<String> fontLiterals4 = ImmutableSet.of("italic", "oblique");
-    ImmutableSet<String> fontLiterals5 = ImmutableSet.of(
+    Set<String> fontLiterals4 = Set.of("italic", "oblique");
+    Set<String> fontLiterals5 = Set.of(
         ",", "/", "inherit", "medium", "normal", "small-caps");
-    ImmutableSet<String> fontFamilyLiterals0 = ImmutableSet.of(",", "inherit");
-    ImmutableSet<String> fontStretchLiterals0 = ImmutableSet.of(
+    Set<String> fontFamilyLiterals0 = Set.of(",", "inherit");
+    Set<String> fontStretchLiterals0 = Set.of(
         "condensed", "expanded", "extra-condensed", "extra-expanded",
         "narrower", "semi-condensed", "semi-expanded", "ultra-condensed",
         "ultra-expanded", "wider");
-    ImmutableSet<String> fontStretchLiterals1 = ImmutableSet.of("normal");
-    ImmutableSet<String> fontStyleLiterals0 = ImmutableSet.of(
+    Set<String> fontStretchLiterals1 = Set.of("normal");
+    Set<String> fontStyleLiterals0 = Set.of(
         "inherit", "normal");
-    ImmutableSet<String> fontVariantLiterals0 = ImmutableSet.of(
+    Set<String> fontVariantLiterals0 = Set.of(
         "inherit", "normal", "small-caps");
-    ImmutableSet<String> listStyleLiterals0 = ImmutableSet.of(
+    Set<String> listStyleLiterals0 = Set.of(
         "armenian", "cjk-decimal", "decimal", "decimal-leading-zero", "disc",
         "disclosure-closed", "disclosure-open", "ethiopic-numeric", "georgian",
         "hebrew", "hiragana", "hiragana-iroha", "japanese-formal",
@@ -412,78 +415,78 @@ public final class CssSchema {
         "lower-roman", "simp-chinese-formal", "simp-chinese-informal",
         "square", "trad-chinese-formal", "trad-chinese-informal",
         "upper-alpha", "upper-latin", "upper-roman");
-    ImmutableSet<String> listStyleLiterals1 = ImmutableSet.of(
+    Set<String> listStyleLiterals1 = Set.of(
         "inside", "outside");
-    ImmutableSet<String> listStyleLiterals2 = ImmutableSet.of(
+    Set<String> listStyleLiterals2 = Set.of(
         "circle", "inherit", "none");
-    ImmutableSet<String> maxHeightLiterals0 = ImmutableSet.of(
+    Set<String> maxHeightLiterals0 = Set.of(
         "auto", "inherit", "none");
-    ImmutableSet<String> overflowLiterals0 = ImmutableSet.of(
+    Set<String> overflowLiterals0 = Set.of(
         "auto", "hidden", "inherit", "scroll", "visible");
-    ImmutableSet<String> overflowXLiterals0 = ImmutableSet.of(
+    Set<String> overflowXLiterals0 = Set.of(
         "no-content", "no-display");
-    ImmutableSet<String> overflowXLiterals1 = ImmutableSet.of(
+    Set<String> overflowXLiterals1 = Set.of(
         "auto", "hidden", "scroll", "visible");
-    ImmutableSet<String> pageBreakAfterLiterals0 = ImmutableSet.of(
+    Set<String> pageBreakAfterLiterals0 = Set.of(
         "always", "auto", "avoid", "inherit");
-    ImmutableSet<String> pageBreakInsideLiterals0 = ImmutableSet.of(
+    Set<String> pageBreakInsideLiterals0 = Set.of(
         "auto", "avoid", "inherit");
-    ImmutableSet<String> pitchLiterals0 = ImmutableSet.of(
+    Set<String> pitchLiterals0 = Set.of(
         "high", "low", "x-high", "x-low");
-    ImmutableSet<String> playDuringLiterals0 = ImmutableSet.of(
+    Set<String> playDuringLiterals0 = Set.of(
         "auto", "inherit", "mix", "none", "repeat");
-    ImmutableSet<String> positionLiterals0 = ImmutableSet.of(
+    Set<String> positionLiterals0 = Set.of(
         "absolute", "relative", "static");
-    ImmutableSet<String> speakLiterals0 = ImmutableSet.of(
+    Set<String> speakLiterals0 = Set.of(
         "inherit", "none", "normal", "spell-out");
-    ImmutableSet<String> speakHeaderLiterals0 = ImmutableSet.of(
+    Set<String> speakHeaderLiterals0 = Set.of(
         "always", "inherit", "once");
-    ImmutableSet<String> speakNumeralLiterals0 = ImmutableSet.of(
+    Set<String> speakNumeralLiterals0 = Set.of(
         "continuous", "digits");
-    ImmutableSet<String> speakPunctuationLiterals0 = ImmutableSet.of(
+    Set<String> speakPunctuationLiterals0 = Set.of(
         "code", "inherit", "none");
-    ImmutableSet<String> speechRateLiterals0 = ImmutableSet.of(
+    Set<String> speechRateLiterals0 = Set.of(
         "fast", "faster", "slow", "slower", "x-fast", "x-slow");
-    ImmutableSet<String> tableLayoutLiterals0 = ImmutableSet.of(
+    Set<String> tableLayoutLiterals0 = Set.of(
         "auto", "fixed", "inherit");
-    ImmutableSet<String> textAlignLiterals0 = ImmutableSet.of(
+    Set<String> textAlignLiterals0 = Set.of(
         "center", "inherit", "justify");
-    ImmutableSet<String> textDecorationLiterals0 = ImmutableSet.of(
+    Set<String> textDecorationLiterals0 = Set.of(
         "blink", "line-through", "overline", "underline");
-    ImmutableSet<String> textTransformLiterals0 = ImmutableSet.of(
+    Set<String> textTransformLiterals0 = Set.of(
         "capitalize", "lowercase", "uppercase");
-    ImmutableSet<String> textWrapLiterals0 = ImmutableSet.of(
+    Set<String> textWrapLiterals0 = Set.of(
         "suppress", "unrestricted");
-    ImmutableSet<String> unicodeBidiLiterals0 = ImmutableSet.of(
+    Set<String> unicodeBidiLiterals0 = Set.of(
         "bidi-override", "embed");
-    ImmutableSet<String> verticalAlignLiterals0 = ImmutableSet.of(
+    Set<String> verticalAlignLiterals0 = Set.of(
         "baseline", "middle", "sub", "super", "text-bottom", "text-top");
-    ImmutableSet<String> visibilityLiterals0 = ImmutableSet.of(
+    Set<String> visibilityLiterals0 = Set.of(
         "collapse", "hidden", "inherit", "visible");
-    ImmutableSet<String> voiceFamilyLiterals0 = ImmutableSet.of(
+    Set<String> voiceFamilyLiterals0 = Set.of(
         "child", "female", "male");
-    ImmutableSet<String> volumeLiterals0 = ImmutableSet.of(
+    Set<String> volumeLiterals0 = Set.of(
         "loud", "silent", "soft", "x-loud", "x-soft");
-    ImmutableSet<String> whiteSpaceLiterals0 = ImmutableSet.of(
+    Set<String> whiteSpaceLiterals0 = Set.of(
         "-moz-pre-wrap", "-o-pre-wrap", "-pre-wrap", "nowrap", "pre",
         "pre-line", "pre-wrap");
-    ImmutableSet<String> wordWrapLiterals0 = ImmutableSet.of(
+    Set<String> wordWrapLiterals0 = Set.of(
         "break-word", "normal");
-    ImmutableSet<String> rgb$FunLiterals0 = ImmutableSet.of(",");
-    ImmutableSet<String> linearGradient$FunLiterals0 = ImmutableSet.of(
+    Set<String> rgb$FunLiterals0 = Set.of(",");
+    Set<String> linearGradient$FunLiterals0 = Set.of(
         ",", "to");
-    ImmutableSet<String> radialGradient$FunLiterals0 = ImmutableSet.of(
+    Set<String> radialGradient$FunLiterals0 = Set.of(
         "at", "closest-corner", "closest-side", "ellipse", "farthest-corner",
         "farthest-side");
-    ImmutableSet<String> radialGradient$FunLiterals1 = ImmutableSet.of(
+    Set<String> radialGradient$FunLiterals1 = Set.of(
         ",", "center", "circle");
-    ImmutableSet<String> rect$FunLiterals0 = ImmutableSet.of(",", "auto");
-    //ImmutableSet<String> alpha$FunLiterals0 = ImmutableSet.of("=", "opacity");
+    Set<String> rect$FunLiterals0 = Set.of(",", "auto");
+	//Set<String> alpha$FunLiterals0 = Set.of("=", "opacity");
     Property mozBorderRadius =
        new Property(5, mozBorderRadiusLiterals0, zeroFns);
     builder.put("-moz-border-radius", mozBorderRadius);
     Property mozBorderRadiusBottomleft =
-       new Property(5, ImmutableSet.<String>of(), zeroFns);
+       new Property(5, Set.<String>of(), zeroFns);
     builder.put("-moz-border-radius-bottomleft", mozBorderRadiusBottomleft);
     Property mozOpacity = new Property(1, mozOpacityLiterals0, zeroFns);
     builder.put("-moz-opacity", mozOpacity);
@@ -843,19 +846,18 @@ public final class CssSchema {
     builder.put("z-index", bottom);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
     builder.put("repeating-radial-gradient()", radialGradient$Fun);
-    DEFINITIONS = builder.build();
+	DEFINITIONS = Map.copyOf(builder);
   }
 
-  private static <T> ImmutableSet<T> union(
-      @SuppressWarnings("unchecked") ImmutableSet<T>... subsets) {
-    ImmutableSet.Builder<T> all = ImmutableSet.builder();
-    for (ImmutableSet<T> subset : subsets) {
+  private static <T> Set<T> union(Set<T>... subsets) {
+    Set<T> all = new HashSet<>();
+    for (Set<T> subset : subsets) {
       all.addAll(subset);
     }
-    return all.build();
+    return Set.copyOf(all);
   }
 
-  static final ImmutableSet<String> DEFAULT_WHITELIST = ImmutableSet.of(
+  static final Set<String> DEFAULT_WHITELIST = Set.of(
       "-moz-border-radius",
       "-moz-border-radius-bottomleft",
       "-moz-border-radius-bottomright",
@@ -1002,10 +1004,10 @@ public final class CssSchema {
 
   /** Dumps key and literal list to stdout for easy examination. */
   public static void main(String... argv) {
-    SortedSet<String> keys = Sets.newTreeSet();
-    SortedSet<String> literals = Sets.newTreeSet();
+    SortedSet<String> keys = new TreeSet<>();
+    SortedSet<String> literals = new TreeSet<>();
 
-    for (ImmutableMap.Entry<String, Property> e : DEFINITIONS.entrySet()) {
+    for (Map.Entry<String, Property> e : DEFINITIONS.entrySet()) {
       keys.add(e.getKey());
       literals.addAll(e.getValue().literals);
     }

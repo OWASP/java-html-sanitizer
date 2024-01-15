@@ -28,16 +28,16 @@
 
 package org.owasp.html;
 
-import junit.framework.TestCase;
-
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
 
-import com.google.common.base.Charsets;
-import com.google.common.collect.Lists;
-import com.google.common.io.Resources;
+import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
 public class HtmlLexerTest extends TestCase {
@@ -45,16 +45,12 @@ public class HtmlLexerTest extends TestCase {
   @Test
   public final void testHtmlLexer() throws Exception {
     // Do the lexing.
-    String input = Resources.toString(
-        Resources.getResource(getClass(), "htmllexerinput1.html"),
-        Charsets.UTF_8);
+    String input = new String(Files.readString(Paths.get(getClass().getResource("htmllexerinput1.html").toURI()), StandardCharsets.UTF_8));
     StringBuilder actual = new StringBuilder();
     lex(input, actual);
 
     // Get the golden.
-    String golden = Resources.toString(
-        Resources.getResource(getClass(), "htmllexergolden1.txt"),
-        Charsets.UTF_8);
+    String golden = new String(Files.readString(Paths.get(getClass().getResource("htmllexergolden1.txt").toURI()), StandardCharsets.UTF_8));
 
     // Compare.
     assertEquals(golden, actual.toString());
@@ -147,7 +143,7 @@ public class HtmlLexerTest extends TestCase {
 
   private static void assertTokens(String markup, String... golden) {
     HtmlLexer lexer = new HtmlLexer(markup);
-    List<String> actual = Lists.newArrayList();
+    List<String> actual = new ArrayList<>();
     while (lexer.hasNext()) {
       HtmlToken t = lexer.next();
       actual.add(t.type + ": " + markup.substring(t.start, t.end));
