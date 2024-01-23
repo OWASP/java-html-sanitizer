@@ -7,7 +7,7 @@ A fast and easy to configure HTML Sanitizer written in Java which lets
 you include HTML authored by third-parties in your web application while
 protecting against XSS.
 
-The existing dependencies are on guava and JSR 305.  The other jars
+The existing dependency is on JSR 305. The other jars
 are only needed by the test suite.  The JSR 305 dependency is a
 compile-only dependency, only needed for annotations.
 
