@@ -698,7 +698,7 @@ public class HtmlPolicyBuilder {
 
     return new PolicyFactory(
         compiled.compiledPolicies, Collections.unmodifiableSet(textContainerSetBuilder),
-        Map.copyOf(compiled.globalAttrPolicies),
+        CollectionsHelper.copyToUnmodifiableMap(compiled.globalAttrPolicies),
         preprocessor, postprocessor);
   }
 
@@ -740,7 +740,7 @@ public class HtmlPolicyBuilder {
     Map<String, AttributePolicy> globalAttrPolicies
         = new LinkedHashMap<>(this.globalAttrPolicies);
     @SuppressWarnings("hiding")
-    Set<String> allowedProtocols = Set.copyOf(this.allowedProtocols);
+    Set<String> allowedProtocols = CollectionsHelper.copyToUnmodifiableSet(this.allowedProtocols);
 
     // Implement requireRelsOnLinks & skip...
     {
@@ -874,7 +874,7 @@ public class HtmlPolicyBuilder {
     private AttributePolicy policy = AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
 
     AttributeBuilder(List<? extends String> attributeNames) {
-      this.attributeNames = List.copyOf(attributeNames);
+      this.attributeNames = CollectionsHelper.copyToUnmodifiableList(attributeNames);
     }
 
     /**
@@ -939,7 +939,7 @@ public class HtmlPolicyBuilder {
      */
     public AttributeBuilder matching(
         final boolean ignoreCase, Set<? extends String> allowedValues) {
-      final Set<String> allowed = Set.copyOf(allowedValues);
+      final Set<String> allowed = CollectionsHelper.copyToUnmodifiableSet(allowedValues);
       return matching(new AttributePolicy() {
         public @Nullable String apply(
             String elementName, String attributeName, String uncanonValue) {
@@ -1007,13 +1007,13 @@ public class HtmlPolicyBuilder {
     RelsOnLinksPolicy(
         Set<? extends String> extra,
         Set<? extends String> skip) {
-      this.extra = Set.copyOf(extra);
-      this.skip = Set.copyOf(skip);
+      this.extra = CollectionsHelper.copyToUnmodifiableSet(extra);
+      this.skip = CollectionsHelper.copyToUnmodifiableSet(skip);
       Set<String> targetOnly = new HashSet<>();
       targetOnly.addAll(DEFAULT_RELS_ON_TARGETTED_LINKS);
       targetOnly.removeAll(extra);
       targetOnly.removeAll(skip);
-      this.whenTargetPresent = List.copyOf(targetOnly);
+      this.whenTargetPresent = CollectionsHelper.copyToUnmodifiableList(targetOnly);
     }
 
     private static int indexOfAttributeValue(

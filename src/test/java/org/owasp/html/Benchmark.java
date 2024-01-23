@@ -28,10 +28,10 @@
 
 package org.owasp.html;
 
-import java.io.File;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -58,7 +58,7 @@ public class Benchmark {
    * specifies a benchmark to run and unspecified ones are not run.
    */
   public static void main(String[] args) throws Exception {
-    String html = new String(Files.readAllBytes(new File(args[0]).toPath()), StandardCharsets.UTF_8);
+    String html = new String(Files.readAllBytes(Paths.get(args[0])), StandardCharsets.UTF_8);
 
     boolean timeLibhtmlparser = true;
     boolean timeSanitize = true;

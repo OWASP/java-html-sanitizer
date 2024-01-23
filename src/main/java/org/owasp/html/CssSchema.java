@@ -69,8 +69,8 @@ public final class CssSchema {
         int bits, Set<String> literals,
         Map<String, String> fnKeys) {
       this.bits = bits;
-      this.literals = Set.copyOf(literals);
-      this.fnKeys = Map.copyOf(fnKeys);
+      this.literals = CollectionsHelper.copyToUnmodifiableSet(literals);
+      this.fnKeys = CollectionsHelper.copyToUnmodifiableMap(fnKeys);
     }
 
     @Override

@@ -54,7 +54,7 @@ final class ElementAndAttributePolicies {
       HtmlTagSkipType htmlTagSkipType) {
     this.elementName = elementName;
     this.elPolicy = elPolicy;
-    this.attrPolicies = Map.copyOf(attrPolicies);
+    this.attrPolicies = CollectionsHelper.copyToUnmodifiableMap(attrPolicies);
     this.htmlTagSkipType = htmlTagSkipType;
   }
 

@@ -63,8 +63,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       Map<String, ElementAndAttributePolicies> elAndAttrPolicies,
       Set<String> allowedTextContainers) {
     this.out = out;
-    this.elAndAttrPolicies = Map.copyOf(elAndAttrPolicies);
-    this.allowedTextContainers = Set.copyOf(allowedTextContainers);
+    this.elAndAttrPolicies = CollectionsHelper.copyToUnmodifiableMap(elAndAttrPolicies);
+    this.allowedTextContainers = CollectionsHelper.copyToUnmodifiableSet(allowedTextContainers);
   }
 
   static final Set<String> SKIPPABLE_ELEMENT_CONTENT

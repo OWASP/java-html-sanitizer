@@ -401,7 +401,7 @@ public final class HtmlElementTables {
 
     /** */
     public HtmlElementNames(List<String> canonNames) {
-      this.canonNames = List.copyOf(canonNames);
+      this.canonNames = CollectionsHelper.copyToUnmodifiableList(canonNames);
     }
 
     /** */
