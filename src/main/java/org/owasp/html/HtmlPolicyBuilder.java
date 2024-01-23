@@ -29,6 +29,7 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -170,7 +171,7 @@ public class HtmlPolicyBuilder {
     for (String elementName : DEFAULT_SKIP_IF_EMPTY) {
       builder.put(elementName, HtmlTagSkipType.SKIP_BY_DEFAULT);
     }
-    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = Map.copyOf(builder);
+    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = Collections.unmodifiableMap(builder);
   }
 
   /**
@@ -347,7 +348,7 @@ public class HtmlPolicyBuilder {
     for (String attributeName : attributeNames) {
       builder.add(HtmlLexer.canonicalAttributeName(attributeName));
     }
-    return new AttributeBuilder(List.copyOf(builder));
+    return new AttributeBuilder(Collections.unmodifiableList(builder));
   }
 
   /**
@@ -647,7 +648,7 @@ public class HtmlPolicyBuilder {
       }
 
     });
-    ATTRIBUTE_GUARDS = Map.copyOf(builder);
+    ATTRIBUTE_GUARDS = Collections.unmodifiableMap(builder);
   }
 
   /**
@@ -686,17 +687,17 @@ public class HtmlPolicyBuilder {
    * each backed by a different output channel.
    */
   public PolicyFactory toFactory() {
-    Set<String> textContainerSet = new HashSet<>();
+    Set<String> textContainerSetBuilder = new HashSet<>();
     for (Map.Entry<String, Boolean> textContainer
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
-        textContainerSet.add(textContainer.getKey());
+        textContainerSetBuilder.add(textContainer.getKey());
       }
     }
     CompiledState compiled = compilePolicies();
 
     return new PolicyFactory(
-        compiled.compiledPolicies, Set.copyOf(textContainerSet),
+        compiled.compiledPolicies, Collections.unmodifiableSet(textContainerSetBuilder),
         Map.copyOf(compiled.globalAttrPolicies),
         preprocessor, postprocessor);
   }
@@ -812,7 +813,7 @@ public class HtmlPolicyBuilder {
         elAttrPolicies = Map.of();
       }
 
-      Map<String, AttributePolicy> attrs
+      Map<String, AttributePolicy> attrsBuilder
           = new HashMap<>();
 
       for (Map.Entry<String, AttributePolicy> ape : elAttrPolicies.entrySet()) {
@@ -822,7 +823,7 @@ public class HtmlPolicyBuilder {
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
         AttributePolicy policy = ape.getValue();
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
-          attrs.put(attributeName, policy);
+          attrsBuilder.put(attributeName, policy);
         }
       }
       for (Map.Entry<String, AttributePolicy> ape
@@ -831,7 +832,7 @@ public class HtmlPolicyBuilder {
         AttributePolicy policy = AttributePolicy.Util.join(
             elAttrPolicies.get(attributeName), ape.getValue());
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
-          attrs.put(attributeName, policy);
+          attrsBuilder.put(attributeName, policy);
         }
       }
 
@@ -839,13 +840,13 @@ public class HtmlPolicyBuilder {
           elementName,
           new ElementAndAttributePolicies(
               elementName,
-              elPolicy, Map.copyOf(attrs),
+              elPolicy, Collections.unmodifiableMap(attrsBuilder),
               getHtmlTagSkipType(elementName)
           )
       );
     }
     compiledState = new CompiledState(
-        globalAttrPolicies, Map.copyOf(policiesBuilder));
+        globalAttrPolicies, Collections.unmodifiableMap(policiesBuilder));
     return compiledState;
   }
 
@@ -982,7 +983,7 @@ public class HtmlPolicyBuilder {
         builder.add(HtmlLexer.canonicalElementName(elementName));
       }
       return HtmlPolicyBuilder.this.allowAttributesOnElements(
-          policy, attributeNames, List.copyOf(builder));
+          policy, attributeNames, Collections.unmodifiableList(builder));
     }
   }
 

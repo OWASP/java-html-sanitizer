@@ -28,6 +28,7 @@
 
 package org.owasp.html;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -81,7 +82,7 @@ final class ElementAndAttributePolicies {
     return new ElementAndAttributePolicies(
         elementName,
         ElementPolicy.Util.join(elPolicy, p.elPolicy),
-        Map.copyOf(joinedAttrPolicies),
+        Collections.unmodifiableMap(joinedAttrPolicies),
         this.htmlTagSkipType.and(p.htmlTagSkipType));
   }
 
