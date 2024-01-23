@@ -1,0 +1,36 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+
+name: Java CI with Maven
+
+on:
+  push:
+    paths-ignore:
+      - '.github/workflows/*.yml'
+      - '!.github/workflows/maven.yml'
+  pull_request:
+    paths-ignore:
+      - '.github/workflows/*.yml'
+      - '!.github/workflows/maven.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        java: [ '11', '17', '21' ]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK ${{ matrix.Java }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.Java }}
+        distribution: 'temurin'
+        cache: maven
+    - name: Build with Maven
+      run: mvn --batch-mode --errors --fail-at-end --show-version --update-snapshots verify
