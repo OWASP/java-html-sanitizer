@@ -179,17 +179,13 @@ application while protecting against XSS.
                 <value>bar</value>
               </property>
             </javaApiLinks>
-            <source>6</source>
+            <source>${maven.compiler.source}</source>
           </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.3</version>
-          <configuration>
-            <source>9</source>
-            <target>9</target>
-          </configuration>
+          <version>3.12.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
