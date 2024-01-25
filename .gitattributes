@@ -1,0 +1,13 @@
+/COPYING text
+/src/test/resources/org/owasp/html/* text eol=lf
+.gitattributes text
+.gitignore text
+*.html text
+*.java text
+*.js text
+*.json text
+*.md text
+*.sh text
+*.txt text
+*.xml text
+*.yml text
