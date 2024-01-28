@@ -88,7 +88,7 @@ elements do not include any attributes.
 [Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20220608.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
 
 ```Java
-new HtmlPolicyBuilder = new HtmlPolicyBuilder()
+PolicyFactory myPolicy = new HtmlPolicyBuilder()
     .allowElement("div", "span")
     .allowAttributes("data-foo")
         .matching(
@@ -96,7 +96,7 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
               // Return value for the attribute or null to drop.
             })
         .onElements("div", "span")
-    .build()
+    .toFactory();
 ```
 
 ## Preprocessors
@@ -104,9 +104,7 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
 Preprocessors allow inserting text and large scale structural changes.
 
 ```Java
-new HtmlPolicyBuilder = new HtmlPolicyBuilder()
-    // Use a preprocessor to be backwards compatible with the
-    // <plaintext> element which 
+PolicyFactory myPolicy = new HtmlPolicyBuilder()
     .withPreprocessor(
         (HtmlStreamEventReceiver r) -> {
           // Provide user with info about links before they click.
@@ -116,7 +114,7 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
             @Override public void openTag(String elementName, List<String> attrs) {
               if ("a".equals(elementName)) {
                 for (int i = 0, n = attrs.size(); i < n; i += 2) {
-                  if ("href".equals(attrs.get(i)) {
+                  if ("href".equals(attrs.get(i))) {
                     String url = attrs.get(i + 1);
                     String origin;
                     try {
@@ -141,10 +139,12 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
               super.openTag(elementName, attrs);
             }
           };
-        }
-    .allowElement("a")
+        })
+     .allowElements("a")
+     .allowAttributes("href").onElements("a")
+     .allowStandardUrlProtocols()
     ...
-    .build()
+    .toFactory();
 
 ```
 
