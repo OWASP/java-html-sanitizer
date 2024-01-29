@@ -423,6 +423,8 @@ public final class CssSchema {
         "auto", "inherit", "none");
     Set<String> overflowLiterals0 = Set.of(
         "auto", "hidden", "inherit", "scroll", "visible");
+    Set<String> overflowWrapLiterals0 = Set.of(
+        "normal", "break-word", "anywhere", "inherit");
     Set<String> overflowXLiterals0 = Set.of(
         "no-content", "no-display");
     Set<String> overflowXLiterals1 = Set.of(
@@ -667,6 +669,7 @@ public final class CssSchema {
     Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);
     builder.put("opacity", opacity);
     builder.put("overflow", new Property(0, overflowLiterals0, zeroFns));
+    builder.put("overflow-wrap", new Property(0, overflowWrapLiterals0, zeroFns));
     @SuppressWarnings("unchecked")
     Property overflowX = new Property(
         0, union(overflowXLiterals0, overflowXLiterals1), zeroFns);
