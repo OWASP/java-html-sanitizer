@@ -55,6 +55,9 @@ public final class CssSchemaTest extends TestCase {
           // Prefix corner cases.
           "-",
           "-moz-",
+          "-ms-",
+          "-o-",
+          "-webkit-",
         }) {
       assertSame(key, CssSchema.DISALLOWED, CssSchema.DEFAULT.forKey(key));
     }
