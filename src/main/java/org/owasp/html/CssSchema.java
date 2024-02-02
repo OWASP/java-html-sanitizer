@@ -173,7 +173,7 @@ public final class CssSchema {
               + " depends on undefined function key " + fnKey);
         }
       }
-      propertyMap.put(e.getKey(), e.getValue());
+      propertyMapBuilder.put(e.getKey(), e.getValue());
     }
     return new CssSchema(Collections.unmodifiableMap(propertyMapBuilder));
   }
