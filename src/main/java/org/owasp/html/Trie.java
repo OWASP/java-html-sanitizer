@@ -80,9 +80,8 @@ final class Trie<T> {
         this.childMap = ZERO_CHARS;
         this.children = ((Trie<T>[]) ZERO_TRIES);
         return;
-      } else {
-        ++pos;
       }
+      ++pos;
     } else {
       this.value = null;
     }

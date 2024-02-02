@@ -736,16 +736,15 @@ final class CssTokens implements Iterable<String> {
               if (ast < 0) {
                 pos = cssLimit;  // Unclosed /* comment */
                 break;
-              } else {
-                // Advance over a run of '*'s.
-                pos = ast + 1;
-                while (pos < cssLimit && css.charAt(pos) == '*') {
-                  ++pos;
-                }
-                if (pos < cssLimit && css.charAt(pos) == '/') {
-                  ++pos;
-                  break;
-                }
+              }
+              // Advance over a run of '*'s.
+              pos = ast + 1;
+              while (pos < cssLimit && css.charAt(pos) == '*') {
+                ++pos;
+              }
+              if (pos < cssLimit && css.charAt(pos) == '/') {
+                ++pos;
+                break;
               }
             }
           } else if (next == '/') {  // Non-standard but widely supported
@@ -778,10 +777,9 @@ final class CssTokens implements Iterable<String> {
       }
       if (pos == posBefore) {
         return false;
-      } else {
-        breakOutput();
-        return true;
       }
+      breakOutput();
+      return true;
     }
 
     private void breakOutput() {
@@ -846,9 +844,8 @@ final class CssTokens implements Iterable<String> {
         --pos;  // back up over '@'
         sb.setLength(bufferLengthBeforeWrite);  // Unwrite the '@'
         return false;
-      } else {
-        return true;
       }
+      return true;
     }
 
 
@@ -1122,11 +1119,10 @@ final class CssTokens implements Iterable<String> {
               pos += 2;
             }
             continue;
-          } else {
-            decoded = consumeAndDecodeEscapeSequence();
-            if (decoded < 0) {
-              break;
-            }
+          }
+          decoded = consumeAndDecodeEscapeSequence();
+          if (decoded < 0) {
+            break;
           }
         } else {
           ++pos;
@@ -1137,11 +1133,11 @@ final class CssTokens implements Iterable<String> {
       if (closed) {
         sb.append('\'');
         return TokenType.STRING;
-      } else {  // Drop <bad-string>s
-        sb.setLength(startOfStringOnOutput);
-        breakOutput();
-        return TokenType.WHITESPACE;
       }
+      // Drop <bad-string>s
+      sb.setLength(startOfStringOnOutput);
+      breakOutput();
+      return TokenType.WHITESPACE;
     }
 
     private @Nullable TokenType consumeHash() {
@@ -1258,11 +1254,10 @@ final class CssTokens implements Iterable<String> {
           sb.setCharAt(bufferStart + 1, 'r');
           sb.setCharAt(bufferStart + 2, 'l');
           return TokenType.URL;
-        } else {
-          sb.setLength(bufferStart);
-          breakOutput();
-          return TokenType.WHITESPACE;
         }
+        sb.setLength(bufferStart);
+        breakOutput();
+        return TokenType.WHITESPACE;
       } else if (parenAfter) {
         openBracket('(');
         ++pos;

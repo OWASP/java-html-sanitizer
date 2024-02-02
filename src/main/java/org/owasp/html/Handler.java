@@ -57,9 +57,8 @@ public interface Handler<T> {
     public void handle(Throwable th) {
       if (th instanceof RuntimeException) {
         throw (RuntimeException) th;
-      } else {
-        throw new AssertionError(null, th);
       }
+      throw new AssertionError(null, th);
     }
   };
 }
