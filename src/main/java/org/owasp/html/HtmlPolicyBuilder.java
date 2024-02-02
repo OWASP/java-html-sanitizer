@@ -1045,12 +1045,11 @@ public class HtmlPolicyBuilder {
               for (int i = 0; i <= n; ++i) {
                 if (i == n || Strings.isHtmlSpace(rels.charAt(i))) {
                   if (left < i) {
-                    if (skip.isEmpty()
-                        || !skip.contains(
-                            Strings.toLowerCase(rels.substring(left, i)))) {
-                      String rel = rels.substring(left, i);
-                      present.add(rel);
-                      sb.append(rel).append(' ');
+                    final String rel = rels.substring(left, i);
+                    final String lowerCaseRel = Strings.toLowerCase(rel);
+                    if ((skip.isEmpty() || !skip.contains(lowerCaseRel)) && !present.contains(lowerCaseRel)) {
+                      present.add(lowerCaseRel);
+                      sb.append(lowerCaseRel).append(' ');
                     }
                   }
                   left = i + 1;

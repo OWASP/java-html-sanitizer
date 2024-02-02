@@ -925,6 +925,31 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testRelLinksWithDuplicateRels() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols()
+        .toFactory();
+    assertEquals("<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>", pf.sanitize("<a target=\"_blank\" rel=\"noopener noreferrer noreferrer\" href=\"https://google.com\">test</a>"));
+  }
+
+  @Test
+  public static final void testRelLinksWithDuplicateRelsRequired() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols()
+        .requireRelsOnLinks("noreferrer")
+        .toFactory();
+    assertEquals("<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>", pf.sanitize("<a target=\"_blank\" rel=\"noopener noreferrer noreferrer\" href=\"https://google.com\">test</a>"));
+  }
+
+  @Test
   public static final void testFailFastOnSpaceSeparatedStrings() {
     boolean failed;
     try {
