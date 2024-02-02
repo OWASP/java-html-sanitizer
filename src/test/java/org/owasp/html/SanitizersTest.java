@@ -158,6 +158,58 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testIntegerAttributePolicy() {
+    PolicyFactory s = Sanitizers.IMAGES;
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" height=\"0\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=0 border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" height=\"069\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=069 border=0>")
+            );
+
+    assertEquals(
+        "<img src=\"x.png\" alt=\"y\" height=\"64\" border=\"0\" />",
+        s.sanitize(
+            "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=64.43 border=0>")
+        );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=-64 border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=\"\" border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=.43 border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=something border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=596thin border=0>")
+            );
+  }
+
+  @Test
   public static final void testLinks() {
     PolicyFactory s = Sanitizers.LINKS;
     assertEquals(
