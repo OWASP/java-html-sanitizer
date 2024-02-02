@@ -1008,6 +1008,12 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testHtmlPolicyBuilderDefinitionWithNoAttributesDefinedGlobally() {
+    // Does not crash with a runtime exception
+    new HtmlPolicyBuilder().allowElements().allowAttributes().globally().toFactory();
+  }
+
+  @Test
   public static final void testCSSFontSize() {
 	 HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
  	 PolicyFactory factory = builder.allowElements("span")
