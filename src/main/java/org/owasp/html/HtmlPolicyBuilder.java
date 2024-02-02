@@ -1049,7 +1049,7 @@ public class HtmlPolicyBuilder {
                     final String lowerCaseRel = Strings.toLowerCase(rel);
                     if ((skip.isEmpty() || !skip.contains(lowerCaseRel)) && !present.contains(lowerCaseRel)) {
                       present.add(lowerCaseRel);
-                      sb.append(rel).append(' ');
+                      sb.append(lowerCaseRel).append(' ');
                     }
                   }
                   left = i + 1;
