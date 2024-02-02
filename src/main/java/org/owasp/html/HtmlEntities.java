@@ -2308,6 +2308,7 @@ final class HtmlEntities {
    * @return The offset after the end of the decoded sequence in {@code html}.
    * @deprecated specify whether html is in an attribute value.
    */
+  @Deprecated
   public static int appendDecodedEntity(
      String html, int offset, int limit, StringBuilder sb) {
     return appendDecodedEntity(html, offset, limit, false, sb);

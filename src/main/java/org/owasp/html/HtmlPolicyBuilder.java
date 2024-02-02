@@ -1039,6 +1039,7 @@ public class HtmlPolicyBuilder {
             relValue = DEFAULT_RELS_ON_TARGETTED_LINKS_STR;
           } else {
             StringBuilder sb = new StringBuilder();
+            Set<String> present = new HashSet<String>();
             if (relIndex >= 0) {
               // Preserve values that are not explicitly skipped.
               String rels = attrs.get(relIndex);
@@ -1049,7 +1050,9 @@ public class HtmlPolicyBuilder {
                     if (skip.isEmpty()
                         || !skip.contains(
                             Strings.toLowerCase(rels.substring(left, i)))) {
-                      sb.append(rels, left, i).append(' ');
+                      String rel = rels.substring(left, i);
+                      present.add(rel);
+                      sb.append(rel).append(' ');
                     }
                   }
                   left = i + 1;
@@ -1057,17 +1060,24 @@ public class HtmlPolicyBuilder {
               }
             }
             for (String s : extra) {
-              sb.append(s).append(' ');
+              if (!present.contains(s)) {
+                sb.append(s).append(' ');
+                present.add(s);
+              }
             }
             if (hasTarget) {
               for (String s : whenTargetPresent) {
-                sb.append(s).append(' ');
+                if (!present.contains(s)) {
+                  sb.append(s).append(' ');
+                  present.add(s);
+                }
               }
             }
             int sblen = sb.length();
             if (sblen == 0) {
               relValue = "";
             } else {
+              // Trim last space.
               relValue = sb.substring(0, sb.length() - 1);
             }
           }

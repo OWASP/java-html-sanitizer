@@ -43,6 +43,7 @@ public final class Encoding {
    * @return text/plain
    * @deprecated specify whether s is in an attribute value
    */
+  @Deprecated
   public static String decodeHtml(String s) {
     return decodeHtml(s, false);
   }
