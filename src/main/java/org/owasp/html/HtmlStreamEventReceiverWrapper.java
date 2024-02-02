@@ -1,7 +1,5 @@
 package org.owasp.html;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -9,10 +7,7 @@ import java.util.List;
  * be overridden to do additional work.
  */
 public abstract class HtmlStreamEventReceiverWrapper
-implements HtmlStreamEventReceiver,
-// Not AutoCloseable for JDK 6 compatibility but will close AutoCloseable
-// underlying streams when closed.
-    Closeable {
+implements HtmlStreamEventReceiver, AutoCloseable {
 
   protected final HtmlStreamEventReceiver underlying;
 
@@ -43,7 +38,9 @@ implements HtmlStreamEventReceiver,
     this.underlying.text(text);
   }
 
-  public void close() throws IOException {
-    AutoCloseableHtmlStreamRenderer.closeIfAnyCloseable(underlying);
+  public void close() throws Exception {
+    if (underlying instanceof AutoCloseable) {
+      ((AutoCloseable) underlying).close();
+    }
   }
 }

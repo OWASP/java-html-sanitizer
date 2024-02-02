@@ -186,7 +186,7 @@ public final class PolicyFactoryTest extends TestCase {
 
       };
 
-      HtmlStreamEventReceiver receiver = new HtmlStreamRenderer(
+      HtmlStreamEventReceiver receiver = HtmlStreamRenderer.create(
           throwingOut, ioHandler, badHtmlHandler);
       HtmlSanitizer.Policy policy = factory.apply(
           receiver, listener, context);
