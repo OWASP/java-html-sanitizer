@@ -164,15 +164,16 @@ public final class CssSchema {
     Map<String, Property> propertyMapBuilder =
         new HashMap<>();
     // check that all fnKeys are defined in properties.
-    for (Map.Entry<String, Property> e : propertyMapBuilder.entrySet()) {
+    for (Map.Entry<? extends String, ? extends Property> e : properties.entrySet()) {
       Property property = e.getValue();
       for (String fnKey : property.fnKeys.values()) {
-        if (!propertyMapBuilder.containsKey(fnKey)) {
+        if (!properties.containsKey(fnKey)) {
           throw new IllegalArgumentException(
               "Property map is not self contained.  " + e.getValue()
               + " depends on undefined function key " + fnKey);
         }
       }
+      propertyMap.put(e.getKey(), e.getValue());
     }
     return new CssSchema(Collections.unmodifiableMap(propertyMapBuilder));
   }

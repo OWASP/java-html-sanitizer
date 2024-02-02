@@ -29,8 +29,10 @@
 package org.owasp.html;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -250,7 +252,31 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testUnionStyleFilterung() {
+  public void testCustomPropertyStyleFiltering() {
+    assertEquals(
+        Arrays.stream(new String[] {
+            "<h1>Header</h1>",
+            "<p>Paragraph 1</p>",
+            "<p>Click me out</p>",
+            "<p></p>",
+            "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
+            "</p><p style=\"text-align:center\">Stylish Para 1</p>",
+            "<p>Stylish Para 2</p>",
+            ""}).collect(Collectors.joining("\n")),
+        apply(new HtmlPolicyBuilder()
+              .allowCommonInlineFormattingElements()
+              .allowCommonBlockElements()
+              .allowStyling(
+                  CssSchema.withProperties(
+                      Map.of("text-align",
+                          new CssSchema.Property(0,
+                              Set.of("center"),
+                              Collections.emptyMap()))))
+              .allowStandardUrlProtocols()));
+  }
+
+  @Test
+  public void testUnionStyleFiltering() {
     assertEquals(
         Arrays.stream(new String[] {
             "<h1>Header</h1>",
@@ -268,6 +294,30 @@ public class HtmlPolicyBuilderTest extends TestCase {
                   List.of("color", "text-align")))
               .allowStyling( // union allowed style properties
                    CssSchema.withProperties(List.of("font-size")))
+              .allowStandardUrlProtocols()));
+  }
+
+  @Test
+  public void testCustomPropertyStyleFilteringDisallowed() {
+    assertEquals(
+        Arrays.stream(new String[] {
+            "<h1>Header</h1>",
+            "<p>Paragraph 1</p>",
+            "<p>Click me out</p>",
+            "<p></p>",
+            "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
+            "</p><p>Stylish Para 1</p>",
+            "<p>Stylish Para 2</p>",
+            ""}).collect(Collectors.joining("\n")),
+        apply(new HtmlPolicyBuilder()
+              .allowCommonInlineFormattingElements()
+              .allowCommonBlockElements()
+              .allowStyling(
+                      CssSchema.withProperties(
+                          Map.of("text-align",
+                              new CssSchema.Property(0,
+                                  Set.of("left", "right"),
+                                  Collections.emptyMap()))))
               .allowStandardUrlProtocols()));
   }
 
@@ -872,6 +922,31 @@ public class HtmlPolicyBuilderTest extends TestCase {
 		        .toFactory();
 	  String toSanitize = "<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>";
 	  assertEquals(toSanitize, pf.sanitize(toSanitize));
+  }
+
+  @Test
+  public static final void testRelLinksWithDuplicateRels() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols()
+        .toFactory();
+    assertEquals("<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>", pf.sanitize("<a target=\"_blank\" rel=\"noopener noreferrer noreferrer\" href=\"https://google.com\">test</a>"));
+  }
+
+  @Test
+  public static final void testRelLinksWithDuplicateRelsRequired() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols()
+        .requireRelsOnLinks("noreferrer")
+        .toFactory();
+    assertEquals("<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>", pf.sanitize("<a target=\"_blank\" rel=\"noopener noreferrer noreferrer\" href=\"https://google.com\">test</a>"));
   }
 
   @Test
