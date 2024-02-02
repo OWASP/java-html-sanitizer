@@ -28,16 +28,13 @@
 
 package org.owasp.html;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
-
 import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -61,6 +58,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
+  /** The count of {@link #foreignContentRootElementNames} opened and not subsequently closed. */
+  private int foreignContentDepth = 0;
 
   /**
    * Factory.
@@ -172,7 +171,25 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return;
     }
 
-    escapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    if (foreignContentRootElementNames.contains(elementName)) {
+      foreignContentDepth += 1;
+    }
+
+    HtmlTextEscapingMode tentativeEscapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    if (foreignContentDepth == 0) {
+      escapingMode = tentativeEscapingMode;
+    } else {
+      switch (tentativeEscapingMode) {
+        case PCDATA:
+        case VOID:
+          escapingMode = tentativeEscapingMode;
+          break;
+        default: // escape special characters but do not allow tags
+          escapingMode = HtmlTextEscapingMode.RCDATA;
+          break;
+      }
+    }
+
 
     switch (escapingMode) {
       case CDATA_SOMETIMES:
@@ -242,6 +259,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
+    }
+
+    if (foreignContentDepth != 0 && foreignContentRootElementNames.contains(elementName)) {
+      foreignContentDepth -= 1;
     }
 
     if (pendingUnescaped != null) {
@@ -341,7 +362,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           }
           break;
         case '>':
-          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 2) == '-') {
+          if (i >= 2 && sb.charAt(i - 2) == '-' && sb.charAt(i - 1) == '-') {
             if (innerStart < 0) { return i - 2; }
             // Merged start and end like <!--->
             if (innerStart + 6 > i) { return innerStart; }
@@ -355,7 +376,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return innerStart;
   }
 
-  @VisibleForTesting
+  // only visible for testing
   static boolean isValidHtmlName(String name) {
     int n = name.length();
     if (n == 0) { return false; }
@@ -440,4 +461,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private static boolean isTagEnd(char ch) {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
+
+  private static final Set<String> foreignContentRootElementNames = Set.of("svg", "math");
 }

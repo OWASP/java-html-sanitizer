@@ -28,21 +28,21 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
 
 import junit.framework.TestCase;
 
 @SuppressWarnings("javadoc")
 public class HtmlPolicyBuilderTest extends TestCase {
 
-  static final String EXAMPLE = Joiner.on('\n').join(
+  static final String EXAMPLE = Arrays.stream(new String[] {
       "<h1 id='foo'>Header</h1>",
       "<p onclick='alert(42)'>Paragraph 1<script>evil()</script></p>",
       ("<p><a href='java\0script:bad()'>Click</a> <a href='foo.html'>me</a>"
@@ -54,12 +54,12 @@ public class HtmlPolicyBuilderTest extends TestCase {
       "          /* direction: ltr */; font-weight: bold'>Stylish Para 1</p>",
       "<p style='color: red; font-weight; expression(foo());",
       "          direction: rtl; font-weight: bold'>Stylish Para 2</p>",
-      "");
+      ""}).collect(Collectors.joining("\n"));
 
   @Test
   public static final void testTextFilter() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -67,14 +67,14 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()));
   }
 
   @Test
   public static final void testCannedFormattingTagFilter() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -82,7 +82,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()));
   }
@@ -90,7 +90,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testCannedFormattingTagFilterNoItalics() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -98,7 +98,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<b>Fancy</b> with <b>soupy</b><b> tags</b>.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()
               .disallowElements("I")));
@@ -107,7 +107,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testSimpleTagFilter() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "<h1>Header</h1>",
             "Paragraph 1",
             "Click me out",
@@ -115,7 +115,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with <i>soupy</i> tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("h1", "i")));
   }
@@ -123,7 +123,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testLinksAllowed() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             // We haven't allowed any protocols so only relative URLs are OK.
@@ -132,7 +132,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               .allowAttributes("href").onElements("a")));
@@ -141,7 +141,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testExternalLinksAllowed() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click <a href=\"foo.html\">me</a>"
@@ -150,7 +150,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               // Allows http.
@@ -161,7 +161,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testLinksWithNofollow() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click <a href=\"foo.html\" rel=\"nofollow\">me</a> out",
@@ -169,7 +169,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("a")
               // Allows http.
@@ -192,7 +192,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testImagesAllowed() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -201,7 +201,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("img")
               .allowAttributes("src", "alt").onElements("img")
@@ -211,7 +211,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testStyleFiltering() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "<h1>Header</h1>",
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
@@ -221,7 +221,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
              + "Stylish Para 1</p>"),
             ("<p style=\"color:red;direction:rtl;font-weight:bold\">"
              + "Stylish Para 2</p>"),
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowCommonInlineFormattingElements()
               .allowCommonBlockElements()
@@ -230,9 +230,51 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public void testSpecificStyleFilterung() {
+    assertEquals(
+        Arrays.stream(new String[] {
+            "<h1>Header</h1>",
+            "<p>Paragraph 1</p>",
+            "<p>Click me out</p>",
+            "<p></p>",
+            "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
+            "</p><p style=\"text-align:center\">Stylish Para 1</p>",
+            "<p style=\"color:red\">Stylish Para 2</p>",
+            ""}).collect(Collectors.joining("\n")),
+        apply(new HtmlPolicyBuilder()
+              .allowCommonInlineFormattingElements()
+              .allowCommonBlockElements()
+              .allowStyling(CssSchema.withProperties(
+                  List.of("color", "text-align", "font-size")))
+              .allowStandardUrlProtocols()));
+  }
+
+  @Test
+  public void testUnionStyleFilterung() {
+    assertEquals(
+        Arrays.stream(new String[] {
+            "<h1>Header</h1>",
+            "<p>Paragraph 1</p>",
+            "<p>Click me out</p>",
+            "<p></p>",
+            "<p><b>Fancy</b> with <i><b>soupy</b></i><b> tags</b>.",
+            "</p><p style=\"text-align:center\">Stylish Para 1</p>",
+            "<p style=\"color:red\">Stylish Para 2</p>",
+            ""}).collect(Collectors.joining("\n")),
+        apply(new HtmlPolicyBuilder()
+              .allowCommonInlineFormattingElements()
+              .allowCommonBlockElements()
+              .allowStyling(CssSchema.withProperties(
+                  List.of("color", "text-align")))
+              .allowStyling( // union allowed style properties
+                   CssSchema.withProperties(List.of("font-size")))
+              .allowStandardUrlProtocols()));
+  }
+
+  @Test
   public static final void testElementTransforming() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "<div class=\"header-h1\">Header</div>",
             "<p>Paragraph 1</p>",
             "<p>Click me out</p>",
@@ -240,7 +282,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<p>Fancy with soupy tags.",
             "</p><p>Stylish Para 1</p>",
             "<p>Stylish Para 2</p>",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
               .allowElements("h1", "p", "div")
               .allowElements(
@@ -273,7 +315,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   @Test
   public static final void testAllowUrlProtocols() {
     assertEquals(
-        Joiner.on('\n').join(
+        Arrays.stream(new String[] {
             "Header",
             "Paragraph 1",
             "Click me out",
@@ -282,11 +324,30 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "Fancy with soupy tags.",
             "Stylish Para 1",
             "Stylish Para 2",
-            ""),
+            ""}).collect(Collectors.joining("\n")),
         apply(new HtmlPolicyBuilder()
             .allowElements("img")
             .allowAttributes("src", "alt").onElements("img")
             .allowUrlProtocols("http")));
+  }
+
+  @Test
+  public static final void testDisallowUrlProtocols() {
+    assertEquals(
+        Arrays.stream(new String[] {
+            "Header",
+            "Paragraph 1",
+            "Click me out",
+            "<img src=\"canary.png\" alt=\"local-canary\" />",
+            "Fancy with soupy tags.",
+            "Stylish Para 1",
+            "Stylish Para 2",
+            ""}).collect(Collectors.joining("\n")),
+        apply(new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("src", "alt").onElements("img")
+            .allowUrlProtocols("http", "https")
+            .disallowUrlProtocols("http")));
   }
 
   @Test
@@ -801,20 +862,33 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public final void testRelLinksWhenRelIsPartOfData() {
+	  PolicyFactory pf = new HtmlPolicyBuilder()
+		        .allowElements("a")
+		        .allowAttributes("href").onElements("a")
+		        .allowAttributes("rel").onElements("a")
+		        .allowAttributes("target").onElements("a")
+		        .allowStandardUrlProtocols()
+		        .toFactory();
+	  String toSanitize = "<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>";
+	  assertEquals(toSanitize, pf.sanitize(toSanitize));
+  }
+
+  @Test
   public static final void testFailFastOnSpaceSeparatedStrings() {
     boolean failed;
     try {
       // Should be ("nofollow", "noreferrer")
       new HtmlPolicyBuilder().requireRelsOnLinks("nofollow noreferrer");
       failed = false;
-    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+	} catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
       failed = true;
     }
     assertTrue(failed);
     try {
       new HtmlPolicyBuilder().skipRelsOnLinks("nofollow noreferrer");
       failed = false;
-    } catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
+	} catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
       failed = true;
     }
     assertTrue(failed);
@@ -832,6 +906,52 @@ public class HtmlPolicyBuilderTest extends TestCase {
     assertEquals(
         "<a href=\"http://example.com\" target=\"_blank\">eg</a>",
         pf.sanitize("<a href=\"http://example.com\" target=\"_blank\">eg</a>"));
+  }
+
+  @Test
+  public static final void testRequireAndSkipRels() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href", "target").onElements("a")
+        .allowStandardUrlProtocols()
+        .requireRelsOnLinks("noreferrer")
+        .skipRelsOnLinks("noopener", "noreferrer")
+        .toFactory();
+
+    assertEquals(
+            "<a href=\"http://example.com\" target=\"_blank\">eg</a>",
+            pf.sanitize("<a href=\"http://example.com\" target=\"_blank\">eg</a>"));
+
+    assertEquals(
+            "<a href=\"http://example.com\" target=\"_blank\">eg</a>",
+            pf.sanitize("<a href=\"http://example.com\" rel=noreferrer target=\"_blank\">eg</a>"));
+
+    assertEquals(
+            "<a href=\"http://example.com\" target=\"_blank\">eg</a>",
+            pf.sanitize("<a href=\"http://example.com\" rel=noopener target=\"_blank\">eg</a>"));
+  }
+
+  @Test
+  public static final void testSkipAndRequireRels() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href", "target").onElements("a")
+        .allowStandardUrlProtocols()
+        .skipRelsOnLinks("noopener", "noreferrer")
+        .requireRelsOnLinks("noreferrer")
+        .toFactory();
+
+    assertEquals(
+            "<a href=\"http://example.com\" target=\"_blank\" rel=\"noreferrer\">eg</a>",
+            pf.sanitize("<a href=\"http://example.com\" target=\"_blank\">eg</a>"));
+
+    assertEquals(
+            "<a href=\"http://example.com\" target=\"_blank\" rel=\"noreferrer\">eg</a>",
+            pf.sanitize("<a href=\"http://example.com\" rel=noreferrer target=\"_blank\">eg</a>"));
+
+    assertEquals(
+            "<a href=\"http://example.com\" target=\"_blank\" rel=\"noreferrer\">eg</a>",
+            pf.sanitize("<a href=\"http://example.com\" rel=noopener target=\"_blank\">eg</a>"));
   }
 
   @Test
@@ -901,6 +1021,64 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public void testDisallowTextIn() {
+    HtmlPolicyBuilder sharedPolicyBuilder = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div");
+
+    PolicyFactory allowPolicy = sharedPolicyBuilder.toFactory();
+    assertEquals("<div style=\"display:node\">Some Text</div>",
+        allowPolicy.sanitize("<div style=\"display:node\">Some Text</div>"));
+
+    PolicyFactory disallowTextPolicy =
+        sharedPolicyBuilder.disallowTextIn("div").toFactory();
+    assertEquals("<div style=\"display:node\"></div>",
+        disallowTextPolicy.sanitize(
+            "<div style=\"display:node\">Some Text</div>"));
+  }
+
+  @Test
+  public void testDisallowAttribute() {
+    HtmlPolicyBuilder sharedPolicyBuilder = new HtmlPolicyBuilder()
+        .allowElements("div", "p")
+        .allowAttributes("style").onElements("div", "p");
+
+    PolicyFactory allowPolicy = sharedPolicyBuilder.toFactory();
+    assertEquals(
+        "<p style=\"display:node\">Some</p><div style=\"display:node\">Text</div>",
+            allowPolicy.sanitize(
+                "<p style=\"display:node\">Some</p><div style=\"display:node\">Text</div>"));
+
+    PolicyFactory disallowTextPolicy =
+        sharedPolicyBuilder.disallowAttributes("style").onElements("p").toFactory();
+    assertEquals("<p>Some</p><div style=\"display:node\">Text</div>",
+        disallowTextPolicy.sanitize(
+            "<p style=\"display:node\">Some</p><div style=\"display:node\">Text</div>"));
+  }
+
+  @Test
+  public void testCreativeCSSStyling() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("p")
+        .allowAttributes("style").onElements("p").allowStyling().toFactory();
+
+    assertEquals("<p>Some</p>",
+            policy.sanitize("<p style=\"{display:none\">Some</p>"));
+
+    assertEquals("<p style=\"color:red\">Some</p>",
+            policy.sanitize("<p style=\"{display:none;};color:red\">Some</p>"));
+
+    assertEquals("<p style=\"color:red\">Some</p>",
+            policy.sanitize("<p style=\"{display:none;}color:red\">Some</p>"));
+
+    assertEquals("<p style=\"color:red\">Some</p>",
+            policy.sanitize("<p style=\"display:none }; color:red\">Some</p>"));
+
+    assertEquals("<p style=\"color:red\">Some</p>",
+            policy.sanitize("<p style=\"{display:none;}}color:red\">Some</p>"));
+  }
+
+  @Test
   public static void testScriptTagWithCommentBlockContainingHtmlCommentEnd() {
     PolicyFactory scriptSanitizer = new HtmlPolicyBuilder()
         // allow scripts of type application/json
@@ -919,7 +1097,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
         // allow contents in this script tag
         .allowTextIn("script")
         // keep type attribute in application/json script tag
-        .allowAttributes("type").matching(true, ImmutableSet.of("application/json")).onElements("script")
+        .allowAttributes("type").matching(true, Set.of("application/json")).onElements("script")
         .toFactory();
 
     String mismatchedHtmlComments = "<script type=\"application/json\">\n" +
@@ -992,6 +1170,61 @@ public class HtmlPolicyBuilderTest extends TestCase {
     PolicyFactory textAreaPolicy = new HtmlPolicyBuilder().allowElements("textArea").toFactory();
     assertEquals("<textarea>x</textarea>y", textareaPolicy.sanitize(input));
     assertEquals("x<textArea>y</textArea>", textAreaPolicy.sanitize(input));
+  }
+
+  @Test
+  public static final void testHtmlPolicyBuilderDefinitionWithNoAttributesDefinedGlobally() {
+    // Does not crash with a runtime exception
+    new HtmlPolicyBuilder().allowElements().allowAttributes().globally().toFactory();
+  }
+
+  @Test
+  public static final void testCSSFontSize() {
+	 HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+ 	 PolicyFactory factory = builder.allowElements("span")
+ 	 .allowAttributes("style").onElements("span").allowStyling()
+ 	.toFactory();
+ 	 String toSanitizeXXXLarge = "the <span style=\"font-size:xxx-large\">large</span> formatting issue with chrome";
+ 	 assertEquals(toSanitizeXXXLarge, factory.sanitize(toSanitizeXXXLarge)); 
+ 	 
+ 	 String toSanitizeMedium = "the <span style=\"font-size:medium\">medium</span> formatting issue with chrome";
+ 	 assertEquals(toSanitizeMedium, factory.sanitize(toSanitizeMedium)); 
+  }
+
+  @Test
+  public static final void testCSSChildCombinator() {
+	  HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+	 
+ 	  PolicyFactory factory = builder.allowElements("span","style","h1").allowTextIn("style","h1")
+ 	    .allowAttributes("type").onElements("style").allowStyling()
+ 	    .toFactory();
+ 	
+ 	 
+ 	  String toSanitize = "<style type=\"text/css\">\n"
+ 	 	  + "<!--\n"
+ 	 	  + ".hdg-1 {\n"
+ 	 	  + "width:100%;\n"
+ 	 	  + "}\n"
+ 	 	  + "\n"
+ 	 	  + ".hdg-1>._inner {\n"
+ 	 	  + "background-color: #999;\n"
+ 	 	  + "}\n"
+ 	 	  + "-->\n"
+ 	 	  + "</style>\n"
+ 	 	  + "<h1>Test</h1>\n"
+ 	 	  + "\n"
+ 	 	  + "<style>\n"
+ 	 	  + "<!--\n"
+ 	 	  + ".hdg-1 {\n"
+ 	 	  + "width:100%;\n"
+ 	 	  + "}\n"
+ 	 	  + "\n"
+ 	 	  + ".hdg-1>._inner {\n"
+ 	 	  + "background-color: #666;\n"
+ 	 	  + "}\n"
+ 	 	  + "-->\n"
+ 	 	  + "</style>";
+ 	  assertEquals(toSanitize, factory.sanitize(toSanitize));
   }
 
   private static String apply(HtmlPolicyBuilder b) {

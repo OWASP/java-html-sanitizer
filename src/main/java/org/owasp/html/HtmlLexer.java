@@ -28,8 +28,6 @@
 
 package org.owasp.html;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -235,7 +233,7 @@ final class HtmlLexer extends AbstractTokenStream {
     return HtmlToken.instance(a.start, b.end, a.type);
   }
 
-  private final LinkedList<HtmlToken> lookahead = Lists.newLinkedList();
+  private final LinkedList<HtmlToken> lookahead = new LinkedList<>();
   private HtmlToken readToken() {
     if (!lookahead.isEmpty()) {
       return lookahead.remove();
@@ -263,12 +261,12 @@ final class HtmlLexer extends AbstractTokenStream {
   }
 
   // From http://issues.apache.org/jira/browse/XALANC-519
-  private static final Set<String> VALUELESS_ATTRIB_NAMES = ImmutableSet.of(
+  private static final Set<String> VALUELESS_ATTRIB_NAMES = Set.of(
       "checked", "compact", "declare", "defer", "disabled",
       "ismap", "multiple", "nohref", "noresize", "noshade",
       "nowrap", "readonly", "selected");
 
-  private static final ImmutableSet<String> mixedCaseForeignAttributeNames = ImmutableSet.of(
+  private static final Set<String> mixedCaseForeignAttributeNames = Set.of(
           "attributeName",
           "attributeType",
           "baseFrequency",
@@ -349,7 +347,7 @@ final class HtmlLexer extends AbstractTokenStream {
           "zoomAndPan"
   );
 
-  private static final ImmutableSet<String> mixedCaseForeignElementNames = ImmutableSet.of(
+  private static final Set<String> mixedCaseForeignElementNames = Set.of(
           "animateColor",
           "animateMotion",
           "animateTransform",

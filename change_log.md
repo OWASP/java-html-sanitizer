@@ -1,6 +1,11 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20220608.1
+    * Fix bugs in CSS tokenization
+    * Fix deocding of HTML character references that lack semicolons
+      like `&para` in HTML attribute values that affected
+      URL query parameters.
   * Release 20211018.2
     * Tweak how we address CVE-2021-42575 to be more tailored and to
       interfere less with `<style>` element content in general.  We

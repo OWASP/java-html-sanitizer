@@ -28,17 +28,23 @@
 
 package org.owasp.html;
 
+import static org.owasp.html.CssTokens.TokenType.COLUMN;
+import static org.owasp.html.CssTokens.TokenType.IDENT;
+import static org.owasp.html.CssTokens.TokenType.LEFT_PAREN;
+import static org.owasp.html.CssTokens.TokenType.LEFT_SQUARE;
+import static org.owasp.html.CssTokens.TokenType.RIGHT_PAREN;
+import static org.owasp.html.CssTokens.TokenType.RIGHT_SQUARE;
+import static org.owasp.html.CssTokens.TokenType.STRING;
+import static org.owasp.html.CssTokens.TokenType.WHITESPACE;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import junit.framework.TestCase;
 
 import org.junit.Test;
 import org.owasp.html.CssTokens.TokenType;
 
-import com.google.common.collect.Lists;
-
-import static org.owasp.html.CssTokens.TokenType.*;
+import junit.framework.TestCase;
 
 @SuppressWarnings({ "javadoc" })
 public class CssTokensTest extends TestCase {
@@ -58,9 +64,9 @@ public class CssTokensTest extends TestCase {
     CssTokens tokens = lex("([foo[[||]])");
     assertEquals("([foo[[||]]])", tokens.normalizedCss);
 
-    List<String> tokenTexts = Lists.newArrayList();
-    List<CssTokens.TokenType> types = Lists.newArrayList();
-    List<Integer> partners = Lists.newArrayList();
+	List<String> tokenTexts = new ArrayList<>();
+    List<CssTokens.TokenType> types = new ArrayList<>();
+    List<Integer> partners = new ArrayList<>();
     for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
       types.add(it.type());
       partners.add(tokens.brackets.partner(it.tokenIndex()));
@@ -395,7 +401,7 @@ public class CssTokensTest extends TestCase {
   }
 
   private static final void assertTokens(String css, String... goldens) {
-    List<String> expected = Lists.newArrayList();
+    List<String> expected = new ArrayList<>();
     for (String golden : goldens) {
       if (" ".equals(golden)) {
         expected.add(" :" + WHITESPACE.name());
@@ -406,7 +412,7 @@ public class CssTokensTest extends TestCase {
             + CssTokens.TokenType.valueOf(golden.substring(colon+1)).name());
       }
     }
-    List<String> actual = Lists.newArrayList();
+    List<String> actual = new ArrayList<>();
     for (CssTokens.TokenIterator it = lex(css).iterator();
          it.hasNext(); it.advance()) {
       actual.add(it.token() + ":" + it.type());
@@ -419,7 +425,7 @@ public class CssTokensTest extends TestCase {
   }
 
   private static void assertLexedCss(String input, String... goldens) {
-    List<String> actual = Lists.newArrayList();
+    List<String> actual = new ArrayList<>();
     for (String token : lex(input)) {
       actual.add(token);
     }

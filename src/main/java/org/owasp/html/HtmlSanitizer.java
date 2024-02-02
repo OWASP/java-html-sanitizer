@@ -32,8 +32,6 @@ import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nullable;
 
-import com.google.common.collect.Lists;
-
 /**
  * Consumes an HTML stream, and dispatches events to a policy object which
  * decides which elements and attributes to allow.
@@ -138,13 +136,13 @@ public final class HtmlSanitizer {
     HtmlLexer lexer = new HtmlLexer(htmlContent);
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
     // way.
-    LinkedList<String> attrs = Lists.newLinkedList();
+    LinkedList<String> attrs = new LinkedList<>();
     while (lexer.hasNext()) {
       HtmlToken token = lexer.next();
       switch (token.type) {
         case TEXT:
           receiver.text(
-              Encoding.decodeHtml(htmlContent.substring(token.start, token.end)));
+              Encoding.decodeHtml(htmlContent.substring(token.start, token.end), false));
           break;
         case UNESCAPED:
           receiver.text(Encoding.stripBannedCodeunits(
@@ -177,8 +175,9 @@ public final class HtmlSanitizer {
                       htmlContent.substring(tagBodyToken.start, tagBodyToken.end)));
                   break;
                 case ATTRVALUE:
-                  attrs.add(Encoding.decodeHtml(stripQuotes(
-                      htmlContent.substring(tagBodyToken.start, tagBodyToken.end))));
+                  String attributeContentRaw =
+                          stripQuotes(htmlContent.substring(tagBodyToken.start, tagBodyToken.end));
+                  attrs.add(Encoding.decodeHtml(attributeContentRaw, true));
                   attrsReadyForName = true;
                   break;
                 case TAGEND:

@@ -28,7 +28,7 @@
 
 package org.owasp.html;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 
 /**
  * From section 8.1.2.6 of http://www.whatwg.org/specs/web-apps/current-work/
@@ -82,15 +82,15 @@ public enum HtmlTextEscapingMode {
   VOID,
   ;
 
-  private static final ImmutableMap<String, HtmlTextEscapingMode> ESCAPING_MODES
-      = ImmutableMap.<String, HtmlTextEscapingMode>builder()
-      .put("iframe", CDATA)
+  private static final Map<String, HtmlTextEscapingMode> ESCAPING_MODES
+      = Map.ofEntries(
+      Map.entry("iframe", CDATA),
       // HTML5 does not treat listing as CDATA and treats XMP as deprecated,
       // but HTML2 does at
       // http://www.w3.org/MarkUp/1995-archive/NonStandard.html
       // Listing is not supported by browsers.
-      .put("listing", CDATA_SOMETIMES)
-      .put("xmp", CDATA)
+      Map.entry("listing", CDATA_SOMETIMES),
+      Map.entry("xmp", CDATA),
 
       // Technically, noembed, noscript and noframes are CDATA_SOMETIMES but
       // we can only be hurt by allowing tag content that looks like text so
@@ -98,41 +98,40 @@ public enum HtmlTextEscapingMode {
       //.put("noembed", CDATA_SOMETIMES)
       //.put("noframes", CDATA_SOMETIMES)
       //.put("noscript", CDATA_SOMETIMES)
-      .put("comment", CDATA_SOMETIMES)  // IE only
+      Map.entry("comment", CDATA_SOMETIMES),  // IE only
 
       // Runs till end of file.
-      .put("plaintext", PLAIN_TEXT)
+      Map.entry("plaintext", PLAIN_TEXT),
 
-      .put("script", CDATA)
-      .put("style", CDATA)
+      Map.entry("script", CDATA),
+      Map.entry("style", CDATA),
 
       // Textarea and Title are RCDATA, not CDATA, so decode entity references.
-      .put("textarea", RCDATA)
-      .put("title", RCDATA)
+      Map.entry("textarea", RCDATA),
+      Map.entry("title", RCDATA),
 
       // Nodes that can't contain content.
       // http://www.w3.org/TR/html-markup/syntax.html#void-elements
-      .put("area", VOID)
-      .put("base", VOID)
-      .put("br", VOID)
-      .put("col", VOID)
-      .put("command", VOID)
-      .put("embed", VOID)
-      .put("hr", VOID)
-      .put("img", VOID)
-      .put("input", VOID)
-      .put("keygen", VOID)
-      .put("link", VOID)
-      .put("meta", VOID)
-      .put("param", VOID)
-      .put("source", VOID)
-      .put("track", VOID)
-      .put("wbr", VOID)
+      Map.entry("area", VOID),
+      Map.entry("base", VOID),
+      Map.entry("br", VOID),
+      Map.entry("col", VOID),
+      Map.entry("command", VOID),
+      Map.entry("embed", VOID),
+      Map.entry("hr", VOID),
+      Map.entry("img", VOID),
+      Map.entry("input", VOID),
+      Map.entry("keygen", VOID),
+      Map.entry("link", VOID),
+      Map.entry("meta", VOID),
+      Map.entry("param", VOID),
+      Map.entry("source", VOID),
+      Map.entry("track", VOID),
+      Map.entry("wbr", VOID),
 
        // EMPTY per http://www.w3.org/TR/REC-html32#basefont
-      .put("basefont", VOID)
-      .put("isindex", VOID)
-      .build();
+      Map.entry("basefont", VOID),
+      Map.entry("isindex", VOID));
 
 
   /**
