@@ -29,6 +29,7 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -133,7 +134,7 @@ final class JoinedElementPolicy implements ElementPolicy {
   JoinedElementPolicy(Iterable<? extends ElementPolicy> policies) {
     List<ElementPolicy> builder = new ArrayList<>();
 	policies.forEach(builder::add);
-    this.policies = List.copyOf(builder);
+    this.policies = Collections.unmodifiableList(builder);
   }
 
   public @Nullable String apply(String elementName, List<String> attrs) {

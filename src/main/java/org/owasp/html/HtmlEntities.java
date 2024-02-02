@@ -28,6 +28,7 @@
 
 package org.owasp.html;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -2290,7 +2291,7 @@ final class HtmlEntities {
       }
     }
 
-    final Map<String, String> entityNameToCodePointMap = Map.copyOf(builder);
+    final Map<String, String> entityNameToCodePointMap = Collections.unmodifiableMap(builder);
 
     ENTITY_TRIE = new Trie<String>(entityNameToCodePointMap);
     LONGEST_ENTITY_NAME = longestEntityName;
@@ -2308,6 +2309,7 @@ final class HtmlEntities {
    * @return The offset after the end of the decoded sequence in {@code html}.
    * @deprecated specify whether html is in an attribute value.
    */
+  @Deprecated
   public static int appendDecodedEntity(
      String html, int offset, int limit, StringBuilder sb) {
     return appendDecodedEntity(html, offset, limit, false, sb);

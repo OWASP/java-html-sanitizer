@@ -58,7 +58,7 @@ public class Benchmark {
    * specifies a benchmark to run and unspecified ones are not run.
    */
   public static void main(String[] args) throws Exception {
-    String html = Files.readString(new File(args[0]).toPath(), StandardCharsets.UTF_8);
+    String html = new String(Files.readAllBytes(new File(args[0]).toPath()), StandardCharsets.UTF_8);
 
     boolean timeLibhtmlparser = true;
     boolean timeSanitize = true;

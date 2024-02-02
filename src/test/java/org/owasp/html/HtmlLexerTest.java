@@ -45,12 +45,12 @@ public class HtmlLexerTest extends TestCase {
   @Test
   public final void testHtmlLexer() throws Exception {
     // Do the lexing.
-    String input = new String(Files.readString(Paths.get(getClass().getResource("htmllexerinput1.html").toURI()), StandardCharsets.UTF_8));
+    String input = new String(Files.readAllBytes(Paths.get(getClass().getResource("htmllexerinput1.html").toURI())), StandardCharsets.UTF_8);
     StringBuilder actual = new StringBuilder();
     lex(input, actual);
 
     // Get the golden.
-    String golden = new String(Files.readString(Paths.get(getClass().getResource("htmllexergolden1.txt").toURI()), StandardCharsets.UTF_8));
+    String golden = new String(Files.readAllBytes(Paths.get(getClass().getResource("htmllexergolden1.txt").toURI())), StandardCharsets.UTF_8);
 
     // Compare.
     assertEquals(golden, actual.toString());

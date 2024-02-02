@@ -28,6 +28,7 @@
 
 package org.owasp.html;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -173,10 +174,10 @@ public final class PolicyFactory
     } else if (f.textContainers.containsAll(this.textContainers)) {
       allTextContainers = f.textContainers;
     } else {
-      Set<String> containers = new HashSet<>();
-      this.textContainers.forEach(containers::add);
-      f.textContainers.forEach(containers::add);
-      allTextContainers = Set.copyOf(containers);
+      Set<String> containerBuilder = new HashSet<>();
+      this.textContainers.forEach(containerBuilder::add);
+      f.textContainers.forEach(containerBuilder::add);
+      allTextContainers = Collections.unmodifiableSet(containerBuilder);
     }
     Map<String, AttributePolicy> allGlobalAttrPolicies;
     if (f.globalAttrPolicies.isEmpty()) {
@@ -200,7 +201,7 @@ public final class PolicyFactory
           ab.put(attrName, e.getValue());
         }
       }
-      allGlobalAttrPolicies = Map.copyOf(ab);
+      allGlobalAttrPolicies = Collections.unmodifiableMap(ab);
     }
     HtmlStreamEventProcessor compositionOfPreprocessors
         = HtmlStreamEventProcessor.Processors.compose(
@@ -209,7 +210,7 @@ public final class PolicyFactory
         = HtmlStreamEventProcessor.Processors.compose(
             this.postprocessor, f.postprocessor);
     return new PolicyFactory(
-        Map.copyOf(builder), allTextContainers, allGlobalAttrPolicies,
+        Collections.unmodifiableMap(builder), allTextContainers, allGlobalAttrPolicies,
         compositionOfPreprocessors, compositionOfPostprocessors);
   }
 }

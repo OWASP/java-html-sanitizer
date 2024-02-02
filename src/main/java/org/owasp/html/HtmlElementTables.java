@@ -1,6 +1,7 @@
 package org.owasp.html;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -418,7 +419,7 @@ public final class HtmlElementTables {
         for (int i = 0, n = this.canonNames.size(); i < n; ++i) {
           builder.put(this.canonNames.get(i), i);
         }
-        canonNameToIndex = Map.copyOf(builder);
+        canonNameToIndex = Collections.unmodifiableMap(builder);
         this.customElementIndex = canonNames.indexOf(CUSTOM_ELEMENT_NAME);
         if (this.customElementIndex < 0) {
           throw new IllegalStateException("Negative element index");
@@ -722,8 +723,7 @@ public final class HtmlElementTables {
   static final Comparator<int[]> COMPARE_BY_ZEROTH =
       new Comparator<int[]>() {
         public int compare(int[] a, int[] b) {
-          // Integer.compare is @since JDK 7
-          return a[0] - b[0];
+          return Integer.compare(a[0], b[0]);
         }
       };
 

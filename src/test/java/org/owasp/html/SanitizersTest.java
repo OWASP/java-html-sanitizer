@@ -33,6 +33,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -155,6 +156,58 @@ public class SanitizersTest extends TestCase {
         s.sanitize(
             "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=64 border=0>")
         );
+  }
+
+  @Test
+  public static final void testIntegerAttributePolicy() {
+    PolicyFactory s = Sanitizers.IMAGES;
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" height=\"0\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=0 border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" height=\"069\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=069 border=0>")
+            );
+
+    assertEquals(
+        "<img src=\"x.png\" alt=\"y\" height=\"64\" border=\"0\" />",
+        s.sanitize(
+            "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=64.43 border=0>")
+        );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=-64 border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=\"\" border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=.43 border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=something border=0>")
+            );
+
+    assertEquals(
+            "<img src=\"x.png\" alt=\"y\" border=\"0\" />",
+            s.sanitize(
+                "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=596thin border=0>")
+            );
   }
 
   @Test
@@ -527,7 +580,7 @@ public class SanitizersTest extends TestCase {
       this.k = k;
       List<T> builder = new ArrayList<>();
       Arrays.stream(elements).forEach(builder::add);
-      this.elements = List.copyOf(builder);
+      this.elements = Collections.unmodifiableList(builder);
     }
 
     public Iterator<List<T>> iterator() {

@@ -29,10 +29,10 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -171,7 +171,7 @@ public class HtmlPolicyBuilder {
     for (String elementName : DEFAULT_SKIP_IF_EMPTY) {
       builder.put(elementName, HtmlTagSkipType.SKIP_BY_DEFAULT);
     }
-    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = Map.copyOf(builder);
+    DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR = Collections.unmodifiableMap(builder);
   }
 
   /**
@@ -348,7 +348,7 @@ public class HtmlPolicyBuilder {
     for (String attributeName : attributeNames) {
       builder.add(HtmlLexer.canonicalAttributeName(attributeName));
     }
-    return new AttributeBuilder(List.copyOf(builder));
+    return new AttributeBuilder(Collections.unmodifiableList(builder));
   }
 
   /**
@@ -648,7 +648,7 @@ public class HtmlPolicyBuilder {
       }
 
     });
-    ATTRIBUTE_GUARDS = Map.copyOf(builder);
+    ATTRIBUTE_GUARDS = Collections.unmodifiableMap(builder);
   }
 
   /**
@@ -687,17 +687,17 @@ public class HtmlPolicyBuilder {
    * each backed by a different output channel.
    */
   public PolicyFactory toFactory() {
-    Set<String> textContainerSet = new HashSet<>();
+    Set<String> textContainerSetBuilder = new HashSet<>();
     for (Map.Entry<String, Boolean> textContainer
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
-        textContainerSet.add(textContainer.getKey());
+        textContainerSetBuilder.add(textContainer.getKey());
       }
     }
     CompiledState compiled = compilePolicies();
 
     return new PolicyFactory(
-        compiled.compiledPolicies, Set.copyOf(textContainerSet),
+        compiled.compiledPolicies, Collections.unmodifiableSet(textContainerSetBuilder),
         Map.copyOf(compiled.globalAttrPolicies),
         preprocessor, postprocessor);
   }
@@ -813,7 +813,7 @@ public class HtmlPolicyBuilder {
         elAttrPolicies = Map.of();
       }
 
-      Map<String, AttributePolicy> attrs
+      Map<String, AttributePolicy> attrsBuilder
           = new HashMap<>();
 
       for (Map.Entry<String, AttributePolicy> ape : elAttrPolicies.entrySet()) {
@@ -823,7 +823,7 @@ public class HtmlPolicyBuilder {
         if (globalAttrPolicies.containsKey(attributeName)) { continue; }
         AttributePolicy policy = ape.getValue();
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
-          attrs.put(attributeName, policy);
+          attrsBuilder.put(attributeName, policy);
         }
       }
       for (Map.Entry<String, AttributePolicy> ape
@@ -832,7 +832,7 @@ public class HtmlPolicyBuilder {
         AttributePolicy policy = AttributePolicy.Util.join(
             elAttrPolicies.get(attributeName), ape.getValue());
         if (!AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY.equals(policy)) {
-          attrs.put(attributeName, policy);
+          attrsBuilder.put(attributeName, policy);
         }
       }
 
@@ -840,13 +840,13 @@ public class HtmlPolicyBuilder {
           elementName,
           new ElementAndAttributePolicies(
               elementName,
-              elPolicy, Map.copyOf(attrs),
+              elPolicy, Collections.unmodifiableMap(attrsBuilder),
               getHtmlTagSkipType(elementName)
           )
       );
     }
     compiledState = new CompiledState(
-        globalAttrPolicies, Map.copyOf(policiesBuilder));
+        globalAttrPolicies, Collections.unmodifiableMap(policiesBuilder));
     return compiledState;
   }
 
@@ -965,12 +965,11 @@ public class HtmlPolicyBuilder {
      */
     @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder globally() {
-      if(attributeNames.get(0).equals("style")) {
-        return allowStyling();
-      } else {
-        return HtmlPolicyBuilder.this.allowAttributesGlobally(
-            policy, attributeNames);
+      if (attributeNames.contains("style")) {
+        allowStyling();
       }
+      return HtmlPolicyBuilder.this.allowAttributesGlobally(
+          policy, attributeNames);
     }
 
     /**
@@ -984,7 +983,7 @@ public class HtmlPolicyBuilder {
         builder.add(HtmlLexer.canonicalElementName(elementName));
       }
       return HtmlPolicyBuilder.this.allowAttributesOnElements(
-          policy, attributeNames, List.copyOf(builder));
+          policy, attributeNames, Collections.unmodifiableList(builder));
     }
   }
 
@@ -1039,6 +1038,7 @@ public class HtmlPolicyBuilder {
             relValue = DEFAULT_RELS_ON_TARGETTED_LINKS_STR;
           } else {
             StringBuilder sb = new StringBuilder();
+            Set<String> present = new HashSet<String>();
             if (relIndex >= 0) {
               // Preserve values that are not explicitly skipped.
               String rels = attrs.get(relIndex);
@@ -1046,10 +1046,11 @@ public class HtmlPolicyBuilder {
               for (int i = 0; i <= n; ++i) {
                 if (i == n || Strings.isHtmlSpace(rels.charAt(i))) {
                   if (left < i) {
-                    if (skip.isEmpty()
-                        || !skip.contains(
-                            Strings.toLowerCase(rels.substring(left, i)))) {
-                      sb.append(rels, left, i).append(' ');
+                    final String rel = rels.substring(left, i);
+                    final String lowerCaseRel = Strings.toLowerCase(rel);
+                    if ((skip.isEmpty() || !skip.contains(lowerCaseRel)) && !present.contains(lowerCaseRel)) {
+                      present.add(lowerCaseRel);
+                      sb.append(lowerCaseRel).append(' ');
                     }
                   }
                   left = i + 1;
@@ -1057,17 +1058,24 @@ public class HtmlPolicyBuilder {
               }
             }
             for (String s : extra) {
-              sb.append(s).append(' ');
+              if (!present.contains(s)) {
+                sb.append(s).append(' ');
+                present.add(s);
+              }
             }
             if (hasTarget) {
               for (String s : whenTargetPresent) {
-                sb.append(s).append(' ');
+                if (!present.contains(s)) {
+                  sb.append(s).append(' ');
+                  present.add(s);
+                }
               }
             }
             int sblen = sb.length();
             if (sblen == 0) {
               relValue = "";
             } else {
+              // Trim last space.
               relValue = sb.substring(0, sb.length() - 1);
             }
           }

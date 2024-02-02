@@ -33,6 +33,7 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -57,6 +58,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
+  /** The count of {@link #foreignContentRootElementNames} opened and not subsequently closed. */
+  private int foreignContentDepth = 0;
 
   /**
    * Factory.
@@ -74,8 +77,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (output instanceof Closeable) {
       return new CloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
-    } else if (AutoCloseableHtmlStreamRenderer.isAutoCloseable(output)) {
-      return AutoCloseableHtmlStreamRenderer.createAutoCloseableHtmlStreamRenderer(
+    } else if (output instanceof AutoCloseable) {
+        return new AutoCloseableHtmlStreamRenderer(
           output, ioExHandler, badHtmlHandler);
     } else {
       return new HtmlStreamRenderer(output, ioExHandler, badHtmlHandler);
@@ -96,7 +99,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return create(output, Handler.PROPAGATE, badHtmlHandler);
   }
 
-  protected HtmlStreamRenderer(
+  private HtmlStreamRenderer(
       Appendable output, Handler<? super IOException> ioExHandler,
       Handler<? super String> badHtmlHandler) {
     this.output = output;
@@ -168,7 +171,25 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return;
     }
 
-    escapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    if (foreignContentRootElementNames.contains(elementName)) {
+      foreignContentDepth += 1;
+    }
+
+    HtmlTextEscapingMode tentativeEscapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    if (foreignContentDepth == 0) {
+      escapingMode = tentativeEscapingMode;
+    } else {
+      switch (tentativeEscapingMode) {
+        case PCDATA:
+        case VOID:
+          escapingMode = tentativeEscapingMode;
+          break;
+        default: // escape special characters but do not allow tags
+          escapingMode = HtmlTextEscapingMode.RCDATA;
+          break;
+      }
+    }
+
 
     switch (escapingMode) {
       case CDATA_SOMETIMES:
@@ -238,6 +259,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
       return;
+    }
+
+    if (foreignContentDepth != 0 && foreignContentRootElementNames.contains(elementName)) {
+      foreignContentDepth -= 1;
     }
 
     if (pendingUnescaped != null) {
@@ -424,6 +449,25 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
+  static class AutoCloseableHtmlStreamRenderer extends HtmlStreamRenderer
+      implements AutoCloseable {
+    private final AutoCloseable closeable;
+
+    @SuppressWarnings("synthetic-access")
+    AutoCloseableHtmlStreamRenderer(
+        @WillCloseWhenClosed
+        Appendable output, Handler<? super IOException> errorHandler,
+        Handler<? super String> badHtmlHandler) {
+      super(output, errorHandler, badHtmlHandler);
+      this.closeable = (AutoCloseable) output;
+    }
+
+    public void close() throws Exception {
+      if (isDocumentOpen()) { closeDocument(); }
+      closeable.close();
+    }
+  }
+
   private static final long TAG_ENDS = 0L
       | (1L << '\t')
       | (1L << '\n')
@@ -436,4 +480,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private static boolean isTagEnd(char ch) {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
+
+  private static final Set<String> foreignContentRootElementNames = Set.of("svg", "math");
 }
