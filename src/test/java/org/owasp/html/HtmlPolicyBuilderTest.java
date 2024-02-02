@@ -1030,6 +1030,38 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public static final void testOverflowWrap() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("span")
+        .allowStyling(CssSchema.union(CssSchema.DEFAULT, CssSchema.withProperties(List.of("overflow-wrap"))))
+        .toFactory();
+
+    assertEquals(
+        "<span style=\"overflow-wrap:anywhere\">Something</span>",
+        pf.sanitize("<span style=\"overflow-wrap: anywhere\">Something</span>"));
+
+    assertEquals(
+        "<span style=\"overflow-wrap:inherit\">Something</span>",
+        pf.sanitize("<span style=\"overflow-wrap: inherit\">Something</span>"));
+
+    assertEquals(
+        "Something",
+        pf.sanitize("<span style=\"overflow-wrap: something\">Something</span>"));
+  }
+
+  @Test
+  public static final void testOverflowWrapNotAllowed() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("span")
+        .allowStyling()
+        .toFactory();
+
+    assertEquals(
+        "Something",
+        pf.sanitize("<span style=\"overflow-wrap: anywhere\">Something</span>"));
+  }
+
+  @Test
   public static final void testExplicitRelsSkip() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
