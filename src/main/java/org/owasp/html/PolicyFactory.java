@@ -96,7 +96,7 @@ public final class PolicyFactory
     if (listener == null) {
       return apply(out);
     } else {
-      HtmlChangeReporter<CTX> r = new HtmlChangeReporter<CTX>(
+      HtmlChangeReporter<CTX> r = new HtmlChangeReporter<>(
           out, listener, context);
       r.setPolicy(apply(r.getWrappedRenderer()));
       return r.getWrappedPolicy();

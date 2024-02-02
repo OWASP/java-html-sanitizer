@@ -427,7 +427,7 @@ final class CssTokens implements Iterable<String> {
       sb.setLength(0);
       if (pos == cssLimit) { return; }
 
-      tokenTypes = new ArrayList<TokenType>();
+      tokenTypes = new ArrayList<>();
 
       @SuppressWarnings("hiding")  // final
       String css = this.css;

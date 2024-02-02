@@ -15,7 +15,7 @@ public final class IntVectorTest extends TestCase {
     Random r = new Random(0xA03B79241106C82FL);
 
     IntVector iv = new IntVector();
-    LinkedList<Integer> ad = new LinkedList<Integer>();
+    LinkedList<Integer> ad = new LinkedList<>();
 
     for (int i = 0; i < 200000; ++i) {
       switch (r.nextInt(4)) {

@@ -49,7 +49,7 @@ public class UrlTextExample {
 
   /** An event receiver that emits the domain of a link or image after it. */
   static class AppendDomainAfterText extends HtmlStreamEventReceiverWrapper {
-    private final List<String> pendingText = new ArrayList<String>();
+    private final List<String> pendingText = new ArrayList<>();
 
     AppendDomainAfterText(HtmlStreamEventReceiver underlying) {
       super(underlying);

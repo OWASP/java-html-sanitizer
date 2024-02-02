@@ -62,7 +62,7 @@ public final class HtmlChangeReporter<T> {
       HtmlStreamEventReceiver renderer,
       HtmlChangeListener<? super T> listener, @Nullable T context) {
     this.output = new OutputChannel(renderer);
-    this.input = new InputChannel<T>(output, listener, context);
+    this.input = new InputChannel<>(output, listener, context);
   }
 
   /**
@@ -149,7 +149,7 @@ public final class HtmlChangeReporter<T> {
   private static final class OutputChannel implements HtmlStreamEventReceiver {
     private final HtmlStreamEventReceiver renderer;
     String expectedElementName;
-    Set<String> expectedAttrNames = new LinkedHashSet<String>();
+    Set<String> expectedAttrNames = new LinkedHashSet<>();
 
     OutputChannel(HtmlStreamEventReceiver renderer) {
       this.renderer = renderer;

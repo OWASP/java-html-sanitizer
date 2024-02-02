@@ -47,7 +47,7 @@ public class HtmlChangeReporterTest extends TestCase {
     final StringBuilder log = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         out, Handler.DO_NOTHING);
-    HtmlChangeListener<Context> listener = new HtmlChangeListener<Context>() {
+    HtmlChangeListener<Context> listener = new HtmlChangeListener<>() {
       public void discardedTag(Context context, String elementName) {
         assertSame(testContext, context);
         log.append('<').append(elementName).append("> ");
@@ -63,7 +63,7 @@ public class HtmlChangeReporterTest extends TestCase {
         log.append("> ");
       }
     };
-    HtmlChangeReporter<Context> hcr = new HtmlChangeReporter<Context>(
+    HtmlChangeReporter<Context> hcr = new HtmlChangeReporter<>(
         renderer, listener, testContext);
 
     hcr.setPolicy(Sanitizers.FORMATTING.apply(hcr.getWrappedRenderer()));

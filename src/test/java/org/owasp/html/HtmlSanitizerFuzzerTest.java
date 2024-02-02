@@ -71,13 +71,13 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
     char[] fuzzyHtml1 = new char[length];
 
     final LinkedBlockingQueue<Throwable> failures
-        = new LinkedBlockingQueue<Throwable>();
+        = new LinkedBlockingQueue<>();
 
     final int runCount = 1000;
     // Use an executor so that any infinite loops do not cause the test runner
     // to fail.
     ThreadPoolExecutor executor = new ThreadPoolExecutor(
-        10, 10, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+        10, 10, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
     for (int run = runCount; --run >= 0;) {
       for (int i = length; --i >= 0;) { fuzzyHtml0[i] = html.charAt(i); }

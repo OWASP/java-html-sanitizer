@@ -2293,7 +2293,7 @@ final class HtmlEntities {
 
     final Map<String, String> entityNameToCodePointMap = Collections.unmodifiableMap(builder);
 
-    ENTITY_TRIE = new Trie<String>(entityNameToCodePointMap);
+    ENTITY_TRIE = new Trie<>(entityNameToCodePointMap);
     LONGEST_ENTITY_NAME = longestEntityName;
   }
 

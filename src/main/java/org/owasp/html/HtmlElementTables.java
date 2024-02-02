@@ -721,7 +721,7 @@ public final class HtmlElementTables {
   }
 
   static final Comparator<int[]> COMPARE_BY_ZEROTH =
-      new Comparator<int[]>() {
+      new Comparator<>() {
         public int compare(int[] a, int[] b) {
           return Integer.compare(a[0], b[0]);
         }
