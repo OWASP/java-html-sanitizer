@@ -28,6 +28,7 @@
 
 package org.owasp.html;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -66,7 +67,7 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
       Iterable<? extends String> protocols) {
     Set<String> builder = new HashSet<>();
     protocols.forEach(builder::add);
-    this.protocols = Set.copyOf(builder);
+    this.protocols = Collections.unmodifiableSet(builder);
   }
 
   public @Nullable String apply(

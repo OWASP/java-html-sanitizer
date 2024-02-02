@@ -151,7 +151,7 @@ public final class CssSchema {
       if (prop == null) { throw new IllegalArgumentException(propertyName); }
       propertiesBuilder.put(propertyName, prop);
     }
-    return new CssSchema(Map.copyOf(propertiesBuilder));
+    return new CssSchema(Collections.unmodifiableMap(propertiesBuilder));
   }
 
   /**
@@ -161,7 +161,7 @@ public final class CssSchema {
    */
   public static CssSchema withProperties(
       Map<? extends String, ? extends Property> properties) {
-    Map<String, Property> propertyMap =
+    Map<String, Property> propertyMapBuilder =
         new HashMap<>();
     // check that all fnKeys are defined in properties.
     for (Map.Entry<? extends String, ? extends Property> e : properties.entrySet()) {
@@ -173,9 +173,9 @@ public final class CssSchema {
               + " depends on undefined function key " + fnKey);
         }
       }
-      propertyMap.put(e.getKey(), e.getValue());
+      propertyMapBuilder.put(e.getKey(), e.getValue());
     }
-    return new CssSchema(Map.copyOf(propertyMap));
+    return new CssSchema(Collections.unmodifiableMap(propertyMapBuilder));
   }
 
   /**
@@ -188,7 +188,7 @@ public final class CssSchema {
    */
   public static CssSchema union(CssSchema... cssSchemas) {
     if (cssSchemas.length == 1) { return cssSchemas[0]; }
-    Map<String, Property> properties = new LinkedHashMap<>();
+    Map<String, Property> propertyMapBuilder = new LinkedHashMap<>();
     for (CssSchema cssSchema : cssSchemas) {
       for (Map.Entry<String, Property> e : cssSchema.properties.entrySet()) {
         String name = e.getKey();
@@ -199,14 +199,14 @@ public final class CssSchema {
         if (Objects.isNull(newProp)) {
           throw new NullPointerException("An entry was returned with null value from cssSchema.properties");
         }
-        Property oldProp = properties.put(name, newProp);
+        Property oldProp = propertyMapBuilder.put(name, newProp);
         if (oldProp != null && !oldProp.equals(newProp)) {
           throw new IllegalArgumentException(
               "Duplicate irreconcilable definitions for " + name);
         }
       }
     }
-    return new CssSchema(Map.copyOf(properties));
+    return new CssSchema(Collections.unmodifiableMap(propertyMapBuilder));
   }
 
   /**
@@ -847,7 +847,7 @@ public final class CssSchema {
     builder.put("z-index", bottom);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
     builder.put("repeating-radial-gradient()", radialGradient$Fun);
-	DEFINITIONS = Map.copyOf(builder);
+    DEFINITIONS = Collections.unmodifiableMap(builder);
   }
 
   private static <T> Set<T> union(Set<T>... subsets) {
@@ -855,7 +855,7 @@ public final class CssSchema {
     for (Set<T> subset : subsets) {
       all.addAll(subset);
     }
-    return Set.copyOf(all);
+    return Collections.unmodifiableSet(all);
   }
 
   static final Set<String> DEFAULT_WHITELIST = Set.of(

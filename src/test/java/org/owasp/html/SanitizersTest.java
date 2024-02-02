@@ -33,6 +33,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -579,7 +580,7 @@ public class SanitizersTest extends TestCase {
       this.k = k;
       List<T> builder = new ArrayList<>();
       Arrays.stream(elements).forEach(builder::add);
-      this.elements = List.copyOf(builder);
+      this.elements = Collections.unmodifiableList(builder);
     }
 
     public Iterator<List<T>> iterator() {

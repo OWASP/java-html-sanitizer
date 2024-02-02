@@ -28,6 +28,7 @@
 
 package org.owasp.html;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -2290,7 +2291,7 @@ final class HtmlEntities {
       }
     }
 
-    final Map<String, String> entityNameToCodePointMap = Map.copyOf(builder);
+    final Map<String, String> entityNameToCodePointMap = Collections.unmodifiableMap(builder);
 
     ENTITY_TRIE = new Trie<String>(entityNameToCodePointMap);
     LONGEST_ENTITY_NAME = longestEntityName;
