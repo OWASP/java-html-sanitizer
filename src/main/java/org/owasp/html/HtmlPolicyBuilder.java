@@ -1038,7 +1038,7 @@ public class HtmlPolicyBuilder {
             relValue = DEFAULT_RELS_ON_TARGETTED_LINKS_STR;
           } else {
             StringBuilder sb = new StringBuilder();
-            Set<String> present = new HashSet<String>();
+            Set<String> present = new HashSet<>();
             if (relIndex >= 0) {
               // Preserve values that are not explicitly skipped.
               String rels = attrs.get(relIndex);

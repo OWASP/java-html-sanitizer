@@ -147,7 +147,7 @@ public class Benchmark {
     StringBuilder sb = new StringBuilder(html.length());
 
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
-        sb, new Handler<String>() {
+        sb, new Handler<>() {
 
           public void handle(String x) {
             throw new AssertionError(x);

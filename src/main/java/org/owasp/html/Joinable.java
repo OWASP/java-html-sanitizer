@@ -43,7 +43,7 @@ interface Joinable<T> {
     final T zeroValue;
     final T identityValue;
     private Map<JoinStrategy<SJ>, Set<SJ>> requireSpecialJoining;
-    private Set<T> uniq = new LinkedHashSet<T>();
+    private Set<T> uniq = new LinkedHashSet<>();
 
     JoinHelper(
         Class<T> baseType,
@@ -74,11 +74,11 @@ interface Joinable<T> {
         JoinStrategy<SJ> strategy = sj.getJoinStrategy();
 
         if (requireSpecialJoining == null) {
-          requireSpecialJoining = new LinkedHashMap<Joinable.JoinStrategy<SJ>, Set<SJ>>();
+          requireSpecialJoining = new LinkedHashMap<>();
         }
         Set<SJ> toJoinTogether = requireSpecialJoining.get(strategy);
         if (toJoinTogether == null) {
-          toJoinTogether = new LinkedHashSet<SJ>();
+          toJoinTogether = new LinkedHashSet<>();
           requireSpecialJoining.put(strategy, toJoinTogether);
         }
 

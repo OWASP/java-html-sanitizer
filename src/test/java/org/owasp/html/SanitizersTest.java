@@ -382,7 +382,7 @@ public class SanitizersTest extends TestCase {
         + "<img src=\"http://example.org\" />oogle</a>";
 
     for (List<PolicyFactory> permutation :
-         new Permutations<PolicyFactory>(
+         new Permutations<>(
              Sanitizers.BLOCKS,
              Sanitizers.IMAGES,
              Sanitizers.STYLES,
@@ -584,7 +584,7 @@ public class SanitizersTest extends TestCase {
     }
 
     public Iterator<List<T>> iterator() {
-      return new Iterator<List<T>>() {
+      return new Iterator<>() {
         private int i;
         private final int limit;
         private final BitSet mask;

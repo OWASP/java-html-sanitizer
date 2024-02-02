@@ -43,7 +43,7 @@ public interface Handler<T> {
   void handle(T x);
 
   /** A handler that does nothing given any input. */
-  public static final Handler<Object> DO_NOTHING = new Handler<Object>() {
+  public static final Handler<Object> DO_NOTHING = new Handler<>() {
     public void handle(Object x) {
       // Really, do nothing.
     }

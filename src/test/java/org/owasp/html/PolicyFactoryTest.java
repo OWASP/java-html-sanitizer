@@ -123,7 +123,7 @@ public final class PolicyFactoryTest extends TestCase {
       final StringBuilder out = new StringBuilder();
 
       // A noisy listener that logs.
-      HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      HtmlChangeListener<Object> listener = new HtmlChangeListener<>() {
 
         public void discardedTag(Object ctx, String elementName) {
           assertEquals(context, ctx);
@@ -141,7 +141,7 @@ public final class PolicyFactoryTest extends TestCase {
 
       };
 
-      Handler<IOException> ioHandler = new Handler<IOException>() {
+      Handler<IOException> ioHandler = new Handler<>() {
 
         public void handle(IOException x) {
           log.append("Handled IOException " + x.getMessage() + "\n");
@@ -150,7 +150,7 @@ public final class PolicyFactoryTest extends TestCase {
       };
 
       // Should not be called.
-      Handler<String> badHtmlHandler = new Handler<String>() {
+      Handler<String> badHtmlHandler = new Handler<>() {
 
         public void handle(String x) {
           throw new AssertionError(x);
@@ -611,7 +611,7 @@ public final class PolicyFactoryTest extends TestCase {
 
     public String apply(
         String elementName, String attributeName, String value) {
-      List<String> outParts = new ArrayList<String>();
+      List<String> outParts = new ArrayList<>();
       for (String part : value.split(",")) {
         part = part.trim();
         if (part.contains(substr)) {

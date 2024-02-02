@@ -106,14 +106,14 @@ final class Trie<T> {
       char ch = elements.get(i).getKey().charAt(depth);
       if (ch != lastCh) {
         childMap[childIndex] = lastCh;
-        children[childIndex++] = new Trie<T>(
+        children[childIndex++] = new Trie<>(
           elements, depth + 1, childStart, i);
         childStart = i;
         lastCh = ch;
       }
     }
     childMap[childIndex] = lastCh;
-    children[childIndex++] = new Trie<T>(elements, depth + 1, childStart, end);
+    children[childIndex++] = new Trie<>(elements, depth + 1, childStart, end);
   }
 
   /** Does this node correspond to a complete string in the input set. */
@@ -151,8 +151,8 @@ final class Trie<T> {
 
   private static <U> List<Map.Entry<String, U>> sortedUniqEntries(
       Map<String, U> m) {
-    return new ArrayList<Map.Entry<String, U>>(
-        new TreeMap<String, U>(m).entrySet());
+    return new ArrayList<>(
+        new TreeMap<>(m).entrySet());
   }
 
   private static final char[] ZERO_CHARS = new char[0];
