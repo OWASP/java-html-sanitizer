@@ -871,7 +871,7 @@ public class HtmlPolicyBuilder {
    */
   public final class AttributeBuilder {
     private final List<String> attributeNames;
-    private AttributePolicy policy = AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
+    private AttributePolicy policy;
 
     AttributeBuilder(List<? extends String> attributeNames) {
       this.attributeNames = List.copyOf(attributeNames);
@@ -885,7 +885,11 @@ public class HtmlPolicyBuilder {
      * transformation by a previous policy.
      */
     public AttributeBuilder matching(AttributePolicy attrPolicy) {
-      this.policy = AttributePolicy.Util.join(this.policy, attrPolicy);
+      if (this.policy == null) {
+        this.policy = attrPolicy;
+      } else {
+        this.policy = AttributePolicy.Util.join(this.policy, attrPolicy);
+      }
       return this;
     }
 
