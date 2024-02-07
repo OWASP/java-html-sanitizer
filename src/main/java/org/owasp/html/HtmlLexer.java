@@ -146,11 +146,10 @@ final class HtmlLexer extends AbstractTokenStream {
                 state = State.SAW_EQ;
                 // Skip the '=' token
                 return produce();
-              } else {
-                // Reclassify as attribute name
-                token = HtmlInputSplitter.reclassify(
-                    token, HtmlTokenType.ATTRNAME);
               }
+              // Reclassify as attribute name
+              token = HtmlInputSplitter.reclassify(
+                  token, HtmlTokenType.ATTRNAME);
             } else {
               state = State.IN_TAG;
             }

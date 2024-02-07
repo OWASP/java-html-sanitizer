@@ -269,23 +269,22 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       if (!lastTagOpened.equals(elementName)) {
         error("Tag content cannot appear inside CDATA element", elementName);
         return;
-      } else {
-        StringBuilder cdataContent = pendingUnescaped;
-        pendingUnescaped = null;
-        Encoding.stripBannedCodeunits(cdataContent);
-        int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
-        if (problemIndex == -1) {
-          if (cdataContent.length() != 0) {
-            output.append(cdataContent);
-          }
-        } else {
-          error(
-              "Invalid CDATA text content",
-              cdataContent.subSequence(
-                  problemIndex,
-                  Math.min(problemIndex + 10, cdataContent.length())));
-          // Still output the close tag.
+      }
+      StringBuilder cdataContent = pendingUnescaped;
+      pendingUnescaped = null;
+      Encoding.stripBannedCodeunits(cdataContent);
+      int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
+      if (problemIndex == -1) {
+        if (cdataContent.length() != 0) {
+          output.append(cdataContent);
         }
+      } else {
+        error(
+            "Invalid CDATA text content",
+            cdataContent.subSequence(
+                problemIndex,
+                Math.min(problemIndex + 10, cdataContent.length())));
+        // Still output the close tag.
       }
       if ("plaintext".equals(elementName)) { return; }
     }

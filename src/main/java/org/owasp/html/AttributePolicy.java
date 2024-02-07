@@ -93,9 +93,8 @@ import org.owasp.html.Joinable.JoinHelper;
 		Optional<List<AttributePolicy>> split(AttributePolicy x) {
         if (x instanceof JoinedAttributePolicy) {
           return Optional.of(((JoinedAttributePolicy) x).policies);
-        } else {
-			return Optional.empty();
         }
+        return Optional.empty();
       }
 
       @Override

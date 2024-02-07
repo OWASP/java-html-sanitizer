@@ -149,9 +149,8 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
     if (failure != null) {
       if (failure instanceof RuntimeException) {
         throw (RuntimeException) failure;
-      } else {
-        throw new AssertionError(null, failure);
       }
+      throw new AssertionError(null, failure);
     }
   }
 

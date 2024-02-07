@@ -95,12 +95,11 @@ public final class PolicyFactory
       @Nullable CTX context) {
     if (listener == null) {
       return apply(out);
-    } else {
-      HtmlChangeReporter<CTX> r = new HtmlChangeReporter<>(
-          out, listener, context);
-      r.setPolicy(apply(r.getWrappedRenderer()));
-      return r.getWrappedPolicy();
-    }
+    } 
+    HtmlChangeReporter<CTX> r = new HtmlChangeReporter<>(
+        out, listener, context);
+    r.setPolicy(apply(r.getWrappedRenderer()));
+    return r.getWrappedPolicy();
   }
 
   /** A convenience function that sanitizes a string of HTML. */

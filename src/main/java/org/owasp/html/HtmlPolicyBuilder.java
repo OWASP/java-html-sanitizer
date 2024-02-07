@@ -855,9 +855,8 @@ public class HtmlPolicyBuilder {
     if (htmlTagSkipType == null) {
       if (DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR.containsKey(elementName)) {
         return HtmlTagSkipType.SKIP_BY_DEFAULT;
-      } else {
-        return HtmlTagSkipType.DO_NOT_SKIP_BY_DEFAULT;
       }
+      return HtmlTagSkipType.DO_NOT_SKIP_BY_DEFAULT;
     }
 
     return htmlTagSkipType;
