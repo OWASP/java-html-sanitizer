@@ -9,6 +9,7 @@ Only the lastest version are supported with updates.
 | 20220608.2 | :white_check_mark: |
 
 
+
 ## Reporting a Vulnerability
 
 Please report successful attacks with example input via OWASP's bugcrowd queue or contact mikesamuel@gmail.com and I will create a repository security advisory to coordinate.
