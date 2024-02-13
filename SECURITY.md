@@ -2,16 +2,12 @@
 
 ## Supported Versions
 
-These are the versions currently being supported by security patches.
+Only the lastest version are supported with updates.
 
 | Version    | Supported          |
 | ---------- | ------------------ |
 | 20220608.2 | :white_check_mark: |
-| 20211018.2 | :x:                |
-| 20211018.1 | :x:                |
-| 20200713.1 | :x:                |
-| 20190610.1 | :x:                |
-| 20190610.1 | :x:                |
+
 
 ## Reporting a Vulnerability
 
