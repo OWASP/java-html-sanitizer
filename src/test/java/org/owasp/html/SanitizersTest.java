@@ -60,6 +60,18 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testTableAttributes() {
+	  String input = "<table><tbody><tr align=\"center\"><th headers=\"test\">Month</th><th scope=\"rowgroup\">Test</th></tr>"
+	  		+ "<tr><td headers=\"name\">Test</td><td>A</td></tr><tr><td rowspan=\"2\">Test</td><td>B</td></tr><tr>"
+	  		+ "<td colspan=\"2\">Test</td></tr></tbody></table>";
+	  assertEquals(input, Sanitizers.TABLES.sanitize(input));
+	  
+	  //Negative test to ensure 'scope' doesn't allow random values
+	  assertEquals("<table><tbody><tr><th></th></tr></tbody></table>\n"
+			  	,Sanitizers.TABLES.sanitize("<table><tbody><tr><th scope=\"random\"></th></tr></tbody></table>\n"
+	  		+ ""));
+  }
+  @Test
   public static final void testBlockElements() {
     assertEquals("", Sanitizers.BLOCKS.sanitize(null));
     assertEquals(

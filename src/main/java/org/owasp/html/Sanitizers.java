@@ -27,6 +27,9 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 package org.owasp.html;
+import java.util.Arrays;
+import java.util.List;
+
 
 /**
  * Pre-packaged HTML sanitizer policies.
@@ -52,6 +55,25 @@ package org.owasp.html;
  */
 public final class Sanitizers {
 
+  
+  /**
+   * An AttributePolicy to allow only string literals "row", "col", "rowgroup" and "colgroup" as attribute values for "scope" in element th
+   * Reference : https://developer.mozilla.org/en-US/docs/Web/HTML/Element/th
+   */
+  private static final AttributePolicy TABLE_SCOPE_POLICY = new AttributePolicy() {
+
+	private List<String> thScopeWhitelistValues = Arrays.asList("row","col","rowgroup","colgroup");
+	  
+	@Override
+	public String apply(String elementName, String attributeName, String value) {
+		if("scope".equals(attributeName)) {
+			if(thScopeWhitelistValues.contains(value.toLowerCase()))	
+				return value;
+		}
+		return null;
+	}
+  };
+  
   /**
    * Allows common formatting elements including {@code <b>}, {@code <i>}, etc.
    */
@@ -93,6 +115,10 @@ public final class Sanitizers {
     .onElements("table", "tr", "td", "th",
                 "colgroup", "col",
                 "thead", "tbody", "tfoot")
+    .allowAttributes("colspan","rowspan","headers")
+    .onElements("td","th")
+    .allowAttributes("scope").matching(TABLE_SCOPE_POLICY)
+    .onElements("th")
     .allowTextIn("table")  // WIDGY
     .toFactory();
 
