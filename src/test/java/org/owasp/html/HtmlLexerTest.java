@@ -117,6 +117,45 @@ public class HtmlLexerTest extends TestCase {
         "TAGEND: >");
   }
 
+  @Test
+  public static final void testCommentDeclarationWith0CommentsAndXss() throws Exception
+  {
+    //check https://datatracker.ietf.org/doc/html/rfc1866#section-3.2.5
+    assertTokens("<!><img src=1 onError=alert(\"nice\")>",
+            "COMMENT: <!>",
+            "TAGBEGIN: <img",
+            "ATTRNAME: src",
+            "ATTRVALUE: 1",
+            "ATTRNAME: onError",
+            "ATTRVALUE: alert(\"nice\")",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
+  public static final void testAbruptClosingOfEmptyComment() throws Exception
+  {
+    assertTokens("<!--><img>a<!--->b<!->c",
+            "COMMENT: <!-->",
+            "TAGBEGIN: <img",
+            "TAGEND: >",
+            "TEXT: a",
+            "COMMENT: <!--->",
+            "TEXT: b",
+            "SERVERCODE: <!->c"
+    );
+  }
+
+  @Test
+  public static final void testIncorrectlyClosedComment() throws Exception
+  {
+    assertTokens("<!-- Comment --!><img>",
+            "COMMENT: <!-- Comment --!>",
+            "TAGBEGIN: <img",
+            "TAGEND: >"
+    );
+  }
+
   private static void lex(String input, Appendable out) throws Exception {
     HtmlLexer lexer = new HtmlLexer(input);
     int maxTypeLength = 0;
