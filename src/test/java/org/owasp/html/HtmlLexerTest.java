@@ -137,10 +137,24 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testCommentDeclarationWith0CommentsAndTag() throws Exception
+  public static final void testAbruptClosingOfEmptyComment() throws Exception
   {
-    assertTokens("<!--><img>",
+    assertTokens("<!--><img>a<!--->b<!->c",
             "COMMENT: <!-->",
+            "TAGBEGIN: <img",
+            "TAGEND: >",
+            "TEXT: a",
+            "COMMENT: <!--->",
+            "TEXT: b",
+            "SERVERCODE: <!->c"
+    );
+  }
+
+  @Test
+  public static final void testIncorrectlyClosedComment() throws Exception
+  {
+    assertTokens("<!-- Comment --!><img>",
+            "COMMENT: <!-- Comment --!>",
             "TAGBEGIN: <img",
             "TAGEND: >"
     );

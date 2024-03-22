@@ -659,7 +659,9 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   if ('>' == ch) { // <!--> is a valid html comment
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
-                  }else{
+                  } else if('-' == ch) { // <!---> is a valid html comment
+                    state = State.COMMENT_DASH_AFTER_BANG;
+                  } else {
                     state = State.COMMENT;
                   }
                   break;
@@ -677,6 +679,8 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   if ('>' == ch) {
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
+                  } else if ('!' == ch) {  // --!> is also valid closing sequence
+                    state = State.COMMENT_DASH_DASH;
                   } else if ('-' == ch) {
                     state = State.COMMENT_DASH_DASH;
                   } else {
