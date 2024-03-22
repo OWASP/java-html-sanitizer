@@ -659,7 +659,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   if ('>' == ch) { // <!--> is a valid html comment
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
-                  } else if('-' == ch) { // <!---> is a valid html comment
+                  } else if ('-' == ch) { // <!---> is a valid html comment
                     state = State.COMMENT_DASH_AFTER_BANG;
                   } else {
                     state = State.COMMENT;
