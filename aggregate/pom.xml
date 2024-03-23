@@ -5,7 +5,7 @@
   <packaging>pom</packaging>
   <version>20220608.2-SNAPSHOT</version>
   <parent>
-    <relativePath>../parent</relativePath>
+    <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
     <version>20220608.2-SNAPSHOT</version>
@@ -13,7 +13,8 @@
 
   <modules>
     <module>..</module>
-    <module>../html-types</module>
-    <module>../parent</module>
+    <module>../java8-shim</module>
+    <module>../java10-shim</module>
+    <module>../owasp-java-html-sanitizer</module>
   </modules>
 </project>

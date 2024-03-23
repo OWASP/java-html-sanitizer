@@ -5,7 +5,7 @@
   <version>20220608.2-SNAPSHOT</version>
   <packaging>bundle</packaging>
   <parent>
-    <relativePath>../parent</relativePath>
+    <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
     <version>20220608.2-SNAPSHOT</version>
