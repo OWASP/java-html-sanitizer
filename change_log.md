@@ -1,6 +1,16 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Release 20240325.1
+    * Remove dependency on Guava
+    * Raise minimum supported JVM release to 8
+    * HTML: Avoid duplicate link `rel` values.
+    * HTML: Recognize foreign content syntactic context: `mathml` / `svg`.
+    * CSS: Better support for `font-size`, `overflow-wrap`, `word-break`.
+    * CSS: Better child combinator parsing.
+    * Bug: Fixed out of bounds when mixing global style attribute with others.
+    * Special thanks to (in lexicographic order):
+      Claudio Weiler, Josh England, Prakhar Maurya, Sven Strickroth, subbudvk
   * Release 20220608.1
     * Fix bugs in CSS tokenization
     * Fix deocding of HTML character references that lack semicolons

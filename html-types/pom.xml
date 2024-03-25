@@ -2,13 +2,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>html-types</artifactId>
-  <version>20220608.2-SNAPSHOT</version>
+  <version>20240325.1</version>
   <packaging>bundle</packaging>
   <parent>
     <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
-    <version>20220608.2-SNAPSHOT</version>
+    <version>20240325.1</version>
   </parent>
 
   <name>OWASP Java HTML Sanitizer Safe HTML Compatibility</name>
