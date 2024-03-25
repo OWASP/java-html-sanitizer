@@ -8,9 +8,10 @@ set -e
 
 
 # Make sure the build is ok via
-mvn                          -f aggregate clean verify jacoco:report site javadoc:jar source:jar
+mvn -f owasp-java-html-sanitizer clean verify jacoco:report site javadoc:jar source:jar
 mvn install
-mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit -f aggregate
+mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit
+mvn -f aggregate install
 
 echo
 echo Browse to

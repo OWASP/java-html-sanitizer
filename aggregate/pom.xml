@@ -13,8 +13,5 @@
 
   <modules>
     <module>..</module>
-    <module>../java8-shim</module>
-    <module>../java10-shim</module>
-    <module>../owasp-java-html-sanitizer</module>
   </modules>
 </project>
