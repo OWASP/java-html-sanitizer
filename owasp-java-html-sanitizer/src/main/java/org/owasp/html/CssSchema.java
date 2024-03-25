@@ -472,8 +472,10 @@ public final class CssSchema {
     Set<String> whiteSpaceLiterals0 = j8().setOf(
         "-moz-pre-wrap", "-o-pre-wrap", "-pre-wrap", "nowrap", "pre",
         "pre-line", "pre-wrap");
+    Set<String> wordBreakLiterals0 = j8().setOf(
+        "break-all", "break-word", "keep-all", "normal");
     Set<String> wordWrapLiterals0 = j8().setOf(
-        "break-word", "normal");
+        "anywhere", "break-word", "normal");
     Set<String> rgb$FunLiterals0 = j8().setOf(",");
     Set<String> linearGradient$FunLiterals0 = j8().setOf(
         ",", "to");
@@ -483,7 +485,7 @@ public final class CssSchema {
     Set<String> radialGradient$FunLiterals1 = j8().setOf(
         ",", "center", "circle");
     Set<String> rect$FunLiterals0 = j8().setOf(",", "auto");
-	//Set<String> alpha$FunLiterals0 = j8().setOf("=", "opacity");
+    //Set<String> alpha$FunLiterals0 = j8().setOf("=", "opacity");
     Property mozBorderRadius =
        new Property(5, mozBorderRadiusLiterals0, zeroFns);
     builder.put("-moz-border-radius", mozBorderRadius);
@@ -747,6 +749,7 @@ public final class CssSchema {
     Property whiteSpace = new Property(
         0, union(fontStyleLiterals0, whiteSpaceLiterals0), zeroFns);
     builder.put("white-space", whiteSpace);
+    builder.put("word-break", new Property(0, wordBreakLiterals0, zeroFns));
     builder.put("word-wrap", new Property(0, wordWrapLiterals0, zeroFns));
     builder.put("zoom", new Property(1, fontStretchLiterals1, zeroFns));
     Property rgb$Fun = new Property(1, rgb$FunLiterals0, zeroFns);
