@@ -3,27 +3,21 @@ package org.owasp.html.empiricism;
 import org.owasp.html.HtmlElementTables;
 import org.owasp.html.HtmlElementTables.HtmlElementNames;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
+
+import static org.owasp.shim.Java8Shim.j8;
 
 /**
  * Can be run thus:
@@ -134,7 +128,7 @@ public final class JsonToSerializedHtmlElementTables {
         }
       }
       boolean[] reunpacked = HtmlElementTables.unpack(packed, arr.length);
-      Preconditions.checkState(Arrays.equals(arr, reunpacked));
+      if (!Arrays.equals(arr, reunpacked)) { throw new IllegalStateException(); }
       line("HtmlElementTables.unpack(new int[] {");
       writeEls(packed);
       line("}, " + arr.length + ")");
@@ -224,16 +218,10 @@ public final class JsonToSerializedHtmlElementTables {
         ? argv[1] : "target/HtmlElementTablesCanned.java";
 
     JsonObject obj;
-    FileInputStream in = new FileInputStream(infile);
-    try {
-      JsonReader reader = Json.createReader(in);
-      try {
+    try (FileInputStream in = new FileInputStream(infile)) {
+      try (JsonReader reader = Json.createReader(in)) {
         obj = reader.readObject();
-      } finally {
-        reader.close();
       }
-    } finally {
-      in.close();
     }
 
     SourceLineWriter src = new SourceLineWriter();
@@ -249,12 +237,12 @@ public final class JsonToSerializedHtmlElementTables {
     HtmlElementTables.HtmlElementNames elementNames;
     String[] elementNamesArr;
     {
-      ImmutableList.Builder<String> b = ImmutableList.builder();
+      List<String> b = new ArrayList<>();
       JsonArray arr = obj.getJsonArray("elementNames");
       for (int i = 0, n = arr.size(); i < n; ++i) {
         b.add(arr.getString(i));
       }
-      ImmutableList<String> elementNameList = b.build();
+      List<String> elementNameList = j8().listCopyOf(b);
       elementNames = new HtmlElementTables.HtmlElementNames(elementNameList);
       elementNamesArr = elementNameList.toArray(new String[0]);
     }
@@ -297,17 +285,10 @@ public final class JsonToSerializedHtmlElementTables {
         "resumable);");
 
     src.lines("}", "}");
-
-    OutputStream out = new FileOutputStream(outfile);
-    try {
-      OutputStreamWriter w = new OutputStreamWriter(out, "UTF-8");
-      try {
+    try (OutputStream out = new FileOutputStream(outfile)) {
+      try (OutputStreamWriter w = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
         w.write(src.getSource());
-      } finally {
-        w.close();
       }
-    } finally {
-      out.close();
     }
   }
 
@@ -382,21 +363,21 @@ public final class JsonToSerializedHtmlElementTables {
       JsonObject obj,
       String fieldName,
       SourceLineWriter src) {
-    List<int[]> arrs = Lists.newArrayList();
+    List<int[]> arrs = new ArrayList<>();
     for (String elname : obj.keySet()) {
       int ei = en.getElementNameIndex(elname);
-      ImmutableSet.Builder<String> names = ImmutableSet.builder();
+      Set<String> names = new LinkedHashSet<>();
       JsonArray arr = obj.getJsonArray(elname);
       for (int i = 0, n = arr.size(); i < n; ++i) {
         names.add(arr.getString(i));
       }
-      ImmutableSet<String> iset = names.build();
+      Set<String> iset = j8().setCopyOf(names);
       int[] vals = new int[iset.size()];
       int i = 0;
       for (String name : iset) {
         vals[i++] = en.getElementNameIndex(name);
       }
-      Preconditions.checkState(vals.length == i);
+      if (vals.length != 3) { throw new IllegalStateException(); }
       Arrays.sort(vals);
 
       int[] ints = new int[vals.length + 1];
@@ -456,14 +437,13 @@ public final class JsonToSerializedHtmlElementTables {
     src.line(");");
   }
 
-  private static final
-  ImmutableMap<String, HtmlElementTables.TextContentModelBit> MODEL_BITS =
-      ImmutableMap.<String, HtmlElementTables.TextContentModelBit>builder()
-      .put("comments", HtmlElementTables.TextContentModelBit.COMMENTS)
-      .put("entities", HtmlElementTables.TextContentModelBit.ENTITIES)
-      .put("raw", HtmlElementTables.TextContentModelBit.RAW)
-      .put("text", HtmlElementTables.TextContentModelBit.TEXT)
-      .put("plain_text", HtmlElementTables.TextContentModelBit.PLAIN_TEXT)
-      .put("unended", HtmlElementTables.TextContentModelBit.UNENDED)
-      .build();
+  private static final Map<String, HtmlElementTables.TextContentModelBit> MODEL_BITS =
+      j8().mapOfEntries(
+        j8().mapEntry("comments", HtmlElementTables.TextContentModelBit.COMMENTS),
+        j8().mapEntry("entities", HtmlElementTables.TextContentModelBit.ENTITIES),
+        j8().mapEntry("raw", HtmlElementTables.TextContentModelBit.RAW),
+        j8().mapEntry("text", HtmlElementTables.TextContentModelBit.TEXT),
+        j8().mapEntry("plain_text", HtmlElementTables.TextContentModelBit.PLAIN_TEXT),
+        j8().mapEntry("unended", HtmlElementTables.TextContentModelBit.UNENDED)
+      );
 }

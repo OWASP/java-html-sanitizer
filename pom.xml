@@ -10,6 +10,7 @@
     <module>java8-shim</module>
     <module>java10-shim</module>
     <module>owasp-java-html-sanitizer</module>
+    <module>empiricism</module>
   </modules>
 
   <name>OWASP Java HTML Sanitizer Project Parent</name>
