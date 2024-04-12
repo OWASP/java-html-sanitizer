@@ -1295,6 +1295,23 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public final void testCSSTextAlign() {
+    HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+    PolicyFactory factory = builder.allowElements("span")
+        .allowAttributes("style").onElements("span").allowStyling()
+        .toFactory();
+
+    String toSanitizeTextAlignStart = "<span style=\"text-align:start\">start</span>";
+    assertEquals(toSanitizeTextAlignStart, factory.sanitize(toSanitizeTextAlignStart));
+
+    String toSanitizeTextAlignEnd = "<span style=\"text-align:end\">end</span>";
+    assertEquals(toSanitizeTextAlignEnd, factory.sanitize(toSanitizeTextAlignEnd));
+
+    String toSanitizeTextAlignFoo = "<span style=\"text-align:foo\">foo</span>";
+    assertEquals("foo", factory.sanitize(toSanitizeTextAlignFoo));
+  }
+
+  @Test
   public final void testCSSFontSize() {
     HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
     PolicyFactory factory = builder.allowElements("span")
