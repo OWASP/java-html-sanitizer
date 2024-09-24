@@ -133,6 +133,19 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
+  public static final void testTextEndingWithTagOpenAndBang() throws Exception
+  {
+    //taken from https://html.spec.whatwg.org/#comments
+    assertTokens("<!--My favorite operators are > and <!--><a></a>",
+            "COMMENT: <!--My favorite operators are > and <!-->",
+            "TAGBEGIN: <a",
+            "TAGEND: >",
+            "TAGBEGIN: </a",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
   public static final void testAbruptClosingOfEmptyComment() throws Exception
   {
     assertTokens("<!--><img>a<!--->b<!->c",
