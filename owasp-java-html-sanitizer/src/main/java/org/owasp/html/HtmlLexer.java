@@ -476,6 +476,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     COMMENT,
     COMMENT_DASH,
     COMMENT_DASH_DASH,
+  	COMMENT_DASH_DASH_BANG,
     COMMENT_DASH_AFTER_BANG,
     DIRECTIVE,
     DONE,
@@ -668,6 +669,8 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                 case COMMENT:
                   if ('-' == ch) {
                     state = State.COMMENT_DASH;
+                  } else {
+                    state = State.COMMENT;  //TODO mirar si esto se puede quitar
                   }
                   break;
                 case COMMENT_DASH:
@@ -680,14 +683,24 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
                   } else if ('!' == ch) {  // --!> is also valid closing sequence
-                    state = State.COMMENT_DASH_DASH;
+                    state = State.COMMENT_DASH_DASH_BANG;   //orifinally COMMENT_DASH_DASH
                   } else if ('-' == ch) {
                     state = State.COMMENT_DASH_DASH;
                   } else {
                     state = State.COMMENT_DASH;
                   }
                   break;
-                case DIRECTIVE:
+                case COMMENT_DASH_DASH_BANG:
+                  if ('>' == ch) {
+					  state = State.DONE;
+					  type = HtmlTokenType.COMMENT;
+                  }else if ('-' == ch) {
+					  state = State.COMMENT_DASH;
+				  }else {
+					  state = State.COMMENT;  //TODO mirar si esto se puede quitar
+				  }
+				  break;
+			  	case DIRECTIVE:
                   if ('>' == ch) {
                     type = HtmlTokenType.DIRECTIVE;
                     state = State.DONE;

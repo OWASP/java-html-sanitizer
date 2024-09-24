@@ -145,6 +145,13 @@ public class HtmlLexerTest extends TestCase {
     );
   }
 
+
+  public static final void testDashDashBangComment() throws Exception
+  {
+    assertTokens("<!-- --!-->",
+            "COMMENT: <!-- --!-->"
+    );
+  }
   @Test
   public static final void testAbruptClosingOfEmptyComment() throws Exception
   {
