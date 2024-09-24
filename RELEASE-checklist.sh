@@ -8,15 +8,15 @@ set -e
 
 
 # Make sure the build is ok via
-mvn -Dguava.version=27.0-jre -f aggregate clean verify                    javadoc:jar source:jar
-mvn                          -f aggregate clean verify jacoco:report site javadoc:jar source:jar
+mvn -f owasp-java-html-sanitizer clean verify jacoco:report site javadoc:jar source:jar
 mvn install
-mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit -f aggregate
+mvn org.sonatype.ossindex.maven:ossindex-maven-plugin:audit
+mvn -f aggregate install
 
 echo
 echo Browse to
-echo "file://$PWD/target/site"
-echo and check the spotbugs and jacoco reports.
+echo "file://$PWD/owasp-java-html-sanitizer/target/site/jacoco/index.html"
+echo and check the jacoco reports.
 
 echo
 echo Check https://central.sonatype.org/pages/apache-maven.html#nexus-staging-maven-plugin-for-deployment-and-release
@@ -46,10 +46,11 @@ cd "$RELEASE_CLONE"
 # mvn release:update-versions puts -SNAPSHOT on the end no matter what
 # so this is a two step process.
 export VERSION_PLACEHOLDER=99999999999999-SNAPSHOT
-for project in parent aggregate empiricism; do
+POM_DIRS=". aggregate empiricism java8-shim java10-shim owasp-java-html-sanitizer"
+for project in $POM_DIRS; do
     mvn -f "$project"/pom.xml install
 done
-for project in parent aggregate empiricism; do
+for project in $POM_DIRS; do
     mvn -f "$project"/pom.xml \
         release:update-versions \
         -DautoVersionSubmodules=true \
@@ -71,7 +72,7 @@ perl -i.bak \
 $EDITOR change_log.md
 
 # A dry run.
-mvn -f aggregate/pom.xml clean source:jar javadoc:jar verify \
+mvn -f pom.xml clean source:jar javadoc:jar verify \
     -DperformRelease=true
 
 # Commit and tag
@@ -80,7 +81,7 @@ git tag -m "Release $NEW_VERSION" -s "release-$NEW_VERSION"
 git push origin "release-$NEW_VERSION"
 
 # Actually deploy.
-mvn -f aggregate/pom.xml clean source:jar javadoc:jar verify deploy:deploy \
+mvn -f pom.xml clean source:jar javadoc:jar verify deploy:deploy \
     -DperformRelease=true
 
 # Bump the development version.

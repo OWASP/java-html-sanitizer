@@ -1,8 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-  <artifactId>empiricism</artifactId>
-  <version>20240325.2-SNAPSHOT</version>
+  <artifactId>java10-shim</artifactId>
   <packaging>jar</packaging>
   <parent>
     <relativePath>..</relativePath>
@@ -11,18 +9,26 @@
     <version>20240325.2-SNAPSHOT</version>
   </parent>
 
-  <name>empiricism</name>
+  <name>Java 10 Shim</name>
   <description>
-    HTML metadata derived by interrogating a browser's HTML parser
+    Provides an implementation of java8-shim that interoperates with
+    Java &gt;= 10 idioms for immutable collections.
   </description>
 
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
+          <release>10</release>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <configuration>
+          <arguments>-Dmaven.javadoc.skip=true</arguments> <!-- No public classes -->
         </configuration>
       </plugin>
     </plugins>
@@ -31,23 +37,12 @@
   <dependencies>
     <dependency>
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-      <artifactId>owasp-java-html-sanitizer</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
       <artifactId>java8-shim</artifactId>
-      <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>javax.json</groupId>
-      <artifactId>javax.json-api</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish</groupId>
-      <artifactId>javax.json</artifactId>
-      <version>1.0.4</version>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
