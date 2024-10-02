@@ -22,7 +22,7 @@ to one of your project's `.java` files and compile it.
 ## Using the APIs
 
 The
-[examples](https://github.com/OWASP/java-html-sanitizer/tree/main/src/main/java/org/owasp/html/examples)
+[examples](https://github.com/OWASP/java-html-sanitizer/tree/main/owasp-java-html-sanitizer/src/main/java/org/owasp/html/examples)
 include source code which defines a sanitization policy, and applies
 it to HTML.
 
