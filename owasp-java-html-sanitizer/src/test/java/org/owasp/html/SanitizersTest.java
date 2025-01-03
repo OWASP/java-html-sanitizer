@@ -253,6 +253,30 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testLinksRelAttributeAdditionsOrder() {
+    // Issue 336.
+    PolicyFactory pf = Sanitizers.LINKS.and(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .requireRelsOnLinks("noopener", "noreferrer")
+            .toFactory());
+
+    assertEquals(
+            "<a href=\"foo.html\" rel=\"nofollow noopener noreferrer\">Link text</a>",
+            pf.sanitize("<a href=\"foo.html\">Link text</a>"));
+
+    pf = Sanitizers.LINKS.and(
+            new HtmlPolicyBuilder()
+                    .allowElements("a")
+                    .requireRelsOnLinks("noreferrer", "noopener")
+                    .toFactory());
+
+    assertEquals(
+            "<a href=\"foo.html\" rel=\"nofollow noreferrer noopener\">Link text</a>",
+            pf.sanitize("<a href=\"foo.html\">Link text</a>"));
+  }
+
+  @Test
   public static final void testExplicitlyAllowedProtocolsAreCaseInsensitive() {
     // Issue 24.
     PolicyFactory s = new HtmlPolicyBuilder()
@@ -552,7 +576,7 @@ public class SanitizersTest extends TestCase {
     String want = "<h1 style=\"color:green\">This is some green text</h1>";
     assertEquals(want, policyBuilder.sanitize(input));
   }
-  
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
