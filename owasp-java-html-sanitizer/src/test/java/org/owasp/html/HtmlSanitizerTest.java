@@ -196,6 +196,13 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   @Test
+  public final void testAllowedAttributes() {
+    assertEquals(
+            "<div __foo=\"__foo\" __bar=\"foo\" foo-bar=\"foo-bar\"></div>",
+            sanitize("<div __foo __bar=\"foo\" foo-bar></div>"));
+  }
+
+  @Test
   public static final void testSgmlShortTags() {
     // We make no attempt to correctly handle SGML short tags since they are
     // not implemented consistently across browsers, and have been removed from
@@ -471,7 +478,8 @@ public class HtmlSanitizerTest extends TestCase {
            "ol", "p", "span", "ul", "noscript", "noframes", "noembed", "noxss")
        // And these attributes.
        .allowAttributes(
-           "dir", "checked", "class", "href", "id", "target", "title", "type")
+           "dir", "checked", "class", "href", "id", "target", "title", "type",
+               "__foo", "__bar", "foo-bar")
        .globally()
        // Cleanup IDs and CLASSes and prefix them with p- to move to a separate
        // name-space.
