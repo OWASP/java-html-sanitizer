@@ -94,8 +94,163 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public void text(String textChunk) {
     if (!skipText) {
-      out.text(textChunk);
+      // Check if we're inside a CDATA element (style/script) with allowTextIn
+      // where tags are reclassified as UNESCAPED text and need to be validated
+      // Note: Only style and script are CDATA elements; noscript/noembed/noframes are PCDATA
+      boolean insideCdataElement = false;
+      for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
+        String adjustedName = openElementStack.get(i);
+        if (adjustedName != null 
+            && allowedTextContainers.contains(adjustedName)
+            && ("style".equals(adjustedName) || "script".equals(adjustedName))) {
+          insideCdataElement = true;
+          break;
+        }
+      }
+      
+      // If inside a CDATA element (style/script) with allowTextIn, we need to filter out 
+      // HTML tags that aren't allowed because tags inside these blocks are reclassified 
+      // as UNESCAPED text by the lexer
+      if (insideCdataElement && textChunk != null && textChunk.indexOf('<') >= 0) {
+        // Strip out HTML tags that aren't in the allowed elements list
+        String filtered = stripDisallowedTags(textChunk);
+        out.text(filtered);
+      } else {
+        out.text(textChunk);
+      }
     }
+  }
+  
+  /**
+   * Strips out HTML tags that aren't in the allowed elements list from text content.
+   * This is used when tags appear inside text containers (like style blocks) where
+   * they're treated as text but should still be validated.
+   */
+  private String stripDisallowedTags(String text) {
+    if (text == null) {
+      return text;
+    }
+    
+    StringBuilder result = new StringBuilder();
+    int len = text.length();
+    int i = 0;
+    
+    while (i < len) {
+      int tagStart = text.indexOf('<', i);
+      if (tagStart < 0) {
+        // No more tags, append the rest
+        result.append(text.substring(i));
+        break;
+      }
+      
+      // Append text before the tag
+      if (tagStart > i) {
+        result.append(text.substring(i, tagStart));
+      }
+      
+      // Find the end of the tag (either '>' or end of string)
+      int tagEnd = text.indexOf('>', tagStart + 1);
+      if (tagEnd < 0) {
+        // Unclosed tag, skip it
+        i = tagStart + 1;
+        continue;
+      }
+      
+      // Extract the tag content (between < and >)
+      String tagContent = text.substring(tagStart + 1, tagEnd);
+      
+      // Only process if this looks like a valid HTML element tag
+      // Valid tags start with a letter or / followed by a letter
+      // Skip things like <, </>, <3, etc.
+      boolean isValidTag = false;
+      String tagName = null;
+      
+      if (tagContent.startsWith("/")) {
+        // Closing tag - must have / followed by a letter
+        if (tagContent.length() > 1) {
+          char firstChar = tagContent.charAt(1);
+          if (Character.isLetter(firstChar)) {
+            isValidTag = true;
+            tagName = tagContent.substring(1).trim().split("\\s")[0];
+            tagName = HtmlLexer.canonicalElementName(tagName);
+          }
+        }
+      } else {
+        // Opening tag - must start with a letter
+        char firstChar = tagContent.charAt(0);
+        if (Character.isLetter(firstChar)) {
+          isValidTag = true;
+          tagName = tagContent.trim().split("\\s")[0];
+          tagName = HtmlLexer.canonicalElementName(tagName);
+        }
+      }
+      
+      if (!isValidTag) {
+        // Not a valid HTML tag, just append it as-is
+        result.append('<').append(tagContent).append('>');
+        i = tagEnd + 1;
+        continue;
+      }
+      
+      // Check if it's a closing tag
+      if (tagContent.startsWith("/")) {
+        // Only allow closing tags if the element is allowed
+        if (elAndAttrPolicies.containsKey(tagName)) {
+          result.append('<').append(tagContent).append('>');
+        }
+        // Otherwise skip the closing tag
+        i = tagEnd + 1;
+      } else {
+        // Opening tag - only allow tags if the element is in the allowed list
+        if (elAndAttrPolicies.containsKey(tagName)) {
+          result.append('<').append(tagContent).append('>');
+          i = tagEnd + 1;
+        } else {
+          // Skip disallowed tag and its content until matching closing tag
+          i = tagEnd + 1;
+          // Track nesting level to find the matching closing tag
+          int nestingLevel = 1;
+          while (i < len && nestingLevel > 0) {
+            int nextTagStart = text.indexOf('<', i);
+            if (nextTagStart < 0) {
+              // No more tags, skip to end
+              i = len;
+              break;
+            }
+            int nextTagEnd = text.indexOf('>', nextTagStart + 1);
+            if (nextTagEnd < 0) {
+              // Unclosed tag, skip to end
+              i = len;
+              break;
+            }
+            String nextTagContent = text.substring(nextTagStart + 1, nextTagEnd);
+            String nextTagName = nextTagContent.trim().split("\\s")[0];
+            if (nextTagContent.startsWith("/")) {
+              // Closing tag
+              nextTagName = nextTagName.substring(1);
+              nextTagName = HtmlLexer.canonicalElementName(nextTagName);
+              if (nextTagName.equals(tagName)) {
+                nestingLevel--;
+                if (nestingLevel == 0) {
+                  // Found matching closing tag, skip it and continue
+                  i = nextTagEnd + 1;
+                  break;
+                }
+              }
+            } else {
+              // Opening tag
+              nextTagName = HtmlLexer.canonicalElementName(nextTagName);
+              if (nextTagName.equals(tagName)) {
+                nestingLevel++;
+              }
+            }
+            i = nextTagEnd + 1;
+          }
+        }
+      }
+    }
+    
+    return result.toString();
   }
 
   public void openTag(String elementName, List<String> attrs) {

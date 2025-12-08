@@ -454,6 +454,101 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(want, sanitize(input));
   }
 
+  @Test
+  public static final void testCVE202566021_1() {
+    // Arrange
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"evil\">XSS?</div></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  @Test
+  public static final void testCVE202566021_2() {
+    // Arrange
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<script>alert('XSS Attack!')</script></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  @Test
+  public static final void testCVE202566021_3() {
+    // Arrange
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript", "div")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  @Test
+  public static final void testCVE202566021_4() {
+    // Arrange
+    String actualPayload = "<noscript><style></noscript><script>alert(1)</script>";
+    String expectedPayload = "<noscript><style></noscript></style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript", "p")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  @Test
+  public static final void testCVE202566021_5() {
+    // Arrange
+    String actualPayload = "<p><style></p><script>alert(1)</script>";
+    String expectedPayload = "<p><style></p></style></p>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript", "p")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

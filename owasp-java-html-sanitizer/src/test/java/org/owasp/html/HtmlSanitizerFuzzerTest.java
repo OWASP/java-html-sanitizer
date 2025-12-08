@@ -28,16 +28,13 @@
 
 package org.owasp.html;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import org.apache.commons.codec.Resources;
 
 /**
  * Throws malformed inputs at the HTML sanitizer to try and crash it.
@@ -62,9 +59,9 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
       };
 
   public final void testFuzzHtmlParser() throws Exception {
-    String html = new BufferedReader(new InputStreamReader(
-        Resources.getInputStream("benchmark-data/Yahoo!.html"),
-        StandardCharsets.UTF_8)).lines().collect(Collectors.joining()); 
+    String html = new String(Files.readAllBytes(
+        Paths.get(getClass().getResource("/benchmark-data/Yahoo!.html").toURI())),
+        StandardCharsets.UTF_8); 
     int length = html.length();
 
     char[] fuzzyHtml0 = new char[length];
