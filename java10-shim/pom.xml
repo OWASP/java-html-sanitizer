@@ -3,7 +3,6 @@
   <artifactId>java10-shim</artifactId>
   <packaging>jar</packaging>
   <parent>
-    <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
     <version>20240325.2-SNAPSHOT</version>
@@ -15,15 +14,12 @@
     Java &gt;= 10 idioms for immutable collections.
   </description>
 
+  <properties>
+    <maven.compiler.release>10</maven.compiler.release>
+  </properties>
+
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <release>10</release>
-        </configuration>
-      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-release-plugin</artifactId>
