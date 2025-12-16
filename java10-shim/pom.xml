@@ -9,6 +9,7 @@
   </parent>
 
   <name>Java 10 Shim</name>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     Provides an implementation of java8-shim that interoperates with
     Java &gt;= 10 idioms for immutable collections.

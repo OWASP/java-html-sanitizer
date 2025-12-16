@@ -10,6 +10,7 @@
   </parent>
 
   <name>empiricism</name>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     HTML metadata derived by interrogating a browser's HTML parser
   </description>
