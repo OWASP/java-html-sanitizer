@@ -362,6 +362,11 @@ application while protecting against XSS.
             <version>1.21.0</version>
             <configuration>
               <jreleaser>
+                <release>
+                  <github>
+                    <previousTagName>release-20240325.1</previousTagName>
+                  </github>
+                </release>
                 <signing>
                   <active>ALWAYS</active>
                   <armored>true</armored>
