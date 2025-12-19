@@ -3,30 +3,18 @@
   <artifactId>java8-shim</artifactId>
   <packaging>jar</packaging>
   <parent>
-    <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
     <version>20240325.2-SNAPSHOT</version>
   </parent>
 
   <name>Java 8 Shim</name>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     Backports @since Java 9 collection factories like List.of onto
     Java8 in a way that uses the real ones where available, falls back
     to a conforming implementation on Java8 and JIT compiles well.
   </description>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <release>8</release>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 
   <dependencies>
     <dependency>
