@@ -29,6 +29,7 @@
 package org.owasp.html;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -36,8 +37,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import org.apache.commons.codec.Resources;
 
 /**
  * Throws malformed inputs at the HTML sanitizer to try and crash it.
@@ -62,9 +61,17 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
       };
 
   public final void testFuzzHtmlParser() throws Exception {
-    String html = new BufferedReader(new InputStreamReader(
-        Resources.getInputStream("benchmark-data/Yahoo!.html"),
-        StandardCharsets.UTF_8)).lines().collect(Collectors.joining()); 
+    String html;
+    try (InputStream resourceStream = getClass().getClassLoader()
+        .getResourceAsStream("benchmark-data/Yahoo!.html")) {
+      if (resourceStream == null) {
+        throw new IllegalArgumentException(
+            "Unable to resolve required resource: benchmark-data/Yahoo!.html");
+      }
+      html = new BufferedReader(new InputStreamReader(
+          resourceStream,
+          StandardCharsets.UTF_8)).lines().collect(Collectors.joining());
+    }
     int length = html.length();
 
     char[] fuzzyHtml0 = new char[length];
