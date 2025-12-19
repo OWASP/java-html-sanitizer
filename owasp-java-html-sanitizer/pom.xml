@@ -3,18 +3,22 @@
   <artifactId>owasp-java-html-sanitizer</artifactId>
   <packaging>bundle</packaging>
   <parent>
-    <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
     <version>20240325.2-SNAPSHOT</version>
   </parent>
 
   <name>OWASP Java HTML Sanitizer</name>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     Takes third-party HTML and produces HTML that is safe to embed in
     your web application.
     Fast and easy to configure.
   </description>
+
+  <properties>
+    <maven.compiler.release>10</maven.compiler.release>
+  </properties>
 
   <build>
     <plugins>
@@ -81,14 +85,6 @@
             </goals>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>10</source>
-          <target>10</target>
-        </configuration>
       </plugin>
     </plugins>
   </build>
