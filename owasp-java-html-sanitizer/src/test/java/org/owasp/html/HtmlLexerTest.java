@@ -46,14 +46,19 @@ public class HtmlLexerTest extends TestCase {
   public final void testHtmlLexer() throws Exception {
     // Do the lexing.
     String input = new String(Files.readAllBytes(Paths.get(getClass().getResource("htmllexerinput1.html").toURI())), StandardCharsets.UTF_8);
+    // Normalize line endings in input to handle Windows/Unix differences
+    input = input.replace("\r\n", "\n").replace("\r", "\n");
     StringBuilder actual = new StringBuilder();
     lex(input, actual);
 
     // Get the golden.
     String golden = new String(Files.readAllBytes(Paths.get(getClass().getResource("htmllexergolden1.txt").toURI())), StandardCharsets.UTF_8);
+    // Normalize line endings to handle Windows/Unix differences
+    golden = golden.replace("\r\n", "\n").replace("\r", "\n");
+    String actualStr = actual.toString().replace("\r\n", "\n").replace("\r", "\n");
 
     // Compare.
-    assertEquals(golden, actual.toString());
+    assertEquals(golden, actualStr);
   }
 
   @Test
