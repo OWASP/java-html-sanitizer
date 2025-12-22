@@ -162,26 +162,32 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       // Only process if this looks like a valid HTML element tag
       // Valid tags start with a letter or / followed by a letter
       // Skip things like <, </>, <3, etc.
+      // Also handle tags with leading whitespace like < script>
       boolean isValidTag = false;
       String tagName = null;
       
-      if (tagContent.startsWith("/")) {
+      // Trim leading whitespace for tag name detection
+      String trimmedTagContent = tagContent.trim();
+      
+      if (trimmedTagContent.startsWith("/")) {
         // Closing tag - must have / followed by a letter
-        if (tagContent.length() > 1) {
-          char firstChar = tagContent.charAt(1);
+        if (trimmedTagContent.length() > 1) {
+          char firstChar = trimmedTagContent.charAt(1);
           if (Character.isLetter(firstChar)) {
             isValidTag = true;
-            tagName = tagContent.substring(1).trim().split("\\s")[0];
+            tagName = trimmedTagContent.substring(1).trim().split("\\s")[0];
             tagName = HtmlLexer.canonicalElementName(tagName);
           }
         }
       } else {
-        // Opening tag - must start with a letter
-        char firstChar = tagContent.charAt(0);
-        if (Character.isLetter(firstChar)) {
-          isValidTag = true;
-          tagName = tagContent.trim().split("\\s")[0];
-          tagName = HtmlLexer.canonicalElementName(tagName);
+        // Opening tag - must start with a letter (after trimming whitespace)
+        if (trimmedTagContent.length() > 0) {
+          char firstChar = trimmedTagContent.charAt(0);
+          if (Character.isLetter(firstChar)) {
+            isValidTag = true;
+            tagName = trimmedTagContent.split("\\s")[0];
+            tagName = HtmlLexer.canonicalElementName(tagName);
+          }
         }
       }
       
@@ -224,8 +230,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
               break;
             }
             String nextTagContent = text.substring(nextTagStart + 1, nextTagEnd);
-            String nextTagName = nextTagContent.trim().split("\\s")[0];
-            if (nextTagContent.startsWith("/")) {
+            String trimmedNextTagContent = nextTagContent.trim();
+            String nextTagName = trimmedNextTagContent.split("\\s")[0];
+            if (trimmedNextTagContent.startsWith("/")) {
               // Closing tag
               nextTagName = nextTagName.substring(1);
               nextTagName = HtmlLexer.canonicalElementName(nextTagName);

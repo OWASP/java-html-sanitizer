@@ -584,6 +584,28 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(expectedPayload, sanitized);
   }
 
+  /**
+   * Test that <script> tags with space < script> are sanitized correctly.
+   */
+  @Test
+  public static final void testCVE202566021_6() {
+    // Arrange: Attempt to inject a <script> inside <style>. Only 'style' and 'noscript' elements are allowed.
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }< script>alert('XSS Attack!')</script></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
