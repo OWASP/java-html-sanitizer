@@ -454,9 +454,24 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(want, sanitize(input));
   }
 
+  /**
+   * These 5 tests cover regression scenarios for CVE-2025-66021, which relates to
+   * improper sanitization of HTML content involving <style> and <noscript> tags.
+   * The tests ensure that HTMLSanitizer:
+   *   - properly closes any opened elements,
+   *   - only allows allowed elements inside <style> blocks,
+   *   - prevents injection of forbidden HTML or scripts within style or noscript,
+   *   - does not allow unexpected element escape or context breaking.
+   */
+
+  /**
+   * Test #1:
+   * Verify that unallowed elements (<div>) injected inside <style> are removed,
+   * and only allowed content (CSS and allowed elements) remain.
+   */
   @Test
   public static final void testCVE202566021_1() {
-    // Arrange
+    // Arrange: Attempt to inject a <div> inside <style>. Only 'style' and 'noscript' are allowed.
     String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"evil\">XSS?</div></style></noscript>";
     String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
 
@@ -473,9 +488,14 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(expectedPayload, sanitized);
   }
 
+  /**
+   * Test #2:
+   * Ensure that <script> tags (attempting script injection) are stripped out
+   * even when they appear inside allowed <style> tags.
+   */
   @Test
   public static final void testCVE202566021_2() {
-    // Arrange
+    // Arrange: Attempt to inject a <script> inside <style>. Only 'style' and 'noscript' are allowed.
     String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<script>alert('XSS Attack!')</script></style></noscript>";
     String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
 
@@ -492,9 +512,14 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(expectedPayload, sanitized);
   }
 
+  /**
+   * Test #3:
+   * Ensure that, if <div> is allowed, then <div> injected inside <style>
+   * is retained by the sanitizer (since it is now in the policy).
+   */
   @Test
   public static final void testCVE202566021_3() {
-    // Arrange
+    // Arrange: <div> is now allowed, so it should survive sanitization inside <style>.
     String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
     String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
 
@@ -511,9 +536,14 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(expectedPayload, sanitized);
   }
 
+  /**
+   * Test #4:
+   * Confirm that an attempt to prematurely close <style> with </noscript>, then inject a script,
+   * does not allow the injected script. Sanitizer closes elements properly and only emits allowed tags.
+   */
   @Test
   public static final void testCVE202566021_4() {
-    // Arrange
+    // Arrange: Try to break out of <style> and <noscript>, then add a script. Only style/noscript/p allowed.
     String actualPayload = "<noscript><style></noscript><script>alert(1)</script>";
     String expectedPayload = "<noscript><style></noscript></style></noscript>";
 
@@ -530,9 +560,14 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(expectedPayload, sanitized);
   }
 
+  /**
+   * Test #5:
+   * Like Test #4, but with <p> instead of <noscript>. Ensures sanitizer emits correctly closed tags
+   * and strips the injected script tag completely.
+   */
   @Test
   public static final void testCVE202566021_5() {
-    // Arrange
+    // Arrange: Try to break out of <style> through <p>, then add a script. Only style/noscript/p allowed.
     String actualPayload = "<p><style></p><script>alert(1)</script>";
     String expectedPayload = "<p><style></p></style></p>";
 
