@@ -62,6 +62,6 @@ final class ForJava9AndLater extends Java8Shim {
     }
 
     @Override public <T> Set<T> setCopyOf(Collection<? extends T> c) {
-        return Set.copyOf(c);
+        return Collections.unmodifiableSet(new LinkedHashSet<>(c));
     }
 }
