@@ -400,6 +400,16 @@ application while protecting against XSS.
                     </mavenCentral>
                   </maven>
                 </deploy>
+                <announce>
+                  <mastodon>
+                    <active>RELEASE</active>
+                    <status>🚀 Java HTML Sanitizer {{projectVersion}} has been released! {{releaseNotesUrl}}</status>
+                  </mastodon>
+                  <bluesky>
+                    <active>RELEASE</active>
+                    <status>🚀 Java HTML Sanitizer {{projectVersion}} has been released! {{releaseNotesUrl}}</status>
+                  </bluesky>
+                </announce>
               </jreleaser>
             </configuration>
           </plugin>
