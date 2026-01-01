@@ -4,11 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. 1.0.0)'
-        required: true
-        type: string
-      next_version:
-        description: 'Next development version (e.g. 1.0.1-SNAPSHOT)'
+        description: 'Version to release (e.g. 20260101)'
         required: true
         type: string
 
@@ -55,7 +51,7 @@ jobs:
           fi
 
       - name: Build
-        run: ./mvnw -Ppublication
+        run: ./mvnw -ntp -B -Ppublication
 
       - name: Release
         env:
@@ -63,19 +59,27 @@ jobs:
           JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
           JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
-        run: ./mvnw -N -Ppublication jreleaser:full-release
+        run: ./mvnw -ntp -B -N -Ppublication jreleaser:full-release
+
+      - name: Release log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: release
+          path: |
+            target/jreleaser/trace.log
+            target/jreleaser/output.properties
 
       - name: Set next version
-        if: github.event_name == 'workflow_dispatch'
         run: |
           # Configure git (in case it's needed again)
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
-          echo "Setting next version to ${{ github.event.inputs.next_version }}"
-          mvn versions:set -DgenerateBackupPoms=false -DnewVersion=${{ github.event.inputs.next_version }}
+          echo "Setting next version to 20000101-SNAPSHOT"
+          mvn versions:set -DgenerateBackupPoms=false -DnewVersion=20000101-SNAPSHOT
           git add pom.xml "**/pom.xml"
           git commit -m "Prepare for next development version"
           git push origin main

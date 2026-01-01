@@ -359,17 +359,35 @@ application while protecting against XSS.
           <plugin>
             <groupId>org.jreleaser</groupId>
             <artifactId>jreleaser-maven-plugin</artifactId>
-            <version>1.21.0</version>
+            <version>1.22.0</version>
+            <inherited>false</inherited>
             <configuration>
               <jreleaser>
                 <release>
                   <github>
+                    <tagName>release-{{projectVersion}}</tagName>
                     <previousTagName>release-20240325.1</previousTagName>
+                    <releaseName>Release {{projectVersion}}</releaseName>
+                    <changelog>
+                      <formatted>ALWAYS</formatted>
+                      <skipMergeCommits>true</skipMergeCommits>
+                      <contributors>
+                        <format>- {{contributorName}}{{#contributorUsernameAsLink}} ({{.}}){{/contributorUsernameAsLink}}</format>
+                      </contributors>
+                      <hide>
+                        <contributors>GitHub</contributors>
+                      </hide>
+                    </changelog>
+                    <issues>
+                      <enabled>true</enabled>
+                    </issues>
                   </github>
                 </release>
                 <signing>
-                  <active>ALWAYS</active>
-                  <armored>true</armored>
+                  <pgp>
+                    <active>ALWAYS</active>
+                    <armored>true</armored>
+                  </pgp>
                 </signing>
                 <deploy>
                   <maven>
