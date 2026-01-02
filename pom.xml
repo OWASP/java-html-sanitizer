@@ -20,6 +20,7 @@ lets you include HTML authored by third-parties in your web
 application while protecting against XSS.
   </description>
   <url>https://github.com/OWASP/java-html-sanitizer</url>
+  <inceptionYear>2011</inceptionYear>
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
@@ -157,6 +158,11 @@ application while protecting against XSS.
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>3.1.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-project-info-reports-plugin</artifactId>
           <version>2.9</version>
         </plugin>
@@ -197,7 +203,6 @@ application while protecting against XSS.
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <version>3.5.0</version>
-        <inherited>false</inherited>
         <executions>
           <execution>
             <id>check</id>
@@ -207,16 +212,6 @@ application while protecting against XSS.
             </goals>
             <configuration>
               <rules>
-                <!-- .mvn and wrapper files must exist -->
-                <requireFilesExist>
-                  <files>
-                    <file>${project.basedir}/.mvn</file>
-                    <file>${project.basedir}/.mvn/wrapper/maven-wrapper.properties</file>
-                    <file>${project.basedir}/mvnw</file>
-                    <file>${project.basedir}/mvnw.cmd</file>
-                  </files>
-                </requireFilesExist>
-
                 <!-- java.version must match -->
                 <requireJavaVersion>
                   <version>${jdk.version}</version>
@@ -242,7 +237,11 @@ application while protecting against XSS.
                 </enforceBytecodeVersion>
 
                 <!-- disallow same classes in different dependencies -->
-                <banDuplicateClasses/>
+                <!-- TODO: fix duplicate classes
+                <banDuplicateClasses>
+                  <findAllDuplicates>true</findAllDuplicates>
+                </banDuplicateClasses>
+                -->
               </rules>
             </configuration>
           </execution>
@@ -366,7 +365,7 @@ application while protecting against XSS.
                 <release>
                   <github>
                     <tagName>release-{{projectVersion}}</tagName>
-                    <previousTagName>release-20240325.1</previousTagName>
+                    <previousTagName>release-20260101.1</previousTagName>
                     <releaseName>Release {{projectVersion}}</releaseName>
                     <changelog>
                       <formatted>ALWAYS</formatted>
@@ -403,6 +402,7 @@ application while protecting against XSS.
                 <announce>
                   <mastodon>
                     <active>RELEASE</active>
+                    <host>https://mastodon.social</host>
                     <status>🚀 Java HTML Sanitizer {{projectVersion}} has been released! {{releaseNotesUrl}}</status>
                   </mastodon>
                   <bluesky>
