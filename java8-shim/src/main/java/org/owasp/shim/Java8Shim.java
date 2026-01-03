@@ -19,7 +19,7 @@ public abstract class Java8Shim {
             try {
                 // This is compiled with -release 1.9 in a separate project.
                 _instance = Class.forName("org.owasp.shim.ForJava9AndLater").newInstance();
-            } catch (Error e) {
+            } catch (Throwable e) {
                 // This is co-located with this project and is a fall-back.
                 _instance = Class.forName("org.owasp.shim.ForJava8").newInstance();
             }
