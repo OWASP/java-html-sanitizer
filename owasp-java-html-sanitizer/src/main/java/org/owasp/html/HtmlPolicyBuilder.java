@@ -967,9 +967,6 @@ public class HtmlPolicyBuilder {
      */
     @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder globally() {
-      if (attributeNames.contains("style")) {
-        allowStyling();
-      }
       return HtmlPolicyBuilder.this.allowAttributesGlobally(
           policy, attributeNames);
     }
