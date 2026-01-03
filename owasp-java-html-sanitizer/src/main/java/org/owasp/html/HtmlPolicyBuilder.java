@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -428,7 +429,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder requireRelsOnLinks(String... linkValues) {
     this.invalidateCompiledState();
     if (this.extraRelsForLinks == null) {
-      this.extraRelsForLinks = new HashSet<>();
+      this.extraRelsForLinks = new LinkedHashSet<>();
     }
     for (String linkValue : linkValues) {
       linkValue = HtmlLexer.canonicalKeywordAttributeValue(linkValue);
@@ -1112,8 +1113,8 @@ public class HtmlPolicyBuilder {
 
     public JoinableElementPolicy join(
         Iterable<? extends JoinableElementPolicy> toJoin) {
-      Set<String> extra = new HashSet<>();
-      Set<String> skip = new HashSet<>();
+      Set<String> extra = new LinkedHashSet<>();
+      Set<String> skip = new LinkedHashSet<>();
       for (JoinableElementPolicy ep : toJoin) {
         RelsOnLinksPolicy p = (RelsOnLinksPolicy) ep;
         extra.addAll(p.extra);
