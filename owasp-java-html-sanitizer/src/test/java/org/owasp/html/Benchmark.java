@@ -147,11 +147,8 @@ public class Benchmark {
     StringBuilder sb = new StringBuilder(html.length());
 
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
-        sb, new Handler<String>() {
-
-          public void handle(String x) {
-            throw new AssertionError(x);
-          }
+        sb, x -> {
+          throw new AssertionError(x);
         });
 
     HtmlSanitizer.sanitize(html, new HtmlSanitizer.Policy() {
@@ -206,10 +203,8 @@ public class Benchmark {
     StringBuilder sb = new StringBuilder(html.length());
 
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
-        sb, new Handler<String>() {
-          public void handle(String x) {
-            throw new AssertionError(x);
-          }
+        sb, x -> {
+          throw new AssertionError(x);
         });
 
     HtmlSanitizer.sanitize(html, policyBuilder.build(renderer));

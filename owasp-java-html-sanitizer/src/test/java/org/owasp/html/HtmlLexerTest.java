@@ -35,15 +35,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class HtmlLexerTest extends TestCase {
+class HtmlLexerTest {
 
   @Test
-  public final void testHtmlLexer() throws Exception {
+  void testHtmlLexer() throws Exception {
     // Do the lexing.
     String input = new String(Files.readAllBytes(Paths.get(getClass().getResource("htmllexerinput1.html").toURI())), StandardCharsets.UTF_8);
     // Normalize line endings in input to handle Windows/Unix differences
@@ -62,7 +61,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testEofInTag() {
+  void testEofInTag() {
     assertTokens("<div", "TAGBEGIN: <div");
     assertTokens("</div", "TAGBEGIN: </div");
     assertTokens("<div\n", "TAGBEGIN: <div");
@@ -74,7 +73,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testPartialTagInCData() {
+  void testPartialTagInCData() {
     assertTokens(
         "<script>w('</b')</script>",
         "TAGBEGIN: <script",
@@ -85,7 +84,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testUrlEndingInSlashOutsideQuotes() {
+  void testUrlEndingInSlashOutsideQuotes() {
     assertTokens(
         "<a href=http://foo.com/>Clicky</a>",
         "TAGBEGIN: <a",
@@ -98,7 +97,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testShortTags() {
+  void testShortTags() {
     // See comments in html-sanitizer-test.js as to why we don't bother with
     // short tags.  In short, they are not in HTML5 and not implemented properly
     // in existing HTML4 clients.

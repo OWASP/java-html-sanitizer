@@ -28,6 +28,8 @@
 
 package org.owasp.html;
 
+import org.junit.jupiter.api.Test;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -38,6 +40,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Throws malformed inputs at the HTML sanitizer to try and crash it.
  * This test is stochastic -- not guaranteed to pass or fail consistently.
@@ -46,10 +50,9 @@ import java.util.stream.Collectors;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-@SuppressWarnings("javadoc")
-public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
+class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
 
-  static final HtmlSanitizer.Policy DO_NOTHING_POLICY
+  private static final HtmlSanitizer.Policy DO_NOTHING_POLICY
       = new HtmlSanitizer.Policy() {
         public void openDocument() { /* do nothing */ }
         public void closeDocument() { /* do nothing */ }
@@ -60,7 +63,8 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
         public void text(String textChunk) { /* do nothing */ }
       };
 
-  public final void testFuzzHtmlParser() throws Exception {
+  @Test
+  void testFuzzHtmlParser() throws Exception {
     String html;
     try (InputStream resourceStream = getClass().getClassLoader()
         .getResourceAsStream("benchmark-data/Yahoo!.html")) {
@@ -136,22 +140,20 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
         fuzzyHtml1 = swap;
       }
       final String fuzzyHtml = new String(fuzzyHtml0);
-      executor.execute(new Runnable() {
-        public void run() {
-          try {
-            HtmlSanitizer.sanitize(fuzzyHtml, DO_NOTHING_POLICY);
-          } catch (Exception ex) {
-            System.err.println(
-                "Using seed " + seed + "L\n"
-                + "Failed on <<<" + fuzzyHtml + ">>>");
-            failures.add(ex);
-          }
+      executor.execute(() -> {
+        try {
+          HtmlSanitizer.sanitize(fuzzyHtml, DO_NOTHING_POLICY);
+        } catch (Exception ex) {
+          System.err.println(
+              "Using seed " + seed + "L\n"
+              + "Failed on <<<" + fuzzyHtml + ">>>");
+          failures.add(ex);
         }
       });
     }
     executor.shutdown();
     executor.awaitTermination(runCount * 4, TimeUnit.SECONDS);
-    assertTrue("seed=" + seed, executor.isTerminated());
+    assertTrue(executor.isTerminated(), "seed=" + seed);
     Throwable failure = failures.poll();
     if (failure != null) {
       if (failure instanceof RuntimeException) {

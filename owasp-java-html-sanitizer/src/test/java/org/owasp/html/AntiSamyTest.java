@@ -24,15 +24,19 @@
 
 package org.owasp.html;
 
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
 
-import junit.framework.AssertionFailedError;
-import junit.framework.Test;
-import junit.framework.TestCase;
-import junit.framework.TestSuite;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 /**
@@ -42,26 +46,19 @@ import junit.framework.TestSuite;
  * @author Arshan Dabirsiaghi
  *
  */
-@SuppressWarnings("javadoc")
-public class AntiSamyTest extends TestCase {
+class AntiSamyTest {
 
-  static final boolean RUN_KNOWN_FAILURES = false;
+  private static final boolean RUN_KNOWN_FAILURES = false;
 
   private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         buffer,
-        new Handler<IOException>() {
-          public void handle(IOException ex) {
-            AssertionFailedError failure = new AssertionFailedError();
-            failure.initCause(ex);
-            throw failure;
-          }
-        },
-        new Handler<String>() {
-          public void handle(String errorMessage) {
-            fail(errorMessage);
-          }
-        });
+            ex -> {
+              AssertionFailedError failure = new AssertionFailedError();
+              failure.initCause(ex);
+              throw failure;
+            },
+            Assertions::fail);
 
     return new HtmlPolicyBuilder()
         .allowElements(
@@ -73,12 +70,7 @@ public class AntiSamyTest extends TestCase {
         .allowAttributes("src").onElements("img")
         .allowAttributes("class", "id", "title").globally()
         .allowAttributes("char").matching(
-            new AttributePolicy() {
-              public String apply(
-                  String elementName, String attributeName, String value) {
-                return value.length() == 1 ? value : null;
-              }
-            }).onElements("td")
+                    (elementName, attributeName, value) -> value.length() == 1 ? value : null).onElements("td")
         .allowStandardUrlProtocols()
         .requireRelNofollowOnLinks()
         .allowStyling()
@@ -113,26 +105,12 @@ public class AntiSamyTest extends TestCase {
     "C3c+d5Q9lyTafPLdelG1TKaLFinw1TOjyI6KkrQyHKkttfnO58WFvScl1TiRcB/iHxKahskoE2+VRLUIhctuDU4sUvQh/g9Arw0LAA4QTxuLFt01XYdigurz4FT15ox2oDGGGrRb3VGjDTXK1OWVJoLMW95EVqyMc9F+Fdej85LHE+8WesIfacjUQtTG1tzYVQTfubZq0+qxXws8QrxMLFtVE38tbeXo+Ok1/U5TUa6FjWflEfvKY3XVcl8RKkXua7fVz/Blj8Gh+dWe2cOxa0lpM75ZHyz9adQrB2Pb4571E4u2xI5un0R0MFJZBQuPDc1G5rPhyk+Hb4LRG3dS0m8IASQUOskv93z978L1+Abu9CLP6d6s5p+BzWxhMUqwQXC/CCpTywrkJ0RG",
   };
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-  }
-
-  @Override
-  protected void tearDown() throws Exception {
-    super.tearDown();
-  }
-
-  public static Test suite() {
-    TestSuite suite = new TestSuite(AntiSamyTest.class);
-    return suite;
-  }
-
   /*
    * Test basic XSS cases.
    */
 
-  public static void testScriptAttacks() {
+  @Test
+  void testScriptAttacks() {
     assertSanitizedDoesNotContain("test<script>alert(document.cookie)</script>", "script");
     assertSanitizedDoesNotContain("test<script>alert(document.cookie)</script>", "script");
 
@@ -161,7 +139,8 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("<a onblur=\"alert(secret)\" href=\"http://www.google.com\">Google</a>", "alert");
   }
 
-  public static void testImgAttacks() {
+  @Test
+  void testImgAttacks() {
     assertSanitizedDoesContain("<img src=\"http://www.myspace.com/img.gif\"/>", "<img");
     assertSanitizedDoesContain("<img src=\"http://www.myspace.com/img.gif\"/>", "<img");
 
@@ -177,11 +156,11 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("<IMG SRC=\"jav&#x0D;ascript:alert('XSS');\">", "alert");
 
     String s = "<IMG SRC=&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041>";
-    if (sanitize(s).length() != 0) {
+    if (!sanitize(s).isEmpty()) {
       assertSanitizedDoesContain(s, "&amp;");
     }
     s = "<IMG SRC=&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041>";
-    if (sanitize(s).length() != 0) {
+    if (!sanitize(s).isEmpty()) {
       assertSanitizedDoesContain(s, "&amp;");
     }
 
@@ -198,7 +177,8 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("<BGSOUND SRC=\"javascript:alert('XSS');\">", "javascript");
   }
 
-  public static void testHrefAttacks() {
+  @Test
+  void testHrefAttacks() {
     assertSanitizedDoesNotContain("<LINK REL=\"stylesheet\" HREF=\"javascript:alert('XSS');\">", "href");
     assertSanitizedDoesNotContain("<LINK REL=\"stylesheet\" HREF=\"javascript:alert('XSS');\">", "href");
 
@@ -304,7 +284,8 @@ public class AntiSamyTest extends TestCase {
    * Test CSS protections.
    */
 
-  public static void testCssAttacks() {
+  @Test
+  void testCssAttacks() {
 
     assertSanitizedDoesNotContain("<div style=\"position:absolute\">", "position");
     assertSanitizedDoesNotContain("<div style=\"position:absolute\">", "position");
@@ -323,14 +304,15 @@ public class AntiSamyTest extends TestCase {
    * Test a bunch of strings that have tweaked the XML parsing capabilities of
    * NekoHTML.
    */
-  public static void testIllegalXML() throws Exception {
-    for (int i = 0; i < BASE64_BAD_XML_STRINGS.length; i++) {
-      String testStr = new String(
-          Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i]),
-          "UTF-8");
-      sanitize(testStr);
-      sanitize(testStr);
-    }
+  @Test
+  void testIllegalXML() {
+      for (String base64BadXmlString : BASE64_BAD_XML_STRINGS) {
+          String testStr = new String(
+                  Base64.decodeBase64(base64BadXmlString),
+                  StandardCharsets.UTF_8);
+          sanitize(testStr);
+          sanitize(testStr);
+      }
 
     // These fail in AntiSamy due to a bug in NekoHTML
     assertEquals(
@@ -340,10 +322,11 @@ public class AntiSamyTest extends TestCase {
         "<a href=\"http://www.test.com\" rel=\"nofollow\"></a>",
         sanitize("<a - href=\"http://www.test.com\">"));
 
-    assertTrue(sanitize("<style>") != null);
+      assertNotNull(sanitize("<style>"));
   }
 
-  public static void testPreviousBugs() {
+  @Test
+  void testPreviousBugs() {
 
     /*
      * issues 12 (and 36, which was similar). empty tags cause display
@@ -533,7 +516,7 @@ public class AntiSamyTest extends TestCase {
       String attack = "[if lte 8]<script>";
       String spacer = "<![if IE]>";
 
-      StringBuffer sb = new StringBuffer();
+      StringBuilder sb = new StringBuilder();
 
       sb.append("<div>text<!");
 
@@ -555,7 +538,7 @@ public class AntiSamyTest extends TestCase {
      */
     {
       String s = "<iframe src='http://foo.com/'></iframe>" + "<script src=''></script>" + "<link href='/foo.css'>";
-      assertEquals(s, "", sanitize(s));
+      assertEquals("", sanitize(s), s);
     }
 
     /* issue #51 - offsite urls with () are found to be invalid */
@@ -635,7 +618,8 @@ public class AntiSamyTest extends TestCase {
    * Tests cases dealing with nofollowAnchors directive. Assumes anchor tags
    * have an action set to "validate" (may be implicit) in the policy file.
    */
-  public static void testNofollowAnchors() {
+  @Test
+  void testNofollowAnchors() {
     // adds when not present
     assertSanitized("<a href=\"blah\">link</a>", "<a href=\"blah\" rel=\"nofollow\">link</a>");
 
@@ -655,7 +639,8 @@ public class AntiSamyTest extends TestCase {
     assertSanitizedDoesNotContain("a href=\"blah\">link</a>", "nofollow");
   }
 
-  public static void testValidateParamAsEmbed() {
+  @Test
+  void testValidateParamAsEmbed() {
     // let's start with a YouTube embed
     String input = "<object width=\"560\" height=\"340\"><param name=\"movie\" value=\"http://www.youtube.com/v/IyAyd4WnvhU&hl=en&fs=1&\"></param><param name=\"allowFullScreen\" value=\"true\"></param><param name=\"allowscriptaccess\" value=\"always\"></param><embed src=\"http://www.youtube.com/v/IyAyd4WnvhU&hl=en&fs=1&\" type=\"application/x-shockwave-flash\" allowscriptaccess=\"always\" allowfullscreen=\"true\" width=\"560\" height=\"340\"></embed></object>";
     String expectedOutput = "<object height=\"340\" width=\"560\"><param name=\"movie\" value=\"http://www.youtube.com/v/IyAyd4WnvhU&amp;hl=en&amp;fs=1&amp;\" /><param name=\"allowFullScreen\" value=\"true\" /><param name=\"allowscriptaccess\" value=\"always\" /><embed allowfullscreen=\"true\" allowscriptaccess=\"always\" height=\"340\" src=\"http://www.youtube.com/v/IyAyd4WnvhU&amp;hl=en&amp;fs=1&amp;\" type=\"application/x-shockwave-flash\" width=\"560\" /></object>";
@@ -684,7 +669,7 @@ public class AntiSamyTest extends TestCase {
     }
 
     if (RUN_KNOWN_FAILURES) {
-      assertTrue(sanitize(input).equals(saxExpectedOutput));
+        assertEquals(saxExpectedOutput, sanitize(input));
     } else {
       assertSanitized(input, "");
     }
@@ -715,9 +700,8 @@ public class AntiSamyTest extends TestCase {
     int index = Strings.toLowerCase(sanitized).indexOf(
         Strings.toLowerCase(dangerousContent));
     assertEquals(
-        "`" + sanitized + "` from `" + html + "` contains `" +
-        dangerousContent + "`",
-        -1, index);
+        -1, index,
+            "`" + sanitized + "` from `" + html + "` contains `" + dangerousContent + "`");
   }
 
   private static void assertSanitizedDoesContain(
@@ -726,9 +710,9 @@ public class AntiSamyTest extends TestCase {
     int index = Strings.toLowerCase(sanitized).indexOf(
         Strings.toLowerCase(dangerousContent));
     assertTrue(
-        "`" + sanitized + "` from `" + html + "` does not contain `" +
-        dangerousContent + "`",
-        index >= 0);
+            index >= 0,
+            "`" + sanitized + "` from `" + html + "` does not contain `" + dangerousContent + "`"
+        );
   }
 
   private static void assertSanitized(String html, String sanitized) {

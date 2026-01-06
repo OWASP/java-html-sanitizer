@@ -6,17 +6,15 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.owasp.html.ElementPolicy.REJECT_ALL_ELEMENT_POLICY;
 import static org.owasp.html.ElementPolicy.IDENTITY_ELEMENT_POLICY;
 import static org.owasp.html.ElementPolicy.Util.join;
 import static org.owasp.shim.Java8Shim.j8;
 
-@SuppressWarnings("javadoc")
-public final class ElementPolicyTest extends TestCase {
+class ElementPolicyTest {
 
   static class HasCharElementPolicy implements ElementPolicy {
     final char ch;
@@ -45,14 +43,14 @@ public final class ElementPolicyTest extends TestCase {
         actual.add(elName);
       }
     }
-    assertEquals(p.toString(), Arrays.asList(expected), actual);
+    assertEquals(Arrays.asList(expected), actual, p.toString());
   }
 
-  private static List<String> TEST_EL_NAMES = j8().listOf(
+  private static final List<String> TEST_EL_NAMES = j8().listOf(
       "abacus", "abracadabra", "bar", "foo", "far", "cadr", "cdr");
 
   @Test
-  public final void testJoin() {
+  void testJoin() {
     ElementPolicy a = new HasCharElementPolicy('a');
     ElementPolicy b = new HasCharElementPolicy('b');
     ElementPolicy c = new HasCharElementPolicy('c');

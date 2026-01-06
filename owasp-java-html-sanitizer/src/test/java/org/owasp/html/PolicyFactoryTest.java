@@ -32,17 +32,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings({ "javadoc" })
-public final class PolicyFactoryTest extends TestCase {
+class PolicyFactoryTest {
 
   @Test
-  public static void testAnd() {
+  void testAnd() {
     // Filters srcset to only contain URLs with the substring "foo"
     PolicyFactory f = new HtmlPolicyBuilder()
         .allowElements("img")
@@ -141,21 +139,11 @@ public final class PolicyFactoryTest extends TestCase {
 
       };
 
-      Handler<IOException> ioHandler = new Handler<IOException>() {
-
-        public void handle(IOException x) {
-          log.append("Handled IOException " + x.getMessage() + "\n");
-        }
-
-      };
+      Handler<IOException> ioHandler = x -> log.append("Handled IOException " + x.getMessage() + "\n");
 
       // Should not be called.
-      Handler<String> badHtmlHandler = new Handler<String>() {
-
-        public void handle(String x) {
-          throw new AssertionError(x);
-        }
-
+      Handler<String> badHtmlHandler = x -> {
+        throw new AssertionError(x);
       };
 
       // Wraps out to throw when a '!' is written to test the ioHandler.
@@ -193,10 +181,9 @@ public final class PolicyFactoryTest extends TestCase {
       HtmlSanitizer.sanitize(html, policy);
 
       assertEquals(
-          "i:" + i,
-
-          "Out:\n" + expectedOutput + "\n\nLog:\n" + expectedLog,
-          "Out:\n" + out + "\n\nLog:\n" + log);
+              "Out:\n" + expectedOutput + "\n\nLog:\n" + expectedLog,
+              "Out:\n" + out + "\n\nLog:\n" + log,
+              "i:" + i);
     }
   }
 
@@ -204,7 +191,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : X
   @Test
-  public void testHtmlTagSkipPolicy1() {
+  void testHtmlTagSkipPolicy1() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .toFactory();
@@ -225,7 +212,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : allow
   @Test
-  public void testHtmlTagSkipPolicy2() {
+  void testHtmlTagSkipPolicy2() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .toFactory();
@@ -247,7 +234,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : disallow
   @Test
-  public void testHtmlTagSkipPolicy3() {
+  void testHtmlTagSkipPolicy3() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .toFactory();
@@ -269,7 +256,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : X
   @Test
-  public void testHtmlTagSkipPolicy4() {
+  void testHtmlTagSkipPolicy4() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .allowWithoutAttributes("span")
@@ -291,7 +278,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : allow
   @Test
-  public void testHtmlTagSkipPolicy5() {
+  void testHtmlTagSkipPolicy5() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .allowWithoutAttributes("span")
@@ -314,7 +301,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : disallow
   @Test
-  public void testHtmlTagSkipPolicy6() {
+  void testHtmlTagSkipPolicy6() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .allowWithoutAttributes("span")
@@ -337,7 +324,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : X
   @Test
-  public void testHtmlTagSkipPolicy7() {
+  void testHtmlTagSkipPolicy7() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .disallowWithoutAttributes("span")
@@ -359,7 +346,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : allow
   @Test
-  public void testHtmlTagSkipPolicy8() {
+  void testHtmlTagSkipPolicy8() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .disallowWithoutAttributes("span")
@@ -382,7 +369,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : disallow
   @Test
-  public void testHtmlTagSkipPolicy9() {
+  void testHtmlTagSkipPolicy9() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("span")
             .disallowWithoutAttributes("span")
@@ -405,7 +392,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : X
   @Test
-  public void testHtmlTagSkipPolicy10() {
+  void testHtmlTagSkipPolicy10() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .toFactory();
@@ -426,7 +413,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : allow
   @Test
-  public void testHtmlTagSkipPolicy11() {
+  void testHtmlTagSkipPolicy11() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .toFactory();
@@ -448,7 +435,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : X
   // afterPolicy : disallow
   @Test
-  public void testHtmlTagSkipPolicy12() {
+  void testHtmlTagSkipPolicy12() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .toFactory();
@@ -470,7 +457,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : X
   @Test
-  public void testHtmlTagSkipPolicy13() {
+  void testHtmlTagSkipPolicy13() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .allowWithoutAttributes("p")
@@ -492,7 +479,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : allow
   @Test
-  public void testHtmlTagSkipPolicy14() {
+  void testHtmlTagSkipPolicy14() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .allowWithoutAttributes("p")
@@ -515,7 +502,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : allow
   // afterPolicy : disallow
   @Test
-  public void testHtmlTagSkipPolicy15() {
+  void testHtmlTagSkipPolicy15() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .allowWithoutAttributes("p")
@@ -538,7 +525,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : X
   @Test
-  public void testHtmlTagSkipPolicy16() {
+  void testHtmlTagSkipPolicy16() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .disallowWithoutAttributes("p")
@@ -560,7 +547,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : allow
   @Test
-  public void testHtmlTagSkipPolicy17() {
+  void testHtmlTagSkipPolicy17() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .disallowWithoutAttributes("p")
@@ -583,7 +570,7 @@ public final class PolicyFactoryTest extends TestCase {
   // beforePolicy : disallow
   // afterPolicy : disallow
   @Test
-  public void testHtmlTagSkipPolicy18() {
+  void testHtmlTagSkipPolicy18() {
     PolicyFactory beforePolicy = new HtmlPolicyBuilder()
             .allowElements("p")
             .disallowWithoutAttributes("p")
@@ -618,7 +605,7 @@ public final class PolicyFactoryTest extends TestCase {
           outParts.add(part);
         }
       }
-      return outParts.stream().collect(Collectors.joining(" , "));
+      return String.join(" , ", outParts);
     }
   }
 }

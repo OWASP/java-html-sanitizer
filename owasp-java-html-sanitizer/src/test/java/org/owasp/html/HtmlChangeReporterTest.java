@@ -28,19 +28,19 @@
 
 package org.owasp.html;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
-@SuppressWarnings("javadoc")
-public class HtmlChangeReporterTest extends TestCase {
+class HtmlChangeReporterTest {
 
   static class Context {
     // Opaque test value compared via equality.
   }
 
   @Test
-  public final void testChangeReporting() {
+  void testChangeReporting() {
     final Context testContext = new Context();
 
     StringBuilder out = new StringBuilder();
