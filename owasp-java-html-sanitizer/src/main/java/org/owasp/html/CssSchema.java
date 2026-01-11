@@ -355,6 +355,9 @@ public final class CssSchema {
     Set<String> bottomLiterals0 = j8().setOf("auto", "inherit");
     Set<String> boxShadowLiterals0 = j8().setOf(
         ",", "inset", "none");
+
+    Map<String, String> maxWidthFunctions = j8().mapOfEntries(j8().mapEntry("calc(", "calc()"));
+
     Set<String> clearLiterals0 = j8().setOf(
         "both", "inherit", "none");
     Map<String, String> clipFunctions =
@@ -668,6 +671,8 @@ public final class CssSchema {
     builder.put("margin", margin);
     Property maxHeight = new Property(1, maxHeightLiterals0, zeroFns);
     builder.put("max-height", maxHeight);
+    Property maxWidth = new Property(1, maxHeightLiterals0, maxWidthFunctions);
+    builder.put("max-width", maxWidth);
     Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);
     builder.put("opacity", opacity);
     builder.put("overflow", new Property(0, overflowLiterals0, zeroFns));
@@ -757,6 +762,8 @@ public final class CssSchema {
     builder.put("rgba()", rgb$Fun);
     builder.put("hsl()", rgb$Fun);
     builder.put("hsla()", rgb$Fun);
+    Property calc$Fun = new Property(1, j8().setOf(), zeroFns);
+    builder.put("calc()", calc$Fun);
     @SuppressWarnings("unchecked")
     Property image$Fun = new Property(
         18, union(mozOutlineLiterals0, rgb$FunLiterals0), mozOutlineFunctions);
@@ -976,6 +983,7 @@ public final class CssSchema {
       "rgba()",
       "hsl()",
       "hsla()",
+      "calc()",
       "richness",
       "speak",
       "speak-header",
