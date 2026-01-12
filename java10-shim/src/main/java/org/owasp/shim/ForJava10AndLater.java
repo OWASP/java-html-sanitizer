@@ -3,7 +3,7 @@ package org.owasp.shim;
 import java.util.*;
 
 @SuppressWarnings("Since15") // We're compiling two versions to handle @since problems.
-final class ForJava9AndLater extends Java8Shim {
+final class ForJava10AndLater extends Java8Shim {
 
     @Override public <T> List<T> listOf() {
         return List.of();
