@@ -42,7 +42,7 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
  * ones to reduce the attack-surface.
  */
 @TCB
-final class StylingPolicy implements JoinableAttributePolicy {
+public final class StylingPolicy implements JoinableAttributePolicy {
 
   final CssSchema cssSchema;
   final Function<String, String> urlRewriter;
