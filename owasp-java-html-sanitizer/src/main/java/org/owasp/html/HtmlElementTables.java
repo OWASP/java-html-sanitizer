@@ -109,7 +109,7 @@ public final class HtmlElementTables {
     LI_TAG = indexForName("li");
     SELECT_TAG = indexForName("select");
     OPTION_TAG = indexForName("option");
-    OPTGROUP_TAG = indexForName("opgroup");
+    OPTGROUP_TAG = indexForName("optgroup");
     SCRIPT_TAG = indexForName("script");
     STYLE_TAG = indexForName("style");
     TABLE_TAG = indexForName("table");

@@ -69,7 +69,7 @@ perl -i.bak \
      -pe 'if (m/^  [*] / && !$added) { $_ = qq(  * Release $ENV{"NEW_VERSION"}\n$_); $added = 1; }' \
      change_log.md
 
-$EDITOR change_log.md
+$EDITOR change_log.md SECURITY.md
 
 # A dry run.
 mvn -f pom.xml clean source:jar javadoc:jar verify \
