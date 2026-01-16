@@ -33,11 +33,14 @@ import java.util.EnumMap;
 import java.util.Random;
 import java.util.regex.Pattern;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.owasp.html.CssTokens.TokenType;
 
-@SuppressWarnings("javadoc")
-public class CssFuzzerTest extends FuzzyTestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
+
+class CssFuzzerTest extends FuzzyTestCase {
 
   private static final String[] TOKEN_PARTS = new String[] {
     "'", "\"", "<!--", "-->", "/*", "*/", "***", "//", "\r", "\n",
@@ -79,7 +82,7 @@ public class CssFuzzerTest extends FuzzyTestCase {
   }
 
   @Test
-  public final void testUnderStress() {
+  void testUnderStress() {
     Random r = this.rnd;
     Watcher watcher = new Watcher();
     Thread watcherThread = null;
@@ -122,17 +125,17 @@ public class CssFuzzerTest extends FuzzyTestCase {
             System.err.println(it.token() + ":" + it.type());
           }
           assertEquals(
-              "not idempotent, " + msg,
               tokens.normalizedCss,
-              renormalized);
+              renormalized,
+              "not idempotent, " + msg);
         }
       }
 
       // Test normalized CSS does not contain HTML/XML breaking tokens.
       for (String disallowed : DISALLOWED_IN_OUTPUT) {
         assertFalse(
-            "contains " + disallowed + ", " + msg,
-            tokens.normalizedCss.contains(disallowed));
+            tokens.normalizedCss.contains(disallowed),
+            "contains " + disallowed + ", " + msg);
       }
 
       // Test that tokens are roughly well-formed.
@@ -158,7 +161,7 @@ public class CssFuzzerTest extends FuzzyTestCase {
       }
       for (int j = 0; j < nTokens; ++j) {
         if (reverse[j] != -1) {
-          assertEquals(msg, reverse[reverse[j]], j);
+          assertEquals(reverse[reverse[j]], j, msg);
         }
       }
     }

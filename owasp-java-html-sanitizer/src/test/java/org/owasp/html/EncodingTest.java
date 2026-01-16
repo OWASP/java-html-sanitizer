@@ -28,12 +28,12 @@
 
 package org.owasp.html;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
-@SuppressWarnings("javadoc")
-public final class EncodingTest extends TestCase {
+class EncodingTest {
   private static void assertDecodedHtml(String want, String inputHtml) {
     assertDecodedHtml(want, want, inputHtml);
   }
@@ -42,19 +42,19 @@ public final class EncodingTest extends TestCase {
       String wantText, String wantAttr, String inputHtml
   ) {
     assertEquals(
-        "!inAttribute: " + inputHtml,
         wantText,
-        Encoding.decodeHtml(inputHtml, false)
+        Encoding.decodeHtml(inputHtml, false),
+        "!inAttribute: " + inputHtml
     );
     assertEquals(
-        "inAttribute: " + inputHtml,
         wantAttr,
-        Encoding.decodeHtml(inputHtml, true)
+        Encoding.decodeHtml(inputHtml, true),
+        "inAttribute: " + inputHtml
     );
   }
 
   @Test
-  public static final void testDecodeHtml() {
+  void testDecodeHtml() {
     String html =
       "The quick&nbsp;brown fox&#xa;jumps over&#xd;&#10;the lazy dog&#x000a;";
     //          1         2         3         4         5         6
@@ -148,7 +148,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testAppendNumericEntityAndEncodeOnto()
+  void testAppendNumericEntityAndEncodeOnto()
       throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
@@ -175,7 +175,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testAngularJsBracesInTextNode() throws Exception {
+  void testAngularJsBracesInTextNode() throws Exception {
     StringBuilder sb = new StringBuilder();
 
     Encoding.encodePcdataOnto("{{angularVariable}}", sb);
@@ -188,20 +188,20 @@ public final class EncodingTest extends TestCase {
     assertEquals("{<!-- -->{angularVariable}}", sb.toString());
   }
 
-  private static final void assertStripped(String stripped, String orig) {
+  private static void assertStripped(String stripped, String orig) {
     String actual = Encoding.stripBannedCodeunits(orig);
-    assertEquals(orig, stripped, actual);
+    assertEquals(stripped, actual, orig);
     if (stripped.equals(orig)) {
       assertSame(actual, orig);
     }
 
     StringBuilder sb = new StringBuilder(orig);
     Encoding.stripBannedCodeunits(sb);
-    assertEquals(orig, stripped, sb.toString());
+    assertEquals(stripped, sb.toString(), orig);
   }
 
   @Test
-  public static final void testStripBannedCodeunits() {
+  void testStripBannedCodeunits() {
     assertStripped("", "");
     assertStripped("foo", "foo");
     assertStripped("foobar", "foo\u0000bar");
@@ -218,9 +218,8 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final
-  void testBadlyDonePostProcessingWillnotAllowInsertingNonceAttributes()
-  throws Exception {
+  void testBadlyDonePostProcessingWillNotAllowInsertingNonceAttributes()
+      throws Exception {
     // Some clients do ad-hoc post processing of the output.
     // String replace of {{...}} shouldn't turn
     //   <span title="{{">}} <br class="a nonce=xyz "></span>

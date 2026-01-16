@@ -30,16 +30,15 @@ package org.owasp.html;
 
 import java.io.IOException;
 
-import junit.framework.TestCase;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.owasp.html.examples.UrlTextExample;
 
-@SuppressWarnings("javadoc")
-public final class UrlTextExampleTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class UrlTextExampleTest {
 
   @Test
-  public static void testExample() throws IOException {
+  void testExample() throws IOException {
     StringBuilder out = new StringBuilder();
     UrlTextExample.run(
         out,

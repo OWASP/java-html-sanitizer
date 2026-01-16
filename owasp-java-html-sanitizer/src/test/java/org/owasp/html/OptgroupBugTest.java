@@ -1,9 +1,10 @@
 package org.owasp.html;
 
-import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.Test;
 
-public class OptgroupBugTest {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class OptgroupBugTest {
     
     /**
      * Test that optgroup elements inside select are not corrupted with extra select tags.
@@ -12,7 +13,7 @@ public class OptgroupBugTest {
      * After fix:  <select><optgroup><option></option></optgroup></select>
      */
     @Test
-    public void testOptgroupInsideSelectDoesNotAddExtraSelectTags() {
+    void testOptgroupInsideSelectDoesNotAddExtraSelectTags() {
         PolicyFactory factory = new HtmlPolicyBuilder()
             .allowElements("select", "optgroup", "option")
             .allowAttributes("label").globally()

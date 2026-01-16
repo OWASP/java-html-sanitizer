@@ -1,14 +1,13 @@
 package org.owasp.html;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings({ "javadoc" })
-public final class StringsTest extends TestCase {
+class StringsTest {
 
   @Test
-  public static void testValidFloatingPointNumber() {
+  void testValidFloatingPointNumber() {
     assertEquals(
         -1,
         Strings.skipValidFloatingPointNumber("", 0));

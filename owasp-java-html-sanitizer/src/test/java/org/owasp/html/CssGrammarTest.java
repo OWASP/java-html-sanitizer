@@ -29,28 +29,24 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class CssGrammarTest extends TestCase {
+class CssGrammarTest  {
   @Test
-  public static final void testLex() {
-    CssTokens tokens = CssTokens.lex(Arrays.stream(new String[] {
-        "/* A comment */",
-        "words with-dashes #hashes .dots. -and-leading-dashes",
-        "quantities: 3px 4ex -.5pt 12.5%",
-        "punctuation: { ( } / , ;",
-        "[ url( http://example.com )",
-        "rgb(255, 127, 127)",
-        "'strings' \"oh \\\"my\" 'foo bar'",
-        "color:blue!important",
-        ""}).collect(Collectors.joining("\n")));
+  void testLex() {
+    CssTokens tokens = CssTokens.lex(String.join("\n", "/* A comment */",
+            "words with-dashes #hashes .dots. -and-leading-dashes",
+            "quantities: 3px 4ex -.5pt 12.5%",
+            "punctuation: { ( } / , ;",
+            "[ url( http://example.com )",
+            "rgb(255, 127, 127)",
+            "'strings' \"oh \\\"my\" 'foo bar'",
+            "color:blue!important",
+            ""));
 
     List<String> actualTokens = new ArrayList<>();
     for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
@@ -62,53 +58,52 @@ public class CssGrammarTest extends TestCase {
     }
 
     assertEquals(
-        Arrays.stream(new String[] {
-            // "/* A comment */",  // Comments are elided.
-            "words:IDENT",
-            "with-dashes:IDENT",
-            "#hashes:HASH_ID",
-            ".dots:DOT_IDENT",
-            ".:DELIM",
-            "-and-leading-dashes:IDENT",
-            "quantities:IDENT",
-            "::COLON",
-            "3px:DIMENSION",
-            "4ex:DIMENSION",
-            "-0.5pt:DIMENSION",
-            "12.5%:PERCENTAGE",
-            "punctuation:IDENT",
-            "::COLON",
-            "{:LEFT_CURLY",
-            "(:LEFT_PAREN",  // Explicit
-            "):RIGHT_PAREN",  // Implicit closing bracket to keep balance.
-            "}:RIGHT_CURLY",
-            "/:DELIM",
-            ",:COMMA",
-            ";:SEMICOLON",
-            "[:LEFT_SQUARE",
-            "url('http://example.com'):URL",
-            "rgb(:FUNCTION",
-            "255:NUMBER",
-            ",:COMMA",
-            "127:NUMBER",
-            ",:COMMA",
-            "127:NUMBER",
-            "):RIGHT_PAREN",
-            "'strings':STRING",
-            "'oh \\22my':STRING",
-            "'foo bar':STRING",
-            "color:IDENT",
-            "::COLON",
-            "blue:IDENT",
-            "!:DELIM",
-            "important:IDENT",
-            "]:RIGHT_SQUARE"  // Manufactured due to unmatched '['.
-        }).collect(Collectors.joining("\n")),
-        actualTokens.stream().collect(Collectors.joining("\n")));
+            String.join("\n", // "/* A comment */",  // Comments are elided.
+                    "words:IDENT",
+                    "with-dashes:IDENT",
+                    "#hashes:HASH_ID",
+                    ".dots:DOT_IDENT",
+                    ".:DELIM",
+                    "-and-leading-dashes:IDENT",
+                    "quantities:IDENT",
+                    "::COLON",
+                    "3px:DIMENSION",
+                    "4ex:DIMENSION",
+                    "-0.5pt:DIMENSION",
+                    "12.5%:PERCENTAGE",
+                    "punctuation:IDENT",
+                    "::COLON",
+                    "{:LEFT_CURLY",
+                    "(:LEFT_PAREN",  // Explicit
+                    "):RIGHT_PAREN",  // Implicit closing bracket to keep balance.
+                    "}:RIGHT_CURLY",
+                    "/:DELIM",
+                    ",:COMMA",
+                    ";:SEMICOLON",
+                    "[:LEFT_SQUARE",
+                    "url('http://example.com'):URL",
+                    "rgb(:FUNCTION",
+                    "255:NUMBER",
+                    ",:COMMA",
+                    "127:NUMBER",
+                    ",:COMMA",
+                    "127:NUMBER",
+                    "):RIGHT_PAREN",
+                    "'strings':STRING",
+                    "'oh \\22my':STRING",
+                    "'foo bar':STRING",
+                    "color:IDENT",
+                    "::COLON",
+                    "blue:IDENT",
+                    "!:DELIM",
+                    "important:IDENT",
+                    "]:RIGHT_SQUARE"  // Manufactured due to unmatched '['.
+            ),
+            String.join("\n", actualTokens));
   }
 
   @Test
-  public static final void testCssContent() {
+  void testCssContent() {
     assertEquals("", CssGrammar.cssContent(""));
     assertEquals("azimuth", CssGrammar.cssContent("\\61zimuth"));
     assertEquals("table-cell", CssGrammar.cssContent("t\\61\tble-cell"));

@@ -34,15 +34,15 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.owasp.html.examples.EbayPolicyExample;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class ExamplesTest extends TestCase {
+class ExamplesTest {
+
   @Test
-  public static final void testExamplesRun() throws Exception {
+  void testExamplesRun() throws Exception {
     InputStream stdin = System.in;
     PrintStream stdout = System.out;
     PrintStream stderr = System.err;
@@ -65,7 +65,7 @@ public class ExamplesTest extends TestCase {
             "Example " + exampleClass.getSimpleName() + "\n"
             + captured.toString("UTF-8"));
         if (ex instanceof RuntimeException) {
-          throw (RuntimeException) ex;
+          throw ex;
         } else {
           throw new AssertionError(null, ex);
         }
@@ -78,7 +78,7 @@ public class ExamplesTest extends TestCase {
   }
 
   @Test
-  public static final void testSanitizeRemovesScripts() {
+  void testSanitizeRemovesScripts() {
     String input =
       "<p>Hello World</p>"
       + "<script language=\"text/javascript\">alert(\"bad\");</script>";
@@ -87,14 +87,14 @@ public class ExamplesTest extends TestCase {
   }
 
   @Test
-  public static final void testSanitizeRemovesOnclick() {
+  void testSanitizeRemovesOnclick() {
     String input = "<p onclick=\"alert(\"bad\");\">Hello World</p>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals("<p>Hello World</p>", sanitized);
   }
 
   @Test
-  public static final void testTextAllowedInLinks() {
+  void testTextAllowedInLinks() {
     String input = "<a href=\"../good.html\">click here</a>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals(

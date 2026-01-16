@@ -28,8 +28,6 @@
 
 package org.owasp.html;
 
-import org.junit.Test;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -38,13 +36,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("javadoc")
-public class SanitizersTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class SanitizersTest {
 
   @Test
-  public static final void testFormatting() {
+  void testFormatting() {
     assertEquals("", Sanitizers.FORMATTING.sanitize(null));
     assertEquals("", Sanitizers.FORMATTING.sanitize(""));
     assertEquals(
@@ -60,7 +59,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testBlockElements() {
+  void testBlockElements() {
     assertEquals("", Sanitizers.BLOCKS.sanitize(null));
     assertEquals(
         "Hello, World!",
@@ -75,7 +74,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testBlockAndFormattingElements() {
+  void testBlockAndFormattingElements() {
     PolicyFactory s = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
     PolicyFactory r1 = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
         .and(Sanitizers.BLOCKS);
@@ -92,7 +91,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testStylesAndFormatting() {
+  void testStylesAndFormatting() {
     PolicyFactory sanitizer = Sanitizers.FORMATTING
       .and(Sanitizers.BLOCKS).and(Sanitizers.STYLES).and(Sanitizers.LINKS);
     String input = "<span style=\"font-weight:bold;"
@@ -104,7 +103,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testAndIntersects() {
+  void testAndIntersects() {
     PolicyFactory restrictedLink = new HtmlPolicyBuilder()
        .allowElements("a")
        .allowUrlProtocols("https")
@@ -117,28 +116,28 @@ public class SanitizersTest extends TestCase {
     PolicyFactory and1 = restrictedLink.and(inline);
     PolicyFactory and2 = inline.and(restrictedLink);
     assertEquals(
-        "https-only links",
         "Hello, World<a title=\"!\" href=\"https://foo.com/#!\">!</a>",
-        restrictedLink.sanitize(inputHtml));
+        restrictedLink.sanitize(inputHtml),
+        "https-only links");
     assertEquals(
-        "inline els",
         "<a href=\"http://foo.com/\" rel=\"nofollow\">Hello, <b>World</b></a>"
         + "<a href=\"https://foo.com/#!\" rel=\"nofollow\">!</a>",
-        inline.sanitize(inputHtml));
+        inline.sanitize(inputHtml),
+        "inline els");
     assertEquals(
-        "https-only links and inline els",
         "Hello, <b>World</b>"
         + "<a title=\"!\" href=\"https://foo.com/#!\" rel=\"nofollow\">!</a>",
-        and1.sanitize(inputHtml));
+        and1.sanitize(inputHtml),
+        "https-only links and inline els");
     assertEquals(
-        "inline els and https-only links",
         "Hello, <b>World</b>"
         + "<a title=\"!\" href=\"https://foo.com/#!\" rel=\"nofollow\">!</a>",
-        and2.sanitize(inputHtml));
+        and2.sanitize(inputHtml),
+        "inline els and https-only links");
   }
 
   @Test
-  public static final void testImages() {
+  void testImages() {
     PolicyFactory s = Sanitizers.IMAGES;
     assertEquals(
         "foo", s.sanitize("<a href=\"javascript:alert(1337)\">foo</a>"));
@@ -159,7 +158,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testIntegerAttributePolicy() {
+  void testIntegerAttributePolicy() {
     PolicyFactory s = Sanitizers.IMAGES;
     assertEquals(
             "<img src=\"x.png\" alt=\"y\" height=\"0\" border=\"0\" />",
@@ -211,7 +210,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testLinks() {
+  void testLinks() {
     PolicyFactory s = Sanitizers.LINKS;
     assertEquals(
         "<a href=\"foo.html\" rel=\"nofollow\">Link text</a>",
@@ -253,7 +252,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testLinksRelAttributeAdditionsOrder() {
+  void testLinksRelAttributeAdditionsOrder() {
     // Issue 336.
     PolicyFactory pf = Sanitizers.LINKS.and(
             new HtmlPolicyBuilder()
@@ -277,7 +276,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testExplicitlyAllowedProtocolsAreCaseInsensitive() {
+  void testExplicitlyAllowedProtocolsAreCaseInsensitive() {
     // Issue 24.
     PolicyFactory s = new HtmlPolicyBuilder()
         .allowElements("a")
@@ -299,7 +298,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testIssue9StylesInTables() {
+  void testIssue9StylesInTables() {
     String input = ""
         + "<table style=\"color: rgb(0, 0, 0);"
         + " font-family: Arial, Geneva, sans-serif;\">"
@@ -347,7 +346,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testSkipIfEmptyUnionsProperly() {
+  void testSkipIfEmptyUnionsProperly() {
     // Issue 23
     PolicyFactory extras = new HtmlPolicyBuilder()
         .allowWithoutAttributes("span", "div")
@@ -371,18 +370,18 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testIssue30() {
+  void testIssue30() {
     String test = "&nbsp;&gt;";
 
     PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.BLOCKS)
       .and(Sanitizers.STYLES);
     String safeHTML = policy.sanitize(test);
 
-    assertEquals(test, "\u00a0&gt;", safeHTML);
+    assertEquals("\u00a0&gt;", safeHTML, test);
   }
 
   @Test
-  public static final void testScriptInTable() {
+  void testScriptInTable() {
     String input = "<table>Hallo\r\n<script>SCRIPT</script>\nEnde\n\r";
     PolicyFactory pf = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
       .and(Sanitizers.LINKS)
@@ -393,7 +392,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testAndOrdering() {
+  void testAndOrdering() {
     String input = ""
         + "xss<a href=\"http://www.google.de\" style=\"color:red\""
         + " onmouseover=alert(1) onmousemove=\"alert(2)\" onclick=alert(3)>"
@@ -417,12 +416,12 @@ public class SanitizersTest extends TestCase {
         policyFactory = policyFactory.and(p);
       }
       String got = policyFactory.sanitize(input);
-      assertEquals(permutation.toString(), want, got);
+      assertEquals(want, got, permutation.toString());
     }
   }
 
   @Test
-  public static final void testAngularBindingsInSanitizedCode() {
+  void testAngularBindingsInSanitizedCode() {
     PolicyFactory s = new HtmlPolicyBuilder()
         .allowElements("a", "b", "title")
         .allowAttributes("href").onElements("a")
@@ -460,7 +459,8 @@ public class SanitizersTest extends TestCase {
     assertEquals(safe, sanitized);
   }
 
-  @Test public static final void testIssue46() {
+  @Test
+  void testIssue46() {
     PolicyFactory s = new HtmlPolicyBuilder()
         .allowWithoutAttributes("span")
         .allowElements("span")
@@ -476,7 +476,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testSpacesAroundURLAttributeValues() {
+  void testSpacesAroundURLAttributeValues() {
     PolicyFactory s = new HtmlPolicyBuilder()
         .allowStandardUrlProtocols()
         .allowElements("a")
@@ -492,7 +492,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testStyleTagInTable() {
+  void testStyleTagInTable() {
     String input = ""
         + "<table>"
         + "<style></style>"
@@ -511,7 +511,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testStyleTagsInAllTheWrongPlaces() {
+  void testStyleTagsInAllTheWrongPlaces() {
     String input = ""
       + "<select><option><style><script>alert(1)</script></style></option></select>"
       + "<svg><style>.r { color: red }</style></svg>"
@@ -534,7 +534,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testSelectIsOdd() {
+  void testSelectIsOdd() {
     // Special text modes interact badly with select and option
     String input = "<select><option><xmp><script>alert(1)</script></xmp></option></select>";
     PolicyFactory pf = new HtmlPolicyBuilder()
@@ -551,7 +551,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testOptionAllowsText() {
+  void testOptionAllowsText() {
     String input = "<select><option><pre>code goes here</pre></option></select>";
     PolicyFactory pf = new HtmlPolicyBuilder()
             .allowElements("option", "select", "pre")
@@ -567,7 +567,7 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
-  public static final void testStyleGlobally() {
+  void testStyleGlobally() {
     PolicyFactory policyBuilder = new HtmlPolicyBuilder()
         .allowAttributes("style").globally()
         .allowElements("a", "label", "h1", "h2", "h3", "h4", "h5", "h6")
@@ -596,14 +596,13 @@ public class SanitizersTest extends TestCase {
     /** Permutation size. */
     final int k;
 
-    Permutations(@SuppressWarnings("unchecked") T... elements) {
+    Permutations(T... elements) {
       this(elements.length, elements);
     }
 
-    Permutations(int k, @SuppressWarnings("unchecked") T... elements) {
+    Permutations(int k, T... elements) {
       this.k = k;
-      List<T> builder = new ArrayList<>();
-      Arrays.stream(elements).forEach(builder::add);
+        List<T> builder = new ArrayList<>(Arrays.asList(elements));
       this.elements = Collections.unmodifiableList(builder);
     }
 

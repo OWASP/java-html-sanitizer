@@ -28,18 +28,16 @@
 
 package org.owasp.html;
 
-import java.util.function.Function;
-
 import javax.annotation.Nullable;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class StylingPolicyTest extends TestCase {
+class StylingPolicyTest {
+
   @Test
-  public static final void testNothingToOutput() {
+  void testNothingToOutput() {
     assertSanitizedCss(null, "");
     assertSanitizedCss(null, "/** no CSS here */");
     assertSanitizedCss(null, "/* props: disabled; font-weight: bold */");
@@ -49,7 +47,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testColors() {
+  void testColors() {
     assertSanitizedCss("color:red", "color: red");
     assertSanitizedCss("background-color:#f00", "background-color: #f00");
     assertSanitizedCss("background:#f00", "background: #f00");
@@ -76,7 +74,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testFontWeight() {
+  void testFontWeight() {
     assertSanitizedCss(
         "font-weight:bold", "font-weight: bold");
     assertSanitizedCss(
@@ -93,7 +91,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testFontStyle() {
+  void testFontStyle() {
     assertSanitizedCss(
         "font-style:italic", "font-style: Italic");
     assertSanitizedCss(
@@ -105,7 +103,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testFontFace() {
+  void testFontFace() {
     assertSanitizedCss(
         "font:'arial' , 'helvetica'", "font: Arial, Helvetica");
     assertSanitizedCss(
@@ -135,7 +133,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testFont() {
+  void testFont() {
     assertSanitizedCss(
         "font:'arial' 12pt bold oblique",
         "font: Arial 12pt bold oblique");
@@ -159,7 +157,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testBidiAndAlignmentAttributes() {
+  void testBidiAndAlignmentAttributes() {
     assertSanitizedCss(
         "text-align:left;unicode-bidi:embed;direction:ltr",
         "Text-align: left; Unicode-bidi: Embed; Direction: LTR;");
@@ -173,7 +171,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testTextDecoration() {
+  void testTextDecoration() {
     assertSanitizedCss(
         "text-decoration:underline",
         "Text-Decoration: Underline");
@@ -189,7 +187,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testBoxProperties() {
+  void testBoxProperties() {
     // http://www.w3.org/TR/CSS2/box.html
     assertSanitizedCss("height:0", "height:0");
     assertSanitizedCss("width:0", "width:0");
@@ -220,7 +218,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testLongUrls() {
+  void testLongUrls() {
     // Test that a long URL does not blow out the stack or consume quadratic
     // amounts of processor as when the CSS lexer was implemented as a bunch of
     // regular expressions.
@@ -301,7 +299,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testUrls() {
+  void testUrls() {
     assertSanitizedCss(
         "background-image:url('foo.gif#sanitized')",
         "background-image: \"foo.gif\"");
@@ -323,7 +321,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testImportant() {
+  void testImportant() {
     assertSanitizedCss(
         "color:blue !important",
         "color:blue !important");
@@ -336,7 +334,7 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
-  public static final void testCdoCdc() {
+  void testCdoCdc() {
     // No <!-- or --> in output.
     assertSanitizedCss("font-family:'a--' 'b'", "font-family: a--\\>b");
     assertSanitizedCss("font-family:'a' '--b'", "font-family: a<\\!--b");
@@ -348,16 +346,14 @@ public class StylingPolicyTest extends TestCase {
       @Nullable String expectedCss, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(
         CssSchema.DEFAULT,
-        new Function<String, String>() {
-          public String apply(String url) {
-            String safeUrl =
-                StandardUrlAttributePolicy.INSTANCE.apply("img", "src", url);
-            if (safeUrl != null) {
-              return safeUrl + "#sanitized";
-            }
-            return null;
-          }
-        });
+            url -> {
+              String safeUrl =
+                  StandardUrlAttributePolicy.INSTANCE.apply("img", "src", url);
+              if (safeUrl != null) {
+                return safeUrl + "#sanitized";
+              }
+              return null;
+            });
     assertEquals(expectedCss, stylingPolicy.sanitizeCssProperties(css));
   }
 }

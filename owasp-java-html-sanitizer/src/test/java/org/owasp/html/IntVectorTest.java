@@ -3,15 +3,15 @@ package org.owasp.html;
 import java.util.LinkedList;
 import java.util.Random;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SuppressWarnings("javadoc")
-public final class IntVectorTest extends TestCase {
+class IntVectorTest {
 
   @Test
-  public static void testIntVector() {
+  void testIntVector() {
     Random r = new Random(0xA03B79241106C82FL);
 
     IntVector iv = new IntVector();
@@ -51,7 +51,7 @@ public final class IntVectorTest extends TestCase {
   }
 
   @Test
-  public static void testLastIndexOf() {
+  void testLastIndexOf() {
     IntVector v = new IntVector();
     for (int i = 0; i < 30; ++i) {
       v.add(i);
