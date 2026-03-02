@@ -156,6 +156,18 @@ public class SanitizersTest extends TestCase {
         s.sanitize(
             "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=64 border=0>")
         );
+    assertEquals(
+            "<img src=\"test.jpg\" loading=\"lazy\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"lazy\">"));
+    assertEquals(
+            "<img src=\"test.jpg\" loading=\"eager\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"eager\">"));
+    assertEquals(
+            "<img src=\"test.jpg\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"auto\">"));
+    assertEquals(
+            "<img src=\"test.jpg\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"javascript:alert(1337)\">"));
   }
 
   @Test
@@ -208,6 +220,24 @@ public class SanitizersTest extends TestCase {
             s.sanitize(
                 "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=596thin border=0>")
             );
+  }
+
+  @Test
+  public static final void testTableColspanRowspan() {
+    PolicyFactory s = Sanitizers.TABLES;
+
+    assertEquals(
+        "<table><tbody><tr><td colspan=\"3\">cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td colspan=\"3\">cell</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td rowspan=\"4\">cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td rowspan=\"4\">cell</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td colspan=\"three\">cell</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td colspan=\"3\">cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td colspan=\"3.5\">cell</td></tr></table>"));
   }
 
   @Test
