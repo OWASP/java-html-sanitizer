@@ -607,6 +607,25 @@ public class SanitizersTest extends TestCase {
     assertEquals(want, policyBuilder.sanitize(input));
   }
 
+  /**
+   * Regression test for
+   * <a href="https://github.com/OWASP/java-html-sanitizer/issues/237">#237</a>:
+   * other attributes allowed globally alongside {@code style} must survive,
+   * and {@code style} must still be filtered through the CSS schema.
+   */
+  @Test
+  public static final void testStyleWithOtherAttributesGlobally() {
+    PolicyFactory policyBuilder = new HtmlPolicyBuilder()
+        .allowAttributes("style", "align").globally()
+        .allowElements("a", "label", "h1", "h2", "h3", "h4", "h5", "h6")
+        .toFactory();
+    String input = "<h1 style=\"color:green ;name:user ;\" align=\"center\">"
+        + "This is some green centered text</h1>";
+    String want = "<h1 style=\"color:green\" align=\"center\">"
+        + "This is some green centered text</h1>";
+    assertEquals(want, policyBuilder.sanitize(input));
+  }
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {
