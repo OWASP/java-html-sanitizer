@@ -153,7 +153,7 @@ of the output.
 
 ## Telemetry
 
-When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/HtmlChangeListener.html).
+When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlChangeListener.html).
 
 You can use this to keep track of policy violation trends and find out when someone
 is making an effort to breach your security.
