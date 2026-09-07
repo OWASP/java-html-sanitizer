@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
   <artifactId>parent</artifactId>
-  <version>20240325.2-SNAPSHOT</version>
+  <version>20000101-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -20,10 +20,11 @@ lets you include HTML authored by third-parties in your web
 application while protecting against XSS.
   </description>
   <url>https://github.com/OWASP/java-html-sanitizer</url>
+  <inceptionYear>2011</inceptionYear>
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
-      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
@@ -33,17 +34,6 @@ application while protecting against XSS.
     <developerConnection>scm:git:git://github.com/OWASP/java-html-sanitizer.git</developerConnection>
     <url>https://github.com/OWASP/java-html-sanitizer</url>
   </scm>
-
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-    <repository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-    </repository>
-  </distributionManagement>
 
   <issueManagement>
     <system>GitHub</system>
@@ -95,9 +85,9 @@ application while protecting against XSS.
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <release.version>8</release.version>
-    <source.version>1.8</source.version>
-    <target.version>1.8</target.version>
+    <maven.compiler.release>8</maven.compiler.release>
+    <jdk.version>11</jdk.version>
+    <maven.version>3.9.11</maven.version>
   </properties>
 
   <build>
@@ -114,98 +104,62 @@ application while protecting against XSS.
             <updateDependencies>true</updateDependencies>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>org.sonatype.plugins</groupId>
-          <artifactId>nexus-staging-maven-plugin</artifactId>
-          <version>1.6.3</version>
-          <extensions>true</extensions>
-          <configuration>
-            <serverId>ossrh</serverId>
-            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-            <autoReleaseAfterClose>true</autoReleaseAfterClose>
-            <!-- This staging profile ID gleaned by logging in to
-                 oss.sonatype.org, clicking "Staging Profiles" on the left,
-                 selecting "com.googlecode.owasp-java-html-sanitizer",
-                 and extracting the most hexy looking bit from the URL which
-                 looks like
-                 https://oss.sonatype.org/#stagingProfiles;5fd62edf6679f6
-            -->
-            <stagingProfileId>199eb0ec1ec380</stagingProfileId>
-            <executions>
-              <execution>
-                <id>default-deploy</id>
-                <phase>deploy</phase>
-                <goals>
-                  <goal>deploy</goal>
-                </goals>
-              </execution>
-            </executions>
-          </configuration>
-        </plugin>
         <!-- For building the source jar. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-source-plugin</artifactId>
-          <version>2.2.1</version>
-          <executions>
-            <execution>
-              <id>attach-sources</id>
-              <goals>
-                <goal>jar-no-fork</goal>
-              </goals>
-            </execution>
-          </executions>
+          <version>3.3.1</version>
         </plugin>
         <!-- For building the javadoc jar. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>3.2.0</version>
-          <executions>
-            <execution>
-              <id>attach-javadocs</id>
-              <goals>
-                <goal>jar</goal>
-              </goals>
-            </execution>
-          </executions>
-          <configuration>
-            <nohelp>true</nohelp>
-            <show>public</show>
-            <charset>UTF-8</charset>
-            <doctitle>OWASP HTML Sanitizer</doctitle>
-            <excludePackageNames>*.example</excludePackageNames>
-            <!-- The Javadoc that ships with JDK 8 is spammy.
-                 http://docs.oracle.com/javase/8/docs/technotes/tools/unix/javadoc.html#BEJEFABE -->
-            <additionalOptions>-Xdoclint:-missing -html5</additionalOptions>
-            <!-- workaround for https://bugs.openjdk.java.net/browse/JDK-8212233 -->
-            <javaApiLinks>
-              <property>
-                <name>foo</name>
-                <value>bar</value>
-              </property>
-            </javaApiLinks>
-            <source>${source.version}</source>
-          </configuration>
+          <version>3.6.3</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.13.0</version>
-          <configuration>
-            <source>${source.version}</source>
-            <target>${target.version}</target>
-            <release>${release.version}</release>
-            <!--compilerArgs>
-              <arg>-profile</arg>
-              <arg>${release.version}</arg>
-            </compilerArgs-->
-          </configuration>
+          <version>3.14.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.3</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.4.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>3.1.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.21.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.3.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
-          <version>2.8.2</version>
+          <version>3.1.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>3.1.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -244,6 +198,63 @@ application while protecting against XSS.
           </plugin>
       </plugins>
     </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>check</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <!-- java.version must match -->
+                <requireJavaVersion>
+                  <version>${jdk.version}</version>
+                </requireJavaVersion>
+
+                <!-- Maven version must match -->
+                <requireMavenVersion>
+                  <version>${maven.version}</version>
+                </requireMavenVersion>
+
+                <!-- plugins must have explicit versions -->
+                <requirePluginVersions/>
+
+                <!-- dependencies must have same versions -->
+                <dependencyConvergence/>
+
+                <!-- apply semver rules -->
+                <requireUpperBoundDeps/>
+
+                <!-- maximum bytecode level for all dependencies-->
+                <enforceBytecodeVersion>
+                  <maxJdkVersion>${jdk.version}</maxJdkVersion>
+                </enforceBytecodeVersion>
+
+                <!-- disallow same classes in different dependencies -->
+                <!-- TODO: fix duplicate classes
+                <banDuplicateClasses>
+                  <findAllDuplicates>true</findAllDuplicates>
+                </banDuplicateClasses>
+                -->
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>extra-enforcer-rules</artifactId>
+            <version>1.10.0</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
   </build>
 
   <dependencyManagement>
@@ -261,24 +272,18 @@ application while protecting against XSS.
       <dependency>
         <groupId>commons-codec</groupId>
         <artifactId>commons-codec</artifactId>
-        <version>[1.15,)</version>
+        <version>1.20.0</version>
       </dependency>
       <dependency>
-        <groupId>com.google.code.findbugs</groupId>
-        <artifactId>jsr305</artifactId>
-        <version>[2.0.1,)</version>
-        <scope>provided</scope>
-      </dependency>
-      <dependency>
-        <groupId>com.google.code.findbugs</groupId>
-        <artifactId>annotations</artifactId>
-        <version>[2.0.1,)</version>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-annotations</artifactId>
+        <version>4.9.8</version>
         <scope>provided</scope>
       </dependency>
       <dependency>
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java</artifactId>
-        <version>3.16.3</version>
+        <version>3.25.5</version>
         <scope>provided</scope>
       </dependency>
       <dependency>
@@ -292,28 +297,115 @@ application while protecting against XSS.
 
   <profiles>
     <profile>
-      <id>release-sign-artifact</id>
-      <activation>
-        <property>
-          <name>performRelease</name>
-          <value>true</value>
-        </property>
-      </activation>
+      <id>publication</id>
+      <properties>
+        <altDeploymentRepository>local::file:./target/staging-deploy</altDeploymentRepository>
+      </properties>
       <build>
+        <defaultGoal>deploy</defaultGoal>
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.5</version>
+            <artifactId>maven-javadoc-plugin</artifactId>
             <executions>
               <execution>
-                <id>sign-artifacts</id>
-                <phase>verify</phase>
+                <id>attach-javadocs</id>
                 <goals>
-                  <goal>sign</goal>
+                  <goal>jar</goal>
                 </goals>
               </execution>
             </executions>
+            <configuration>
+              <nohelp>true</nohelp>
+              <show>public</show>
+              <charset>UTF-8</charset>
+              <doctitle>OWASP HTML Sanitizer</doctitle>
+              <excludePackageNames>*.example</excludePackageNames>
+              <!-- The Javadoc that ships with JDK 8 is spammy.
+                   http://docs.oracle.com/javase/8/docs/technotes/tools/unix/javadoc.html#BEJEFABE -->
+              <additionalOptions>-Xdoclint:-missing -html5</additionalOptions>
+              <!-- workaround for https://bugs.openjdk.java.net/browse/JDK-8212233 -->
+              <javaApiLinks>
+                <property>
+                  <name>foo</name>
+                  <value>bar</value>
+                </property>
+              </javaApiLinks>
+              <source>${source.version}</source>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <configuration>
+                  <attach>true</attach>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.jreleaser</groupId>
+            <artifactId>jreleaser-maven-plugin</artifactId>
+            <version>1.22.0</version>
+            <inherited>false</inherited>
+            <configuration>
+              <jreleaser>
+                <release>
+                  <github>
+                    <tagName>release-{{projectVersion}}</tagName>
+                    <previousTagName>release-20260101.1</previousTagName>
+                    <releaseName>Release {{projectVersion}}</releaseName>
+                    <changelog>
+                      <formatted>ALWAYS</formatted>
+                      <skipMergeCommits>true</skipMergeCommits>
+                      <contributors>
+                        <format>- {{contributorName}}{{#contributorUsernameAsLink}} ({{.}}){{/contributorUsernameAsLink}}</format>
+                      </contributors>
+                      <hide>
+                        <contributors>GitHub</contributors>
+                      </hide>
+                    </changelog>
+                    <issues>
+                      <enabled>true</enabled>
+                    </issues>
+                  </github>
+                </release>
+                <signing>
+                  <pgp>
+                    <active>ALWAYS</active>
+                    <armored>true</armored>
+                  </pgp>
+                </signing>
+                <deploy>
+                  <maven>
+                    <mavenCentral>
+                      <sonatype>
+                        <active>ALWAYS</active>
+                        <url>https://central.sonatype.com/api/v1/publisher</url>
+                        <stagingRepositories>target/staging-deploy</stagingRepositories>
+                      </sonatype>
+                    </mavenCentral>
+                  </maven>
+                </deploy>
+                <announce>
+                  <mastodon>
+                    <active>RELEASE</active>
+                    <host>https://mastodon.social</host>
+                    <status>🚀 Java HTML Sanitizer {{projectVersion}} has been released! {{releaseNotesUrl}}</status>
+                  </mastodon>
+                  <bluesky>
+                    <active>RELEASE</active>
+                    <status>🚀 Java HTML Sanitizer {{projectVersion}} has been released! {{releaseNotesUrl}}</status>
+                  </bluesky>
+                </announce>
+              </jreleaser>
+            </configuration>
           </plugin>
         </plugins>
       </build>
