@@ -26,6 +26,15 @@ application while protecting against XSS.
       <name>Apache License, Version 2.0</name>
       <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
       <distribution>repo</distribution>
+      <comments>Dual-licensed; you may use this software under either this
+        license or the BSD 2-Clause License. See COPYING.</comments>
+    </license>
+    <license>
+      <name>BSD 2-Clause License</name>
+      <url>https://opensource.org/licenses/BSD-2-Clause</url>
+      <distribution>repo</distribution>
+      <comments>Dual-licensed; you may use this software under either this
+        license or the Apache License, Version 2.0. See COPYING.</comments>
     </license>
   </licenses>
 
