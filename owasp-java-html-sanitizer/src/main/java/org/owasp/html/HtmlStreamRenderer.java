@@ -393,8 +393,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           if (i == 0 || i + 1 == n) { return false; }
           break;
         case '-':
-        case '_':
           if (i == 0 || i + 1 == n) { return false; }
+          break;
+        case '_':
+          if (i + 1 == n) { return false; }
           break;
         default:
           if (ch <= '9') {
