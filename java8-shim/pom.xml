@@ -10,6 +10,11 @@
 
   <name>Java 8 Shim</name>
   <url>https://github.com/OWASP/java-html-sanitizer</url>
+
+  <properties>
+    <!-- Bundled into owasp-java-html-sanitizer.jar; not published on its own. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
   <description>
     Backports @since Java 9 collection factories like List.of onto
     Java8 in a way that uses the real ones where available, falls back

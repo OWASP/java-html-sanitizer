@@ -6,5 +6,4 @@ target
 .settings
 .idea
 out
-PLAN.md
 dependency-reduced-pom.xml
