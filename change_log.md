@@ -1,6 +1,11 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * Fix: `java8-shim` and `java10-shim` are now bundled inside the main JAR,
+      resolving the JPMS split-package error on the module path. The shim
+      artifacts are no longer published separately. If you added an explicit
+      dependency on `java8-shim` or `java10-shim` as a workaround, remove it.
   * Release 20240325.1
     * Remove dependency on Guava
     * Raise minimum supported JVM release to 8
