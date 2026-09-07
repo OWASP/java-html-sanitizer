@@ -6,6 +6,44 @@ Most recent at top.
       resolving the JPMS split-package error on the module path. The shim
       artifacts are no longer published separately. If you added an explicit
       dependency on `java8-shim` or `java10-shim` as a workaround, remove it.
+    * HTML: Follow the WHATWG tokenizer for degenerate comments. `<!>`,
+      `<!-->` and `<!--->` are complete empty comments, and `--!>` closes a
+      comment, matching browser behaviour instead of swallowing the content
+      that followed.
+    * HTML: Attribute names may begin with an underscore.
+    * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
+      `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
+    * CSS: `text-align` accepts `start`, `end`, `justify-all` and `match-parent`.
+    * Build: Dependency version ranges replaced with pinned versions; the
+      findbugs `jsr305`/`annotations` pair is replaced by `spotbugs-annotations`.
+    * Build: The `empiricism` test harness is no longer published to Maven Central.
+    * Build: Pull requests now run the full build matrix.
+    * Docs: README examples compile again; Javadoc links point at `latest`.
+    * Special thanks to (in lexicographic order):
+      Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
+      Martin Jackson, strangelookingnerd, Sven Strickroth, yangbongsoo
+  * Release 20260313.1
+    * Fix: Preserve the order of `rel` attribute values while still
+      de-duplicating them.
+    * Fix: Invalid nested `<select>` when sanitizing `<optgroup>`.
+    * Fix: The shim loader catches `Throwable` rather than `Error` so class
+      loaders that throw checked exceptions fall back to the Java 8 shim.
+    * Docs: SECURITY.md updated with CVE-2025-66021 details.
+    * Special thanks to (in lexicographic order):
+      Andres Almiray, Melloware, Shangeeth Rajasekar, strangelookingnerd,
+      Sven Strickroth
+  * Release 20260102.1
+    * Fix: The `owasp-java-html-sanitizer` artifact targets Java 8 again
+      ([#369](https://github.com/OWASP/java-html-sanitizer/issues/369)).
+    * Docs: Fixed broken examples link.
+  * Release 20260101.1
+    * Security: Fix [CVE-2025-66021](https://github.com/OWASP/java-html-sanitizer/security/advisories)
+      ([#363](https://github.com/OWASP/java-html-sanitizer/issues/363)).
+    * Build: Maven wrapper, GitHub Actions release workflow via JReleaser,
+      updated Maven configuration.
+    * Build: `empiricism` no longer uses Guava; defunct `html-types` removed.
+    * Special thanks to (in lexicographic order):
+      Andres Almiray, José Pintado, Melloware
   * Release 20240325.1
     * Remove dependency on Guava
     * Raise minimum supported JVM release to 8
