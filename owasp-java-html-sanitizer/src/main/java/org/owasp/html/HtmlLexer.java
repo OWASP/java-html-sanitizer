@@ -476,6 +476,8 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     COMMENT,
     COMMENT_DASH,
     COMMENT_DASH_DASH,
+    COMMENT_DASH_DASH_BANG,
+    COMMENT_DASH_AFTER_BANG,
     DIRECTIVE,
     DONE,
     BOGUS_COMMENT,
@@ -640,20 +642,35 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                 case BANG:
                   if ('-' == ch) {
                     state = State.BANG_DASH;
+                  } else if('>' == ch) { // <!> is a valid html comment
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
                   } else {
                     state = State.DIRECTIVE;
                   }
                   break;
                 case BANG_DASH:
                   if ('-' == ch) {
-                    state = State.COMMENT;
+                    state = State.COMMENT_DASH_AFTER_BANG;
                   } else {
                     state = State.DIRECTIVE;
+                  }
+                  break;
+                case COMMENT_DASH_AFTER_BANG:
+                  if ('>' == ch) { // <!--> is a valid html comment
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
+                  } else if ('-' == ch) { // <!---> is a valid html comment
+                    state = State.COMMENT_DASH_AFTER_BANG;
+                  } else {
+                    state = State.COMMENT;
                   }
                   break;
                 case COMMENT:
                   if ('-' == ch) {
                     state = State.COMMENT_DASH;
+                  } else {
+                    state = State.COMMENT;
                   }
                   break;
                 case COMMENT_DASH:
@@ -665,10 +682,22 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   if ('>' == ch) {
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
+                  } else if ('!' == ch) {  // --!> is also valid closing sequence
+                    state = State.COMMENT_DASH_DASH_BANG;
                   } else if ('-' == ch) {
                     state = State.COMMENT_DASH_DASH;
                   } else {
                     state = State.COMMENT_DASH;
+                  }
+                  break;
+                case COMMENT_DASH_DASH_BANG:
+                  if ('>' == ch) {
+                      state = State.DONE;
+                      type = HtmlTokenType.COMMENT;
+                  }else if ('-' == ch) {
+                      state = State.COMMENT_DASH;
+                  }else {
+                      state = State.COMMENT;
                   }
                   break;
                 case DIRECTIVE:
