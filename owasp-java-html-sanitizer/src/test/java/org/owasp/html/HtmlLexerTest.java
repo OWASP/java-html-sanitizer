@@ -145,7 +145,7 @@ public class HtmlLexerTest extends TestCase {
     );
   }
 
-
+  @Test
   public static final void testDashDashBangComment() throws Exception
   {
     assertTokens("<!-- --!-->",
