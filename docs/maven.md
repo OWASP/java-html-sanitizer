@@ -9,11 +9,15 @@ Including among your POMs `<dependencies>` this snippet of XML...
 <dependency>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>owasp-java-html-sanitizer</artifactId>
-    <version>20180219.1</version>
+    <version>20260313.1</version>
 </dependency>
 ```
 
 ...will make the sanitizer available.
+
+The sanitizer JAR is self-contained: the `java8-shim` and `java10-shim` artifacts
+are bundled inside it and do **not** need to be declared as separate dependencies,
+including when using the JPMS module path.
 
 Be sure to change the
 [version](https://cwiki.apache.org/confluence/display/MAVENOLD/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges)
