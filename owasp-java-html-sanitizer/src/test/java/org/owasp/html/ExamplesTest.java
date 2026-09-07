@@ -66,9 +66,8 @@ public class ExamplesTest extends TestCase {
             + captured.toString("UTF-8"));
         if (ex instanceof RuntimeException) {
           throw (RuntimeException) ex;
-        } else {
-          throw new AssertionError(null, ex);
         }
+        throw new AssertionError(null, ex);
       } finally {
         System.setIn(stdin);
         System.setOut(stdout);
