@@ -10,6 +10,11 @@
   </parent>
 
   <name>empiricism</name>
+
+  <properties>
+    <!-- Internal test harness; never publish it. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
   <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     HTML metadata derived by interrogating a browser's HTML parser
