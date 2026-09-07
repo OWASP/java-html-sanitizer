@@ -206,7 +206,9 @@ We welcome [issue reports](https://github.com/OWASP/java-html-sanitizer/issues) 
 PRs that change behavior or that add functionality should include both positive and
 [negative tests](https://www.guru99.com/negative-testing.html).
 
-Please be aware that contributions fall under the [Apache 2.0 License](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING).
+Please be aware that contributions fall under the project's dual license: the
+[Apache License, Version 2.0 or the BSD 2-Clause License](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING),
+at the recipient's option.
 
 ## Credits
 
