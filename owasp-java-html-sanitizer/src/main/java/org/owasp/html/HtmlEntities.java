@@ -2467,10 +2467,9 @@ final class HtmlEntities {
     if (codepoint < 0) {
       sb.append('&');
       return offset + 1;
-    } else {
-      sb.appendCodePoint(codepoint);
-      return tail;
     }
+    sb.appendCodePoint(codepoint);
+    return tail;
   }
 
   private static boolean isHtmlIdContinueChar(char ch) {
