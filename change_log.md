@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * CSS: the cap on the length of a `url(...)` in a style attribute rises
+      from 1024 to 2048 and is now a named, documented constant rather than a
+      literal buried in `StylingPolicy`.  Over the limit, the URL and the
+      property holding it are dropped silently.  The cap is CSS-only by
+      design -- `href` and `src` are not length limited -- and 1024 predates
+      the widespread use of `data:` URLs for images, which is what made it
+      visible.  Requested in #187 by sapio-dwelch and ioleo; 2048 is the
+      figure mikesamuel suggested in that thread.
     * Docs: `disallowAttributes(...)` now says that a `matching(...)` call on
       the builder it returns has no effect -- it already rejects every value,
       and joining a narrower policy onto one that rejects everything cannot

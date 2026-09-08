@@ -677,6 +677,30 @@ class StylingPolicyTest {
     assertSanitizedCss(withPosition, null, "position: sticky");
   }
 
+  /**
+   * The cap sits between these two lengths, so one URL survives and the other
+   * takes its whole property with it.  1024 used to sit between them, which is
+   * what #187 was about.
+   */
+  @Test
+  void testLongCssUrlsAreKeptUpToTheLengthCap() {
+    String under = "http://example.com/" + repeat("a", 1500);
+    String over = "http://example.com/" + repeat("a", 2100);
+
+    assertSanitizedCss(
+        "background-image:url('" + under + "#sanitized')",
+        "background-image: url(" + under + ")");
+    assertSanitizedCss(null, "background-image: url(" + over + ")");
+  }
+
+  private static String repeat(String s, int n) {
+    StringBuilder sb = new StringBuilder(s.length() * n);
+    for (int i = 0; i < n; ++i) {
+      sb.append(s);
+    }
+    return sb.toString();
+  }
+
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
     assertSanitizedCss(CssSchema.DEFAULT, expectedCss, css);

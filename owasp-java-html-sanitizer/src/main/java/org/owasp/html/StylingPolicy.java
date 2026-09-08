@@ -43,6 +43,18 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
 @TCB
 final class StylingPolicy implements JoinableAttributePolicy {
 
+  /**
+   * The longest {@code url(...)} kept in a style attribute; longer ones are
+   * dropped along with the property that contains them.
+   * <p>
+   * A length limit keeps downstream code that has bounds of its own out of
+   * trouble, so a sanitizer is a reasonable place to impose one.  It applies
+   * to CSS only -- URLs in {@code href} and {@code src} are not capped.  The
+   * original 1024 predates the widespread use of {@code data:} URLs for
+   * images, which is what made the cap visible.  See #187.
+   */
+  private static final int MAX_CSS_URL_LENGTH = 2048;
+
   final CssSchema cssSchema;
   final Function<String, String> urlRewriter;
 
@@ -89,7 +101,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
       }
 
       private void sanitizeAndAppendUrl(String urlContent) {
-        if (urlContent.length() < 1024) {
+        if (urlContent.length() < MAX_CSS_URL_LENGTH) {
           String rewrittenUrl = urlRewriter.apply(urlContent);
           if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
             if (hasTokens) { sanitizedCss.append(' '); }
