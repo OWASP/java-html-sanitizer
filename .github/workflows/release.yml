@@ -50,12 +50,33 @@ jobs:
             echo "Version is already set to ${{ github.event.inputs.version }}"
           fi
 
+      - name: Resolve previous release tag
+        id: previous_tag
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          # Hand JReleaser the previous dated release tag explicitly so the
+          # generated release notes cover only the commits since that release.
+          # Only release-YYYYMMDD[.N] tags count, which skips the legacy release-223
+          # tag. The previous tag is the newest one that sorts below this version.
+          previous=$( { git tag --list 'release-*'; echo "release-${VERSION}"; } \
+            | grep -E '^release-[0-9]{8}(\.[0-9]+)?$' \
+            | sort -uV \
+            | awk -v current="release-${VERSION}" '$0 == current { print prev; exit } { prev = $0 }')
+          if [ -z "$previous" ]; then
+            echo "::error::Could not resolve the previous release tag from git tags"
+            exit 1
+          fi
+          echo "Previous release tag: $previous"
+          echo "tag=$previous" >> "$GITHUB_OUTPUT"
+
       - name: Build
         run: ./mvnw -ntp -B -Ppublication
 
       - name: Release
         env:
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JRELEASER_PREVIOUS_TAG_NAME: ${{ steps.previous_tag.outputs.tag }}
           JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
