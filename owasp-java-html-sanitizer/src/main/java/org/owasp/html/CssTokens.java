@@ -1474,6 +1474,10 @@ final class CssTokens implements Iterable<String> {
         j8().mapEntry("vw", LENGTH_UNIT_TYPE),
         j8().mapEntry("vmin", LENGTH_UNIT_TYPE),
         j8().mapEntry("vmax", LENGTH_UNIT_TYPE),
+        // Grid track flex factor.  Only meaningful in grid-template-* values,
+        // which are not in DEFAULT, but the lexer has to recognize the unit
+        // for a policy that opts into grid to see "1fr" at all.
+        j8().mapEntry("fr", LENGTH_UNIT_TYPE),
         j8().mapEntry("px", LENGTH_UNIT_TYPE),
         j8().mapEntry("mm", LENGTH_UNIT_TYPE),
         j8().mapEntry("cm", LENGTH_UNIT_TYPE),

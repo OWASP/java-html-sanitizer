@@ -549,6 +549,34 @@ public class HtmlPolicyBuilder {
    * Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
    * color, font-size, type-face, and other styling using the default schema;
    * but which does not allow content to escape its clipping context.
+   * <p>
+   * "Does not allow content to escape its clipping context" is the reason
+   * {@link CssSchema#DEFAULT} withholds every property that changes how an
+   * element takes part in page layout: {@code display}, {@code position},
+   * {@code float}, {@code clear}, {@code overflow}, {@code z-index},
+   * {@code opacity}, {@code visibility}, the offsets, and the flexbox, grid
+   * and {@code transform} families.  A style attribute can restyle content,
+   * but it cannot reposition it, lay something over the top of it, or hide
+   * it.  Note that this excludes {@code display:block} just as it excludes
+   * {@code display:none} -- the whole property is withheld, not a few values.
+   * <p>
+   * A policy that needs layout control can opt in with
+   * {@link CssSchema#union}, which is the supported way to widen the default
+   * schema:
+   *
+   * <pre>{@code
+   * CssSchema layout = CssSchema.withProperties(Arrays.asList(
+   *     "display", "grid-template-columns", "gap",
+   *     "repeat()", "minmax()"));   // functions need listing too
+   * builder.allowStyling(CssSchema.union(CssSchema.DEFAULT, layout));
+   * }</pre>
+   *
+   * Weigh that against the content you are sanitizing: layout control is what
+   * lets untrusted markup cover or hide the page around it.  Note that
+   * {@code position:fixed} and {@code position:sticky} are withheld even
+   * then, because they escape a scrolling container entirely.
+   *
+   * @see CssSchema#union
    */
   public HtmlPolicyBuilder allowStyling() {
     allowStyling(CssSchema.DEFAULT);
