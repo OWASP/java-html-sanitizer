@@ -485,6 +485,24 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     ;
   }
 
+  /**
+   * Where the lexer is within a tag body, mirroring the WHATWG tokenizer's
+   * attribute states closely enough to decide whether a quote character
+   * delimits an attribute value or is just part of a name or unquoted value.
+   */
+  private static enum TagBodyState {
+    /** Before an attribute name: after the tag name or a completed value. */
+    BEFORE_NAME,
+    /** After an attribute name, where '=' introduces its value. */
+    AFTER_NAME,
+    /** After an attribute name and '=', where a quote starts a value. */
+    BEFORE_VALUE,
+    /** In an unquoted attribute value, which only whitespace or '>' ends. */
+    IN_UNQUOTED_VALUE,
+    ;
+  }
+
+  private TagBodyState tagBodyState = TagBodyState.BEFORE_NAME;
   private HtmlToken lastNonIgnorable = null;
   /**
    * Breaks the character stream into tokens.
@@ -519,7 +537,13 @@ final class HtmlInputSplitter extends AbstractTokenStream {
         }
       } else if ('=' == ch) {
         type = HtmlTokenType.TEXT;
-      } else if ('"' == ch || '\'' == ch) {
+      } else if (('"' == ch || '\'' == ch)
+                 && tagBodyState == TagBodyState.BEFORE_VALUE) {
+        // Only a quote that follows an attribute name and '=' delimits a
+        // value.  Anywhere else in a tag the WHATWG tokenizer treats it as an
+        // ordinary character of an attribute name or unquoted value, so it
+        // must not pair with a later quote and swallow the tag's '>' and
+        // whatever follows it (issue #189).
         type = HtmlTokenType.QSTRING;
         int delim = ch;
         for (; end < limit; ++end) {
@@ -788,7 +812,38 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     offset = end;
     HtmlToken result = HtmlToken.instance(start, end, type);
     if (type != HtmlTokenType.IGNORABLE) { lastNonIgnorable = result; }
+    tagBodyState = inTag
+        ? tagBodyStateAfter(result) : TagBodyState.BEFORE_NAME;
     return result;
+  }
+
+  /** The tag body state after {@code t}, a token lexed inside a tag. */
+  private TagBodyState tagBodyStateAfter(HtmlToken t) {
+    switch (t.type) {
+      case IGNORABLE:
+        // Whitespace ends an unquoted value and is otherwise insignificant.
+        return tagBodyState == TagBodyState.IN_UNQUOTED_VALUE
+            ? TagBodyState.BEFORE_NAME : tagBodyState;
+      case TEXT:
+        if (tagBodyState == TagBodyState.BEFORE_NAME
+            || tagBodyState == TagBodyState.AFTER_NAME) {
+          if (tagBodyState == TagBodyState.AFTER_NAME
+              && t.tokenInContextMatches(input, "=")) {
+            return TagBodyState.BEFORE_VALUE;
+          }
+          // Any other character here, even '=', is part of an attribute
+          // name, except that a '/' which does not close the tag puts the
+          // tokenizer back before an attribute name, so a name ending in
+          // one cannot take a value.
+          return input.charAt(t.end - 1) == '/'
+              ? TagBodyState.BEFORE_NAME : TagBodyState.AFTER_NAME;
+        }
+        // Text after '=' starts an unquoted value; more text continues it.
+        return TagBodyState.IN_UNQUOTED_VALUE;
+      default:
+        // A quoted value, tag start, or tag end.
+        return TagBodyState.BEFORE_NAME;
+    }
   }
 
   private String canonicalElementName(int start, int end) {
