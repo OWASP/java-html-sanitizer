@@ -12,11 +12,18 @@ Most recent at top.
     * `HtmlChangeListener`: attributes dropped because their name was
       already used on the tag are now reported to `discardedAttributes`.
       HTML forbids repeating an attribute name, so the sanitizer keeps the
-      first and drops the rest, but `HtmlChangeReporter` detects changes by
-      diffing input against output and the surviving copy left the name in
-      both.  Given `<a href="https://example.org/" HREF="javascript:alert(1)">`
-      a listener now hears about the discarded `href` instead of nothing.
-      Reported in #94 by lillesand.
+      first and drops the rest, but `HtmlChangeReporter` tracked the names it
+      was waiting to see in the output in a set, so the surviving copy
+      accounted for all of them and the drops went unreported.  Given
+      `<a href="https://example.org/" HREF="javascript:alert(1)">` a listener
+      now hears about the discarded `href` instead of nothing.  The report is
+      still a diff against what the policy emitted rather than a prediction
+      from the input, so a policy that keeps both copies is not reported as
+      having dropped one.  Two consequences worth noting for listeners that
+      count: a name now appears in `discardedAttributes` once per discarded
+      copy, where repeats used to collapse to a single entry, and the names
+      arrive in the order they appeared on the tag.  Reported in #94 by
+      lillesand.
     * CSS: `CssSchema.toAttributePolicy()` and
       `toAttributePolicy(Function<String, String> urlRewriter)` turn a schema
       into an `AttributePolicy`, so a policy can allow different CSS

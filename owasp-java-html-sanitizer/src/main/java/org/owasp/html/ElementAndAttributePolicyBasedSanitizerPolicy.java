@@ -397,7 +397,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       checkForDuplicate: {
         // Don't be O(n**2) in the common case by checking whether the first
         // letter has been seen on any other attribute.
-        if (0 <= firstCharIndex && firstCharIndex <= 26) {
+        if (0 <= firstCharIndex && firstCharIndex < 26) {
           int firstCharBit = 1 << firstCharIndex;
           if ((firstLetterMask & firstCharBit) == 0) {
             firstLetterMask = firstLetterMask | firstCharBit;

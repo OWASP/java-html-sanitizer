@@ -611,19 +611,25 @@ class HtmlPolicyBuilderTest {
    * values, so it has to compare names against names.  It used to compare
    * against values too, which dropped an attribute whose name matched an
    * earlier attribute's value.
+   * <p>
+   * Reaching that comparison takes three attributes, not two: the scan only
+   * runs once the attribute's first letter has already been seen on the tag,
+   * so {@code sizes} is here to put {@code s} in play and send {@code src}
+   * down the scan path, where it used to collide with {@code alt}'s value.
+   * Without an attribute in that role the test passes either way.
    */
   @Test
   void testAttributeNameMatchingAnEarlierValueIsNotADuplicate() {
     assertEquals(
-        "<img style=\"color:red\" alt=\"src\""
+        "<img sizes=\"100vw\" alt=\"src\""
         + " src=\"http://example.com/a.png\" />",
 
         apply(
             new HtmlPolicyBuilder()
             .allowElements("img")
-            .allowAttributes("style", "alt", "src").onElements("img")
+            .allowAttributes("sizes", "alt", "src").onElements("img")
             .allowUrlProtocols("http", "https"),
-            "<img style=\"color:red\" alt=\"src\""
+            "<img sizes=\"100vw\" alt=\"src\""
             + " src=\"http://example.com/a.png\">")
         );
   }
