@@ -25,6 +25,7 @@ extensive test suite, and has undergone
 *  [Telemetry](#telemetry)
 *  [Questions\?](#questions)
 *  [Contributing](#contributing)
+*  [License](#license)
 *  [Credits](#credits)
 
 ## Getting Started
@@ -209,6 +210,22 @@ PRs that change behavior or that add functionality should include both positive 
 Please be aware that contributions fall under the project's dual license:
 `Apache-2.0 OR BSD-2-Clause`, at the recipient's option. See
 [COPYING](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING).
+
+## License
+
+Dual licensed: **`Apache-2.0 OR BSD-2-Clause`**.  You may use this software
+under either the [Apache License, Version 2.0](LICENSE) or the BSD 2-Clause
+License, at your option -- you do not need to comply with both.
+
+[COPYING](COPYING) is the authoritative statement of the grant and contains
+the full text of both licenses.  `LICENSE` holds only the Apache-2.0 arm, so
+that automated tooling which understands a single license file detects one;
+it does not narrow the choice offered by `COPYING`.
+
+Every source file carries an SPDX identifier.  Two AntiSamy-derived test
+files are third-party code under `BSD-3-Clause` and are listed under
+THIRD-PARTY CODE in `COPYING`; they are not compiled into the published
+artifact.
 
 ## Credits
 

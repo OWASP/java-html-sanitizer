@@ -1,4 +1,5 @@
 /COPYING text
+/LICENSE text
 /src/test/resources/org/owasp/html/* text eol=lf
 .gitattributes text
 .gitignore text
