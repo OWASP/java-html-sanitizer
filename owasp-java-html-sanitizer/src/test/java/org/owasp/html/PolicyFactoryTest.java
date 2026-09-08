@@ -38,6 +38,65 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 final class PolicyFactoryTest {
 
+  /**
+   * Issue #423.  and() is documented to intersect policies where they overlap.
+   * For the style attribute it used to union the CSS schemas, so combining two
+   * factories allowed properties that neither one allowed on its own.
+   */
+  @Test
+  void testAndIntersectsCssSchemas() {
+    String css = "color: red; width: 10px";
+    String html = "<div style=\"" + css + "\">x</div>";
+
+    PolicyFactory colorOnly = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(CssSchema.withProperties(Arrays.asList("color")))
+        .toFactory();
+    PolicyFactory widthOnly = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(CssSchema.withProperties(Arrays.asList("width")))
+        .toFactory();
+    PolicyFactory both = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(CssSchema.withProperties(Arrays.asList("color", "width")))
+        .toFactory();
+
+    assertEquals("<div style=\"color:red\">x</div>", colorOnly.sanitize(html));
+    assertEquals("<div style=\"width:10px\">x</div>", widthOnly.sanitize(html));
+
+    // Neither allows the other's property, so together they allow neither.
+    assertEquals("<div>x</div>", colorOnly.and(widthOnly).sanitize(html));
+    assertEquals("<div>x</div>", widthOnly.and(colorOnly).sanitize(html));
+
+    // Where they overlap, the shared property survives, and the order of the
+    // operands does not matter.
+    assertEquals(
+        "<div style=\"color:red\">x</div>", both.and(colorOnly).sanitize(html));
+    assertEquals(
+        "<div style=\"color:red\">x</div>", colorOnly.and(both).sanitize(html));
+  }
+
+  /**
+   * Two allowStyling calls on one builder still accumulate: the builder unions
+   * them into a single schema before any joining happens, so making the join
+   * narrow does not change this.
+   */
+  @Test
+  void testTwoAllowStylingCallsStillAccumulate() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(CssSchema.withProperties(Arrays.asList("color")))
+        .allowStyling(CssSchema.withProperties(Arrays.asList("width")))
+        .toFactory();
+    assertEquals(
+        "<div style=\"color:red;width:10px\">x</div>",
+        p.sanitize("<div style=\"color: red; width: 10px\">x</div>"));
+  }
+
   @Test
   void testAnd() {
     // Filters srcset to only contain URLs with the substring "foo"

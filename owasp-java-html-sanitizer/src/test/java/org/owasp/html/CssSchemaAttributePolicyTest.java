@@ -154,7 +154,9 @@ final class CssSchemaAttributePolicyTest {
 
   /**
    * A per-element schema and a global {@code allowStyling} schema join to the
-   * union of the two, on that element only.
+   * intersection of the two, on that element only.  Joining narrows, as it
+   * does for every other attribute policy, so attaching a per-element schema
+   * restricts that element rather than granting it extra properties.
    */
   @Test
   void testJoinsWithGlobalAllowStyling() {
@@ -166,18 +168,34 @@ final class CssSchemaAttributePolicyTest {
             .onElements("span")
         .toFactory();
 
+    // TEXT_SCHEMA and BOX_SCHEMA have no property in common, so a span that
+    // is subject to both keeps no style at all -- and a span left with no
+    // attributes is dropped, since span is in DEFAULT_SKIP_IF_EMPTY.
     assertEquals(
-        "<span style=\"color:red;width:10px\">x</span>",
+        "x",
         policy.sanitize("<span style=\"color: red; width: 10px\">x</span>"));
+    // Other elements see the global schema alone.
     assertEquals(
         "<div style=\"width:10px\">x</div>",
         policy.sanitize("<div style=\"color: red; width: 10px\">x</div>"));
+
+    // Where the two schemas do overlap, the shared property survives.
+    PolicyFactory overlapping = new HtmlPolicyBuilder()
+        .allowElements("span")
+        .allowStyling(CssSchema.withProperties(Arrays.asList("color", "width")))
+        .allowAttributes("style")
+            .matching(CssSchema.withProperties(Arrays.asList("color"))
+                          .toAttributePolicy())
+            .onElements("span")
+        .toFactory();
+    assertEquals(
+        "<span style=\"color:red\">x</span>",
+        overlapping.sanitize("<span style=\"color: red; width: 10px\">x</span>"));
   }
 
   /**
-   * Joining takes the union of the schemas but the intersection of the URL
-   * policies, so a URL-dropping per-element policy is not widened by a
-   * permissive global one.
+   * Joining intersects the schemas and runs both URL rewriters in turn, so a
+   * URL-dropping per-element policy is not widened by a permissive global one.
    */
   @Test
   void testJoiningDoesNotWidenUrlPolicy() {

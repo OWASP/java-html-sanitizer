@@ -281,8 +281,12 @@ final class StylingPolicy implements JoinableAttributePolicy {
       Function<String, String> urlRewriter = identity;
       for (JoinableAttributePolicy p : toJoin) {
         StylingPolicy sp = (StylingPolicy) p;
+        // Joining narrows: a value has to satisfy every policy being joined,
+        // which is how every other joined attribute policy behaves and what
+        // PolicyFactory.and promises.  Unioning here let a.and(b) allow
+        // properties that neither a nor b allowed on its own.
         cssSchema = cssSchema == null
-            ? sp.cssSchema : CssSchema.union(cssSchema, sp.cssSchema);
+            ? sp.cssSchema : CssSchema.intersection(cssSchema, sp.cssSchema);
         urlRewriter = urlRewriter.equals(identity)
             || urlRewriter.equals(sp.urlRewriter)
             ? sp.urlRewriter

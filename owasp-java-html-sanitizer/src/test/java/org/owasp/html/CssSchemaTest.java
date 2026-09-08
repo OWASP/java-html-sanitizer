@@ -351,6 +351,64 @@ final class CssSchemaTest {
     assertTrue(narrowed.literals().contains("blue"));
   }
 
+  /** #423: combining policies must narrow, never widen. */
+  @Test
+  void testIntersection() {
+    CssSchema color = CssSchema.withProperties(Arrays.asList("color"));
+    CssSchema width = CssSchema.withProperties(Arrays.asList("width"));
+    CssSchema both = CssSchema.withProperties(Arrays.asList("color", "width"));
+
+    assertEquals(
+        Collections.emptySet(),
+        CssSchema.intersection(color, width).allowedProperties());
+    assertEquals(
+        Collections.singleton("color"),
+        CssSchema.intersection(both, color).allowedProperties());
+    assertEquals(
+        Collections.singleton("color"),
+        CssSchema.intersection(color, both).allowedProperties());
+    // A single schema intersects to itself; none of them is an error rather
+    // than the universal schema.
+    assertSame(color, CssSchema.intersection(color));
+    try {
+      CssSchema.intersection();
+      throw new AssertionError("expected intersecting nothing to be rejected");
+    } catch (IllegalArgumentException expected) {
+      // pass
+    }
+  }
+
+  /**
+   * Where two schemas define the same property differently, the definitions
+   * intersect too, so the result is never wider than either input.
+   */
+  @Test
+  void testIntersectionNarrowsAConflictingProperty() {
+    CssSchema.Property colorProp = CssSchema.DEFAULT.property("color");
+    CssSchema noRed = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap("color", colorProp.withoutLiterals("red")));
+    CssSchema noBlue = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap("color", colorProp.withoutLiterals("blue")));
+
+    CssSchema.Property merged =
+        CssSchema.intersection(noRed, noBlue).property("color");
+    assertFalse(merged.literals().contains("red"));
+    assertFalse(merged.literals().contains("blue"));
+    assertTrue(merged.literals().contains("green"));
+
+    // A function survives only where both sides agree on its argument schema.
+    CssSchema noRgb = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap(
+            "color",
+            new CssSchema.Property(
+                colorProp.bits(), colorProp.literals(),
+                Collections.<String, String>emptyMap())));
+    assertTrue(CssSchema.DEFAULT.property("color").fnKeys().containsKey("rgb("));
+    assertFalse(
+        CssSchema.intersection(CssSchema.DEFAULT, noRgb)
+            .property("color").fnKeys().containsKey("rgb("));
+  }
+
   @Test
   void testCustom() {
     CssSchema custom = CssSchema.union(
