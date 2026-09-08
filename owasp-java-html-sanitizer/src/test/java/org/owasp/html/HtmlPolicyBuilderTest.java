@@ -1312,11 +1312,16 @@ class HtmlPolicyBuilderTest {
         .allowAttributes("style").onElements("span").allowStyling()
         .toFactory();
 
-    String toSanitizeTextAlignStart = "<span style=\"text-align:start\">start</span>";
-    assertEquals(toSanitizeTextAlignStart, factory.sanitize(toSanitizeTextAlignStart));
-
-    String toSanitizeTextAlignEnd = "<span style=\"text-align:end\">end</span>";
-    assertEquals(toSanitizeTextAlignEnd, factory.sanitize(toSanitizeTextAlignEnd));
+    // Every value text-align accepts: the keywords from the CSS Text spec
+    // followed by the CSS-wide keywords, which are valid on any property.
+    for (String value
+         : new String[] {
+             "center", "end", "inherit", "justify", "justify-all",
+             "match-parent", "start", "left", "right", "initial", "revert",
+             "revert-layer", "unset" }) {
+      String toSanitize = "<span style=\"text-align:" + value + "\">x</span>";
+      assertEquals(toSanitize, factory.sanitize(toSanitize), value);
+    }
 
     String toSanitizeTextAlignFoo = "<span style=\"text-align:foo\">foo</span>";
     assertEquals("foo", factory.sanitize(toSanitizeTextAlignFoo));
