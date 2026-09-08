@@ -2,11 +2,11 @@
 
 ## Supported Versions
 
-Only the lastest version are supported with updates.
+Only the latest version is supported with updates.
 
 | Version    | Supported          |
 | ---------- | ------------------ |
-| 20260103.1 | :white_check_mark: |
+| 20260313.1 | :white_check_mark: |
 
 
 

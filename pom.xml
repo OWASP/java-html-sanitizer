@@ -373,7 +373,6 @@ application while protecting against XSS.
                 <release>
                   <github>
                     <tagName>release-{{projectVersion}}</tagName>
-                    <previousTagName>release-20260101.1</previousTagName>
                     <releaseName>Release {{projectVersion}}</releaseName>
                     <changelog>
                       <formatted>ALWAYS</formatted>
