@@ -2,6 +2,15 @@
 
 Most recent at top.
   * Next release
+    * **Breaking:** the `org.owasp.html.examples` package no longer ships in
+      the jar.  `EbayPolicyExample`, `SlashdotPolicyExample` and
+      `UrlTextExample` move to test sources, where `ExamplesTest` still runs
+      them, so they remain readable on GitHub and still cannot rot.  They were
+      illustrations of how to build a policy, never API, and the OSGi manifest
+      already declined to export the package, so this only affects code that
+      imported them off a plain classpath.  Anyone doing that should copy the
+      policy into their own source -- it is a handful of builder calls, and it
+      is meant to be edited rather than depended on.  Closes #180.
     * CSS: the cap on the length of a `url(...)` in a style attribute rises
       from 1024 to 2048 and is now a named, documented constant rather than a
       literal buried in `StylingPolicy`.  Over the limit, the URL and the
