@@ -30,6 +30,13 @@ Most recent at top.
       findbugs `jsr305`/`annotations` pair is replaced by `spotbugs-annotations`.
     * Build: The `empiricism` test harness is no longer published to Maven Central.
     * Build: Pull requests now run the full build matrix.
+    * Build: Removed the legacy manual release scaffolding (`RELEASE-checklist.sh`,
+      the `aggregate` POM and `scripts/fix_javadoc_links.sh`) together with the
+      unused `maven-release-plugin` and `jgitflow` configuration.  Releases are
+      cut by the GitHub `Release` workflow.
+    * Build: `empiricism/rebuild.sh` regenerates `HtmlElementTablesCanned.java`
+      again.  The 2024 Guava removal had turned the generator's array-length
+      check into a literal `3`, so it rejected every `explicitClosers` entry.
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
