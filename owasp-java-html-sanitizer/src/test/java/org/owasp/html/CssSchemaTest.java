@@ -151,7 +151,10 @@ final class CssSchemaTest {
         "right", "bottom", "transform", "transform-origin",
         "grid", "grid-area", "grid-auto-flow", "grid-column", "grid-row",
         "grid-template", "grid-template-areas", "grid-template-columns",
-        "grid-template-rows", "gap", "row-gap", "column-gap",
+        "grid-template-rows", "grid-auto-columns", "grid-auto-rows",
+        "grid-column-start", "grid-column-end", "grid-row-start",
+        "grid-row-end", "gap", "row-gap", "column-gap",
+        "grid-gap", "grid-row-gap", "grid-column-gap",
         "flex", "flex-basis", "flex-direction", "flex-flow", "flex-grow",
         "flex-shrink", "flex-wrap", "order",
         "align-content", "align-items", "align-self", "justify-content",
@@ -320,6 +323,32 @@ final class CssSchemaTest {
     // Case-insensitive, like forKey.
     assertEquals(
         CssSchema.DEFAULT.property("color"), CssSchema.DEFAULT.property("COLOR"));
+  }
+
+  /**
+   * Literals are matched against a lower-cased token, so a literal that is not
+   * lower case could never match.  Canonicalizing in the constructor keeps a
+   * hand-built property from silently allowing nothing -- and, more to the
+   * point, keeps withoutLiterals("RED") from silently removing nothing and
+   * leaving a caller believing they narrowed the schema.
+   */
+  @Test
+  void testPropertyLiteralsAreCanonicalized() {
+    CssSchema.Property p = new CssSchema.Property(
+        0, Collections.singleton("ZigZag"),
+        Collections.singletonMap("RGB(", "rgb()"));
+    assertTrue(p.literals().contains("zigzag"));
+    assertFalse(p.literals().contains("ZigZag"));
+    assertTrue(p.fnKeys().containsKey("rgb("));
+
+    CssSchema.Property widened =
+        CssSchema.DEFAULT.property("text-decoration-style").withLiterals("ZigZag");
+    assertTrue(widened.literals().contains("zigzag"));
+
+    CssSchema.Property narrowed =
+        CssSchema.DEFAULT.property("color").withoutLiterals("RED");
+    assertFalse(narrowed.literals().contains("red"), "RED should remove red");
+    assertTrue(narrowed.literals().contains("blue"));
   }
 
   @Test

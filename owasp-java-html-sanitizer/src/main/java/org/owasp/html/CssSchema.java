@@ -65,15 +65,26 @@ public final class CssSchema {
 
     /**
      * @param bits A bitfield of BIT_* constants describing groups of allowed tokens.
-     * @param literals Specific allowed values.
+     * @param literals Specific allowed values.  Converted to lower case, since
+     *     values are matched against a lower-cased token; a literal that was
+     *     not lower case could never match.
      * @param fnKeys Maps lower-case function tokens to the schema key for their parameters.
+     *     The function tokens are converted to lower case for the same reason.
      */
     public Property(
         int bits, Set<String> literals,
         Map<String, String> fnKeys) {
       this.bits = bits;
-      this.literals = j8().setCopyOf(literals);
-      this.fnKeys = j8().mapCopyOf(fnKeys);
+      Set<String> literalsBuilder = new HashSet<>();
+      for (String literal : literals) {
+        literalsBuilder.add(Strings.toLowerCase(literal));
+      }
+      this.literals = j8().setCopyOf(literalsBuilder);
+      Map<String, String> fnKeysBuilder = new HashMap<>();
+      for (Map.Entry<String, String> e : fnKeys.entrySet()) {
+        fnKeysBuilder.put(Strings.toLowerCase(e.getKey()), e.getValue());
+      }
+      this.fnKeys = j8().mapCopyOf(fnKeysBuilder);
     }
 
     /**
@@ -102,7 +113,7 @@ public final class CssSchema {
      * <p>This widens what the property accepts.  Prefer naming the exact
      * values you need over reaching for a broader {@code BIT_*} bit.
      *
-     * @param extraLiterals lower-case values to add.
+     * @param extraLiterals values to add; converted to lower case.
      * @return a new property; this one is unchanged.
      */
     public Property withLiterals(String... extraLiterals) {
@@ -117,12 +128,14 @@ public final class CssSchema {
      * <p>Values not currently allowed are ignored, so this is safe to use
      * against a schema whose exact contents you have not pinned down.
      *
-     * @param unwantedLiterals lower-case values to remove.
+     * @param unwantedLiterals values to remove; matched case-insensitively.
      * @return a new property; this one is unchanged.
      */
     public Property withoutLiterals(String... unwantedLiterals) {
       Set<String> narrowed = new HashSet<>(literals);
-      narrowed.removeAll(Arrays.asList(unwantedLiterals));
+      for (String unwanted : unwantedLiterals) {
+        narrowed.remove(Strings.toLowerCase(unwanted));
+      }
       return new Property(bits, narrowed, fnKeys);
     }
 

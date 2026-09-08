@@ -592,6 +592,16 @@ public class HtmlPolicyBuilder {
   /**
    * Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
    * color, font-size, type-face, and other styling using the given schema.
+   * <p>
+   * Naming a schema here replaces the default that
+   * {@code allowAttributes("style").globally()} installs, in either order, so
+   * a schema narrower than {@link CssSchema#DEFAULT} stays narrow.  Calling
+   * this more than once with a schema of your own combines them with
+   * {@link CssSchema#union}, which throws if two of them define the same
+   * property differently; use {@link CssSchema#withOverrides} to say which
+   * definition wins.
+   *
+   * @param whitelist the CSS properties to allow in a style attribute.
    */
   public HtmlPolicyBuilder allowStyling(CssSchema whitelist) {
     invalidateCompiledState();
