@@ -160,11 +160,13 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
       executor.execute(() -> {
         try {
           HtmlSanitizer.sanitize(fuzzyHtml, DO_NOTHING_POLICY);
-        } catch (Exception ex) {
+        } catch (Throwable th) {
+          // Errors too: an AssertionError or StackOverflowError in a
+          // pool thread must fail the test and report the seed.
           System.err.println(
               "Using seed " + seed + "L\n"
               + "Failed on <<<" + fuzzyHtml + ">>>");
-          failures.add(ex);
+          failures.add(th);
         }
       });
     }
@@ -175,6 +177,9 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
     if (failure != null) {
       if (failure instanceof RuntimeException) {
         throw (RuntimeException) failure;
+      }
+      if (failure instanceof Error) {
+        throw (Error) failure;
       }
       throw new AssertionError(null, failure);
     }
