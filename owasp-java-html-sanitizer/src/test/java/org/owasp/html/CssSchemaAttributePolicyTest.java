@@ -205,4 +205,66 @@ final class CssSchemaAttributePolicyTest {
             "<div style=\"background-image: url(http://example.com/i.png)\">"
             + "x</div>"));
   }
+
+  /**
+   * A rewriter signals "dropped" by returning null, which is not a URL, so a
+   * joined rewriter is never handed one.
+   */
+  @Test
+  void testCallerRewriterNeverSeesADroppedUrl() {
+    Function<String, String> rewriter = new Function<String, String>() {
+      public String apply(String url) {
+        // Would throw if handed the null that means "dropped".
+        return url.startsWith("http://example.com/") ? url : null;
+      }
+    };
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowStandardUrlProtocols()
+        // No allowUrlsInStyles, so the global guard vetoes every URL.
+        .allowStyling(IMAGE_SCHEMA)
+        .allowAttributes("style")
+            .matching(IMAGE_SCHEMA.toAttributePolicy(rewriter))
+            .onElements("div")
+        .toFactory();
+
+    assertEquals(
+        "<div>x</div>",
+        policy.sanitize(
+            "<div style=\"background-image: url(http://example.com/i.png)\">"
+            + "x</div>"));
+  }
+
+  /** Joined rewriters run in turn, each seeing the previous one's output. */
+  @Test
+  void testJoinedRewritersRunInTurn() {
+    Function<String, String> rewriter = new Function<String, String>() {
+      public String apply(String url) {
+        return url + "?vetted";
+      }
+    };
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowStandardUrlProtocols()
+        .allowStyling(IMAGE_SCHEMA)
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowAttributes("style")
+            .matching(IMAGE_SCHEMA.toAttributePolicy(rewriter))
+            .onElements("div")
+        .toFactory();
+
+    // The caller's rewrite survives, and the global protocol policy still
+    // gets to veto what comes out of it.
+    assertEquals(
+        "<div style=\"background-image:url(&#39;"
+        + "http://example.com/i.png?vetted&#39;)\">x</div>",
+        policy.sanitize(
+            "<div style=\"background-image: url(http://example.com/i.png)\">"
+            + "x</div>"));
+    assertEquals(
+        "<div>x</div>",
+        policy.sanitize(
+            "<div style=\"background-image: url(javascript:alert%281%29)\">"
+            + "x</div>"));
+  }
 }

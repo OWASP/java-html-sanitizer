@@ -273,9 +273,13 @@ public final class CssSchema {
    * of scrutiny is warranted than for a link.  If in doubt, prefer
    * {@link #toAttributePolicy()}, which drops them.
    *
+   * <p>If an element also gets a {@code style} policy from
+   * {@link HtmlPolicyBuilder#allowStyling()}, the two are joined: the schemas
+   * union, and both rewriters run in turn, so either one can drop a URL.
+   *
    * @param urlRewriter receives the decoded content of a {@code url(...)}
    *     value and returns the URL to use, or {@code null} or the empty string
-   *     to drop it.  It is never passed {@code null}.
+   *     to drop it.  It is never passed {@code null} or the empty string.
    * @return an attribute policy suitable for the {@code style} attribute.
    */
   public AttributePolicy toAttributePolicy(
