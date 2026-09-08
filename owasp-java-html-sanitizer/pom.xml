@@ -65,13 +65,17 @@
                  written this manifest.  Tell bnd not to import
                  org.owasp.shim so the bundled copy always wins over any
                  stray shim bundle installed alongside. -->
-            <!-- The nullability/concurrency annotations are compile-time
-                 documentation with no runtime behaviour, but jsr305 gives some
-                 of them RUNTIME retention, so bnd sees them in the class files
-                 and would otherwise emit a mandatory javax.annotation import.
-                 Marking it optional keeps the bundle resolvable in containers
-                 that do not export javax.annotation.  See issue #146. -->
-            <Import-Package>!org.owasp.shim,javax.annotation;resolution:=optional,javax.annotation.concurrent;resolution:=optional,*</Import-Package>
+            <!-- The nullability annotations are compile-time documentation
+                 with no runtime behaviour, but jsr305 gives them RUNTIME
+                 retention, so bnd sees them in the class files and would
+                 otherwise emit a mandatory javax.annotation import.  Marking
+                 it optional keeps the bundle resolvable in containers that do
+                 not export javax.annotation.  See issue #146.
+                 Do not list javax.annotation.concurrent here: those
+                 annotations are CLASS-retention, so bnd does not import the
+                 package unless we name it, and naming it advertises a
+                 dependency the bundle does not have. -->
+            <Import-Package>!org.owasp.shim,javax.annotation;resolution:=optional,*</Import-Package>
             <!-- Explicit JPMS automatic module name so consumers using the
                  module path can require this module by a stable name that
                  is independent of the JAR filename. -->
