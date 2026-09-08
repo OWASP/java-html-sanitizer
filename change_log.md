@@ -26,6 +26,13 @@ Most recent at top.
     * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
       `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
     * CSS: `text-align` accepts `start`, `end`, `justify-all` and `match-parent`.
+    * CSS: `calc()` is allowed in `width`, `min-width`, `max-width`, `height`,
+      `min-height` and `max-height` (issue #361).  Operands are limited to
+      numbers, dimensions and percentages joined by `+`, `-`, `*`, `/` and
+      parentheses; anything else inside the call, including `var()`, `attr()`
+      and `url()`, is stripped.  Custom schemas built from property names must
+      list `calc()` next to the sizing property to accept it, just as `color`
+      needs `rgb()`.
     * Build: Dependency version ranges replaced with pinned versions; the
       findbugs `jsr305`/`annotations` pair is replaced by `spotbugs-annotations`.
     * Build: The `empiricism` test harness is no longer published to Maven Central.
@@ -43,7 +50,8 @@ Most recent at top.
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
-      Martin Jackson, strangelookingnerd, Sven Strickroth, yangbongsoo
+      Martin Jackson, Raibipasha-24, strangelookingnerd, Sven Strickroth,
+      yangbongsoo
   * Release 20260313.1
     * Fix: Preserve the order of `rel` attribute values while still
       de-duplicating them.
