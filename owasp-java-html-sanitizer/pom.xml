@@ -60,6 +60,12 @@
         <configuration>
           <instructions>
             <Export-Package>org.owasp.html</Export-Package>
+            <!-- The java8-shim and java10-shim classes are inlined into this
+                 JAR by the shade plugin below, which runs after bnd has
+                 written this manifest.  Tell bnd not to import
+                 org.owasp.shim so the bundled copy always wins over any
+                 stray shim bundle installed alongside. -->
+            <Import-Package>!org.owasp.shim,*</Import-Package>
             <!-- Explicit JPMS automatic module name so consumers using the
                  module path can require this module by a stable name that
                  is independent of the JAR filename. -->

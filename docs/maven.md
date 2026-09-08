@@ -28,8 +28,8 @@ can shed light on the salient differences.
 
 You should be able to build with the HTML sanitizer.  You can read the
 [javadoc](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/index.html),
-and if you have questions that aren't answered by these wiki pages,
-you can ask on the
-[mailing list](http://groups.google.com/group/owasp-java-html-sanitizer-support).
+and if you have questions that aren't answered by these pages,
+you can open a
+[GitHub issue](https://github.com/OWASP/java-html-sanitizer/issues).
 
 Happy sanitizing...

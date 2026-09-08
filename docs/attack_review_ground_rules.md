@@ -2,13 +2,13 @@
 ## How to win 
 There are many ways we might have failed.
 
-If you are the first to provide me with a payload that does any of the following on one of [Yahoo's A-list browsers](http://yuilibrary.com/yui/docs/tutorials/gbs/), then I will be happy to give credit via the project wiki and README, and I owe you a nice dinner next time we're in the same city (or coupon for dinner in your city).  Only the first reported payload that demonstrates a particular bug counts.
+If you are the first to provide me with a payload that does any of the following on a current release of a mainstream browser (Chrome, Firefox, Safari, or Edge), then I will be happy to give credit via the project wiki and README, and I owe you a nice dinner next time we're in the same city (or coupon for dinner in your city).  Only the first reported payload that demonstrates a particular bug counts.
 
   * Pop up an `alert` with any text.
-  * Cause a network load of `http://ha.ckers.org/xss.js` as JS
+  * Cause a network load of `https://attacker.example/xss.js` as JS
   * Set or retrieve `document.cookie`.
   * Cause the DOM to contain an element or attribute not explicitly allowed by the policy linked above (and not contained by `/reflect` with a blank input).
-  * Cause an redirect to `http://ha.ckers.org/` or a URL of your choosing without user interaction.
+  * Cause an redirect to `https://attacker.example/` or a URL of your choosing without user interaction.
   * Cause a save-file dialog to pop-up.
   * Crash the browser or cause it to loop infinitely until the browser halts JS or consume inordinate resources for an input of that size.
   * Cause an exception, crash, or inf. loop in the sanitizer that causes it to fail to provide service or consume inordinate resources for an input of that size.
@@ -31,6 +31,6 @@ If you wish to remain anonymous, please create a sock account, and email the add
 We are testing the HTML sanitizer as written, not the servers on which the test framework runs, so hacking the server to change the code behind it or rewrite the HTML sanitizer is out of bounds.
 
 ## Questions 
-Feel free to ask question in comments on this wiki page, or via the [project group](http://groups.google.com/group/owasp-java-html-sanitizer-support), or via my email address above.
+Feel free to ask questions by opening a [GitHub issue](https://github.com/OWASP/java-html-sanitizer/issues), or via the email address above.
 
 I will also lurk on IRC `/join #owasp-html-sanitizer` using the handle `mikesamuel`.

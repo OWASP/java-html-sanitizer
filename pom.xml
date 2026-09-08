@@ -67,7 +67,7 @@ application while protecting against XSS.
       <name>User Support List</name>
       <subscribe>owasp-java-html-sanitizer-support+subscribe@googlegroups.com</subscribe>
       <unsubscribe>owasp-java-html-sanitizer-support+unsubscribe@googlegroups.com</unsubscribe>
-      <archive>https://groups.google.com/forum/#!forum/owasp-java-html-sanitizer-support</archive>
+      <archive>https://groups.google.com/g/owasp-java-html-sanitizer-support</archive>
     </mailingList>
   </mailingLists>
 
