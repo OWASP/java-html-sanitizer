@@ -25,6 +25,9 @@ Most recent at top.
     * HTML: Attribute names may begin with an underscore.
     * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
       `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
+    * HTML: `Sanitizers.TABLES` allows `headers` on `td` and `th`, limited to a
+      space-separated list of ID tokens, and `scope` on `th`, limited to `row`,
+      `col`, `rowgroup` and `colgroup` and canonicalized to lower case (PR #326).
     * CSS: `text-align` accepts `start`, `end`, `justify-all` and `match-parent`.
     * CSS: `calc()` is allowed in `width`, `min-width`, `max-width`, `height`,
       `min-height` and `max-height` (issue #361).  Operands are limited to
@@ -50,8 +53,8 @@ Most recent at top.
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
-      Martin Jackson, Raibipasha-24, strangelookingnerd, Sven Strickroth,
-      yangbongsoo
+      Martin Jackson, Raibipasha-24, strangelookingnerd, subbudvk,
+      Sven Strickroth, yangbongsoo
   * Release 20260313.1
     * Fix: Preserve the order of `rel` attribute values while still
       de-duplicating them.

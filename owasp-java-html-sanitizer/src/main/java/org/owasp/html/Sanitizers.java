@@ -97,6 +97,36 @@ public final class Sanitizers {
   };
 
   /**
+   * Accepts a space-separated list of ID references, as used by the
+   * {@code headers} attribute on table cells.  Each token is limited to ASCII
+   * letters, digits and {@code _ - . :}, and runs of white-space between
+   * tokens collapse to a single space.
+   */
+  private static final AttributePolicy ID_LIST = new AttributePolicy() {
+    public String apply(
+            String elementName, String attributeName, String value) {
+      int n = value.length();
+      StringBuilder sb = new StringBuilder(n);
+      for (int i = 0; i < n; ++i) {
+        char ch = value.charAt(i);
+        if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\f' || ch == '\r') {
+          int len = sb.length();
+          if (len != 0 && sb.charAt(len - 1) != ' ') { sb.append(' '); }
+        } else if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')
+                   || ('0' <= ch && ch <= '9')
+                   || ch == '_' || ch == '-' || ch == '.' || ch == ':') {
+          sb.append(ch);
+        } else {
+          return null;
+        }
+      }
+      int len = sb.length();
+      if (len != 0 && sb.charAt(len - 1) == ' ') { sb.setLength(--len); }
+      return len == 0 ? null : sb.toString();
+    }
+  };
+
+  /**
    * Allows common table elements.
    */
   public static final PolicyFactory TABLES = new HtmlPolicyBuilder()
@@ -111,6 +141,9 @@ public final class Sanitizers {
                 "colgroup", "col",
                 "thead", "tbody", "tfoot")
     .allowAttributes("colspan", "rowspan").matching(INTEGER).onElements("td", "th")
+    .allowAttributes("headers").matching(ID_LIST).onElements("td", "th")
+    .allowAttributes("scope").matching(true, "row", "col", "rowgroup", "colgroup")
+        .onElements("th")
     .allowTextIn("table")  // WIDGY
     .toFactory();
 

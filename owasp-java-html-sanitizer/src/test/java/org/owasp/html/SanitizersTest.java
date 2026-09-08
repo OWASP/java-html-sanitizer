@@ -240,6 +240,62 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testTableHeadersAndScope() {
+    PolicyFactory s = Sanitizers.TABLES;
+
+    // scope is limited to the four spec values and canonicalized to lower case.
+    assertEquals(
+        "<table><tbody><tr><th scope=\"col\">h</th></tr></tbody></table>",
+        s.sanitize("<table><tr><th scope=\"col\">h</th></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><th scope=\"rowgroup\">h</th></tr></tbody></table>",
+        s.sanitize("<table><tr><th scope=\"RowGroup\">h</th></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><th>h</th></tr></tbody></table>",
+        s.sanitize("<table><tr><th scope=\"random\">h</th></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><th>h</th></tr></tbody></table>",
+        s.sanitize("<table><tr><th scope=\"col row\">h</th></tr></table>"));
+    // scope is only meaningful on th.
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td scope=\"col\">c</td></tr></table>"));
+
+    // headers is a space-separated list of ids, on both td and th.
+    assertEquals(
+        "<table><tbody><tr><th headers=\"h1\">h</th>"
+        + "<td headers=\"h1 h2\">c</td></tr></tbody></table>",
+        s.sanitize(
+            "<table><tr><th headers=\"h1\">h</th>"
+            + "<td headers=\"h1 h2\">c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td headers=\"h-1 h.2:x\">c</td></tr></tbody></table>",
+        s.sanitize(
+            "<table><tr><td headers=\"  h-1 \t h.2:x  \">c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td headers=\"\">c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td headers=\"   \">c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td headers=\"h1,h2\">c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize(
+            "<table><tr><td headers=\"javascript:alert(1)\">c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize(
+            "<table><tr><td headers=\"h1&quot; onmouseover=&quot;alert(1)\">"
+            + "c</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td headers=\"hé\">c</td></tr></table>"));
+  }
+
+  @Test
   public static final void testLinks() {
     PolicyFactory s = Sanitizers.LINKS;
     assertEquals(
