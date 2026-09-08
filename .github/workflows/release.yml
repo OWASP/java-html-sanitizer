@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. 20260101)'
+        description: 'Version to release, as YYYYMMDD.N (e.g. 20260101.1)'
         required: true
         type: string
+
+env:
+  VERSION: ${{ github.event.inputs.version }}
+  NEXT_VERSION: 20000101-SNAPSHOT
 
 jobs:
   release:
@@ -31,44 +35,72 @@ jobs:
           java-version: 11
           cache: maven
 
-      - name: Set version
+      - name: Validate version
+        id: validate
         run: |
-          # Configure git for any operations
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          # Check if we already have the release commit
-          if git log --oneline -10 | grep -q "Release version ${{ github.event.inputs.version }}"; then
-            echo "Release commit already exists, skipping version setting"
-          elif [ "$CURRENT_VERSION" != "${{ github.event.inputs.version }}" ]; then
-            echo "Setting version to ${{ github.event.inputs.version }}"
-            ./mvnw -ntp -B versions:set -DgenerateBackupPoms=false -DnewVersion=${{ github.event.inputs.version }}
-            git add pom.xml "**/pom.xml"
-            git commit -m "Release version ${{ github.event.inputs.version }}"
-            git push origin main
-          else
-            echo "Version is already set to ${{ github.event.inputs.version }}"
-          fi
-
-      - name: Resolve previous release tag
-        id: previous_tag
-        env:
-          VERSION: ${{ github.event.inputs.version }}
-        run: |
-          # Hand JReleaser the previous dated release tag explicitly so the
-          # generated release notes cover only the commits since that release.
-          # Only release-YYYYMMDD[.N] tags count, which skips the legacy release-223
-          # tag. The previous tag is the newest one that sorts below this version.
-          previous=$( { git tag --list 'release-*'; echo "release-${VERSION}"; } \
-            | grep -E '^release-[0-9]{8}(\.[0-9]+)?$' \
-            | sort -uV \
-            | awk -v current="release-${VERSION}" '$0 == current { print prev; exit } { prev = $0 }')
-          if [ -z "$previous" ]; then
-            echo "::error::Could not resolve the previous release tag from git tags"
+          # Releases are dated YYYYMMDD.N and must sort above every existing
+          # release tag. Reject anything else before a single commit is made.
+          if ! [[ "$VERSION" =~ ^[0-9]{8}\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not of the form YYYYMMDD.N (e.g. 20260101.1)"
             exit 1
           fi
-          echo "Previous release tag: $previous"
-          echo "tag=$previous" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/release-$VERSION" > /dev/null; then
+            echo "::error::Tag release-$VERSION already exists; delete it or pick the next .N"
+            exit 1
+          fi
+          # Only release-YYYYMMDD[.N] tags count, which skips the legacy
+          # release-223 tag.
+          newest=$(git tag --list 'release-*' \
+            | grep -E '^release-[0-9]{8}(\.[0-9]+)?$' \
+            | sort -V \
+            | tail -n 1)
+          if [ -z "$newest" ]; then
+            echo "::error::Could not find any release-* tag to compare against"
+            exit 1
+          fi
+          if [ "$(printf '%s\n%s\n' "${newest#release-}" "$VERSION" | sort -V | tail -n 1)" != "$VERSION" ]; then
+            echo "::error::Version '$VERSION' does not sort above the newest release tag '$newest'"
+            exit 1
+          fi
+          # Hand JReleaser the previous release tag explicitly so the generated
+          # release notes cover only the commits since that release.
+          echo "Previous release tag: $newest"
+          echo "previous=$newest" >> "$GITHUB_OUTPUT"
+
+      - name: Set version
+        id: set_version
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          current=$(./mvnw -ntp -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+          if [ "$current" = "$VERSION" ]; then
+            echo "POMs are already at $VERSION; skipping the version bump"
+            exit 0
+          fi
+
+          # The change log must have a pending section to turn into this release.
+          if ! grep -q '^  \* Next release$' change_log.md; then
+            echo "::error::change_log.md has no '  * Next release' section to turn into 'Release $VERSION'"
+            exit 1
+          fi
+
+          echo "Setting version $current -> $VERSION"
+          ./mvnw -ntp -B versions:set -DgenerateBackupPoms=false -DnewVersion="$VERSION"
+          perl -i -pe 's/^  \* Next release$/  * Release $ENV{VERSION}/' change_log.md
+          perl -i -pe 's/^\| \d{8}(?:\.\d+)? *\| :white_check_mark: *\|$/| $ENV{VERSION} | :white_check_mark: |/' SECURITY.md
+          perl -i -pe 's#<version>\d{8}(?:\.\d+)?</version>#<version>$ENV{VERSION}</version>#' docs/maven.md
+          for f in change_log.md SECURITY.md docs/maven.md; do
+            if git diff --quiet -- "$f"; then
+              echo "::error::$f was not updated to $VERSION; its version line no longer matches the expected pattern"
+              exit 1
+            fi
+          done
+
+          git add pom.xml "**/pom.xml" change_log.md SECURITY.md docs/maven.md
+          git commit -m "Release version $VERSION"
+          git push origin main
+          echo "bumped=true" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: ./mvnw -ntp -B -Ppublication
@@ -76,7 +108,7 @@ jobs:
       - name: Release
         env:
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JRELEASER_PREVIOUS_TAG_NAME: ${{ steps.previous_tag.outputs.tag }}
+          JRELEASER_PREVIOUS_TAG_NAME: ${{ steps.validate.outputs.previous }}
           JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -99,12 +131,22 @@ jobs:
 
       - name: Set next version
         run: |
-          # Configure git (in case it's needed again)
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          echo "Setting next version to 20000101-SNAPSHOT"
-          ./mvnw -ntp -B versions:set -DgenerateBackupPoms=false -DnewVersion=20000101-SNAPSHOT
+          echo "Setting next version to $NEXT_VERSION"
+          ./mvnw -ntp -B versions:set -DgenerateBackupPoms=false -DnewVersion="$NEXT_VERSION"
           git add pom.xml "**/pom.xml"
           git commit -m "Prepare for next development version"
+          git push origin main
+
+      - name: Undo the release commit after a failure
+        if: failure() && steps.set_version.outputs.bumped == 'true'
+        run: |
+          # The build or the release failed after "Release version X" was pushed.
+          # Put main back so PR builds do not run at a release version. If
+          # JReleaser had already pushed the tag, delete it by hand before
+          # retrying; the Validate step will refuse to reuse it.
+          if [ "$(git log -1 --format=%s)" != "Release version $VERSION" ]; then
+            echo "::warning::HEAD is not the release commit; leaving main alone"
+            exit 0
+          fi
+          git revert --no-edit HEAD
           git push origin main
