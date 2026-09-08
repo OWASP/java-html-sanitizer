@@ -412,7 +412,7 @@ class SanitizersTest {
         .toFactory();
     String sanitized = ""
         + "<table style=\"color:rgb( 0 , 0 , 0 );"
-        + "font-family:&#39;arial&#39; , &#39;geneva&#39; , sans-serif\">"
+        + "font-family:&#39;Arial&#39; , &#39;Geneva&#39; , sans-serif\">"
         + "<tbody>"
         + "<tr>"
         + "<th>Column One</th><th>Column Two</th>"

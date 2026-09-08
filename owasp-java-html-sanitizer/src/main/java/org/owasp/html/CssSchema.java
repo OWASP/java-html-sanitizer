@@ -752,7 +752,15 @@ public final class CssSchema {
         "caption", "icon", "menu", "message-box", "small-caption",
         "status-bar");
     Set<String> fontLiterals3 = j8().setOf(
-        "cursive", "fantasy", "monospace", "sans-serif", "serif");
+        "cursive", "fantasy", "monospace", "sans-serif", "serif",
+        // The rest of the generic families from CSS Fonts.  A generic family
+        // is a keyword, so it must not be quoted; without these they fell
+        // through to the quoted-name path and stopped working.
+        "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded",
+        "math", "emoji", "fangsong",
+        // Not in the spec, but keyword-like in practice and broken by
+        // quoting, so treated the same way.
+        "-apple-system");
     Set<String> fontLiterals4 = j8().setOf("italic", "oblique");
     Set<String> fontLiterals5 = j8().setOf(
         ",", "/", "inherit", "medium", "normal", "small-caps");
