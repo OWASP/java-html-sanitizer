@@ -422,6 +422,135 @@ class StylingPolicyTest {
     assertSanitizedCss("font-family:'a b'", "font-family: a<!--b");
   }
 
+  /** A schema that opts into the layout families the way callers would. */
+  private static final CssSchema LAYOUT = CssSchema.union(
+      CssSchema.DEFAULT,
+      CssSchema.withProperties(Arrays.asList(
+          "display", "grid-template-columns", "grid-template-rows",
+          "grid-auto-flow", "grid-column", "grid-row", "gap", "row-gap",
+          "column-gap", "flex", "flex-direction", "flex-wrap", "flex-grow",
+          "flex-basis", "order", "justify-content", "align-items",
+          "align-self", "transform", "transform-origin",
+          "repeat()", "minmax()", "fit-content()", "transform-function()",
+          "calc()")));
+
+  /** Issue #228: the text-decoration longhands and a richer shorthand. */
+  @Test
+  void testTextDecorationLonghands() {
+    assertSanitizedCss(
+        "text-decoration-line:line-through", "text-decoration-line: line-through");
+    assertSanitizedCss("text-decoration-style:wavy", "text-decoration-style: wavy");
+    assertSanitizedCss("text-decoration-color:red", "text-decoration-color: red");
+    assertSanitizedCss(
+        "text-decoration-thickness:2px", "text-decoration-thickness: 2px");
+    assertSanitizedCss(
+        "text-decoration:underline dotted red",
+        "text-decoration: underline dotted red");
+    assertSanitizedCss(null, "text-decoration-line: url(javascript:alert(1))");
+  }
+
+  /** Issue #265: SVG stroke paint, but never a paint-server URL. */
+  @Test
+  void testStroke() {
+    assertSanitizedCss(
+        "stroke-width:4;stroke:rgb( 138 , 232 , 242 )",
+        "stroke-width: 4; stroke: rgb(138,232,242)");
+    assertSanitizedCss("stroke:none", "stroke: none");
+    assertSanitizedCss(null, "stroke: url(#paintserver)");
+    assertSanitizedCss(null, "stroke: url('javascript:alert%281337%29')");
+  }
+
+  /** Issue #380 item 6: conic gradients alongside linear and radial. */
+  @Test
+  void testConicGradient() {
+    assertSanitizedCss(
+        "background:conic-gradient( red , blue )",
+        "background: conic-gradient(red, blue)");
+    assertSanitizedCss(
+        "background-image:repeating-conic-gradient( red , blue )",
+        "background-image: repeating-conic-gradient(red, blue)");
+  }
+
+  /**
+   * DEFAULT withholds layout control, so none of the modern layout families
+   * are reachable without opting in.  This is the security-relevant half of
+   * the change and it must keep failing closed.
+   */
+  @Test
+  void testLayoutRequiresOptIn() {
+    assertSanitizedCss(null, "display: block");
+    assertSanitizedCss(null, "display: none");
+    assertSanitizedCss(null, "display: flex");
+    assertSanitizedCss(null, "display: grid");
+    assertSanitizedCss(null, "grid-template-columns: 1fr 280px");
+    assertSanitizedCss(null, "gap: 10px");
+    assertSanitizedCss(null, "flex: 1 1 auto");
+    assertSanitizedCss(null, "order: -5");
+    assertSanitizedCss(null, "justify-content: center");
+    assertSanitizedCss(null, "transform: translate(-9999px, 0)");
+  }
+
+  /** Issues #242 and #234: flex and grid for a policy that opts in. */
+  @Test
+  void testFlexAndGridWhenOptedIn() {
+    assertSanitizedCss(LAYOUT, "display:flex", "display: flex");
+    assertSanitizedCss(
+        LAYOUT, "display:flex;flex-direction:column",
+        "display: flex; flex-direction: column");
+    assertSanitizedCss(LAYOUT, "flex:1 1 auto", "flex: 1 1 auto");
+    assertSanitizedCss(LAYOUT, "order:-1", "order: -1");
+    assertSanitizedCss(
+        LAYOUT, "justify-content:space-between", "justify-content: space-between");
+    assertSanitizedCss(LAYOUT, "display:grid", "display: grid");
+    // The exact value from issue #234.
+    assertSanitizedCss(
+        LAYOUT,
+        "display:grid;grid-template-columns:repeat( auto-fit , minmax( 160px , 1fr ) )",
+        "display: grid; grid-template-columns: repeat( auto-fit, minmax(160px, 1fr) )");
+    // The exact value from issue #380 item 1.
+    assertSanitizedCss(
+        LAYOUT, "grid-template-columns:1fr 280px",
+        "grid-template-columns: 1fr 280px");
+    assertSanitizedCss(LAYOUT, "gap:10px 20px", "gap: 10px 20px");
+    assertSanitizedCss(LAYOUT, "grid-column:1 / 3", "grid-column: 1 / 3");
+  }
+
+  /** Issue #71: transform functions for a policy that opts in. */
+  @Test
+  void testTransformWhenOptedIn() {
+    assertSanitizedCss(
+        LAYOUT, "transform:rotate( 30deg ) translate( 10px , 20px )",
+        "transform: rotate(30deg) translate(10px, 20px)");
+    assertSanitizedCss(
+        LAYOUT, "transform:matrix( 1 , 0 , 0 , 1 , 10 , 20 )",
+        "transform: matrix(1, 0, 0, 1, 10, 20)");
+    assertSanitizedCss(LAYOUT, "transform:none", "transform: none");
+    assertSanitizedCss(LAYOUT, "transform-origin:top left", "transform-origin: top left");
+    // A transform function is not a way to smuggle a URL or a script.  The
+    // payload is dropped and an empty function shell is left behind, which is
+    // how rgb(), linear-gradient() and calc() have always behaved.
+    assertSanitizedCss(
+        LAYOUT, "transform:translate( )",
+        "transform: translate(url(javascript:alert(1)))");
+    assertSanitizedCss(LAYOUT, null, "transform: expression(alert(1))");
+    assertSanitizedCss(
+        LAYOUT, "transform:translate( )",
+        "transform: translate(expression(alert(1)))");
+  }
+
+  /**
+   * position:fixed escapes a scrolling container, so opting into layout must
+   * not bring it along.
+   */
+  @Test
+  void testFixedPositioningStaysBlockedWhenOptedIn() {
+    CssSchema withPosition = CssSchema.union(
+        CssSchema.DEFAULT, CssSchema.withProperties(Arrays.asList("position")));
+    assertSanitizedCss(withPosition, "position:absolute", "position: absolute");
+    assertSanitizedCss(withPosition, null, "position: fixed");
+    assertSanitizedCss(withPosition, null, "position: sticky");
+  }
+
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
     assertSanitizedCss(CssSchema.DEFAULT, expectedCss, css);

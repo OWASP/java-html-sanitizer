@@ -426,6 +426,8 @@ public final class CssSchema {
       j8().mapEntry("radial-gradient(", "radial-gradient()"),
       j8().mapEntry("repeating-linear-gradient(", "repeating-linear-gradient()"),
       j8().mapEntry("repeating-radial-gradient(", "repeating-radial-gradient()"),
+      j8().mapEntry("conic-gradient(", "conic-gradient()"),
+      j8().mapEntry("repeating-conic-gradient(", "repeating-conic-gradient()"),
       j8().mapEntry("rgb(", "rgb()"), j8().mapEntry("rgba(", "rgba()"),
       j8().mapEntry("hsl(", "hsl()"), j8().mapEntry("hsla(", "hsla()"));
     Set<String> backgroundAttachmentLiterals0 =
@@ -440,7 +442,9 @@ public final class CssSchema {
         j8().mapEntry("linear-gradient(", "linear-gradient()"),
         j8().mapEntry("radial-gradient(", "radial-gradient()"),
         j8().mapEntry("repeating-linear-gradient(", "repeating-linear-gradient()"),
-        j8().mapEntry("repeating-radial-gradient(", "repeating-radial-gradient()"));
+        j8().mapEntry("repeating-radial-gradient(", "repeating-radial-gradient()"),
+        j8().mapEntry("conic-gradient(", "conic-gradient()"),
+        j8().mapEntry("repeating-conic-gradient(", "repeating-conic-gradient()"));
     Set<String> backgroundPositionLiterals0 = j8().setOf(
         ",", "center");
     Set<String> backgroundRepeatLiterals0 = j8().setOf(
@@ -480,7 +484,11 @@ public final class CssSchema {
         "inline-block", "inline-table", "list-item", "run-in", "table",
         "table-caption", "table-cell", "table-column", "table-column-group",
         "table-footer-group", "table-header-group", "table-row",
-        "table-row-group");
+        "table-row-group",
+        // Flexbox and grid formatting contexts.  "display" is not in
+        // DEFAULT_WHITELIST, so these only take effect for a policy that
+        // opts into layout; see the note above GRID/FLEX below.
+        "flex", "inline-flex", "grid", "inline-grid", "flow-root");
     Set<String> elevationLiterals0 = j8().setOf(
         "above", "below", "higher", "level", "lower");
     Set<String> emptyCellsLiterals0 = j8().setOf("hide", "show");
@@ -561,6 +569,13 @@ public final class CssSchema {
         "start", "left", "right", "initial", "revert", "revert-layer", "unset");
     Set<String> textDecorationLiterals0 = j8().setOf(
         "blink", "line-through", "overline", "underline");
+    Set<String> textDecorationStyleLiterals0 = j8().setOf(
+        "dashed", "dotted", "double", "solid", "wavy");
+    Set<String> textDecorationLineLiterals0 = j8().setOf(
+        "blink", "grammar-error", "line-through", "none", "overline",
+        "spelling-error", "underline");
+    Set<String> textDecorationThicknessLiterals0 = j8().setOf(
+        "auto", "from-font");
     Set<String> textTransformLiterals0 = j8().setOf(
         "capitalize", "lowercase", "uppercase");
     Set<String> textWrapLiterals0 = j8().setOf(
@@ -827,8 +842,13 @@ public final class CssSchema {
         0, union(azimuthLiterals1, textAlignLiterals0), zeroFns);
     builder.put("text-align", textAlign);
     @SuppressWarnings("unchecked")
+    // The shorthand takes a line, a style and a colour in any order, so it
+    // admits everything the three longhands below do.
     Property textDecoration = new Property(
-        0, union(cueLiterals0, textDecorationLiterals0), zeroFns);
+        2,
+        union(cueLiterals0, textDecorationLiterals0,
+              textDecorationStyleLiterals0, mozOutlineLiterals0),
+        mozOutlineFunctions);
     builder.put("text-decoration", textDecoration);
     @SuppressWarnings("unchecked")
     Property textTransform = new Property(
@@ -965,6 +985,168 @@ public final class CssSchema {
     builder.put("z-index", bottom);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
     builder.put("repeating-radial-gradient()", radialGradient$Fun);
+    // ---- Decorative additions (safe for DEFAULT) -------------------------
+    // These only change how an element paints itself.  They cannot move it,
+    // hide it, or change how it participates in layout, so they go in
+    // DEFAULT_WHITELIST alongside the properties they complement.
+
+    builder.put("text-decoration-line",
+                new Property(0, textDecorationLineLiterals0, zeroFns));
+    builder.put("text-decoration-style",
+                new Property(0, textDecorationStyleLiterals0, zeroFns));
+    // Same shape as "color": a hash value, a named colour, or rgb()/hsl().
+    builder.put("text-decoration-color", color);
+    builder.put("text-decoration-thickness",
+                new Property(1, textDecorationThicknessLiterals0, zeroFns));
+
+    // SVG paint.  BIT_URL is deliberately not set: "stroke: url(#gradient)"
+    // would be a URL vector, and a paint server reference is not worth one.
+    @SuppressWarnings("unchecked")
+    Set<String> strokeLiterals0 = union(
+        mozOutlineLiterals0, j8().setOf("currentcolor", "none", "transparent"));
+    builder.put("stroke", new Property(2, strokeLiterals0, mozOutlineFunctions));
+    builder.put("stroke-width", new Property(1, j8().setOf(), zeroFns));
+
+    // conic-gradient is an <image> like its linear and radial siblings, so it
+    // takes the same shape as radial-gradient().
+    @SuppressWarnings("unchecked")
+    Property conicGradient$Fun = new Property(
+        7,
+        union(azimuthLiterals1, backgroundLiterals2, mozOutlineLiterals0,
+              j8().setOf(",", "at", "from")),
+        mozOutlineFunctions);
+    builder.put("conic-gradient()", conicGradient$Fun);
+    builder.put("repeating-conic-gradient()", conicGradient$Fun);
+
+    // ---- Layout and transforms (definitions only, NOT in DEFAULT) --------
+    // DEFAULT deliberately withholds every property that changes how an
+    // element takes part in page layout -- display, position, float, clear,
+    // overflow, z-index, opacity, visibility and the offsets -- so that a
+    // style attribute can restyle content but cannot reposition it, overlay
+    // something else, or hide it.  The families below are the modern
+    // equivalents and are withheld on the same grounds.
+    //
+    // They are defined here so that a policy that wants them can opt in:
+    //
+    //   CssSchema layout = CssSchema.withProperties(Arrays.asList(
+    //       "display", "grid-template-columns", "gap", "repeat()", "minmax()"));
+    //   CssSchema schema = CssSchema.union(CssSchema.DEFAULT, layout);
+    //
+    // Note the "repeat()" and "minmax()" entries: a function is reached
+    // through a schema key, and a key the schema does not contain resolves to
+    // DISALLOWED, so a property must be opted into together with the
+    // functions its values use.
+
+    Set<String> gridTrackLiterals0 = j8().setOf(
+        ",", "/", "auto", "auto-fill", "auto-fit", "max-content", "min-content",
+        "none", "span", "masonry", "subgrid");
+    Map<String, String> gridTrackFunctions = j8().mapOfEntries(
+        j8().mapEntry("repeat(", "repeat()"),
+        j8().mapEntry("minmax(", "minmax()"),
+        j8().mapEntry("fit-content(", "fit-content()"),
+        j8().mapEntry("calc(", "calc()"));
+
+    Property minmax$Fun = new Property(1, gridTrackLiterals0, zeroFns);
+    builder.put("minmax()", minmax$Fun);
+    builder.put("fit-content()", new Property(1, j8().setOf(","), zeroFns));
+    // repeat() may nest minmax() and fit-content().
+    builder.put("repeat()",
+                new Property(1, gridTrackLiterals0, gridTrackFunctions));
+
+    Property gridTemplate = new Property(1, gridTrackLiterals0, gridTrackFunctions);
+    for (String name : new String[] {
+        "grid", "grid-template", "grid-template-columns", "grid-template-rows",
+        "grid-auto-columns", "grid-auto-rows" }) {
+      builder.put(name, gridTemplate);
+    }
+    // Area names are quoted strings; they are never rendered as text.
+    builder.put("grid-template-areas", new Property(8, j8().setOf("none"), zeroFns));
+    builder.put("grid-auto-flow",
+                new Property(0, j8().setOf("column", "dense", "row"), zeroFns));
+    // Line-based placement: integers (which may be negative), "span", "auto"
+    // and the "/" that separates start from end.
+    Property gridLine = new Property(
+        5, j8().setOf(",", "/", "auto", "span"), zeroFns);
+    for (String name : new String[] {
+        "grid-area", "grid-column", "grid-column-end", "grid-column-start",
+        "grid-row", "grid-row-end", "grid-row-start" }) {
+      builder.put(name, gridLine);
+    }
+    Property gap = new Property(1, j8().setOf("normal"), zeroFns);
+    for (String name : new String[] {
+        "gap", "row-gap", "column-gap",
+        "grid-gap", "grid-row-gap", "grid-column-gap" }) {
+      builder.put(name, gap);
+    }
+
+    Set<String> flexWrapLiterals0 = j8().setOf(
+        "nowrap", "wrap", "wrap-reverse");
+    Set<String> flexDirectionLiterals0 = j8().setOf(
+        "column", "column-reverse", "row", "row-reverse");
+    Set<String> flexBasisLiterals0 = j8().setOf(
+        "auto", "content", "fit-content", "max-content", "min-content");
+    builder.put("flex-direction", new Property(0, flexDirectionLiterals0, zeroFns));
+    builder.put("flex-wrap", new Property(0, flexWrapLiterals0, zeroFns));
+    @SuppressWarnings("unchecked")
+    Property flexFlow = new Property(
+        0, union(flexDirectionLiterals0, flexWrapLiterals0), zeroFns);
+    builder.put("flex-flow", flexFlow);
+    builder.put("flex-grow", new Property(1, j8().setOf(), zeroFns));
+    builder.put("flex-shrink", new Property(1, j8().setOf(), zeroFns));
+    @SuppressWarnings("unchecked")
+    Property flexBasis = new Property(
+        1, union(flexBasisLiterals0, j8().setOf("none")), zeroFns);
+    builder.put("flex-basis", flexBasis);
+    @SuppressWarnings("unchecked")
+    Property flex = new Property(
+        1, union(flexBasisLiterals0, j8().setOf("none", "initial")), zeroFns);
+    builder.put("flex", flex);
+    // "order" is one of the few layout properties that takes a negative.
+    builder.put("order", new Property(5, j8().setOf(), zeroFns));
+
+    Set<String> alignmentLiterals0 = j8().setOf(
+        "baseline", "center", "end", "first", "flex-end", "flex-start", "last",
+        "left", "normal", "right", "safe", "self-end", "self-start",
+        "space-around", "space-between", "space-evenly", "start", "stretch",
+        "unsafe");
+    Property alignment = new Property(0, alignmentLiterals0, zeroFns);
+    @SuppressWarnings("unchecked")
+    Property alignmentOrAuto = new Property(
+        0, union(alignmentLiterals0, j8().setOf("auto")), zeroFns);
+    for (String name : new String[] {
+        "align-content", "align-items", "justify-content", "justify-items",
+        "place-content", "place-items" }) {
+      builder.put(name, alignment);
+    }
+    for (String name : new String[] {
+        "align-self", "justify-self", "place-self" }) {
+      builder.put(name, alignmentOrAuto);
+    }
+
+    // Transforms can move, scale and rotate an element, which is why they are
+    // withheld from DEFAULT for the same reason "position" is.
+    Property transform$Fun = new Property(5, j8().setOf(","), zeroFns);
+    builder.put("transform-function()", transform$Fun);
+    Map<String, String> transformFunctions;
+    {
+      Map<String, String> fns = new HashMap<>();
+      for (String fn : new String[] {
+          "translate", "translatex", "translatey", "translatez", "translate3d",
+          "rotate", "rotatex", "rotatey", "rotatez", "rotate3d",
+          "scale", "scalex", "scaley", "scalez", "scale3d",
+          "skew", "skewx", "skewy",
+          "matrix", "matrix3d", "perspective" }) {
+        fns.put(fn + "(", "transform-function()");
+      }
+      transformFunctions = Collections.unmodifiableMap(fns);
+    }
+    builder.put("transform",
+                new Property(0, j8().setOf("none"), transformFunctions));
+    builder.put("transform-origin", new Property(
+        5,
+        j8().setOf("bottom", "center", "left", "right", "top"),
+        zeroFns));
+
     // Fold the CSS-wide keywords into every property, rather than repeating
     // them in each literal set above.  Keys ending in "()" describe the
     // arguments of a function, not a property, and are left alone: "initial"
@@ -1103,6 +1285,8 @@ public final class CssSchema {
       "pitch-range",
       "quotes",
       "radial-gradient()",
+      "conic-gradient()",
+      "repeating-conic-gradient()",
       "rect()",
       "repeating-linear-gradient()",
       "repeating-radial-gradient()",
@@ -1117,9 +1301,15 @@ public final class CssSchema {
       "speak-punctuation",
       "speech-rate",
       "stress",
+      "stroke",
+      "stroke-width",
       "table-layout",
       "text-align",
       "text-decoration",
+      "text-decoration-color",
+      "text-decoration-line",
+      "text-decoration-style",
+      "text-decoration-thickness",
       "text-indent",
       "text-overflow",
       "text-shadow",

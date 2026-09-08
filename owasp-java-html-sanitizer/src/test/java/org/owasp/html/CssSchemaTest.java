@@ -29,6 +29,7 @@ package org.owasp.html;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -99,8 +100,14 @@ final class CssSchemaTest {
     }
     assertEquals(
         new TreeSet<>(Arrays.asList(
+            // Sizing properties, which are in DEFAULT.
             "height", "max-height", "max-width",
-            "min-height", "min-width", "width")),
+            "min-height", "min-width", "width",
+            // Grid track sizing, where calc() is equally valid CSS.  These
+            // are definitions only -- none of them is in DEFAULT_WHITELIST --
+            // so this does not widen what a bare allowStyling() accepts.
+            "grid", "grid-auto-columns", "grid-auto-rows", "grid-template",
+            "grid-template-columns", "grid-template-rows", "repeat()")),
         withCalc);
     assertTrue(CssSchema.DEFAULT_WHITELIST.contains("calc()"));
     CssSchema.Property calc = CssSchema.DEFAULT.forKey("calc()");
@@ -127,6 +134,89 @@ final class CssSchemaTest {
             key + " should" + (isFunction ? " not" : "") + " allow " + keyword);
       }
     }
+  }
+
+  /**
+   * DEFAULT withholds every property that changes how an element takes part
+   * in page layout, so that a style attribute can restyle content but cannot
+   * reposition it, overlay something else, or hide it.  Adding the modern
+   * layout families to the definitions must not erode that.
+   */
+  @Test
+  void testDefaultGrantsNoLayoutControl() {
+    List<String> layoutProperties = Arrays.asList(
+        "display", "position", "float", "clear", "overflow", "overflow-x",
+        "overflow-y", "z-index", "opacity", "visibility", "top", "left",
+        "right", "bottom", "transform", "transform-origin",
+        "grid", "grid-area", "grid-auto-flow", "grid-column", "grid-row",
+        "grid-template", "grid-template-areas", "grid-template-columns",
+        "grid-template-rows", "gap", "row-gap", "column-gap",
+        "flex", "flex-basis", "flex-direction", "flex-flow", "flex-grow",
+        "flex-shrink", "flex-wrap", "order",
+        "align-content", "align-items", "align-self", "justify-content",
+        "justify-items", "justify-self", "place-content", "place-items",
+        "place-self");
+    for (String propName : layoutProperties) {
+      assertFalse(
+          CssSchema.DEFAULT_WHITELIST.contains(propName),
+          propName + " must not be in DEFAULT");
+      assertSame(
+          CssSchema.DISALLOWED, CssSchema.DEFAULT.forKey(propName),
+          propName + " must be disallowed by DEFAULT");
+    }
+  }
+
+  /**
+   * position:fixed and position:sticky escape a scrolling container, so they
+   * are withheld even from a policy that opts into layout.  That floor lives
+   * in the literal set rather than the whitelist, so opting in must not
+   * reach it.
+   */
+  @Test
+  void testFixedPositioningIsWithheldEvenWhenOptingIn() {
+    CssSchema.Property position = CssSchema.DEFINITIONS.get("position");
+    assertTrue(position.literals.contains("absolute"));
+    assertTrue(position.literals.contains("relative"));
+    assertTrue(position.literals.contains("static"));
+    assertFalse(position.literals.contains("fixed"));
+    assertFalse(position.literals.contains("sticky"));
+  }
+
+  /** The layout families are defined, so a caller can union them into DEFAULT. */
+  @Test
+  void testLayoutFamiliesAreDefinedForOptIn() {
+    for (String propName : Arrays.asList(
+        "grid-template-columns", "grid-column", "gap", "flex",
+        "flex-direction", "order", "justify-content", "align-items",
+        "transform", "repeat()", "minmax()", "fit-content()")) {
+      assertNotSame(
+          CssSchema.DISALLOWED, CssSchema.DEFINITIONS.get(propName),
+          propName);
+    }
+    CssSchema.Property display = CssSchema.DEFINITIONS.get("display");
+    assertTrue(display.literals.contains("flex"), "display:flex");
+    assertTrue(display.literals.contains("grid"), "display:grid");
+  }
+
+  /**
+   * The decorative additions do go into DEFAULT, but stroke must not become a
+   * URL vector: "stroke: url(#paintserver)" is valid CSS we deliberately
+   * decline to support.
+   */
+  @Test
+  void testDecorativeAdditionsAreInDefaultAndTakeNoUrl() {
+    for (String propName : Arrays.asList(
+        "text-decoration-line", "text-decoration-style", "text-decoration-color",
+        "text-decoration-thickness", "stroke", "stroke-width",
+        "conic-gradient()", "repeating-conic-gradient()")) {
+      assertTrue(
+          CssSchema.DEFAULT_WHITELIST.contains(propName), propName);
+      assertNotSame(
+          CssSchema.DISALLOWED, CssSchema.DEFAULT.forKey(propName), propName);
+    }
+    CssSchema.Property stroke = CssSchema.DEFAULT.forKey("stroke");
+    assertEquals(0, stroke.bits & CssSchema.BIT_URL);
+    assertFalse(stroke.fnKeys.containsKey("url("));
   }
 
   @Test
