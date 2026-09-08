@@ -2,10 +2,16 @@
 
 Most recent at top.
   * Next release
-    * CSS: `text-align` now accepts the CSS-wide keywords `initial`, `revert`,
-      `revert-layer` and `unset` alongside the `inherit` it already allowed,
-      so declarations that reset the property survive sanitizing instead of
-      being dropped.  Follow-up to PR #335; requested by EugenMayer.
+    * CSS: the CSS-wide keywords -- `inherit`, `initial`, `revert`,
+      `revert-layer` and `unset` -- are now accepted on **every** property,
+      not just the handful whose literal sets happened to name `inherit`.
+      They are valid on any property per CSS Cascade, and only ever reset a
+      property to a value the cascade already chose, so `color: revert` and
+      `font-size: unset` now survive sanitizing instead of being dropped.
+      Schemas for function arguments are deliberately excluded: `initial` is
+      a value for `color`, not for a channel of `rgb(...)`.  This widens what
+      round-trips, not what can execute.  Follow-up to PR #335; reported by
+      EugenMayer.
     * Examples: `EbayPolicyExample` and `SlashdotPolicyExample` gain a
       `run(Reader, Appendable)` method that does the sanitizing; `main` now
       handles only the command line and delegates to it.  Purely additive;

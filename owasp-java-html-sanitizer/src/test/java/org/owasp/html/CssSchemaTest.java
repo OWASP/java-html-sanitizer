@@ -112,6 +112,24 @@ final class CssSchemaTest {
   }
 
   @Test
+  void testCssWideKeywordsAllowedOnEveryProperty() {
+    for (Map.Entry<String, CssSchema.Property> e
+         : CssSchema.DEFINITIONS.entrySet()) {
+      String key = e.getKey();
+      // Keys ending in "()" describe a function's arguments rather than a
+      // property, and must not pick the keywords up: "initial" is a value
+      // for "color", not for a channel of "rgb(...)".
+      boolean isFunction = key.endsWith("()");
+      for (String keyword : CssSchema.CSS_WIDE_KEYWORDS) {
+        assertEquals(
+            !isFunction,
+            e.getValue().literals.contains(keyword),
+            key + " should" + (isFunction ? " not" : "") + " allow " + keyword);
+      }
+    }
+  }
+
+  @Test
   void testCustom() {
     CssSchema custom = CssSchema.union(
         CssSchema.DEFAULT,
