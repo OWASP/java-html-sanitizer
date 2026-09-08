@@ -235,6 +235,32 @@ final class CssSchemaAttributePolicyTest {
             + "x</div>"));
   }
 
+  /** The javadoc's recipe for reusing the library's own protocol filter. */
+  @Test
+  void testReusingFilterUrlByProtocol() {
+    final AttributePolicy urlPolicy = new FilterUrlByProtocolAttributePolicy(
+        Arrays.asList("https", "mailto"));
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style")
+            .matching(IMAGE_SCHEMA.toAttributePolicy(
+                url -> urlPolicy.apply("img", "src", url)))
+            .onElements("div")
+        .toFactory();
+
+    assertEquals(
+        "<div style=\"background-image:url(&#39;"
+        + "https://example.com/i.png&#39;)\">x</div>",
+        policy.sanitize(
+            "<div style=\"background-image: url(https://example.com/i.png)\">"
+            + "x</div>"));
+    assertEquals(
+        "<div>x</div>",
+        policy.sanitize(
+            "<div style=\"background-image: url(http://example.com/i.png)\">"
+            + "x</div>"));
+  }
+
   /** Joined rewriters run in turn, each seeing the previous one's output. */
   @Test
   void testJoinedRewritersRunInTurn() {

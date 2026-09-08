@@ -273,6 +273,16 @@ public final class CssSchema {
    * of scrutiny is warranted than for a link.  If in doubt, prefer
    * {@link #toAttributePolicy()}, which drops them.
    *
+   * <p>To vet URLs by protocol the way {@link HtmlPolicyBuilder} does, reuse
+   * a {@link FilterUrlByProtocolAttributePolicy}.  It ignores the element and
+   * attribute names it is given, so any will do:
+   *
+   * <pre>{@code
+   * AttributePolicy urlPolicy = new FilterUrlByProtocolAttributePolicy(
+   *     Arrays.asList("https", "mailto"));
+   * schema.toAttributePolicy(url -> urlPolicy.apply("img", "src", url));
+   * }</pre>
+   *
    * <p>If an element also gets a {@code style} policy from
    * {@link HtmlPolicyBuilder#allowStyling()}, the two are joined: the schemas
    * union, and both rewriters run in turn, so either one can drop a URL.
