@@ -28,6 +28,15 @@ Most recent at top.
     * HTML: `Sanitizers.TABLES` allows `headers` on `td` and `th`, limited to a
       space-separated list of ID tokens, and `scope` on `th`, limited to `row`,
       `col`, `rowgroup` and `colgroup` and canonicalized to lower case (PR #326).
+    * CSS: A `-` after a unicode-range start that is not followed by hex
+      digits, as in `U+a-x` or `U+a-->`, is no longer emitted as part of the
+      range token.  It was written to the output and then lexed again as the
+      next token, so `U+a-x` normalized to `U+a- -x`, which did not survive a
+      second pass through the lexer (issue #245).
+    * Build: `.gitattributes` now forces LF line endings on the HTML lexer
+      golden files at their current path under `owasp-java-html-sanitizer/`,
+      so `HtmlLexerTest` passes on Windows checkouts with `core.autocrlf`
+      (also noted in issue #245).
     * CSS: `text-align` accepts `start`, `end`, `justify-all` and `match-parent`.
     * CSS: `calc()` is allowed in `width`, `min-width`, `max-width`, `height`,
       `min-height` and `max-height` (issue #361).  Operands are limited to
