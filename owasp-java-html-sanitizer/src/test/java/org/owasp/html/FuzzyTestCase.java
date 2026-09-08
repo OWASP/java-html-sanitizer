@@ -29,40 +29,48 @@ package org.owasp.html;
 
 import java.util.Random;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.TestWatcher;
 
 /**
- * A testcase that has a random seed.
+ * A test case that has a random seed.
  * Subclasses are stochastic -- are not guaranteed to pass or fail consistently.
  * If you see a failure, please report it along with the seed from the output.
  * If you want to repeat a failure, set the system property "junit.seed".
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
+@ExtendWith(FuzzyTestCase.SeedReporter.class)
 abstract class FuzzyTestCase {
 
-  protected long seed = System.currentTimeMillis();
-  {
+  /** From the {@code junit.seed} system property when set, else the clock. */
+  protected final long seed = seedFromProperty();
+
+  /** A fresh generator seeded with {@link #seed} for each test method. */
+  protected final Random rnd = new Random(seed);
+
+  private static long seedFromProperty() {
     String seedStr = System.getProperty("junit.seed");
-    if (seedStr != null) {
-      try {
-        seed = Long.parseLong(seedStr);
-      } catch (NumberFormatException ex) {
-        ex.printStackTrace();
-      }
+    if (seedStr == null) {
+      return System.currentTimeMillis();
+    }
+    try {
+      return Long.parseLong(seedStr);
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException(
+          "junit.seed must be a long, not `" + seedStr + "`", ex);
     }
   }
 
-  protected Random rnd;
-
-  @BeforeEach
-  void seedRandom() {
-    rnd = new Random(seed);
-  }
-
-  @AfterEach
-  void clearRandom() {
-    rnd = null;
+  /** Prints the seed of a failed test so that the failure can be replayed. */
+  static final class SeedReporter implements TestWatcher {
+    @Override
+    public void testFailed(ExtensionContext context, Throwable cause) {
+      FuzzyTestCase test = (FuzzyTestCase) context.getRequiredTestInstance();
+      System.err.println(
+          context.getDisplayName() + " failed; replay it with -Djunit.seed="
+          + test.seed);
+    }
   }
 }

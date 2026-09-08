@@ -36,6 +36,7 @@ import org.owasp.html.CssTokens.TokenType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.owasp.html.CssTokens.TokenType.COLUMN;
 import static org.owasp.html.CssTokens.TokenType.IDENT;
 import static org.owasp.html.CssTokens.TokenType.LEFT_PAREN;
@@ -453,10 +454,7 @@ class CssTokensTest {
       actual.add(it.token() + ":" + it.type());
     }
 
-    // Slightly better debugging output
-    assertEquals(expected.toString(), actual.toString(), css);
-    // The real assertions
-    assertEquals(expected, actual, css);
+    assertIterableEquals(expected, actual, css);
   }
 
   private static void assertLexedCss(String input, String... goldens) {
@@ -464,9 +462,7 @@ class CssTokensTest {
     for (String token : lex(input)) {
       actual.add(token);
     }
-    List<String> goldensList = Arrays.asList(goldens);
-    assertEquals(goldensList.toString(), actual.toString(), input);
-    assertEquals(goldensList, actual, input);
+    assertIterableEquals(Arrays.asList(goldens), actual, input);
   }
 
   @Test

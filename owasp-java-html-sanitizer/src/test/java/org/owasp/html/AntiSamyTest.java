@@ -53,7 +53,7 @@ class AntiSamyTest {
   private static HtmlSanitizer.Policy makePolicy(Appendable buffer) {
     final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
         buffer,
-        ex -> { throw new AssertionError(ex); },
+        Handler.PROPAGATE,
         errorMessage -> fail(errorMessage));
 
     return new HtmlPolicyBuilder()

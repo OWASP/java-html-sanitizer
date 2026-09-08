@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
+class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyFactory
       = new HtmlPolicyBuilder()
@@ -88,51 +88,43 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   @Test
   void testFuzzedOutput() throws IOException, SAXException {
-    boolean passed = false;
-    try {
-      for (int i = 1000; --i >= 0;) {
-        StringBuilder sb = new StringBuilder();
-        HtmlSanitizer.Policy policy = policyFactory.apply(
-            HtmlStreamRenderer.create(sb, Handler.DO_NOTHING));
-        policy.openDocument();
-        List<String> attributes = new ArrayList<>();
-        for (int j = 50; --j >= 0;) {
-          int r = rnd.nextInt(3);
-          switch (r) {
-            case 0:
-              attributes.clear();
-              if (rnd.nextBoolean()) {
-                for (int k = rnd.nextInt(4); --k >= 0;) {
-                  attributes.add(pick(rnd, ATTR_NAMES));
-                  attributes.add(pickChunk(rnd));
-                }
+    for (int i = 1000; --i >= 0;) {
+      StringBuilder sb = new StringBuilder();
+      HtmlSanitizer.Policy policy = policyFactory.apply(
+          HtmlStreamRenderer.create(sb, Handler.DO_NOTHING));
+      policy.openDocument();
+      List<String> attributes = new ArrayList<>();
+      for (int j = 50; --j >= 0;) {
+        int r = rnd.nextInt(3);
+        switch (r) {
+          case 0:
+            attributes.clear();
+            if (rnd.nextBoolean()) {
+              for (int k = rnd.nextInt(4); --k >= 0;) {
+                attributes.add(pick(rnd, ATTR_NAMES));
+                attributes.add(pickChunk(rnd));
               }
-              policy.openTag(pick(rnd, ELEMENT_NAMES), attributes);
-              break;
-            case 1:
-              policy.closeTag(pick(rnd, ELEMENT_NAMES));
-              break;
-            case 2:
-              policy.text(pickChunk(rnd));
-              break;
-            default:
-              throw new AssertionError(
-                  "Randomly chosen number in [0-3) was " + r);
-          }
+            }
+            policy.openTag(pick(rnd, ELEMENT_NAMES), attributes);
+            break;
+          case 1:
+            policy.closeTag(pick(rnd, ELEMENT_NAMES));
+            break;
+          case 2:
+            policy.text(pickChunk(rnd));
+            break;
+          default:
+            throw new AssertionError(
+                "Randomly chosen number in [0-3) was " + r);
         }
-        policy.closeDocument();
+      }
+      policy.closeDocument();
 
-        String html = sb.toString();
-        HtmlDocumentBuilder parser = new HtmlDocumentBuilder();
-        Node node = parser.parseFragment(
-            new InputSource(new StringReader(html)), "body");
-        checkSafe(node, html);
-      }
-      passed = true;
-    } finally {
-      if (!passed) {
-        System.err.println("Using seed " + seed + "L");
-      }
+      String html = sb.toString();
+      HtmlDocumentBuilder parser = new HtmlDocumentBuilder();
+      Node node = parser.parseFragment(
+          new InputSource(new StringReader(html)), "body");
+      checkSafe(node, html);
     }
   }
 

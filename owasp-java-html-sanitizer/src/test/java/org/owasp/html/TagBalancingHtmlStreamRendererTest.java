@@ -30,7 +30,6 @@ package org.owasp.html;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +51,7 @@ class TagBalancingHtmlStreamRendererTest {
     balancer = new TagBalancingHtmlStreamEventReceiver(
         HtmlStreamRenderer.create(
             htmlOutputBuffer,
-            x -> fail("An unexpected error was raised during the testcase")));
+            x -> fail("Unexpected renderer error: " + x)));
   }
 
   @Test
@@ -440,10 +439,7 @@ class TagBalancingHtmlStreamRendererTest {
   }
 
 
-  // TODO: Double check this test and handle nested anchors properly.
   @Test
-  @Disabled("nested anchors are not handled properly yet, and the expected"
-      + " output below needs to be settled when they are")
   void testAnchorInAnchorIndirectly() {
     List<String> hrefOnly = j8().listOf("href", "");
     balancer.openDocument();
@@ -459,7 +455,7 @@ class TagBalancingHtmlStreamRendererTest {
     balancer.closeDocument();
 
     assertEquals(
-        "<div><a href=\"\"><div></div></a><a href=\"\">...</a></a>",
+        "<div><a href=\"\"><div></div></a><a href=\"\">...</a></div>",
         htmlOutputBuffer.toString());
   }
 

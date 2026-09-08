@@ -31,11 +31,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.owasp.shim.Java8Shim.j8;
 
@@ -45,12 +45,6 @@ class HtmlStreamRendererTest {
   private final StringBuilder rendered = new StringBuilder();
   private final HtmlStreamRenderer renderer =
       HtmlStreamRenderer.create(rendered, errors::add);
-
-  @BeforeEach
-  void resetOutput() {
-    errors.clear();
-    rendered.setLength(0);
-  }
 
   /** Catches any test that does not check the errors it caused. */
   @AfterEach
@@ -112,14 +106,14 @@ class HtmlStreamRendererTest {
     String output = rendered.toString();
     assertFalse(output.contains("<"), output);
 
-    assertEquals(
-        String.join("\n",
+    assertIterableEquals(
+        j8().listOf(
             "Invalid element name : :svg",
             "Invalid element name : svg:",
             "Invalid element name : -1",
             "Invalid element name : svg::svg",
             "Invalid element name : a@b"),
-        String.join("\n", errors));
+        errors);
     errors.clear();
   }
 
@@ -136,14 +130,14 @@ class HtmlStreamRendererTest {
     String output = rendered.toString();
     assertFalse(output.contains("="), output);
 
-    assertEquals(
-        String.join("\n",
+    assertIterableEquals(
+        j8().listOf(
             "Invalid attr name : :svg",
             "Invalid attr name : svg:",
             "Invalid attr name : -1",
             "Invalid attr name : svg::svg",
             "Invalid attr name : a@b"),
-        String.join("\n", errors));
+        errors);
     errors.clear();
   }
 
@@ -157,9 +151,9 @@ class HtmlStreamRendererTest {
 
     assertEquals(
         "<script type=\"text/javascript\"></script>", rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : </SCRIPT>'",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : </SCRIPT>'"),
+        errors);
     errors.clear();
   }
 
@@ -175,9 +169,9 @@ class HtmlStreamRendererTest {
 
     assertEquals(
         "<style type=\"text/css\"></style>", rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : </Style> *",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : </Style> *"),
+        errors);
     errors.clear();
   }
 
@@ -199,9 +193,9 @@ class HtmlStreamRendererTest {
     assertNormalized(
         "<script></script>&#39;)--&gt;",
         "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>");
-    assertEquals(
-        "Invalid CDATA text content : <SCRIPT>al",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : <SCRIPT>al"),
+        errors);
     errors.clear();
   }
 
@@ -221,9 +215,9 @@ class HtmlStreamRendererTest {
     assertEquals(
         "<script></script>",
         rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : <script>';",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : <script>';"),
+        errors);
     errors.clear();
   }
 
@@ -240,9 +234,9 @@ class HtmlStreamRendererTest {
     assertEquals(
         "<script></script>",
         rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : <!--y) { .",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : <!--y) { ."),
+        errors);
     errors.clear();
   }
 
@@ -260,9 +254,9 @@ class HtmlStreamRendererTest {
     assertEquals(
         "<script></script>",
         rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : -->y) { ..",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : -->y) { .."),
+        errors);
     errors.clear();
   }
 
@@ -280,9 +274,9 @@ class HtmlStreamRendererTest {
     assertEquals(
         "<script></script>",
         rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : <!--->",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : <!--->"),
+        errors);
     errors.clear();
   }
 
@@ -299,9 +293,9 @@ class HtmlStreamRendererTest {
     assertEquals(
         "<script></script>",
         rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : <script ) ",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : <script ) "),
+        errors);
     errors.clear();
   }
 
@@ -365,11 +359,11 @@ class HtmlStreamRendererTest {
 
     assertEquals(
         "<script>alert('foo')</script>", rendered.toString());
-    assertEquals(
-        String.join("\n",
+    assertIterableEquals(
+        j8().listOf(
             "Tag content cannot appear inside CDATA element : b",
             "Tag content cannot appear inside CDATA element : b"),
-        String.join("\n", errors));
+        errors);
     errors.clear();
   }
 
@@ -382,9 +376,9 @@ class HtmlStreamRendererTest {
     renderer.closeDocument();
 
     assertEquals("<script></script>", rendered.toString());
-    assertEquals(
-        "Invalid CDATA text content : </script>'",
-        String.join("\n", errors));
+    assertIterableEquals(
+        j8().listOf("Invalid CDATA text content : </script>'"),
+        errors);
     errors.clear();
   }
 

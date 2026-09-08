@@ -49,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
+class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
 
   static final HtmlSanitizer.Policy DO_NOTHING_POLICY
       = new HtmlSanitizer.Policy() {
@@ -163,16 +163,14 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
         } catch (Throwable th) {
           // Errors too: an AssertionError or StackOverflowError in a
           // pool thread must fail the test and report the seed.
-          System.err.println(
-              "Using seed " + seed + "L\n"
-              + "Failed on <<<" + fuzzyHtml + ">>>");
+          System.err.println("Failed on <<<" + fuzzyHtml + ">>>");
           failures.add(th);
         }
       });
     }
     executor.shutdown();
     executor.awaitTermination(runCount * 4, TimeUnit.SECONDS);
-    assertTrue(executor.isTerminated(), "seed=" + seed);
+    assertTrue(executor.isTerminated(), "fuzz runs did not finish in time");
     Throwable failure = failures.poll();
     if (failure != null) {
       if (failure instanceof RuntimeException) {

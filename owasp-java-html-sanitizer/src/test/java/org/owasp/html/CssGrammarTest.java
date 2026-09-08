@@ -28,11 +28,13 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 class CssGrammarTest {
   @Test
@@ -57,8 +59,8 @@ class CssGrammarTest {
       }
     }
 
-    assertEquals(
-        String.join("\n",
+    assertIterableEquals(
+        Arrays.asList(
             // "/* A comment */",  // Comments are elided.
             "words:IDENT",
             "with-dashes:IDENT",
@@ -99,7 +101,7 @@ class CssGrammarTest {
             "!:DELIM",
             "important:IDENT",
             "]:RIGHT_SQUARE"),  // Manufactured due to unmatched '['.
-        String.join("\n", actualTokens));
+        actualTokens);
   }
 
   @Test

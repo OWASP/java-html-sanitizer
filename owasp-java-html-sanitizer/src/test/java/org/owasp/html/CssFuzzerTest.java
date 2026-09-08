@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class CssFuzzerTest extends FuzzyTestCase {
+class CssFuzzerTest extends FuzzyTestCase {
 
   private static final String[] TOKEN_PARTS = new String[] {
     "'", "\"", "<!--", "-->", "/*", "*/", "***", "//", "\r", "\n",
@@ -57,24 +57,26 @@ public class CssFuzzerTest extends FuzzyTestCase {
     "</style", "<![CDATA[", "]]>", "\r", "\n",
   };
 
+  /** Reports an input that keeps the lexer busy for over a second. */
   final class Watcher implements Runnable {
     String input;
     long started;
 
     public void run() {
+      String reported = null;
       synchronized (this) {
         try {
-          while (input == null) {
+          while (true) {
             this.wait(1000 /* ms = 1s */);
-            long now = System.nanoTime();
-            if (now - started >= 1000000000L /* ns = 1s */) {
+            if (input != null && input != reported
+                && System.nanoTime() - started >= 1000000000L /* ns = 1s */) {
               System.err.println(
                   "`" + input + "` is slow. seed=" + CssFuzzerTest.this.seed);
+              reported = input;
             }
           }
         } catch (InterruptedException ex) {
           // Done
-          ignore(ex);
         }
       }
     }
@@ -84,7 +86,9 @@ public class CssFuzzerTest extends FuzzyTestCase {
   void testUnderStress() {
     Random r = this.rnd;
     Watcher watcher = new Watcher();
-    Thread watcherThread = null;
+    Thread watcherThread = new Thread(watcher);
+    watcherThread.setDaemon(true);
+    watcherThread.start();
     for (int run = 0, nRuns = (1 << 16); run < nRuns; ++run) {
       // Compose a random string from token parts.
       StringBuilder sb = new StringBuilder();
@@ -105,11 +109,6 @@ public class CssFuzzerTest extends FuzzyTestCase {
       synchronized (watcher) {
         watcher.input = randomCss;
         watcher.started = System.nanoTime();
-      }
-      if (watcherThread == null) {
-        watcherThread = new Thread(watcher);
-        watcherThread.setDaemon(true);
-        watcherThread.start();
       }
 
       String msg = "seed=" + this.seed + ", css=`" + randomCss + "`";
@@ -164,10 +163,7 @@ public class CssFuzzerTest extends FuzzyTestCase {
         }
       }
     }
-    synchronized (watcher) {
-      watcher.input = null;
-      watcher.notifyAll();
-    }
+    watcherThread.interrupt();
   }
 
   private static final EnumMap<CssTokens.TokenType, Pattern> TOKEN_TYPE_FILTERS
@@ -303,8 +299,4 @@ public class CssFuzzerTest extends FuzzyTestCase {
     return sb.toString();
   }
 
-  /** @param o ignored */
-  static void ignore(Object o) {
-    // Do nothing.
-  }
-}
+  /** @param o ignored */}
