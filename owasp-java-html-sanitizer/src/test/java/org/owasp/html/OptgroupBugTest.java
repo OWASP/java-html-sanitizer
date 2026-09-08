@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+
 package org.owasp.html;
 
 import org.junit.Test;

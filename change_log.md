@@ -2,6 +2,16 @@
 
 Most recent at top.
   * Next release
+    * Licensing: the BSD arm of the dual license is **BSD 2-Clause**, and the
+      whole repository now says so consistently.  `COPYING` had offered
+      "Apache-2.0 or BSD 3-Clause" since 2014 while printing BSD 2-Clause text
+      beneath it (issues #271, #288), and every source header carried the
+      3-Clause form.  Headers are normalized to 2-Clause and every source file
+      now carries `SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause`.
+      This only widens the grant -- the 2-Clause text has been the published
+      offer for over a decade -- so no action is required of existing users.
+      Two AntiSamy-derived test files remain BSD 3-Clause and are now listed
+      as third-party code in `COPYING`.
     * Fix: `java8-shim` and `java10-shim` are now bundled inside the main JAR,
       resolving the JPMS split-package error on the module path. The shim
       artifacts are no longer published separately. If you added an explicit
