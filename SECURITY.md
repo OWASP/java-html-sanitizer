@@ -12,7 +12,7 @@ Only the latest version is supported with updates.
 
 ## Reporting a Vulnerability
 
-Please report successful attacks with example input via OWASP's bugcrowd queue or contact mikesamuel@gmail.com and I will create a repository security advisory to coordinate.
+Please report successful attacks with example input via OWASP's bugcrowd queue or contact jim@owasp.org and I will create a repository security advisory to coordinate.
 
 If you wish to be credited, please provide a name or handle for me to credit.
 
