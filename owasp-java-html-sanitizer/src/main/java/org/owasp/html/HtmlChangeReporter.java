@@ -82,7 +82,9 @@ public final class HtmlChangeReporter<T> {
    */
   public HtmlSanitizer.Policy getWrappedPolicy() { return input; }
 
-  private static final class InputChannel<T> implements HtmlSanitizer.Policy {
+  private static final class InputChannel<T>
+      implements HtmlSanitizer.Policy,
+                 TagBalancingHtmlStreamEventReceiver.NestingLimitListener {
     HtmlStreamEventReceiver policy;
     final OutputChannel output;
     final T context;
@@ -94,6 +96,15 @@ public final class HtmlChangeReporter<T> {
       this.output = output;
       this.context = context;
       this.listener = listener;
+    }
+
+    /**
+     * The tag balancer sits upstream of this channel, so a tag it drops for
+     * exceeding the nesting limit never reaches the policy and would otherwise
+     * go unreported.  It tells us directly instead.
+     */
+    public void nestingLimitReached(String elementName) {
+      listener.discardedTag(context, elementName);
     }
 
     public void openDocument() {

@@ -57,6 +57,44 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final boolean DEBUG = false;
 
   /**
+   * Receives notice of tags dropped because the output would otherwise nest
+   * deeper than {@link #setNestingLimit}.
+   *
+   * <p>This exists because the tag balancer runs upstream of the policy, and
+   * so upstream of {@link HtmlChangeReporter}, which notices a discarded tag
+   * by watching for one that goes into the policy and does not come out.  A
+   * tag the balancer drops never reaches the policy at all, so without this it
+   * is invisible to a listener.
+   */
+  interface NestingLimitListener {
+    /** @param elementName the tag that was not emitted. */
+    void nestingLimitReached(String elementName);
+  }
+
+  /**
+   * How many elements whose content the policy would suppress -- {@code
+   * <script>}, {@code <style>}, {@code <iframe>} and friends -- have been
+   * dropped for exceeding the nesting limit and not yet closed.
+   *
+   * <p>The policy decides to skip such an element's text when it sees the
+   * element's start tag.  A tag this receiver drops never reaches the policy,
+   * so the policy would render the content as ordinary text.  Counting them
+   * here keeps that content suppressed.
+   */
+  private int droppedSkippableDepth;
+
+  private static boolean contentIsSkippable(String canonElementName) {
+    return ElementAndAttributePolicyBasedSanitizerPolicy
+        .SKIPPABLE_ELEMENT_CONTENT.contains(canonElementName);
+  }
+
+  private void reportDroppedByNestingLimit(String elementName) {
+    if (underlying instanceof NestingLimitListener) {
+      ((NestingLimitListener) underlying).nestingLimitReached(elementName);
+    }
+  }
+
+  /**
    * @param underlying An event receiver that should receive a stream of
    *     balanced events that is as close as possible to the stream of events
    *     received by this.
@@ -77,6 +115,7 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   public void openDocument() {
+    droppedSkippableDepth = 0;
     underlying.openDocument();
   }
 
@@ -102,6 +141,9 @@ public class TagBalancingHtmlStreamEventReceiver
     if (elIndex == UNRECOGNIZED_TAG) {
       if (openElements.size() < nestingLimit) {
         underlying.openTag(elementName, attrs);
+      } else {
+        if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
+        reportDroppedByNestingLimit(elementName);
       }
       return;
     }
@@ -113,6 +155,9 @@ public class TagBalancingHtmlStreamEventReceiver
       if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         openElements.add(elIndex);
       }
+    } else {
+      if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
+      reportDroppedByNestingLimit(METADATA.canonNameForIndex(elIndex));
     }
   }
 
@@ -249,6 +294,10 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
+    if (droppedSkippableDepth != 0 && contentIsSkippable(canonElementName)) {
+      --droppedSkippableDepth;
+    }
+
     int elIndex = METADATA.indexForName(canonElementName);
     if (elIndex == UNRECOGNIZED_TAG) {  // Allow unrecognized end tags through.
       if (openElements.size() < nestingLimit) {
@@ -356,7 +405,18 @@ public class TagBalancingHtmlStreamEventReceiver
       prepareForContent(HtmlElementTables.TEXT_NODE);
     }
 
-    if (openElements.size() < nestingLimit) {
+    // The nesting limit bounds how deep the *output* nests; it is not a
+    // licence to drop content.  Suppressing the text here meant that markup
+    // nested past the limit came out as a well-formed stack of empty elements
+    // with the author's text deleted from the middle of it, silently.  Emit
+    // the text and let it flatten into the deepest element we did open, which
+    // is what a browser's own depth limit does.  Text is escaped downstream,
+    // so it cannot become markup.
+    //
+    // The exception is content the policy would have suppressed had it seen
+    // the start tag we dropped: a <script> body must not resurface as visible
+    // text just because it sat below the limit.
+    if (droppedSkippableDepth == 0) {
       underlying.text(text);
     }
   }
