@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -322,6 +323,64 @@ public final class CssSchema {
   }
 
   /**
+   * A schema that allows only what every input schema allows.
+   *
+   * <p>Where the inputs define the same property differently, the definitions
+   * are themselves intersected: a token group is kept only if every input
+   * allows it, a value only if every input lists it, and a function only if
+   * every input maps it to the same argument schema.  So the result is never
+   * wider than any input, whatever the inputs disagree about -- unlike
+   * {@link #union}, which refuses to reconcile a disagreement at all.
+   *
+   * <p>This is what {@link PolicyFactory#and} needs: combining two policies
+   * narrows what either allows on its own.
+   *
+   * @param cssSchemas the schemas to intersect.  Intersecting none of them is
+   *     meaningless rather than universal, so at least one is required.
+   * @return a schema that allows a CSS property only if all of the inputs do.
+   */
+  public static CssSchema intersection(CssSchema... cssSchemas) {
+    if (cssSchemas.length == 0) {
+      throw new IllegalArgumentException("No schemas to intersect");
+    }
+    if (cssSchemas.length == 1) { return cssSchemas[0]; }
+    Map<String, Property> propertyMapBuilder =
+        new LinkedHashMap<>(cssSchemas[0].properties);
+    for (int i = 1; i < cssSchemas.length; ++i) {
+      Map<String, Property> other = cssSchemas[i].properties;
+      Iterator<Map.Entry<String, Property>> it =
+          propertyMapBuilder.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry<String, Property> e = it.next();
+        Property narrower = other.get(e.getKey());
+        if (narrower == null) {
+          it.remove();
+        } else {
+          e.setValue(intersectProperties(e.getValue(), narrower));
+        }
+      }
+    }
+    return new CssSchema(Collections.unmodifiableMap(propertyMapBuilder));
+  }
+
+  /** The definition allowing only what both of the inputs allow. */
+  private static Property intersectProperties(Property a, Property b) {
+    if (a.equals(b)) { return a; }
+    Set<String> literals = new HashSet<>(a.literals);
+    literals.retainAll(b.literals);
+    Map<String, String> fnKeys = new HashMap<>();
+    for (Map.Entry<String, String> e : a.fnKeys.entrySet()) {
+      // Keep a function only where both sides send its arguments to the same
+      // schema key; two different argument schemas cannot be reconciled here
+      // without inventing a third, so drop it.
+      if (e.getValue().equals(b.fnKeys.get(e.getKey()))) {
+        fnKeys.put(e.getKey(), e.getValue());
+      }
+    }
+    return new Property(a.bits & b.bits, literals, fnKeys);
+  }
+
+  /**
    * The set of CSS properties allowed by this schema.
    *
    * @return an immutable set.
@@ -470,8 +529,11 @@ public final class CssSchema {
    * }</pre>
    *
    * <p>If an element also gets a {@code style} policy from
-   * {@link HtmlPolicyBuilder#allowStyling()}, the two are joined: the schemas
-   * union, and both rewriters run in turn, so either one can drop a URL.
+   * {@link HtmlPolicyBuilder#allowStyling()}, the two are joined, and joining
+   * narrows: the schemas intersect, and both rewriters run in turn, so either
+   * one can drop a URL.  A policy attached here therefore restricts the
+   * element it is attached to; it cannot grant it a property the global
+   * schema withholds.
    *
    * @param urlRewriter receives the decoded content of a {@code url(...)}
    *     value and returns the URL to use, or {@code null} or the empty string
