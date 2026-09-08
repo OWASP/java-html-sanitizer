@@ -298,7 +298,7 @@ final class EncodingTest {
     assertEquals("{<!-- -->{angularVariable}}", sb.toString());
   }
 
-  private static final void assertStripped(String stripped, String orig) {
+  private static void assertStripped(String stripped, String orig) {
     String actual = Encoding.stripBannedCodeunits(orig);
     assertEquals(stripped, actual, orig);
     if (stripped.equals(orig)) {

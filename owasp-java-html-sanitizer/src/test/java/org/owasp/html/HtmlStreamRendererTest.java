@@ -28,9 +28,7 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,13 +113,13 @@ class HtmlStreamRendererTest {
     assertFalse(output.contains("<"), output);
 
     assertEquals(
-        Arrays.stream(new String[] {
+        String.join("\n",
             "Invalid element name : :svg",
             "Invalid element name : svg:",
             "Invalid element name : -1",
             "Invalid element name : svg::svg",
-            "Invalid element name : a@b"}).collect(Collectors.joining("\n")),
-        errors.stream().collect(Collectors.joining("\n")));
+            "Invalid element name : a@b"),
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -139,13 +137,13 @@ class HtmlStreamRendererTest {
     assertFalse(output.contains("="), output);
 
     assertEquals(
-        Arrays.stream(new String[] {
+        String.join("\n",
             "Invalid attr name : :svg",
             "Invalid attr name : svg:",
             "Invalid attr name : -1",
             "Invalid attr name : svg::svg",
-            "Invalid attr name : a@b"}).collect(Collectors.joining("\n")),
-        errors.stream().collect(Collectors.joining("\n")));
+            "Invalid attr name : a@b"),
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -161,7 +159,7 @@ class HtmlStreamRendererTest {
         "<script type=\"text/javascript\"></script>", rendered.toString());
     assertEquals(
         "Invalid CDATA text content : </SCRIPT>'",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -179,7 +177,7 @@ class HtmlStreamRendererTest {
         "<style type=\"text/css\"></style>", rendered.toString());
     assertEquals(
         "Invalid CDATA text content : </Style> *",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -203,7 +201,7 @@ class HtmlStreamRendererTest {
         "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>");
     assertEquals(
         "Invalid CDATA text content : <SCRIPT>al",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -225,7 +223,7 @@ class HtmlStreamRendererTest {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <script>';",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -244,7 +242,7 @@ class HtmlStreamRendererTest {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <!--y) { .",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -264,7 +262,7 @@ class HtmlStreamRendererTest {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : -->y) { ..",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -284,7 +282,7 @@ class HtmlStreamRendererTest {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <!--->",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -303,7 +301,7 @@ class HtmlStreamRendererTest {
         rendered.toString());
     assertEquals(
         "Invalid CDATA text content : <script ) ",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -368,10 +366,10 @@ class HtmlStreamRendererTest {
     assertEquals(
         "<script>alert('foo')</script>", rendered.toString());
     assertEquals(
-        Arrays.stream(new String[] {
+        String.join("\n",
             "Tag content cannot appear inside CDATA element : b",
-            "Tag content cannot appear inside CDATA element : b"}).collect(Collectors.joining("\n")),
-        errors.stream().collect(Collectors.joining("\n")));
+            "Tag content cannot appear inside CDATA element : b"),
+        String.join("\n", errors));
     errors.clear();
   }
 
@@ -386,7 +384,7 @@ class HtmlStreamRendererTest {
     assertEquals("<script></script>", rendered.toString());
     assertEquals(
         "Invalid CDATA text content : </script>'",
-        errors.stream().collect(Collectors.joining("\n")));
+        String.join("\n", errors));
     errors.clear();
   }
 

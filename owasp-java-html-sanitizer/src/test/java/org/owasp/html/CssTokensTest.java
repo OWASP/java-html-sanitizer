@@ -435,7 +435,7 @@ class CssTokensTest {
         "):RIGHT_PAREN");
   }
 
-  private static final void assertTokens(String css, String... goldens) {
+  private static void assertTokens(String css, String... goldens) {
     List<String> expected = new ArrayList<>();
     for (String golden : goldens) {
       if (" ".equals(golden)) {

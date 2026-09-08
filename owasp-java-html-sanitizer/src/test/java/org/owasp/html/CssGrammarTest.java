@@ -28,9 +28,7 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class CssGrammarTest {
   @Test
   void testLex() {
-    CssTokens tokens = CssTokens.lex(Arrays.stream(new String[] {
+    CssTokens tokens = CssTokens.lex(String.join("\n",
         "/* A comment */",
         "words with-dashes #hashes .dots. -and-leading-dashes",
         "quantities: 3px 4ex -.5pt 12.5%",
@@ -48,7 +46,7 @@ class CssGrammarTest {
         "rgb(255, 127, 127)",
         "'strings' \"oh \\\"my\" 'foo bar'",
         "color:blue!important",
-        ""}).collect(Collectors.joining("\n")));
+        ""));
 
     List<String> actualTokens = new ArrayList<>();
     for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
@@ -60,7 +58,7 @@ class CssGrammarTest {
     }
 
     assertEquals(
-        Arrays.stream(new String[] {
+        String.join("\n",
             // "/* A comment */",  // Comments are elided.
             "words:IDENT",
             "with-dashes:IDENT",
@@ -100,9 +98,8 @@ class CssGrammarTest {
             "blue:IDENT",
             "!:DELIM",
             "important:IDENT",
-            "]:RIGHT_SQUARE"  // Manufactured due to unmatched '['.
-        }).collect(Collectors.joining("\n")),
-        actualTokens.stream().collect(Collectors.joining("\n")));
+            "]:RIGHT_SQUARE"),  // Manufactured due to unmatched '['.
+        String.join("\n", actualTokens));
   }
 
   @Test

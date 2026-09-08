@@ -601,51 +601,43 @@ class HtmlPolicyBuilderTest {
             new HtmlPolicyBuilder()
             .allowElements("h1", "h2", "h3", "h4", "h5", "h6")
             .allowAttributes("title").globally()
-            .withPreprocessor(new HtmlStreamEventProcessor() {
-              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
-                return new HtmlStreamEventReceiverWrapper(r) {
-                  @Override
-                  public void text(String s) {
-                    underlying.text(s.toUpperCase(Locale.ROOT));
-                  }
-                  @Override
-                  public String toString() {
-                    return "shouty-text";
-                  }
-                };
+            .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+              @Override
+              public void text(String s) {
+                underlying.text(s.toUpperCase(Locale.ROOT));
+              }
+              @Override
+              public String toString() {
+                return "shouty-text";
               }
             })
-            .withPreprocessor(new HtmlStreamEventProcessor() {
-              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
-                return new HtmlStreamEventReceiverWrapper(r) {
-                  @Override
-                  public void openTag(String elementName, List<String> attrs) {
-                    underlying.openTag(incr(elementName), attrs);
-                  }
+            .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+              @Override
+              public void openTag(String elementName, List<String> attrs) {
+                underlying.openTag(incr(elementName), attrs);
+              }
 
-                  @Override
-                  public void closeTag(String elementName) {
-                    underlying.closeTag(incr(elementName));
-                  }
+              @Override
+              public void closeTag(String elementName) {
+                underlying.closeTag(incr(elementName));
+              }
 
-                  String incr(String en) {
-                    if (en.length() == 2) {
-                      char c0 = en.charAt(0);
-                      char c1 = en.charAt(1);
-                      if ((c0 == 'h' || c0 == 'H')
-                          && '0' <= c1 && c1 <= '6') {
-                        // h1 -> h2, h2 -> h3, etc.
-                        return "h" + (c1 - '0' + 1);
-                      }
-                    }
-                    return en;
+              String incr(String en) {
+                if (en.length() == 2) {
+                  char c0 = en.charAt(0);
+                  char c1 = en.charAt(1);
+                  if ((c0 == 'h' || c0 == 'H')
+                      && '0' <= c1 && c1 <= '6') {
+                    // h1 -> h2, h2 -> h3, etc.
+                    return "h" + (c1 - '0' + 1);
                   }
+                }
+                return en;
+              }
 
-                  @Override
-                  public String toString() {
-                    return "incr-headers";
-                  }
-                };
+              @Override
+              public String toString() {
+                return "incr-headers";
               }
             }),
 

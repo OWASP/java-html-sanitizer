@@ -47,7 +47,7 @@ final class ElementPolicyTest {
     assertEquals(Arrays.asList(expected), actual, p.toString());
   }
 
-  private static List<String> TEST_EL_NAMES = j8().listOf(
+  private static final List<String> TEST_EL_NAMES = j8().listOf(
       "abacus", "abracadabra", "bar", "foo", "far", "cadr", "cdr");
 
   @Test

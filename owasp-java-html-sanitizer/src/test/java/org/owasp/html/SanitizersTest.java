@@ -709,8 +709,7 @@ class SanitizersTest {
 
     Permutations(int k, @SuppressWarnings("unchecked") T... elements) {
       this.k = k;
-      List<T> builder = new ArrayList<>();
-      Arrays.stream(elements).forEach(builder::add);
+      List<T> builder = new ArrayList<>(Arrays.asList(elements));
       this.elements = Collections.unmodifiableList(builder);
     }
 

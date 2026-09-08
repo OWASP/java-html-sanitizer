@@ -26,6 +26,7 @@
 
 package org.owasp.html;
 
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64;
@@ -153,11 +154,11 @@ class AntiSamyTest {
     assertSanitizedDoesNotContain("<IMG SRC=\"jav&#x0D;ascript:alert('XSS');\">", "alert");
 
     String s = "<IMG SRC=&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041>";
-    if (sanitize(s).length() != 0) {
+    if (!sanitize(s).isEmpty()) {
       assertSanitizedDoesContain(s, "&amp;");
     }
     s = "<IMG SRC=&#0000106&#0000097&#0000118&#0000097&#0000115&#0000099&#0000114&#0000105&#0000112&#0000116&#0000058&#0000097&#0000108&#0000101&#0000114&#0000116&#0000040&#0000039&#0000088&#0000083&#0000083&#0000039&#0000041>";
-    if (sanitize(s).length() != 0) {
+    if (!sanitize(s).isEmpty()) {
       assertSanitizedDoesContain(s, "&amp;");
     }
 
@@ -303,10 +304,9 @@ class AntiSamyTest {
    */
   @Test
   void testIllegalXML() throws Exception {
-    for (int i = 0; i < BASE64_BAD_XML_STRINGS.length; i++) {
+    for (String badXml : BASE64_BAD_XML_STRINGS) {
       String testStr = new String(
-          Base64.decodeBase64(BASE64_BAD_XML_STRINGS[i]),
-          "UTF-8");
+          Base64.decodeBase64(badXml), StandardCharsets.UTF_8);
       sanitize(testStr);
       sanitize(testStr);
     }
@@ -513,7 +513,7 @@ class AntiSamyTest {
       String attack = "[if lte 8]<script>";
       String spacer = "<![if IE]>";
 
-      StringBuffer sb = new StringBuffer();
+      StringBuilder sb = new StringBuilder();
 
       sb.append("<div>text<!");
 

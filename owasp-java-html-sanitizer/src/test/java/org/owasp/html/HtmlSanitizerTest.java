@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -428,14 +429,13 @@ class HtmlSanitizerTest {
       codeUnits[i] = got.charAt(i);
     }
 
-    assertTrue(
-        Arrays.equals(
-            new int[] {
-                116, 101, 115, 116,
-                160, 160, 160, 160, 160, 160, 160, 160,
-                98, 111, 98,
-            },
-            codeUnits),
+    assertArrayEquals(
+        new int[] {
+            116, 101, 115, 116,
+            160, 160, 160, 160, 160, 160, 160, 160,
+            98, 111, 98,
+        },
+        codeUnits,
         Arrays.toString(codeUnits));
   }
 
@@ -664,7 +664,7 @@ class HtmlSanitizerTest {
     return sb.toString();
   }
 
-  private static final String stringRepeatedTimes(String s, int n) {
+  private static String stringRepeatedTimes(String s, int n) {
     StringBuilder sb = new StringBuilder(s.length() * n);
     for (int nToAppend = n; --nToAppend >= 0;) {
       sb.append(s);
