@@ -321,6 +321,30 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   @Test
+  public static final void testDegenerateComments() {
+    // Issue #258: a comment opened by <!-- and closed by --!> after nothing
+    // but dashes must not swallow the rest of the document.
+    assertEquals("<b>after</b>", sanitize("<!----!><b>after</b>"));
+    assertEquals("<b>after</b>", sanitize("<!-----!><b>after</b>"));
+    // <!-> is an empty bogus comment, not a directive that runs to the
+    // next '>' and eats the following tag.
+    assertEquals("c<b>after</b>", sanitize("<!->c<b>after</b>"));
+    // Other complete empty comments.
+    assertEquals("x", sanitize("<!>x"));
+    assertEquals("x", sanitize("<!-->x"));
+    assertEquals("x", sanitize("<!--->x"));
+    // Fewer than two dashes after <!-- leave !> as comment content, so the
+    // comment runs to the end of input, as it does in a browser.
+    assertEquals("", sanitize("<!--!><b>after</b>"));
+    assertEquals("", sanitize("<!---!><b>after</b>"));
+    // Only a contiguous --> or --!> closes a comment; a lone dash followed
+    // later by -> does not, so these comments also run to end of input.
+    assertEquals("", sanitize("<!-- a -x-><b>after</b>"));
+    assertEquals("", sanitize("<!-- a --b-><b>after</b>"));
+    assertEquals("<b>after</b>", sanitize("<!-- a -x--><b>after</b>"));
+  }
+
+  @Test
   public static final void testQMarkMeta() {
     assertEquals(
         "Hello, <b>World</b>!",

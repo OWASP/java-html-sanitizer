@@ -166,7 +166,98 @@ public class HtmlLexerTest extends TestCase {
             "TEXT: a",
             "COMMENT: <!--->",
             "TEXT: b",
-            "SERVERCODE: <!->c"
+            "COMMENT: <!->",
+            "TEXT: c"
+    );
+  }
+
+  @Test
+  public static final void testBangDashIsABogusComment() throws Exception
+  {
+    // <!- followed by anything but a dash is a bogus comment that ends at
+    // the first '>', so <!-> must not swallow the following tag.
+    assertTokens("<!->c<b>after</b>",
+            "COMMENT: <!->",
+            "TEXT: c",
+            "TAGBEGIN: <b",
+            "TAGEND: >",
+            "TEXT: after",
+            "TAGBEGIN: </b",
+            "TAGEND: >"
+    );
+    assertTokens("<!-x>c<b>after</b>",
+            "DIRECTIVE: <!-x>",
+            "TEXT: c",
+            "TAGBEGIN: <b",
+            "TAGEND: >",
+            "TEXT: after",
+            "TAGBEGIN: </b",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
+  public static final void testDashDashBangClosesCommentAfterLeadingDashes() throws Exception
+  {
+    // Issue #258: <!-- followed only by dashes and then --!> must terminate
+    // rather than swallowing the rest of the document.
+    assertTokens("<!----!><b>after</b>",
+            "COMMENT: <!----!>",
+            "TAGBEGIN: <b",
+            "TAGEND: >",
+            "TEXT: after",
+            "TAGBEGIN: </b",
+            "TAGEND: >"
+    );
+    assertTokens("<!-----!><b>after</b>",
+            "COMMENT: <!-----!>",
+            "TAGBEGIN: <b",
+            "TAGEND: >",
+            "TEXT: after",
+            "TAGBEGIN: </b",
+            "TAGEND: >"
+    );
+    // Fewer than two dashes after <!-- do not reach the comment end state,
+    // so !> is ordinary comment content and the comment runs to the end.
+    assertTokens("<!--!><b>after</b>",
+            "COMMENT: <!--!><b>after</b>"
+    );
+    assertTokens("<!---!><b>after</b>",
+            "COMMENT: <!---!><b>after</b>"
+    );
+  }
+
+  @Test
+  public static final void testCommentCloseRequiresAdjacentDashes() throws Exception
+  {
+    // A dash followed by other content is ordinary comment text; only a
+    // contiguous "-->" (or "--!>") closes the comment, as in a browser.
+    assertTokens("<!-- a -x-><b>after</b>",
+            "COMMENT: <!-- a -x-><b>after</b>"
+    );
+    assertTokens("<!-- a --b-><b>after</b>",
+            "COMMENT: <!-- a --b-><b>after</b>"
+    );
+    assertTokens("<!-- a -x--><b>after</b>",
+            "COMMENT: <!-- a -x-->",
+            "TAGBEGIN: <b",
+            "TAGEND: >",
+            "TEXT: after",
+            "TAGBEGIN: </b",
+            "TAGEND: >"
+    );
+    assertTokens("<!-- a --b--><b>after</b>",
+            "COMMENT: <!-- a --b-->",
+            "TAGBEGIN: <b",
+            "TAGEND: >",
+            "TEXT: after",
+            "TAGBEGIN: </b",
+            "TAGEND: >"
+    );
+    // Issue #231: the comment used to end at "->" before "I'M".
+    assertTokens("<!-- COMMENT -- ME -> I'M ALONE --> MY CODE",
+            "COMMENT: <!-- COMMENT -- ME -> I'M ALONE -->",
+            "TEXT:  MY CODE"
     );
   }
 
