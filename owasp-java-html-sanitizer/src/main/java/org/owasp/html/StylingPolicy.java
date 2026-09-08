@@ -250,13 +250,22 @@ final class StylingPolicy implements JoinableAttributePolicy {
    * the closing quote.  Rejecting the backslash outright avoids that question
    * entirely, at the cost of dropping the rare font name that needs one.
    *
-   * <p>What it does allow is everything a font name legitimately contains and
-   * that carries no meaning inside a CSS string: letters and digits in any
-   * script, spaces, and the hyphen, underscore and period that appear in names
+   * <p>What it does allow is a letter or digit from the basic multilingual
+   * plane, a space, and the hyphen, underscore and period that appear in names
    * like {@code Foo_Bar} and {@code Helvetica Neue LT Std.55 Roman}.  The
    * underscore matters in practice because Word emits font names containing
    * one, and because the unquoted path already accepted it -- so a name would
    * survive sanitization once and be dropped on the way back in.
+   *
+   * <p>That covers Latin, Cyrillic, Greek, Han, Hangul, kana and the base
+   * letters of the Arabic, Hebrew, Devanagari and Thai scripts.  It does not
+   * cover a name carrying a combining mark -- a Devanagari matra, an Arabic
+   * diacritic, Hebrew niqqud, a Thai vowel sign -- nor one containing a
+   * character outside the basic multilingual plane, such as a CJK extension B
+   * ideograph.  Those never reach this method: the CSS lexer excludes them
+   * from a token before the policy sees it, and has always done so.  So this
+   * test is defence in depth for non-ASCII rather than the decisive gate, and
+   * relaxing it alone would not make such a name work.
    */
   static boolean isSafeQuotedIdentifier(
       String token, int start, int end) {
@@ -275,8 +284,12 @@ final class StylingPolicy implements JoinableAttributePolicy {
         }
       } else if (!Character.isLetterOrDigit(ch)) {
         // Non-ASCII font names are ordinary -- CJK families, for instance --
-        // but only letters and digits, so that format and control characters
-        // cannot ride along.
+        // but only letters and digits, so that a format character such as a
+        // bidi override cannot ride along.  Note this reads one char at a
+        // time, so it would also reject a supplementary code point; nothing
+        // reaches here with one today, because the lexer has already excluded
+        // it, but a lexer that stopped doing so would need this to use
+        // codePointAt.
         return false;
       }
     }

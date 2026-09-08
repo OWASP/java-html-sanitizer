@@ -202,6 +202,48 @@ class StylingPolicyTest {
   }
 
   /**
+   * Which non-ASCII font names survive, pinned so the claim in
+   * {@code isSafeQuotedIdentifier}'s javadoc stays honest.
+   *
+   * <p>The limitation on combining marks and supplementary code points is not
+   * imposed here -- the CSS lexer drops them from a token before the policy
+   * runs, and did so before the widening in #232 as well.
+   */
+  @Test
+  void testNonAsciiFontNames() {
+    // Letters and digits from the basic multilingual plane go through, quoted
+    // or not.
+    for (String name : new String[] {
+        "\u0422\u0430\u0439\u043c\u0441",              // Cyrillic
+        "\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac",  // Greek, precomposed accent
+        "\u4e2d\u6587\u5b57\u4f53",                     // Han
+        "\ub9d1\uc740\uace0\ub515",                     // Hangul
+        "\u30d2\u30e9\u30ae\u30ce",                     // Katakana
+        "\u0646\u0633\u062e",                            // Arabic base letters
+        "\u05d0\u05dc\u05e3" }) {                        // Hebrew base letters
+      assertSanitizedCss("font-family:'" + name + "'", "font-family: " + name);
+      assertSanitizedCss(
+          "font-family:'" + name + "'", "font-family: '" + name + "'");
+    }
+
+    // A combining mark does not, on either path.  This is the lexer's doing,
+    // not this policy's.
+    for (String name : new String[] {
+        "\u0646\u064e\u0633",              // Arabic with fatha
+        "\u0926\u0947\u0935",              // Devanagari with matra
+        "\u05d0\u05b8\u05dc",              // Hebrew with qamats
+        "\u0e1a\u0e31\u0e0d" }) {          // Thai with vowel sign
+      assertSanitizedCss(null, "font-family: " + name);
+      assertSanitizedCss(null, "font-family: '" + name + "'");
+    }
+
+    // Nor does a supplementary code point: U+20000, a CJK extension B
+    // ideograph.
+    assertSanitizedCss(null, "font-family: \ud840\udc00");
+    assertSanitizedCss(null, "font-family: '\ud840\udc00'");
+  }
+
+  /**
    * Widening what a quoted name may contain must not let a name break out of
    * the quotes it is emitted in.  The lexer hands us quotes and backslashes
    * already escaped, and an escape is exactly what is rejected.
