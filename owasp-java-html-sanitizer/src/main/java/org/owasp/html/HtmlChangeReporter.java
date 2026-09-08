@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -89,6 +90,8 @@ public final class HtmlChangeReporter<T> {
     final OutputChannel output;
     final T context;
     final HtmlChangeListener<? super T> listener;
+    /** Repeated attribute names on the tag currently being opened. */
+    private final List<String> duplicateAttrNames = new ArrayList<>();
 
     InputChannel(
         OutputChannel output, HtmlChangeListener<? super T> listener,
@@ -118,8 +121,16 @@ public final class HtmlChangeReporter<T> {
     public void openTag(String elementName, List<String> attrs) {
       output.expectedElementName = elementName;
       output.expectedAttrNames.clear();
+      duplicateAttrNames.clear();
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
-        output.expectedAttrNames.add(attrs.get(i));
+        String attrName = attrs.get(i);
+        if (!output.expectedAttrNames.add(attrName)) {
+          // HTML forbids repeating an attribute name on one tag, so the
+          // sanitizer keeps the first and drops the rest.  The diff against
+          // the output below cannot see that, since the surviving attribute
+          // leaves the name present in both, so note it here instead.
+          duplicateAttrNames.add(attrName);
+        }
       }
       policy.openTag(elementName, attrs);
       {
@@ -128,12 +139,12 @@ public final class HtmlChangeReporter<T> {
         // occur, but if it does it will be a source of subtle confusing bugs.
         String discardedElementName = output.expectedElementName;
         output.expectedElementName = null;
-        int nExpected = output.expectedAttrNames.size();
-        String[] discardedAttrNames =
-            nExpected != 0 && discardedElementName == null
-            ? output.expectedAttrNames.toArray(new String[nExpected])
+        String[] discardedAttrNames = discardedElementName == null
+            ? namesOfDiscardedAttrs(
+                output.expectedAttrNames, duplicateAttrNames)
             : ZERO_STRINGS;
         output.expectedAttrNames.clear();
+        duplicateAttrNames.clear();
         // Dispatch notifications to the listener.
         if (discardedElementName != null) {
           listener.discardedTag(context, discardedElementName);
@@ -151,6 +162,25 @@ public final class HtmlChangeReporter<T> {
 
     public void text(String textChunk) {
       policy.text(textChunk);
+    }
+
+    /**
+     * The names of the attributes that did not make it to the output: those
+     * the policy rejected, followed by those dropped as repeats of a name
+     * already on the tag.
+     */
+    private static String[] namesOfDiscardedAttrs(
+        Set<String> rejected, List<String> duplicates) {
+      int nRejected = rejected.size();
+      if (duplicates.isEmpty()) {
+        return nRejected != 0
+            ? rejected.toArray(new String[nRejected])
+            : ZERO_STRINGS;
+      }
+      List<String> discarded = new ArrayList<>(nRejected + duplicates.size());
+      discarded.addAll(rejected);
+      discarded.addAll(duplicates);
+      return discarded.toArray(ZERO_STRINGS);
     }
 
     private static final String[] ZERO_STRINGS = new String[0];

@@ -2,6 +2,21 @@
 
 Most recent at top.
   * Next release
+    * Attributes: an attribute whose name matched an **earlier attribute's
+      value** on the same tag was silently dropped as a duplicate.  The
+      duplicate scan walks a flat list of alternating names and values but
+      stepped through it one slot at a time, so it compared names against
+      values as well as against names.  `<img style="color:red" alt="src"
+      src="...">` lost its `src`.  It only ever dropped attributes, never
+      kept one it should have removed, so no policy was widened.  Closes #433.
+    * `HtmlChangeListener`: attributes dropped because their name was
+      already used on the tag are now reported to `discardedAttributes`.
+      HTML forbids repeating an attribute name, so the sanitizer keeps the
+      first and drops the rest, but `HtmlChangeReporter` detects changes by
+      diffing input against output and the surviving copy left the name in
+      both.  Given `<a href="https://example.org/" HREF="javascript:alert(1)">`
+      a listener now hears about the discarded `href` instead of nothing.
+      Reported in #94 by lillesand.
     * CSS: `CssSchema.toAttributePolicy()` and
       `toAttributePolicy(Function<String, String> urlRewriter)` turn a schema
       into an `AttributePolicy`, so a policy can allow different CSS

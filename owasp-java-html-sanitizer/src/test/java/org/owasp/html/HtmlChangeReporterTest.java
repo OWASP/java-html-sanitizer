@@ -76,4 +76,104 @@ class HtmlChangeReporterTest {
     assertEquals(
         "<textarea> <b onclick> <script> <plaintext> ", log.toString());
   }
+
+  /**
+   * HTML forbids repeating an attribute name on one tag, so the sanitizer
+   * keeps the first and drops the rest.  Those drops used to be invisible to
+   * the listener because the surviving attribute left the name in the output.
+   */
+  @Test
+  void testDuplicateAttributesAreReported() {
+    Result result = sanitize(
+        Sanitizers.LINKS,
+        "<a href=\"https://www.example.org/\" HREF=\"javascript:alert(1)\">"
+        + "legal link</a>");
+
+    assertEquals(
+        "<a href=\"https://www.example.org/\" rel=\"nofollow\">legal link</a>",
+        result.html);
+    assertEquals("<a href> ", result.log);
+  }
+
+  @Test
+  void testDuplicateAttributesReportedOncePerExtraCopy() {
+    Result result = sanitize(
+        Sanitizers.LINKS,
+        "<a href=\"https://www.example.org/\" href=\"/one\" href=\"/two\">"
+        + "link</a>");
+
+    assertEquals(
+        "<a href=\"https://www.example.org/\" rel=\"nofollow\">link</a>",
+        result.html);
+    assertEquals("<a href href> ", result.log);
+  }
+
+  /** Attributes the policy rejects and duplicates arrive in one report. */
+  @Test
+  void testRejectedAndDuplicateAttributesReportedTogether() {
+    Result result = sanitize(
+        Sanitizers.LINKS,
+        "<a onclick=alert(42) href=\"https://www.example.org/\" href=\"/x\">"
+        + "link</a>");
+
+    assertEquals(
+        "<a href=\"https://www.example.org/\" rel=\"nofollow\">link</a>",
+        result.html);
+    assertEquals("<a onclick href> ", result.log);
+  }
+
+  /**
+   * When the whole tag goes, it is reported as a discarded tag and its
+   * attributes are not reported separately, duplicates included.
+   */
+  @Test
+  void testDuplicateAttributesOnADiscardedTagReportOnlyTheTag() {
+    Result result = sanitize(
+        Sanitizers.FORMATTING,
+        "<script src=\"a.js\" SRC=\"b.js\">doEvil()</script>");
+
+    assertEquals("", result.html);
+    assertEquals("<script> ", result.log);
+  }
+
+  /** The sanitized HTML and the log of what the listener was told about it. */
+  static final class Result {
+    final String html;
+    final String log;
+
+    Result(String html, String log) {
+      this.html = html;
+      this.log = log;
+    }
+  }
+
+  /** Sanitizes html under policy, recording every listener notification. */
+  private static Result sanitize(PolicyFactory policy, String html) {
+    final Context testContext = new Context();
+    StringBuilder out = new StringBuilder();
+    final StringBuilder log = new StringBuilder();
+    HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
+        out, Handler.DO_NOTHING);
+    HtmlChangeListener<Context> listener = new HtmlChangeListener<Context>() {
+      public void discardedTag(Context context, String elementName) {
+        assertSame(testContext, context);
+        log.append('<').append(elementName).append("> ");
+      }
+
+      public void discardedAttributes(
+          Context context, String tagName, String... attributeNames) {
+        assertSame(testContext, context);
+        log.append('<').append(tagName);
+        for (String attributeName : attributeNames) {
+          log.append(' ').append(attributeName);
+        }
+        log.append("> ");
+      }
+    };
+    HtmlChangeReporter<Context> hcr = new HtmlChangeReporter<>(
+        renderer, listener, testContext);
+    hcr.setPolicy(policy.apply(hcr.getWrappedRenderer()));
+    HtmlSanitizer.sanitize(html, hcr.getWrappedPolicy());
+    return new Result(out.toString(), log.toString());
+  }
 }

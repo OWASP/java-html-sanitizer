@@ -404,8 +404,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
             break checkForDuplicate;
           }
         }
-        // Look for a duplicate.
-        for (int j = k; --j >= 0;) {
+        // Look for a duplicate.  attrs alternates names and values, so step
+        // by two to compare against names only; comparing against a value
+        // would drop an attribute whose name matches an earlier value.
+        for (int j = k - 2; j >= 0; j -= 2) {
           if (attrs.get(j).equals(name)) {
             continue attrLoop;
           }

@@ -606,6 +606,42 @@ class HtmlPolicyBuilderTest {
         );
   }
 
+  /**
+   * The duplicate-attribute scan walks a flat list of alternating names and
+   * values, so it has to compare names against names.  It used to compare
+   * against values too, which dropped an attribute whose name matched an
+   * earlier attribute's value.
+   */
+  @Test
+  void testAttributeNameMatchingAnEarlierValueIsNotADuplicate() {
+    assertEquals(
+        "<img style=\"color:red\" alt=\"src\""
+        + " src=\"http://example.com/a.png\" />",
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("style", "alt", "src").onElements("img")
+            .allowUrlProtocols("http", "https"),
+            "<img style=\"color:red\" alt=\"src\""
+            + " src=\"http://example.com/a.png\">")
+        );
+  }
+
+  /** Genuine repeats are still dropped, keeping the first. */
+  @Test
+  void testRepeatedAttributeNamesStillCollapseToTheFirst() {
+    assertEquals(
+        "<img alt=\"first\" />",
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("alt").onElements("img"),
+            "<img alt=\"first\" ALT=\"second\" alt=\"third\">")
+        );
+  }
+
   @Test
   void testDuplicateAttributesDoNotReachElementPolicy() {
     final int[] idCount = new int[1];
