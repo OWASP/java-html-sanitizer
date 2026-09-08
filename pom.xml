@@ -200,6 +200,17 @@ application while protecting against XSS.
           <artifactId>exec-maven-plugin</artifactId>
           <version>3.6.3</version>
         </plugin>
+        <!-- Used by .github/workflows/release.yml; pinned for the same reason. -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>2.21.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-help-plugin</artifactId>
+          <version>3.5.2</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
@@ -364,6 +375,8 @@ application while protecting against XSS.
                   <github>
                     <tagName>release-{{projectVersion}}</tagName>
                     <releaseName>Release {{projectVersion}}</releaseName>
+                    <!-- Annotated, PGP-signed tags, as every pre-JReleaser release had. -->
+                    <sign>true</sign>
                     <changelog>
                       <formatted>ALWAYS</formatted>
                       <skipMergeCommits>true</skipMergeCommits>
