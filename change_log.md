@@ -70,6 +70,11 @@ Most recent at top.
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
       Martin Jackson, Raibipasha-24, strangelookingnerd, subbudvk,
       Sven Strickroth, yangbongsoo
+    * HTML: Inside `<svg>` / `<math>`, the content of raw text elements such
+      as `<style>` is escaped rather than emitted verbatim (since 20240325.1),
+      but it was escaped without first decoding character references, so
+      `&amp;` came out as `&amp;amp;`.  References are now decoded once
+      before re-encoding (issue #411).
   * Release 20260313.1
     * Fix: Preserve the order of `rel` attribute values while still
       de-duplicating them.

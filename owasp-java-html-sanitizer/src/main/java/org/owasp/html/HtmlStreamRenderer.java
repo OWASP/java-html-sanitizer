@@ -61,6 +61,14 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private boolean open;
   /** The count of {@link #foreignContentRootElementNames} opened and not subsequently closed. */
   private int foreignContentDepth = 0;
+  /**
+   * True when the current element is one whose content the HTML lexer treats
+   * as raw text, so its text arrives with character references undecoded, but
+   * it is inside foreign content where browsers parse that content as markup.
+   * Such text must be decoded before it is escaped, otherwise character
+   * references would be encoded twice.
+   */
+  private boolean decodeTextBeforeEscaping = false;
 
   /**
    * Factory.
@@ -177,6 +185,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
 
     HtmlTextEscapingMode tentativeEscapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    decodeTextBeforeEscaping = false;
     if (foreignContentDepth == 0) {
       escapingMode = tentativeEscapingMode;
     } else {
@@ -184,6 +193,15 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
         case PCDATA:
         case VOID:
           escapingMode = tentativeEscapingMode;
+          break;
+        case CDATA:
+        case CDATA_SOMETIMES:
+        case PLAIN_TEXT:
+          // The lexer delivers the content of these elements as raw text
+          // without decoding character references, but browsers parse it as
+          // markup inside foreign content, so decode before re-encoding.
+          decodeTextBeforeEscaping = true;
+          escapingMode = HtmlTextEscapingMode.RCDATA;
           break;
         default: // escape special characters but do not allow tags
           escapingMode = HtmlTextEscapingMode.RCDATA;
@@ -265,6 +283,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (foreignContentDepth != 0 && foreignContentRootElementNames.contains(elementName)) {
       foreignContentDepth -= 1;
     }
+    decodeTextBeforeEscaping = false;
 
     if (pendingUnescaped != null) {
       if (!lastTagOpened.equals(elementName)) {
@@ -306,7 +325,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       pendingUnescaped.append(text);
     } else {
       if (this.escapingMode == HtmlTextEscapingMode.RCDATA) {
-        Encoding.encodeRcdataOnto(text, output);
+        Encoding.encodeRcdataOnto(
+            decodeTextBeforeEscaping ? Encoding.decodeHtml(text, false) : text,
+            output);
       } else {
         Encoding.encodePcdataOnto(text, output);
       }

@@ -1302,6 +1302,30 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public final void testRawTextElementsInsideForeignContent() {
+    PolicyFactory policyFactory = new HtmlPolicyBuilder()
+            .allowElements("svg", "math", "style")
+            .allowTextIn("style")
+            .toFactory();
+    // Outside svg/math, style content is raw text and is emitted verbatim.
+    assertEquals(
+        "<style>a &amp; b</style>",
+        policyFactory.sanitize("<style>a &amp; b</style>"));
+    // Inside svg/math, browsers decode character references in style content,
+    // so it is escaped once, not twice.
+    assertEquals(
+        "<svg><style>a &amp; b &lt;c&gt;</style></svg>",
+        policyFactory.sanitize("<svg><style>a &amp; b &lt;c&gt;</style></svg>"));
+    assertEquals(
+        "<math><style>a &amp; b</style></math>",
+        policyFactory.sanitize("<math><style>a &amp; b</style></math>"));
+    assertEquals(
+        "<svg><style>a &amp; b</style></svg><style>c &amp; d</style>",
+        policyFactory.sanitize(
+            "<svg><style>a &amp; b</style></svg><style>c &amp; d</style>"));
+  }
+
+  @Test
   public final void testTextareaIsNotTextArea() {
     String input = "<textarea>x</textarea><textArea>y</textArea>";
     PolicyFactory textareaPolicy = new HtmlPolicyBuilder().allowElements("textarea").toFactory();

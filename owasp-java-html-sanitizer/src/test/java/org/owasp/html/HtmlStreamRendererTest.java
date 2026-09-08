@@ -504,4 +504,33 @@ public class HtmlStreamRendererTest extends TestCase {
     rendered.setLength(0);
     return result;
   }
+
+  public final void testRawTextElementInsideForeignContentIsDecodedBeforeEscaping()
+      throws Exception {
+    renderer.openDocument();
+    renderer.openTag("svg", j8().listOf());
+    renderer.openTag("style", j8().listOf());
+    // The lexer does not decode character references in raw text elements.
+    renderer.text("a &amp; b &lt;c&gt; &#x3c;d>");
+    renderer.closeTag("style");
+    // Text outside the raw text element arrives decoded as usual.
+    renderer.text("x &amp; y");
+    renderer.closeTag("svg");
+    renderer.closeDocument();
+
+    assertEquals(
+        "<svg><style>a &amp; b &lt;c&gt; &lt;d&gt;</style>x &amp;amp; y</svg>",
+        rendered.toString());
+  }
+
+  public final void testRawTextElementOutsideForeignContentIsNotDecoded()
+      throws Exception {
+    renderer.openDocument();
+    renderer.openTag("style", j8().listOf());
+    renderer.text("a &amp; b");
+    renderer.closeTag("style");
+    renderer.closeDocument();
+
+    assertEquals("<style>a &amp; b</style>", rendered.toString());
+  }
 }
