@@ -42,6 +42,6 @@ For advanced use, see:
 
 ## Asking Questions
 
-Feel free to post questions as a
-[GitHub issue](https://github.com/OWASP/java-html-sanitizer/issues)
+Feel free to post questions in
+[GitHub Discussions](https://github.com/OWASP/java-html-sanitizer/discussions/categories/q-a)
 and we'll do our best to help.

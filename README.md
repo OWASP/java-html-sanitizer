@@ -193,8 +193,9 @@ See ["Why sanitize when you can validate"](https://github.com/OWASP/java-html-sa
 
 ## Questions?
 
-If you wish to report a vulnerability, please see
-[AttackReviewGroundRules](docs/attack_review_ground_rules.md).
+If you wish to report a vulnerability, please see the
+[security policy](SECURITY.md) and the
+[attack review ground rules](docs/attack_review_ground_rules.md).
 
 Subscribe to the
 [mailing list](https://groups.google.com/g/owasp-java-html-sanitizer-support)
