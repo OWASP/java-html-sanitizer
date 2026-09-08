@@ -37,6 +37,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.Function;
 import static org.owasp.shim.Java8Shim.j8;
 
 import javax.annotation.Nullable;
@@ -218,6 +219,91 @@ public final class CssSchema {
   public Set<String> allowedProperties() {
     return properties.keySet();
   }
+
+  /**
+   * An {@link AttributePolicy} that sanitizes a {@code style} attribute value
+   * against this schema, dropping every {@code url(...)} value it contains.
+   *
+   * <p>This is the per-element counterpart of
+   * {@link HtmlPolicyBuilder#allowStyling(CssSchema)}, which applies one
+   * schema to the {@code style} attribute of every element.  Passing the
+   * result to {@link HtmlPolicyBuilder.AttributeBuilder#matching(AttributePolicy)}
+   * lets different elements allow different CSS properties:
+   *
+   * <pre>{@code
+   * new HtmlPolicyBuilder()
+   *     .allowElements("span", "table")
+   *     .allowAttributes("style")
+   *         .matching(CssSchema.withProperties(
+   *              Arrays.asList("color", "background-color")).toAttributePolicy())
+   *         .onElements("span")
+   *     .allowAttributes("style")
+   *         .matching(CssSchema.withProperties(
+   *              Arrays.asList("width", "height")).toAttributePolicy())
+   *         .onElements("table")
+   *     .toFactory();
+   * }</pre>
+   *
+   * <p><b>Security note:</b> a policy built this way is <b>not</b> wired to
+   * {@link HtmlPolicyBuilder#allowUrlsInStyles(AttributePolicy)} or
+   * {@link HtmlPolicyBuilder#allowUrlProtocols(String...)}.  That wiring
+   * happens only inside the {@code style} attribute guard that
+   * {@link HtmlPolicyBuilder#allowStyling()} installs, and it cannot see a
+   * policy handed to {@code matching}.  Rather than let URLs through
+   * unvetted, this variant drops them all; use
+   * {@link #toAttributePolicy(Function)} to vet them yourself.
+   *
+   * @return an attribute policy suitable for the {@code style} attribute.
+   */
+  public AttributePolicy toAttributePolicy() {
+    return new StylingPolicy(this, REJECT_ALL_URLS);
+  }
+
+  /**
+   * An {@link AttributePolicy} that sanitizes a {@code style} attribute value
+   * against this schema, passing the content of each {@code url(...)} value
+   * through {@code urlRewriter}.
+   *
+   * <p><b>Security note:</b> as with {@link #toAttributePolicy()}, a policy
+   * built this way is <b>not</b> wired to
+   * {@link HtmlPolicyBuilder#allowUrlsInStyles(AttributePolicy)} or
+   * {@link HtmlPolicyBuilder#allowUrlProtocols(String...)}, so vetting URLs
+   * is entirely the caller's job.  URLs in CSS are typically loaded without
+   * user interaction, the way {@code <img src=...>} is, so a greater degree
+   * of scrutiny is warranted than for a link.  If in doubt, prefer
+   * {@link #toAttributePolicy()}, which drops them.
+   *
+   * <p>To vet URLs by protocol the way {@link HtmlPolicyBuilder} does, reuse
+   * a {@link FilterUrlByProtocolAttributePolicy}.  It ignores the element and
+   * attribute names it is given, so any will do:
+   *
+   * <pre>{@code
+   * AttributePolicy urlPolicy = new FilterUrlByProtocolAttributePolicy(
+   *     Arrays.asList("https", "mailto"));
+   * schema.toAttributePolicy(url -> urlPolicy.apply("img", "src", url));
+   * }</pre>
+   *
+   * <p>If an element also gets a {@code style} policy from
+   * {@link HtmlPolicyBuilder#allowStyling()}, the two are joined: the schemas
+   * union, and both rewriters run in turn, so either one can drop a URL.
+   *
+   * @param urlRewriter receives the decoded content of a {@code url(...)}
+   *     value and returns the URL to use, or {@code null} or the empty string
+   *     to drop it.  It is never passed {@code null} or the empty string.
+   * @return an attribute policy suitable for the {@code style} attribute.
+   */
+  public AttributePolicy toAttributePolicy(
+      Function<String, String> urlRewriter) {
+    return new StylingPolicy(this, Objects.requireNonNull(urlRewriter));
+  }
+
+  /** Drops every URL it is given. */
+  private static final Function<String, String> REJECT_ALL_URLS
+      = new Function<String, String>() {
+        public @Nullable String apply(String url) {
+          return null;
+        }
+      };
 
   /** The schema for the named property or function key. */
   Property forKey(String propertyName) {

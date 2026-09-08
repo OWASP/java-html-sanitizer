@@ -248,15 +248,21 @@ final class StylingPolicy implements JoinableAttributePolicy {
     return true;
   }
 
+  // The url rewriter takes part in equality because joining groups policies
+  // into a Set first: two styling policies that share a schema but vet URLs
+  // differently must both survive to be joined, or one rewriter would be
+  // dropped silently.
   @Override
   public boolean equals(Object o) {
-    return o != null && getClass() == o.getClass()
-        && cssSchema.equals(((StylingPolicy) o).cssSchema);
+    if (o == null || getClass() != o.getClass()) { return false; }
+    StylingPolicy that = (StylingPolicy) o;
+    return cssSchema.equals(that.cssSchema)
+        && urlRewriter.equals(that.urlRewriter);
   }
 
   @Override
   public int hashCode() {
-    return cssSchema.hashCode();
+    return cssSchema.hashCode() + 31 * urlRewriter.hashCode();
   }
 
   public Joinable.JoinStrategy<JoinableAttributePolicy> getJoinStrategy() {
@@ -280,10 +286,28 @@ final class StylingPolicy implements JoinableAttributePolicy {
         urlRewriter = urlRewriter.equals(identity)
             || urlRewriter.equals(sp.urlRewriter)
             ? sp.urlRewriter
-            : urlRewriter.compose(sp.urlRewriter);
+            : andThen(urlRewriter, sp.urlRewriter);
       }
       return new StylingPolicy(cssSchema, urlRewriter);
     }
 
+    /**
+     * A rewriter that runs both in turn, so a URL has to satisfy both to
+     * survive.  A rewriter signals "dropped" by returning null or the empty
+     * string, which is not a URL, so it short-circuits instead of being
+     * passed on to the next rewriter.
+     */
+    private static Function<String, String> andThen(
+        final Function<String, String> first,
+        final Function<String, String> second) {
+      return new Function<String, String>() {
+        public @Nullable String apply(String url) {
+          String rewritten = first.apply(url);
+          return rewritten == null || rewritten.isEmpty()
+              ? null
+              : second.apply(rewritten);
+        }
+      };
+    }
   }
 }
