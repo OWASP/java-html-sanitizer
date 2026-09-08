@@ -31,14 +31,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.owasp.shim.Java8Shim.j8;
 
 @SuppressWarnings({"javadoc", "HttpUrlsUsage", "RedundantSuppression", "UnnecessaryUnicodeEscape"})
-public class HtmlPolicyBuilderTest extends TestCase {
+class HtmlPolicyBuilderTest {
 
   static final String EXAMPLE = String.join(
       "\n",
@@ -56,7 +57,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
       "");
 
   @Test
-  public final void testTextFilter() {
+  void testTextFilter() {
     assertEquals(
         String.join(
             "\n",
@@ -73,7 +74,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testCannedFormattingTagFilter() {
+  void testCannedFormattingTagFilter() {
     assertEquals(
         String.join(
             "\n",
@@ -90,7 +91,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testCannedFormattingTagFilterNoItalics() {
+  void testCannedFormattingTagFilterNoItalics() {
     assertEquals(
         String.join(
             "\n",
@@ -108,7 +109,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testSimpleTagFilter() {
+  void testSimpleTagFilter() {
     assertEquals(
         String.join(
             "\n",
@@ -125,7 +126,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testLinksAllowed() {
+  void testLinksAllowed() {
     assertEquals(
         String.join(
             "\n",
@@ -144,7 +145,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testExternalLinksAllowed() {
+  void testExternalLinksAllowed() {
     assertEquals(
         String.join(
             "\n",
@@ -165,7 +166,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testLinksWithNofollow() {
+  void testLinksWithNofollow() {
     assertEquals(
         String.join(
             "\n",
@@ -185,7 +186,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testLinksWithNofollowAlreadyPresent() {
+  void testLinksWithNofollowAlreadyPresent() {
     assertEquals(
         "html <a href=\"/\" rel=\"nofollow\">link</a>",
         apply(
@@ -197,7 +198,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testImagesAllowed() {
+  void testImagesAllowed() {
     assertEquals(
         String.join(
             "\n",
@@ -217,7 +218,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testStyleFiltering() {
+  void testStyleFiltering() {
     assertEquals(
         String.join(
             "\n",
@@ -239,7 +240,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testSpecificStyleFilterung() {
+  void testSpecificStyleFilterung() {
     assertEquals(
         String.join(
             "\n",
@@ -260,7 +261,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testCustomPropertyStyleFiltering() {
+  void testCustomPropertyStyleFiltering() {
     assertEquals(
         String.join(
             "\n",
@@ -286,7 +287,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testUnionStyleFiltering() {
+  void testUnionStyleFiltering() {
     assertEquals(
         String.join(
             "\n",
@@ -309,7 +310,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testCustomPropertyStyleFilteringDisallowed() {
+  void testCustomPropertyStyleFilteringDisallowed() {
     assertEquals(
         String.join(
             "\n",
@@ -335,7 +336,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testElementTransforming() {
+  void testElementTransforming() {
     assertEquals(
         String.join(
             "\n",
@@ -359,7 +360,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testBodyTransforming() {
+  void testBodyTransforming() {
     assertEquals(
         "<div>foo</div>",
         apply(
@@ -371,7 +372,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
             "<body>foo</body>"));
   }
   @Test
-  public final void testAllowUrlProtocols() {
+  void testAllowUrlProtocols() {
     assertEquals(
         String.join(
             "\n",
@@ -391,7 +392,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testDisallowUrlProtocols() {
+  void testDisallowUrlProtocols() {
     assertEquals(
         String.join(
             "\n",
@@ -411,7 +412,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testPossibleFalloutFromIssue5() {
+  void testPossibleFalloutFromIssue5() {
     assertEquals(
         "Bad",
         apply(
@@ -424,7 +425,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testTextInOption() {
+  void testTextInOption() {
     assertEquals(
         "<select><option>1</option><option>2</option></select>",
         apply(
@@ -435,7 +436,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testEntities() {
+  void testEntities() {
     assertEquals(
         "(Foo)\u00a0(Bar)\u2666\u2666\u2666\u2666(Baz)"
         + "&#x14834;&#x14834;&#x14834;(Boo)",
@@ -446,7 +447,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testImageTag() {
+  void testImageTag() {
     assertEquals(
         ""
         + "<img src=\"http://example.com/foo.png\" />"
@@ -456,14 +457,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
         apply(
             new HtmlPolicyBuilder()
             .allowElements("img")
-            .allowElements(
-                new ElementPolicy() {
-
-                  public String apply(String elementName, List<String> attrs) {
-                    return "img";
-                  }
-
-                }, "image")
+            .allowElements((elementName, attrs) -> "img", "image")
             .allowAttributes("src").onElements("img", "image")
             .allowStandardUrlProtocols(),
             ""
@@ -473,7 +467,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testImgSrcsetSyntax() {
+  void testImgSrcsetSyntax() {
     assertEquals(
         ""
         + "<img srcset=\"http://example.com/foo.png\" />\n"
@@ -533,7 +527,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testUrlChecksLayer() {
+  void testUrlChecksLayer() {
     assertEquals(
         ""
         + "<img src=\"http://example.com/OK.png\" />\n"
@@ -556,7 +550,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testDuplicateAttributesDoNotReachElementPolicy() {
+  void testDuplicateAttributesDoNotReachElementPolicy() {
     final int[] idCount = new int[1];
     assertEquals(
         // The id that is emitted is the first that passes the attribute
@@ -569,32 +563,28 @@ public class HtmlPolicyBuilderTest extends TestCase {
         apply(
             new HtmlPolicyBuilder()
             .allowElements(
-                new ElementPolicy() {
-                  public String apply(String elementName, List<String> attrs) {
-                    int nAttrs = attrs.size() / 2;
-                    attrs.add("attr-count");
-                    attrs.add("" + nAttrs);
-                    attrs.add("id-count");
-                    attrs.add("" + idCount[0]);
-                    return elementName;
-                  }
+                (elementName, attrs) -> {
+                  int nAttrs = attrs.size() / 2;
+                  attrs.add("attr-count");
+                  attrs.add("" + nAttrs);
+                  attrs.add("id-count");
+                  attrs.add("" + idCount[0]);
+                  return elementName;
                 },
-                "a"
-            )
-            .allowAttributes("id").matching(new AttributePolicy() {
-              public String apply(
-                  String elementName, String attributeName, String value) {
-                ++idCount[0];
-                return value.startsWith("b") ? value : null;
-              }
-            }).onElements("a")
+                "a")
+            .allowAttributes("id").matching(
+                (elementName, attributeName, value) -> {
+                  ++idCount[0];
+                  return value.startsWith("b") ? value : null;
+                })
+            .onElements("a")
             .allowAttributes("href").onElements("a"),
             "<a href=\"foo\" id='far' id=\"bar\" href=baz id=boo>link</a>")
         );
   }
 
   @Test
-  public final void testPreprocessors() {
+  void testPreprocessors() {
     String input =
         "<h1 title='foo'>one</h1> <h2>Two!</h2> <h3>three</h3>"
         + " <h4>Four</h4> <h5>5</h5> <h6>seis</h6>";
@@ -664,7 +654,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
 
 
   @Test
-  public final void testPostprocessors() {
+  void testPostprocessors() {
     String input =
         "<h1 title='foo'>one</h1> <h2>TWO!</h2> <h3>three</h3>"
         + " <h4>Four</h4> <h5>5</h5> <h6>seis</h6>";
@@ -742,7 +732,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testBackgroundImageWithUrl() {
+  void testBackgroundImageWithUrl() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowStandardUrlProtocols()
         .allowStyling()
@@ -766,7 +756,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testCalcInStyleAttribute() {
+  void testCalcInStyleAttribute() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowStyling()
         .allowElements("div")
@@ -789,7 +779,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testBackgroundImageWithImageFunction() {
+  void testBackgroundImageWithImageFunction() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowStandardUrlProtocols()
         .allowStyling()
@@ -813,7 +803,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testBackgroundWithUrls() {
+  void testBackgroundWithUrls() {
     HtmlPolicyBuilder builder = new HtmlPolicyBuilder()
         .allowStandardUrlProtocols()
         .allowStyling()
@@ -836,7 +826,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testBackgroundsThatViolateGlobalUrlPolicy() {
+  void testBackgroundsThatViolateGlobalUrlPolicy() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowStandardUrlProtocols()
         .allowStyling()
@@ -853,7 +843,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testSpanTagFilter() {
+  void testSpanTagFilter() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowElements("span")
         .allowWithoutAttributes("span")
@@ -867,7 +857,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testLinkRels() {
+  void testLinkRels() {
     HtmlPolicyBuilder b = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href").onElements("a")
@@ -916,7 +906,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testLinkRelsWhenRelPresent() {
+  void testLinkRelsWhenRelPresent() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href").onElements("a")
@@ -945,20 +935,20 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testRelLinksWhenRelIsPartOfData() {
-	  PolicyFactory pf = new HtmlPolicyBuilder()
-		        .allowElements("a")
-		        .allowAttributes("href").onElements("a")
-		        .allowAttributes("rel").onElements("a")
-		        .allowAttributes("target").onElements("a")
-		        .allowStandardUrlProtocols()
-		        .toFactory();
-	  String toSanitize = "<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>";
-	  assertEquals(toSanitize, pf.sanitize(toSanitize));
+  void testRelLinksWhenRelIsPartOfData() {
+    PolicyFactory pf = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("rel").onElements("a")
+        .allowAttributes("target").onElements("a")
+        .allowStandardUrlProtocols()
+        .toFactory();
+    String toSanitize = "<a target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://google.com\">test</a>";
+    assertEquals(toSanitize, pf.sanitize(toSanitize));
   }
 
   @Test
-  public final void testRelLinksWithDuplicateRels() {
+  void testRelLinksWithDuplicateRels() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href").onElements("a")
@@ -970,7 +960,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testRelLinksWithDuplicateRelsRequired() {
+  void testRelLinksWithDuplicateRelsRequired() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href").onElements("a")
@@ -983,27 +973,18 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testFailFastOnSpaceSeparatedStrings() {
-    boolean failed;
-    try {
-      // Should be ("nofollow", "noreferrer")
-      new HtmlPolicyBuilder().requireRelsOnLinks("nofollow noreferrer");
-      failed = false;
-	} catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
-      failed = true;
-    }
-    assertTrue(failed);
-    try {
-      new HtmlPolicyBuilder().skipRelsOnLinks("nofollow noreferrer");
-      failed = false;
-	} catch (@SuppressWarnings("unused") IllegalArgumentException ex) {
-      failed = true;
-    }
-    assertTrue(failed);
+  void testFailFastOnSpaceSeparatedStrings() {
+    // Should be ("nofollow", "noreferrer")
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new HtmlPolicyBuilder().requireRelsOnLinks("nofollow noreferrer"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new HtmlPolicyBuilder().skipRelsOnLinks("nofollow noreferrer"));
   }
 
   @Test
-  public final void testEmptyDefaultLinkRelsSet() {
+  void testEmptyDefaultLinkRelsSet() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href", "target").onElements("a")
@@ -1017,7 +998,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testRequireAndSkipRels() {
+  void testRequireAndSkipRels() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href", "target").onElements("a")
@@ -1040,7 +1021,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testSkipAndRequireRels() {
+  void testSkipAndRequireRels() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href", "target").onElements("a")
@@ -1063,7 +1044,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testOverflowWrap() {
+  void testOverflowWrap() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("span")
         .allowStyling(CssSchema.union(CssSchema.DEFAULT, CssSchema.withProperties(j8().listOf("overflow-wrap"))))
@@ -1083,7 +1064,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testOverflowWrapNotAllowed() {
+  void testOverflowWrapNotAllowed() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("span")
         .allowStyling()
@@ -1095,7 +1076,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testExplicitRelsSkip() {
+  void testExplicitRelsSkip() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("a")
         .allowAttributes("href", "target", "rel").onElements("a")
@@ -1121,7 +1102,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testScopingExitInNoContent() {
+  void testScopingExitInNoContent() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("table", "tr", "td", "noscript")
         .toFactory();
@@ -1133,7 +1114,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testIssue80() {
+  void testIssue80() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("table", "tr", "td", "tbody")
         .toFactory();
@@ -1150,7 +1131,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testDirLi() {
+  void testDirLi() {
     assertEquals(
         "<dir compact=\"compact\"><li>something</li></dir>",
         apply(
@@ -1161,7 +1142,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testDisallowTextIn() {
+  void testDisallowTextIn() {
     HtmlPolicyBuilder sharedPolicyBuilder = new HtmlPolicyBuilder()
         .allowElements("div")
         .allowAttributes("style").onElements("div");
@@ -1178,7 +1159,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testDisallowAttribute() {
+  void testDisallowAttribute() {
     HtmlPolicyBuilder sharedPolicyBuilder = new HtmlPolicyBuilder()
         .allowElements("div", "p")
         .allowAttributes("style").onElements("div", "p");
@@ -1197,7 +1178,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public void testCreativeCSSStyling() {
+  void testCreativeCSSStyling() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowElements("p")
         .allowAttributes("style").onElements("p").allowStyling().toFactory();
@@ -1219,7 +1200,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testScriptTagWithCommentBlockContainingHtmlCommentEnd() {
+  void testScriptTagWithCommentBlockContainingHtmlCommentEnd() {
     PolicyFactory scriptSanitizer = new HtmlPolicyBuilder()
         // allow scripts of type application/json
         .allowElements(
@@ -1258,7 +1239,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testNoscriptInAttribute() {
+  void testNoscriptInAttribute() {
     PolicyFactory pf = new HtmlPolicyBuilder()
         .allowElements("img", "p", "noscript")
         .allowAttributes("title").globally()
@@ -1275,7 +1256,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testTableStructure() {
+  void testTableStructure() {
     String input =
         "<TABLE>"
         + "<TR><TD>Foo<TD>Bar"
@@ -1292,7 +1273,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testSvgNames() {
+  void testSvgNames() {
     PolicyFactory policyFactory = new HtmlPolicyBuilder()
             .allowElements("svg", "animateColor")
             .allowAttributes("viewBox").onElements("svg")
@@ -1302,7 +1283,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testRawTextElementsInsideForeignContent() {
+  void testRawTextElementsInsideForeignContent() {
     PolicyFactory policyFactory = new HtmlPolicyBuilder()
             .allowElements("svg", "math", "style")
             .allowTextIn("style")
@@ -1326,7 +1307,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testTextareaIsNotTextArea() {
+  void testTextareaIsNotTextArea() {
     String input = "<textarea>x</textarea><textArea>y</textArea>";
     PolicyFactory textareaPolicy = new HtmlPolicyBuilder().allowElements("textarea").toFactory();
     PolicyFactory textAreaPolicy = new HtmlPolicyBuilder().allowElements("textArea").toFactory();
@@ -1335,13 +1316,13 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testHtmlPolicyBuilderDefinitionWithNoAttributesDefinedGlobally() {
+  void testHtmlPolicyBuilderDefinitionWithNoAttributesDefinedGlobally() {
     // Does not crash with a runtime exception
     new HtmlPolicyBuilder().allowElements().allowAttributes().globally().toFactory();
   }
 
   @Test
-  public final void testCSSTextAlign() {
+  void testCSSTextAlign() {
     HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
     PolicyFactory factory = builder.allowElements("span")
         .allowAttributes("style").onElements("span").allowStyling()
@@ -1358,7 +1339,7 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testCSSFontSize() {
+  void testCSSFontSize() {
     HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
     PolicyFactory factory = builder.allowElements("span")
         .allowAttributes("style").onElements("span").allowStyling()
@@ -1371,38 +1352,38 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
-  public final void testCSSChildCombinator() {
-	  HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+  void testCSSChildCombinator() {
+    HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
 
- 	  PolicyFactory factory = builder.allowElements("span","style","h1").allowTextIn("style","h1")
- 	    .allowAttributes("type").onElements("style").allowStyling()
- 	    .toFactory();
+    PolicyFactory factory = builder.allowElements("span","style","h1").allowTextIn("style","h1")
+        .allowAttributes("type").onElements("style").allowStyling()
+        .toFactory();
 
- 	  String toSanitize = "<style type=\"text/css\">\n"
- 	 	  + "<!--\n"
- 	 	  + ".hdg-1 {\n"
- 	 	  + "width:100%;\n"
- 	 	  + "}\n"
- 	 	  + "\n"
- 	 	  + ".hdg-1>._inner {\n"
- 	 	  + "background-color: #999;\n"
- 	 	  + "}\n"
- 	 	  + "-->\n"
- 	 	  + "</style>\n"
- 	 	  + "<h1>Test</h1>\n"
- 	 	  + "\n"
- 	 	  + "<style>\n"
- 	 	  + "<!--\n"
- 	 	  + ".hdg-1 {\n"
- 	 	  + "width:100%;\n"
- 	 	  + "}\n"
- 	 	  + "\n"
- 	 	  + ".hdg-1>._inner {\n"
- 	 	  + "background-color: #666;\n"
- 	 	  + "}\n"
- 	 	  + "-->\n"
- 	 	  + "</style>";
- 	  assertEquals(toSanitize, factory.sanitize(toSanitize));
+    String toSanitize = "<style type=\"text/css\">\n"
+        + "<!--\n"
+        + ".hdg-1 {\n"
+        + "width:100%;\n"
+        + "}\n"
+        + "\n"
+        + ".hdg-1>._inner {\n"
+        + "background-color: #999;\n"
+        + "}\n"
+        + "-->\n"
+        + "</style>\n"
+        + "<h1>Test</h1>\n"
+        + "\n"
+        + "<style>\n"
+        + "<!--\n"
+        + ".hdg-1 {\n"
+        + "width:100%;\n"
+        + "}\n"
+        + "\n"
+        + ".hdg-1>._inner {\n"
+        + "background-color: #666;\n"
+        + "}\n"
+        + "-->\n"
+        + "</style>";
+    assertEquals(toSanitize, factory.sanitize(toSanitize));
   }
 
   private static String apply(HtmlPolicyBuilder b) {
@@ -1412,6 +1393,6 @@ public class HtmlPolicyBuilderTest extends TestCase {
   private static String apply(HtmlPolicyBuilder b, String src) {
     return b.toFactory().sanitize(
         src, null,
-        (Handler<String>) TestCase::fail);
+        (Handler<String>) Assertions::fail);
   }
 }

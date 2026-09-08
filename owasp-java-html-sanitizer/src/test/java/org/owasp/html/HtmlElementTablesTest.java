@@ -4,23 +4,23 @@ package org.owasp.html;
 
 import java.util.Arrays;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SuppressWarnings("javadoc")
-public final class HtmlElementTablesTest extends TestCase {
+final class HtmlElementTablesTest {
   HtmlElementTables t;
 
-  @Before @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @BeforeEach
+  void loadTables() {
     t = HtmlElementTables.get();
   }
 
   @Test
-  public void testElementNames() {
+  void testElementNames() {
     assertTrue(
         t.indexForName("a")
         != t.indexForName("b"));
@@ -43,7 +43,7 @@ public final class HtmlElementTablesTest extends TestCase {
   }
 
   @Test
-  public void testCanAppearIn() {
+  void testCanAppearIn() {
     assertFalse(t.canContain(ix("a"), ix("a")));
     assertFalse(t.canContain(ix("p"), ix("p")));
     assertTrue(t.canContain(ix("a"), ix("p")));
@@ -64,7 +64,7 @@ public final class HtmlElementTablesTest extends TestCase {
   }
 
   @Test
-  public void testCanBodyContain() {
+  void testCanBodyContain() {
     assertTrue(t.canContain(ix("body"), ix("a")));
     assertTrue(t.canContain(ix("body"), ix("p")));
     assertTrue(t.canContain(ix("body"), ix("table")));
@@ -73,20 +73,20 @@ public final class HtmlElementTablesTest extends TestCase {
   }
 
   @Test
-  public void testExplicitClosers() {
+  void testExplicitClosers() {
     int h1 = ix("h1"), h2 = ix("h2"), h3 = ix("h3"),
         h4 = ix("h4"), h5 = ix("h5"), h6 = ix("h6");
     for (int i = 0, n = t.nElementTypes(); i < n; ++i) {
       assertEquals(
-          t.canonNameForIndex(i),
           i == h2 || i == h3 || i == h4 || i == h5 || i == h6,
-          t.isAlternateCloserFor(i, h1));
+          t.isAlternateCloserFor(i, h1),
+          t.canonNameForIndex(i));
       assertFalse(t.isAlternateCloserFor(i, ix("template")));
     }
   }
 
   @Test
-  public void testImpliedElements() {
+  void testImpliedElements() {
     assertEquals(
         Arrays.toString(new int[] { ix("table"), ix("tbody"), ix("tr") }),
         Arrays.toString(
@@ -122,7 +122,7 @@ public final class HtmlElementTablesTest extends TestCase {
   }
 
   @Test
-  public void testTextContentModel() {
+  void testTextContentModel() {
     assertTrue(t.canContainComment(ix("p")));
     assertFalse(t.canContainComment(ix("script")));
 

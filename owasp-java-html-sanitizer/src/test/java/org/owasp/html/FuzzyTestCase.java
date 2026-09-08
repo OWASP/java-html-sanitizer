@@ -29,7 +29,8 @@ package org.owasp.html;
 
 import java.util.Random;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * A testcase that has a random seed.
@@ -39,7 +40,7 @@ import junit.framework.TestCase;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-abstract class FuzzyTestCase extends TestCase {
+abstract class FuzzyTestCase {
 
   protected long seed = System.currentTimeMillis();
   {
@@ -55,13 +56,13 @@ abstract class FuzzyTestCase extends TestCase {
 
   protected Random rnd;
 
-  @Override protected void tearDown() throws Exception {
-    super.tearDown();
-    rnd = null;
+  @BeforeEach
+  void seedRandom() {
+    rnd = new Random(seed);
   }
 
-  @Override protected void setUp() throws Exception {
-    super.setUp();
-    rnd = new Random(seed);
+  @AfterEach
+  void clearRandom() {
+    rnd = null;
   }
 }

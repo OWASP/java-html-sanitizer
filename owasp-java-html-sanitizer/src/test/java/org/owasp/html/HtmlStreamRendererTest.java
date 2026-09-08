@@ -32,49 +32,49 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.owasp.shim.Java8Shim.j8;
 
-@SuppressWarnings("javadoc")
-public class HtmlStreamRendererTest extends TestCase {
+class HtmlStreamRendererTest {
 
-	private final List<String> errors = new ArrayList<>();
+  private final List<String> errors = new ArrayList<>();
   private final StringBuilder rendered = new StringBuilder();
-  private final HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
-      rendered, new Handler<String>() {
-        public void handle(String errorMessage) {
-          @SuppressWarnings({"hiding", "synthetic-access"})
-          List<String> errors = HtmlStreamRendererTest.this.errors;
-          errors.add(errorMessage);
-        }
-      });
+  private final HtmlStreamRenderer renderer =
+      HtmlStreamRenderer.create(rendered, errors::add);
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @BeforeEach
+  void resetOutput() {
     errors.clear();
     rendered.setLength(0);
   }
 
-  @Override
-  protected void tearDown() throws Exception {
-    super.tearDown();
-    assertTrue(errors.toString(), errors.isEmpty());  // Catch any tests that don't check errors.
+  /** Catches any test that does not check the errors it caused. */
+  @AfterEach
+  void assertNoUncheckedErrors() {
+    assertTrue(errors.isEmpty(), errors.toString());
   }
 
-  public final void testEmptyDocument() throws Exception {
+  @Test
+  void testEmptyDocument() throws Exception {
     assertNormalized("", "");
   }
 
-  public final void testElementNamesNormalized() throws Exception {
+  @Test
+  void testElementNamesNormalized() throws Exception {
     assertNormalized("<br />", "<br>");
     assertNormalized("<br />", "<BR>");
     assertNormalized("<br />", "<Br />");
     assertNormalized("<br />", "<br\n>");
   }
 
-  public final void testAttributeNamesNormalized() throws Exception {
+  @Test
+  void testAttributeNamesNormalized() throws Exception {
     assertNormalized("<input id=\"foo\" />", "<input  id=foo>");
     assertNormalized("<input id=\"foo\" />", "<input id=\"foo\">");
     assertNormalized("<input id=\"foo\" />", "<input  ID='foo'>");
@@ -82,23 +82,27 @@ public class HtmlStreamRendererTest extends TestCase {
     assertNormalized("<input id=\"foo\" />", "<input\nid=foo'>");
   }
 
-  public final void testAttributeValuesEscaped() throws Exception {
+  @Test
+  void testAttributeValuesEscaped() throws Exception {
     assertNormalized("<div title=\"a&lt;b\"></div>", "<div title=a<b></div>");
   }
 
-  public final void testRcdataEscaped() throws Exception {
+  @Test
+  void testRcdataEscaped() throws Exception {
     assertNormalized(
         "<title>I &lt;3 PONIES, OMG!!!</title>",
         "<TITLE>I <3 PONIES, OMG!!!</TITLE>");
   }
 
-  public final void testCdataNotEscaped() throws Exception {
+  @Test
+  void testCdataNotEscaped() throws Exception {
     assertNormalized(
         "<script>I <3\n!!!PONIES, OMG</script>",
         "<script>I <3\n!!!PONIES, OMG</script>");
   }
 
-  public final void testIllegalElementName() throws Exception {
+  @Test
+  void testIllegalElementName() throws Exception {
     renderer.openDocument();
     renderer.openTag(":svg", j8().listOf());
     renderer.openTag("svg:", j8().listOf());
@@ -108,7 +112,7 @@ public class HtmlStreamRendererTest extends TestCase {
     renderer.closeDocument();
 
     String output = rendered.toString();
-    assertFalse(output, output.contains("<"));
+    assertFalse(output.contains("<"), output);
 
     assertEquals(
         Arrays.stream(new String[] {
@@ -121,7 +125,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testIllegalAttributeName() throws Exception {
+  @Test
+  void testIllegalAttributeName() throws Exception {
     renderer.openDocument();
     renderer.openTag("div", j8().listOf(":svg", "x"));
     renderer.openTag("div", j8().listOf("svg:", "x"));
@@ -131,7 +136,7 @@ public class HtmlStreamRendererTest extends TestCase {
     renderer.closeDocument();
 
     String output = rendered.toString();
-    assertFalse(output, output.contains("="));
+    assertFalse(output.contains("="), output);
 
     assertEquals(
         Arrays.stream(new String[] {
@@ -144,7 +149,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testCdataContainsEndTag1() throws Exception {
+  @Test
+  void testCdataContainsEndTag1() throws Exception {
     renderer.openDocument();
     renderer.openTag("script", j8().listOf("type", "text/javascript"));
     renderer.text("document.write('<SCRIPT>alert(42)</SCRIPT>')");
@@ -159,7 +165,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testCdataContainsEndTag2() throws Exception {
+  @Test
+  void testCdataContainsEndTag2() throws Exception {
     renderer.openDocument();
     renderer.openTag("style", j8().listOf("type", "text/css"));
     renderer.text("/* </St");
@@ -176,7 +183,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testRcdataContainsEndTag() throws Exception {
+  @Test
+  void testRcdataContainsEndTag() throws Exception {
     renderer.openDocument();
     renderer.openTag("textarea", j8().listOf());
     renderer.text("<textarea></textarea>");
@@ -188,7 +196,8 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testEndTagInsideScriptBodyInner() throws Exception {
+  @Test
+  void testEndTagInsideScriptBodyInner() throws Exception {
     assertNormalized(
         "<script></script>&#39;)--&gt;",
         "<script><!--document.write('<SCRIPT>alert(42)</SCRIPT>')--></script>");
@@ -200,7 +209,8 @@ public class HtmlStreamRendererTest extends TestCase {
 
   // Testcases from
   // www.w3.org/TR/html51/semantics-scripting.html#restrictions-for-contents-of-script-elements
-  public final void testHtml51SemanticsScriptingExample5Part1() throws Exception {
+  @Test
+  void testHtml51SemanticsScriptingExample5Part1() throws Exception {
     String js = "  var example = 'Consider this string: <!-- <script>';\n"
         + "  console.log(example);\n";
 
@@ -219,7 +229,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testHtml51SemanticsScriptingExample5Part2() throws Exception {
+  @Test
+  void testHtml51SemanticsScriptingExample5Part2() throws Exception {
     String js = "if (x<!--y) { ... }\n";
 
     renderer.openDocument();
@@ -237,7 +248,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testMoreUnbalancedHtmlCommentsInScripts() throws Exception {
+  @Test
+  void testMoreUnbalancedHtmlCommentsInScripts() throws Exception {
     String js = "if (x-->y) { ... }\n";
 
     renderer.openDocument();
@@ -256,7 +268,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testShortHtmlCommentInScript() throws Exception {
+  @Test
+  void testShortHtmlCommentInScript() throws Exception {
     String js = "// <!----> <!--->";
 
     renderer.openDocument();
@@ -275,7 +288,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testHtml51SemanticsScriptingExample5Part3() throws Exception {
+  @Test
+  void testHtml51SemanticsScriptingExample5Part3() throws Exception {
     String js = "<!-- if ( player<script ) { ... } -->";
 
     renderer.openDocument();
@@ -293,7 +307,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testHtml51SemanticsScriptingExample5Part4() throws Exception {
+  @Test
+  void testHtml51SemanticsScriptingExample5Part4() throws Exception {
     String js = "<!--\n"
         + "if (x < !--y) { ... }\n"
         + "if (!--y > x) { ... }\n"
@@ -319,7 +334,8 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testHtmlCommentInRcdata() throws Exception {
+  @Test
+  void testHtmlCommentInRcdata() throws Exception {
     String str = "// <!----> <!---> <!--";
 
     renderer.openDocument();
@@ -337,7 +353,8 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testTagInCdata() throws Exception {
+  @Test
+  void testTagInCdata() throws Exception {
     renderer.openDocument();
     renderer.openTag("script", j8().listOf());
     renderer.text("alert('");
@@ -358,7 +375,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testUnclosedEscapingTextSpan() throws Exception {
+  @Test
+  void testUnclosedEscapingTextSpan() throws Exception {
     renderer.openDocument();
     renderer.openTag("script", j8().listOf());
     renderer.text("<!--alert('</script>')");
@@ -372,7 +390,8 @@ public class HtmlStreamRendererTest extends TestCase {
     errors.clear();
   }
 
-  public final void testAlmostCompleteEndTag() throws Exception {
+  @Test
+  void testAlmostCompleteEndTag() throws Exception {
     renderer.openDocument();
     renderer.openTag("script", j8().listOf());
     renderer.text("//</scrip");
@@ -382,7 +401,8 @@ public class HtmlStreamRendererTest extends TestCase {
     assertEquals("<script>//</scrip</script>", rendered.toString());
   }
 
-  public final void testBalancedCommentInNoscript() throws Exception {
+  @Test
+  void testBalancedCommentInNoscript() throws Exception {
     renderer.openDocument();
     renderer.openTag("noscript", j8().listOf());
     renderer.text("<!--<script>foo</script>-->");
@@ -394,7 +414,8 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testUnbalancedCommentInNoscript() throws Exception {
+  @Test
+  void testUnbalancedCommentInNoscript() throws Exception {
     renderer.openDocument();
     renderer.openTag("noscript", j8().listOf());
     renderer.text("<!--<script>foo</script>--");
@@ -410,7 +431,8 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testSupplementaryCodepoints() throws Exception {
+  @Test
+  void testSupplementaryCodepoints() throws Exception {
     renderer.openDocument();
     renderer.text("\uD87E\uDC1A");  // Supplementary codepoint U+2F81A
     renderer.closeDocument();
@@ -421,7 +443,8 @@ public class HtmlStreamRendererTest extends TestCase {
   // Test that policies that naively allow <xmp>, <listing>, or <plaintext>
   // on XHTML don't shoot themselves in the foot.
 
-  public final void testPreSubstitutes1() throws Exception {
+  @Test
+  void testPreSubstitutes1() throws Exception {
     renderer.openDocument();
     renderer.openTag("Xmp", j8().listOf());
     renderer.text("<form>Hello, World</form>");
@@ -432,7 +455,8 @@ public class HtmlStreamRendererTest extends TestCase {
                  rendered.toString());
   }
 
-  public final void testPreSubstitutes2() throws Exception {
+  @Test
+  void testPreSubstitutes2() throws Exception {
     renderer.openDocument();
     renderer.openTag("xmp", j8().listOf());
     renderer.text("<form>Hello, World</form>");
@@ -443,7 +467,8 @@ public class HtmlStreamRendererTest extends TestCase {
                  rendered.toString());
   }
 
-  public final void testPreSubstitutes3() throws Exception {
+  @Test
+  void testPreSubstitutes3() throws Exception {
     renderer.openDocument();
     renderer.openTag("LISTING", j8().listOf());
     renderer.text("<form>Hello, World</form>");
@@ -454,7 +479,8 @@ public class HtmlStreamRendererTest extends TestCase {
                  rendered.toString());
   }
 
-  public final void testPreSubstitutes4() throws Exception {
+  @Test
+  void testPreSubstitutes4() throws Exception {
     renderer.openDocument();
     renderer.openTag("plaintext", j8().listOf());
     renderer.text("<form>Hello, World</form>");
@@ -505,7 +531,8 @@ public class HtmlStreamRendererTest extends TestCase {
     return result;
   }
 
-  public final void testRawTextElementInsideForeignContentIsDecodedBeforeEscaping()
+  @Test
+  void testRawTextElementInsideForeignContentIsDecodedBeforeEscaping()
       throws Exception {
     renderer.openDocument();
     renderer.openTag("svg", j8().listOf());
@@ -523,7 +550,8 @@ public class HtmlStreamRendererTest extends TestCase {
         rendered.toString());
   }
 
-  public final void testRawTextElementOutsideForeignContentIsNotDecoded()
+  @Test
+  void testRawTextElementOutsideForeignContentIsNotDecoded()
       throws Exception {
     renderer.openDocument();
     renderer.openTag("style", j8().listOf());

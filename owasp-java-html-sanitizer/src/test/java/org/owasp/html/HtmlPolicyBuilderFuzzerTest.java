@@ -34,13 +34,17 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 
+import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
+import org.junit.jupiter.api.Test;
 import org.w3c.dom.Attr;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Throws random policy calls to find evidence against the claim that the
@@ -51,7 +55,6 @@ import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-@SuppressWarnings("javadoc")
 public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyFactory
@@ -83,7 +86,8 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
     "href", "id", "class", "onclick", "checked", "style",
   };
 
-  public final void testFuzzedOutput() throws IOException, SAXException {
+  @Test
+  void testFuzzedOutput() throws IOException, SAXException {
     boolean passed = false;
     try {
       for (int i = 1000; --i >= 0;) {
@@ -145,9 +149,9 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
           if ("title".equals(a.getName())) {
             // ok
           } else if ("href".equals(a.getName())) {
-            assertEquals(html, "a", name);
+            assertEquals("a", name, html);
             assertFalse(
-                html, Strings.toLowerCase(a.getValue()).contains("script:"));
+                Strings.toLowerCase(a.getValue()).contains("script:"), html);
           }
         }
         break;

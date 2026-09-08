@@ -32,14 +32,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class CssGrammarTest extends TestCase {
+class CssGrammarTest {
   @Test
-  public static final void testLex() {
+  void testLex() {
     CssTokens tokens = CssTokens.lex(Arrays.stream(new String[] {
         "/* A comment */",
         "words with-dashes #hashes .dots. -and-leading-dashes",
@@ -107,7 +106,7 @@ public class CssGrammarTest extends TestCase {
   }
 
   @Test
-  public static final void testCssContent() {
+  void testCssContent() {
     assertEquals("", CssGrammar.cssContent(""));
     assertEquals("azimuth", CssGrammar.cssContent("\\61zimuth"));
     assertEquals("table-cell", CssGrammar.cssContent("t\\61\tble-cell"));

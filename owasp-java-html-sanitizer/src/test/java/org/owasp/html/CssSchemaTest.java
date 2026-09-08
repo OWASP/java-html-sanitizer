@@ -33,15 +33,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SuppressWarnings("javadoc")
-public final class CssSchemaTest extends TestCase {
+final class CssSchemaTest {
 
   @Test
-  public static final void testDangerousProperties() {
+  void testDangerousProperties() {
     for (String key : new String[] {
           // May allow escaping informal visual containment when embedders are
           // not particular about establishing a clipping region.
@@ -62,31 +65,31 @@ public final class CssSchemaTest extends TestCase {
           "-o-",
           "-webkit-",
         }) {
-      assertSame(key, CssSchema.DISALLOWED, CssSchema.DEFAULT.forKey(key));
+      assertSame(CssSchema.DISALLOWED, CssSchema.DEFAULT.forKey(key), key);
     }
   }
 
   @Test
-  public static final void testDangerousTokens() {
+  void testDangerousTokens() {
     for (String propName : CssSchema.DEFAULT_WHITELIST) {
       CssSchema.Property property = CssSchema.DEFAULT.forKey(propName);
       assertFalse(
-          propName,
-          property.literals.contains("expression"));
+          property.literals.contains("expression"),
+          propName);
       assertFalse(
-          propName,
-          property.fnKeys.containsKey("expression("));
+          property.fnKeys.containsKey("expression("),
+          propName);
       assertFalse(
-          propName,
-          property.literals.contains("url"));
+          property.literals.contains("url"),
+          propName);
       assertFalse(
-          propName,
-          property.fnKeys.containsKey("url("));
+          property.fnKeys.containsKey("url("),
+          propName);
     }
   }
 
   @Test
-  public static final void testCalcIsScopedToSizingProperties() {
+  void testCalcIsScopedToSizingProperties() {
     Set<String> withCalc = new TreeSet<>();
     for (Map.Entry<String, CssSchema.Property> e
          : CssSchema.DEFINITIONS.entrySet()) {
@@ -109,18 +112,18 @@ public final class CssSchemaTest extends TestCase {
   }
 
   @Test
-  public static final void testCustom() {
+  void testCustom() {
     CssSchema custom = CssSchema.union(
         CssSchema.DEFAULT,
         CssSchema.withProperties(Collections.singleton("float"))
     );
     for (String key : CssSchema.DEFINITIONS.keySet()) {
       if (!key.equals("float")) {
-        assertSame(key, custom.forKey(key), CssSchema.DEFAULT.forKey(key));
+        assertSame(custom.forKey(key), CssSchema.DEFAULT.forKey(key), key);
       }
     }
     CssSchema.Property cssFloat = custom.forKey("float");
-    assertTrue("left in float", cssFloat.literals.contains("left"));
+    assertTrue(cssFloat.literals.contains("left"), "left in float");
   }
 
 }
