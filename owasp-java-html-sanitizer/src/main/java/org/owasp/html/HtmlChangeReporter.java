@@ -27,9 +27,8 @@
 
 package org.owasp.html;
 
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -159,7 +158,15 @@ public final class HtmlChangeReporter<T> {
   private static final class OutputChannel implements HtmlStreamEventReceiver {
     private final HtmlStreamEventReceiver renderer;
     String expectedElementName;
-    Set<String> expectedAttrNames = new LinkedHashSet<>();
+    /**
+     * Names of the attributes on the tag being opened that have not turned up
+     * in the output yet.  A list rather than a set: a name repeated on one tag
+     * is two attributes, and HTML forbids that, so the sanitizer keeps the
+     * first and drops the rest.  Collapsing the copies here would leave the
+     * surviving one accounting for all of them, and the drops would go
+     * unreported.
+     */
+    List<String> expectedAttrNames = new ArrayList<>();
 
     OutputChannel(HtmlStreamEventReceiver renderer) {
       this.renderer = renderer;
@@ -178,6 +185,8 @@ public final class HtmlChangeReporter<T> {
         expectedElementName = null;
       }
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
+        // Accounts for one copy of the name, so repeats the policy dropped
+        // stay behind to be reported.
         expectedAttrNames.remove(attrs.get(i));
       }
       renderer.openTag(elementName, attrs);

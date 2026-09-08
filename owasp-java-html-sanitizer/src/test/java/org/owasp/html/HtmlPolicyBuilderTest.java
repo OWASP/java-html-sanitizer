@@ -606,6 +606,48 @@ class HtmlPolicyBuilderTest {
         );
   }
 
+  /**
+   * The duplicate-attribute scan walks a flat list of alternating names and
+   * values, so it has to compare names against names.  It used to compare
+   * against values too, which dropped an attribute whose name matched an
+   * earlier attribute's value.
+   * <p>
+   * Reaching that comparison takes three attributes, not two: the scan only
+   * runs once the attribute's first letter has already been seen on the tag,
+   * so {@code sizes} is here to put {@code s} in play and send {@code src}
+   * down the scan path, where it used to collide with {@code alt}'s value.
+   * Without an attribute in that role the test passes either way.
+   */
+  @Test
+  void testAttributeNameMatchingAnEarlierValueIsNotADuplicate() {
+    assertEquals(
+        "<img sizes=\"100vw\" alt=\"src\""
+        + " src=\"http://example.com/a.png\" />",
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("sizes", "alt", "src").onElements("img")
+            .allowUrlProtocols("http", "https"),
+            "<img sizes=\"100vw\" alt=\"src\""
+            + " src=\"http://example.com/a.png\">")
+        );
+  }
+
+  /** Genuine repeats are still dropped, keeping the first. */
+  @Test
+  void testRepeatedAttributeNamesStillCollapseToTheFirst() {
+    assertEquals(
+        "<img alt=\"first\" />",
+
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("img")
+            .allowAttributes("alt").onElements("img"),
+            "<img alt=\"first\" ALT=\"second\" alt=\"third\">")
+        );
+  }
+
   @Test
   void testDuplicateAttributesDoNotReachElementPolicy() {
     final int[] idCount = new int[1];
