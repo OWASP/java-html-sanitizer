@@ -30,6 +30,7 @@ package org.owasp.html.examples;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -97,14 +98,23 @@ public class SlashdotPolicyExample {
       System.exit(-1);
     }
     System.err.println("[Reading from STDIN]");
+    run(new InputStreamReader(System.in, StandardCharsets.UTF_8), System.out);
+  }
+
+  /**
+   * Reads HTML from {@code in} and writes sanitized content to {@code out}.
+   * Input lines are joined with {@code '\n'}, so line terminators are
+   * normalized and a trailing one is dropped, as {@link #main} does for
+   * {@code System.in}.
+   */
+  public static void run(Reader in, Appendable out) throws IOException {
     // Fetch the HTML to sanitize.
-    String html = new BufferedReader(
-        new InputStreamReader(System.in, StandardCharsets.UTF_8))
-            .lines()
-            .collect(Collectors.joining("\n"));
+    String html = new BufferedReader(in)
+        .lines()
+        .collect(Collectors.joining("\n"));
     // Set up an output channel to receive the sanitized HTML.
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
-        System.out,
+        out,
         // Receives notifications on a failure to write to the output.
         new Handler<IOException>() {
           public void handle(IOException ex) {

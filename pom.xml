@@ -323,7 +323,7 @@ application while protecting against XSS.
               <show>public</show>
               <charset>UTF-8</charset>
               <doctitle>OWASP HTML Sanitizer</doctitle>
-              <excludePackageNames>*.example</excludePackageNames>
+              <excludePackageNames>*.examples</excludePackageNames>
               <!-- The Javadoc that ships with JDK 8 is spammy.
                    http://docs.oracle.com/javase/8/docs/technotes/tools/unix/javadoc.html#BEJEFABE -->
               <additionalOptions>-Xdoclint:-missing -html5</additionalOptions>
