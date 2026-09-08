@@ -379,6 +379,41 @@ public class CssTokensTest extends TestCase {
     // TODO: invalid code-units in unicode ranges, and out of order values.
   }
 
+  /**
+   * A '-' after the start of a unicode range that is not followed by hex
+   * digits does not begin a range end, and must not be emitted as part of
+   * the range token.  Issue #245 found the lexer producing "U+a- -x" for
+   * "U+a-x", which does not survive a second pass through the lexer.
+   */
+  @Test
+  public static final void testUnicodeRangeWithDanglingDash() {
+    assertTokens(
+        "U+a-x",
+        "U+a:UNICODE_RANGE", " ", "-x:IDENT");
+    assertTokens(
+        "u+ABCDEF-x",
+        "U+abcdef:UNICODE_RANGE", " ", "-x:IDENT");
+    // A lone '-' has always lexed as a (bogus) identifier.
+    assertTokens(
+        "U+a-",
+        "U+a:UNICODE_RANGE", " ", "-:IDENT");
+    assertTokens(
+        "U+a- *",
+        "U+a:UNICODE_RANGE", " ", "-:IDENT", " ", "*:DELIM");
+    assertTokens(
+        "U+a-.5",
+        "U+a:UNICODE_RANGE", " ", "-0.5:NUMBER");
+    // The CDC token "-->" is ignorable, so "U+a-->*" is the range U+a
+    // followed by the delimiter '*'.  This is the shape that issue #245 hit.
+    assertTokens(
+        "U+a-->*",
+        "U+a:UNICODE_RANGE", " ", "*:DELIM");
+    // A real range end is still consumed.
+    assertTokens(
+        "U+a-b-x",
+        "U+a-b:UNICODE_RANGE", "-x:IDENT");
+  }
+
   public static final void testTokenMerging() {
     assertTokens(
         "/\\* */", "/:DELIM", " ", "*:DELIM", " ", "*:DELIM", "/:DELIM");

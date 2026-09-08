@@ -1206,6 +1206,7 @@ final class CssTokens implements Iterable<String> {
           if (!hasQmark) {
             // Look for end of range.
             ++pos;
+            int startOfDash = sb.length();
             sb.append('-');
             int numEndDigits = 0;
             while (pos < cssLimit && numEndDigits < 6) {
@@ -1220,8 +1221,14 @@ final class CssTokens implements Iterable<String> {
               }
             }
             if (numEndDigits == 0) {
-              // Back up over '-'
+              // Not a range after all.  Back up over the '-' so it is lexed
+              // as its own token, and drop it from the output as well, so
+              // that it is not emitted twice.  Emitting it as part of the
+              // range meant "U+a-x" normalized to "U+a- -x", which is not
+              // idempotent (issue #245).  A trailing space keeps the range
+              // from merging with whatever follows.
               --pos;
+              sb.setLength(startOfDash);
               sb.append(' ');
             }
           } else {
