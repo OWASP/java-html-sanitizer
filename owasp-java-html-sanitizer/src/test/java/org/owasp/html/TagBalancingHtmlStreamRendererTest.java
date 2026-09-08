@@ -442,7 +442,8 @@ class TagBalancingHtmlStreamRendererTest {
 
   // TODO: Double check this test and handle nested anchors properly.
   @Test
-  @Disabled("nested anchors are not handled properly yet")
+  @Disabled("nested anchors are not handled properly yet, and the expected"
+      + " output below needs to be settled when they are")
   void testAnchorInAnchorIndirectly() {
     List<String> hrefOnly = j8().listOf("href", "");
     balancer.openDocument();

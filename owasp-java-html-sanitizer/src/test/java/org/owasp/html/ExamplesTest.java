@@ -31,27 +31,22 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.FieldSource;
 import org.owasp.html.examples.EbayPolicyExample;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ExamplesTest {
 
-  static Stream<Class<?>> examples() {
-    return Arrays.stream(AllExamples.CLASSES);
-  }
-
   /** Each example's main must run to completion on empty input. */
   @ParameterizedTest
-  @MethodSource("examples")
-  void testExampleRuns(Class<?> exampleClass) throws Exception {
+  @FieldSource("org.owasp.html.AllExamples#CLASSES")
+  void testExampleRuns(Class<?> exampleClass) throws Throwable {
     InputStream stdin = System.in;
     PrintStream stdout = System.out;
     PrintStream stderr = System.err;
@@ -65,12 +60,13 @@ class ExamplesTest {
       Method main = exampleClass.getDeclaredMethod("main", String[].class);
       // Invoke with no arguments to sanitize empty input stream to output.
       main.invoke(null, new Object[] { new String[0] });
-    } catch (Exception ex) {
+    } catch (InvocationTargetException ex) {
       capturingOut.flush();
       stderr.println(
           "Example " + exampleClass.getSimpleName() + "\n"
           + captured.toString("UTF-8"));
-      throw ex;
+      // Report the example's own exception, not the reflective wrapper.
+      throw ex.getCause();
     } finally {
       System.setIn(stdin);
       System.setOut(stdout);

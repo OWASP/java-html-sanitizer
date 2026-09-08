@@ -303,7 +303,7 @@ class AntiSamyTest {
    * NekoHTML.
    */
   @Test
-  void testIllegalXML() throws Exception {
+  void testIllegalXML() {
     for (String badXml : BASE64_BAD_XML_STRINGS) {
       String testStr = new String(
           Base64.decodeBase64(badXml), StandardCharsets.UTF_8);

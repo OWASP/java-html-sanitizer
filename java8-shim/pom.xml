@@ -20,7 +20,4 @@
     Java8 in a way that uses the real ones where available, falls back
     to a conforming implementation on Java8 and JIT compiles well.
   </description>
-
-  <dependencies>
-  </dependencies>
 </project>

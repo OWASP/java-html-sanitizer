@@ -31,14 +31,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.owasp.shim.Java8Shim.j8;
 
-@SuppressWarnings({"javadoc", "HttpUrlsUsage", "RedundantSuppression", "UnnecessaryUnicodeEscape"})
+@SuppressWarnings({"HttpUrlsUsage", "RedundantSuppression", "UnnecessaryUnicodeEscape"})
 class HtmlPolicyBuilderTest {
 
   static final String EXAMPLE = String.join(
@@ -664,58 +664,50 @@ class HtmlPolicyBuilderTest {
             new HtmlPolicyBuilder()
             .allowElements("h1", "h2", "h3", "h4", "h5", "h6")
             .allowAttributes("title").globally()
-            .withPostprocessor(new HtmlStreamEventProcessor() {
-              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
-                return new HtmlStreamEventReceiverWrapper(r) {
-                  @Override
-                  public void text(String s) {
-                    if (!s.isEmpty()) {
-                      int cp0 = s.codePointAt(0);
-                      underlying.text(
-                          new StringBuilder(s.length())
-                          .appendCodePoint(Character.toUpperCase(cp0))
-                          .append(s, Character.charCount(cp0), s.length())
-                          .toString());
-                    }
-                  }
-                  @Override
-                  public String toString() {
-                    return "shouty-text";
-                  }
-                };
+            .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+              @Override
+              public void text(String s) {
+                if (!s.isEmpty()) {
+                  int cp0 = s.codePointAt(0);
+                  underlying.text(
+                      new StringBuilder(s.length())
+                      .appendCodePoint(Character.toUpperCase(cp0))
+                      .append(s, Character.charCount(cp0), s.length())
+                      .toString());
+                }
+              }
+              @Override
+              public String toString() {
+                return "shouty-text";
               }
             })
-            .withPostprocessor(new HtmlStreamEventProcessor() {
-              public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver r) {
-                return new HtmlStreamEventReceiverWrapper(r) {
-                  @Override
-                  public void openTag(String elementName, List<String> attrs) {
-                    underlying.openTag(incr(elementName), attrs);
-                  }
+            .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+              @Override
+              public void openTag(String elementName, List<String> attrs) {
+                underlying.openTag(incr(elementName), attrs);
+              }
 
-                  @Override
-                  public void closeTag(String elementName) {
-                    underlying.closeTag(incr(elementName));
-                  }
+              @Override
+              public void closeTag(String elementName) {
+                underlying.closeTag(incr(elementName));
+              }
 
-                  String incr(String en) {
-                    if (en.length() == 2) {
-                      char c0 = en.charAt(0);
-                      char c1 = en.charAt(1);
-                      if ((c0 == 'h' || c0 == 'H')
-                          && '0' <= c1 && c1 <= '6') {
-                        // h1 -> h2, h2 -> h3, etc.
-                        return "h" + (c1 - '0' + 1);
-                      }
-                    }
-                    return en;
+              String incr(String en) {
+                if (en.length() == 2) {
+                  char c0 = en.charAt(0);
+                  char c1 = en.charAt(1);
+                  if ((c0 == 'h' || c0 == 'H')
+                      && '0' <= c1 && c1 <= '6') {
+                    // h1 -> h2, h2 -> h3, etc.
+                    return "h" + (c1 - '0' + 1);
                   }
+                }
+                return en;
+              }
 
-                  @Override
-                  public String toString() {
-                    return "incr-headers";
-                  }
-                };
+              @Override
+              public String toString() {
+                return "incr-headers";
               }
             }),
 
@@ -1382,9 +1374,14 @@ class HtmlPolicyBuilderTest {
     return apply(b, EXAMPLE);
   }
 
+  /** Sanitizes src with b's policy; any renderer error fails the test. */
   private static String apply(HtmlPolicyBuilder b, String src) {
-    return b.toFactory().sanitize(
-        src, null,
-        (Handler<String>) Assertions::fail);
+    PolicyFactory factory = b.toFactory();
+    StringBuilder sb = new StringBuilder();
+    HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
+        sb, errorMessage -> fail(errorMessage));
+    HtmlSanitizer.sanitize(
+        src, factory.apply(renderer), factory.preprocessor());
+    return sb.toString();
   }
 }
