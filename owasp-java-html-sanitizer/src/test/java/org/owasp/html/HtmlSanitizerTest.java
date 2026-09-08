@@ -636,6 +636,30 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(expectedPayload, sanitized);
   }
 
+  @Test
+  public static final void testIssue189StrayQuoteInTag() {
+    // A quote that does not directly follow an attribute name and '=' is part
+    // of an attribute name in the WHATWG tokenizer, so it must not pair with
+    // a later quote and swallow the rest of the document.
+    assertEquals(
+        "<p>foo</p> <p class=\"p-test\">bar</p> <p>baz</p>",
+        sanitize("<p>foo</p> <p class=\"test\" \"=\"\">bar</p> <p>baz</p>"));
+    assertEquals(
+        "<p class=\"p-test\">bar</p> <p>baz</p>",
+        sanitize("<p class=\"test\" \">bar</p> <p>baz</p>"));
+    assertEquals("<p>b&#34;&gt;c</p>", sanitize("<p \"a>b\">c</p>"));
+    assertEquals("<p class=\"p-x\">y</p>", sanitize("<p class=\"x\"=\">y</p>"));
+    assertEquals("<p>y</p>", sanitize("<p =\"x\">y</p>"));
+    assertEquals("<p>y</p>", sanitize("<p / \"x\">y</p>"));
+    assertEquals("<p class=\"p-x\">y</p>", sanitize("<p class=\"x\"/=\">y</p>"));
+    assertEquals("<p>y</p>", sanitize("<p title/=\">y</p>"));
+    // Here the second quote does follow '=', so it begins a value that never
+    // closes; browsers hit EOF inside the tag and drop everything from it on.
+    assertEquals(
+        "<p>foo</p> <p class=\"p-test\"></p>",
+        sanitize("<p>foo</p> <p class=\"test\" \"=\">bar</p> <p>baz</p>"));
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

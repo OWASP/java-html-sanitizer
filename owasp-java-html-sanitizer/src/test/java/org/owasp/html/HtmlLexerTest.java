@@ -271,6 +271,159 @@ public class HtmlLexerTest extends TestCase {
     );
   }
 
+  @Test
+  public static final void testQuoteNotAfterEqualsIsPartOfAttributeName() throws Exception
+  {
+    // Issue #189: the WHATWG tokenizer only starts a quoted value directly
+    // after an attribute name and '='.  A quote anywhere else in a tag is an
+    // ordinary character of an attribute name, so it must not pair with a
+    // later quote and swallow the tag's '>' and the content after it.
+    assertTokens("<p class=\"test\" \"=\"\">bar</p> <p>baz</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: \"test\"",
+            "ATTRNAME: \"",
+            "ATTRVALUE: \"\"",
+            "TAGEND: >",
+            "TEXT: bar",
+            "TAGBEGIN: </p",
+            "TAGEND: >",
+            "TEXT:  ",
+            "TAGBEGIN: <p",
+            "TAGEND: >",
+            "TEXT: baz",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    assertTokens("<p class=\"test\" \">bar</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: \"test\"",
+            "ATTRNAME: \"",
+            "TAGEND: >",
+            "TEXT: bar",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    assertTokens("<p \"a>b\">c</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: \"a",
+            "TAGEND: >",
+            "TEXT: b\">c",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    assertTokens("<p class=\"a\"\"b\">x</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: \"a\"",
+            "ATTRNAME: \"b\"",
+            "TAGEND: >",
+            "TEXT: x",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    assertTokens("<p 'class'=\"test\">bar</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: 'class'",
+            "ATTRVALUE: \"test\"",
+            "TAGEND: >",
+            "TEXT: bar",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
+  public static final void testSlashInTagReturnsToBeforeAttributeName() throws Exception
+  {
+    // A '/' that does not close the tag puts the tokenizer back before an
+    // attribute name, so the '=' after it starts a name rather than
+    // introducing a value, and the quote after that is not a delimiter.
+    // HtmlLexer still pairs the '/' name with the quote as its value, which
+    // is harmless: no policy allows either name and the tag ends at the '>'.
+    assertTokens("<p a/=\">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: a/",
+            "ATTRVALUE: \"",
+            "TAGEND: >",
+            "TEXT: y",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    assertTokens("<p a=\"x\"/=\">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: a",
+            "ATTRVALUE: \"x\"",
+            "ATTRNAME: /",
+            "ATTRVALUE: \"",
+            "TAGEND: >",
+            "TEXT: y",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    // A '/' inside a name is just a character of it, so the value follows.
+    assertTokens("<p a/b=\"x\">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: a/b",
+            "ATTRVALUE: \"x\"",
+            "TAGEND: >",
+            "TEXT: y",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
+  public static final void testQuoteInUnquotedValueIsPartOfTheValue() throws Exception
+  {
+    // Once an unquoted value has started, a quote belongs to that value even
+    // when it directly follows an '=', as in the tokenizer's unquoted value
+    // state, so it does not start a new quoted value either.
+    assertTokens("<p class=x=\"y\">z</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: x=\"y\"",
+            "TAGEND: >",
+            "TEXT: z",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+    assertTokens("<p class=x=\">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: x=\"",
+            "TAGEND: >",
+            "TEXT: y",
+            "TAGBEGIN: </p",
+            "TAGEND: >"
+    );
+  }
+
+  @Test
+  public static final void testUnterminatedQuotedValueRunsToEndOfInput() throws Exception
+  {
+    // Conversely, a quote that does begin a value and is never closed takes
+    // the rest of the input, which is where a browser hits EOF in the tag.
+    assertTokens("<p class=\">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: \">y</p>"
+    );
+    assertTokens("<p class = \">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: class",
+            "ATTRVALUE: \">y</p>"
+    );
+    // In "=", the first quote names an attribute and the second, which
+    // follows the '=', begins its value.
+    assertTokens("<p \"=\">y</p>",
+            "TAGBEGIN: <p",
+            "ATTRNAME: \"",
+            "ATTRVALUE: \">y</p>"
+    );
+  }
+
   private static void lex(String input, Appendable out) throws Exception {
     HtmlLexer lexer = new HtmlLexer(input);
     int maxTypeLength = 0;

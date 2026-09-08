@@ -22,6 +22,12 @@ Most recent at top.
       matching browser behaviour instead of swallowing the content that
       followed (issue #258).  Conversely, only a contiguous `-->` or `--!>`
       closes a comment: `<!-- a -x->` no longer ends it early.
+    * HTML: A quote inside a tag starts a quoted attribute value only when it
+      directly follows an attribute name and `=`, as in the WHATWG tokenizer.
+      Anywhere else it is an ordinary character of an attribute name, so
+      `<p class="test" "="">bar</p> <p>baz</p>` now keeps `bar` and `baz`
+      instead of pairing the stray quote with the next one and swallowing the
+      rest of the document (issue #189).
     * HTML: Attribute names may begin with an underscore.
     * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
       `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
