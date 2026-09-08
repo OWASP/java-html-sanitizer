@@ -4,6 +4,31 @@ package org.owasp.html;
 
 /**
  * Receives the output sink to allow user-code to post-process events.
+ *
+ * <p><b>Thread safety:</b> a single processor is shared by every sanitization
+ * that uses the policy it was installed on, including concurrent ones, so a
+ * processor must be safe to call {@link #wrap} on from several threads.
+ * {@code wrap} is called once per sanitization, though, and the receiver it
+ * returns is used by that sanitization alone.  So per-document state -- "am I
+ * inside a {@code <style>} element?", a depth counter, a buffer -- belongs in
+ * the returned receiver, not in a field of the processor:
+ *
+ * <pre>{@code
+ * // Correct: the flag lives in the per-sanitization wrapper.
+ * new HtmlStreamEventProcessor() {
+ *   public HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver sink) {
+ *     return new HtmlStreamEventReceiverWrapper(sink) {
+ *       private boolean inStyle;
+ *       ...
+ *     };
+ *   }
+ * }
+ * }</pre>
+ *
+ * A flag hoisted into the processor itself would be shared by concurrent
+ * sanitizations, which corrupts output rather than security: one document's
+ * events cannot escape the policy, but they can make another document's
+ * wrapper act on the wrong text.
  */
 public interface HtmlStreamEventProcessor {
   /**
@@ -11,7 +36,8 @@ public interface HtmlStreamEventProcessor {
    *    sanitizer policy to build a safe output on an appropriate buffer.
    * @return  an HTML stream event receiver that can take events from a
    *    sanitizer policy to build a safe output on an appropriate buffer by
-   *    sending events to sink.
+   *    sending events to sink.  It is used by one sanitization only, so it is
+   *    the right place for any state the processor needs to keep.
    */
   HtmlStreamEventReceiver wrap(HtmlStreamEventReceiver sink);
 

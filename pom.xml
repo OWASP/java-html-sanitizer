@@ -355,7 +355,7 @@ application while protecting against XSS.
           <plugin>
             <groupId>org.jreleaser</groupId>
             <artifactId>jreleaser-maven-plugin</artifactId>
-            <version>1.22.0</version>
+            <version>1.26.0</version>
             <inherited>false</inherited>
             <configuration>
               <jreleaser>
