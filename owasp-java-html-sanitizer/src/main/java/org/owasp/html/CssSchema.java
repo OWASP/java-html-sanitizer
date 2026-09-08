@@ -30,6 +30,7 @@ package org.owasp.html;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -256,6 +257,17 @@ public final class CssSchema {
     }
     return prefixLen == 0 ? null : cssKeyword.substring(prefixLen);
   }
+
+  /**
+   * The CSS-wide keywords, which every CSS property accepts as its entire
+   * value.  They only ever reset a property to a value the cascade already
+   * chose, so they carry no attacker-controlled content.
+   *
+   * @see <a href="https://www.w3.org/TR/css-cascade-4/#defaulting-keywords"
+   *   >CSS Cascade 4, Explicit Defaulting</a>
+   */
+  static final Set<String> CSS_WIDE_KEYWORDS = j8().setOf(
+      "inherit", "initial", "revert", "revert-layer", "unset");
 
   /** Maps lower-cased CSS property names to information about them. */
   static final Map<String, Property> DEFINITIONS;
@@ -867,6 +879,26 @@ public final class CssSchema {
     builder.put("z-index", bottom);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
     builder.put("repeating-radial-gradient()", radialGradient$Fun);
+    // Fold the CSS-wide keywords into every property, rather than repeating
+    // them in each literal set above.  Keys ending in "()" describe the
+    // arguments of a function, not a property, and are left alone: "initial"
+    // is a value for "color", not for the red channel of "rgb(...)".
+    // Definitions are shared between properties -- "pause-after" and
+    // "richness" are the same object -- so widen each distinct one once and
+    // keep the sharing.
+    Map<Property, Property> widened = new IdentityHashMap<>();
+    for (Map.Entry<String, Property> e : builder.entrySet()) {
+      if (e.getKey().endsWith("()")) { continue; }
+      Property narrow = e.getValue();
+      Property wide = widened.get(narrow);
+      if (wide == null) {
+        @SuppressWarnings("unchecked")
+        Set<String> literals = union(narrow.literals, CSS_WIDE_KEYWORDS);
+        wide = new Property(narrow.bits, literals, narrow.fnKeys);
+        widened.put(narrow, wide);
+      }
+      e.setValue(wide);
+    }
     DEFINITIONS = Collections.unmodifiableMap(builder);
   }
 

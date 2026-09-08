@@ -1328,6 +1328,33 @@ class HtmlPolicyBuilderTest {
   }
 
   @Test
+  void testCSSWideKeywords() {
+    HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
+    PolicyFactory factory = builder.allowElements("span")
+        .allowAttributes("style").onElements("span").allowStyling()
+        .toFactory();
+
+    // Not just text-align: the CSS-wide keywords reset any property.
+    for (String property
+         : new String[] { "color", "font-size", "text-decoration" }) {
+      for (String keyword
+           : new String[] {
+               "inherit", "initial", "revert", "revert-layer", "unset" }) {
+        String toSanitize =
+            "<span style=\"" + property + ":" + keyword + "\">x</span>";
+        assertEquals(
+            toSanitize, factory.sanitize(toSanitize), property + ":" + keyword);
+      }
+    }
+
+    // They are whole values, not arguments to a function, so inside rgb(...)
+    // "initial" is dropped like any other word the function does not take.
+    assertEquals(
+        factory.sanitize("<span style=\"color:rgb(foo,0,0)\">x</span>"),
+        factory.sanitize("<span style=\"color:rgb(initial,0,0)\">x</span>"));
+  }
+
+  @Test
   void testCSSFontSize() {
     HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
     PolicyFactory factory = builder.allowElements("span")
