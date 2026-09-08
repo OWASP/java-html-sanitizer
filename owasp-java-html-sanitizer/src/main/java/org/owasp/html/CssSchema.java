@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -64,15 +65,101 @@ public final class CssSchema {
 
     /**
      * @param bits A bitfield of BIT_* constants describing groups of allowed tokens.
-     * @param literals Specific allowed values.
+     * @param literals Specific allowed values.  Converted to lower case, since
+     *     values are matched against a lower-cased token; a literal that was
+     *     not lower case could never match.
      * @param fnKeys Maps lower-case function tokens to the schema key for their parameters.
+     *     The function tokens are converted to lower case for the same reason.
      */
     public Property(
         int bits, Set<String> literals,
         Map<String, String> fnKeys) {
       this.bits = bits;
-      this.literals = j8().setCopyOf(literals);
-      this.fnKeys = j8().mapCopyOf(fnKeys);
+      Set<String> literalsBuilder = new HashSet<>();
+      for (String literal : literals) {
+        literalsBuilder.add(Strings.toLowerCase(literal));
+      }
+      this.literals = j8().setCopyOf(literalsBuilder);
+      Map<String, String> fnKeysBuilder = new HashMap<>();
+      for (Map.Entry<String, String> e : fnKeys.entrySet()) {
+        fnKeysBuilder.put(Strings.toLowerCase(e.getKey()), e.getValue());
+      }
+      this.fnKeys = j8().mapCopyOf(fnKeysBuilder);
+    }
+
+    /**
+     * A bitfield of {@code BIT_*} constants describing groups of allowed
+     * tokens.
+     */
+    public int bits() { return bits; }
+
+    /**
+     * The specific values this property allows, as an immutable set.
+     */
+    public Set<String> literals() { return literals; }
+
+    /**
+     * Maps lower-case function tokens such as {@code "rgb("} to the schema key
+     * describing their arguments, as an immutable map.
+     *
+     * <p>A key named here must also be present in the schema, or the function
+     * resolves to {@link CssSchema#DISALLOWED} and its values are dropped.
+     */
+    public Map<String, String> fnKeys() { return fnKeys; }
+
+    /**
+     * This property, also allowing the given values.
+     *
+     * <p>This widens what the property accepts.  Prefer naming the exact
+     * values you need over reaching for a broader {@code BIT_*} bit.
+     *
+     * @param extraLiterals values to add; converted to lower case.
+     * @return a new property; this one is unchanged.
+     */
+    public Property withLiterals(String... extraLiterals) {
+      Set<String> widened = new HashSet<>(literals);
+      widened.addAll(Arrays.asList(extraLiterals));
+      return new Property(bits, widened, fnKeys);
+    }
+
+    /**
+     * This property, no longer allowing the given values.
+     *
+     * <p>Values not currently allowed are ignored, so this is safe to use
+     * against a schema whose exact contents you have not pinned down.
+     *
+     * @param unwantedLiterals values to remove; matched case-insensitively.
+     * @return a new property; this one is unchanged.
+     */
+    public Property withoutLiterals(String... unwantedLiterals) {
+      Set<String> narrowed = new HashSet<>(literals);
+      for (String unwanted : unwantedLiterals) {
+        narrowed.remove(Strings.toLowerCase(unwanted));
+      }
+      return new Property(bits, narrowed, fnKeys);
+    }
+
+    /**
+     * This property, also allowing the given functions.
+     *
+     * <p>The schema must also define the keys these map to, or the functions
+     * resolve to {@link CssSchema#DISALLOWED}.  {@link CssSchema#withOverrides}
+     * checks that for you.
+     *
+     * @param extraFnKeys maps a lower-case function token such as
+     *     {@code "rgb("} to the schema key for its arguments.
+     * @return a new property; this one is unchanged.
+     */
+    public Property withFunctions(Map<String, String> extraFnKeys) {
+      Map<String, String> widened = new HashMap<>(fnKeys);
+      widened.putAll(extraFnKeys);
+      return new Property(bits, literals, widened);
+    }
+
+    @Override
+    public String toString() {
+      return "[CSS property bits=" + bits + " literals=" + new TreeSet<>(literals)
+          + " fns=" + new TreeSet<>(fnKeys.keySet()) + "]";
     }
 
     @Override
@@ -118,13 +205,27 @@ public final class CssSchema {
     }
   }
 
-  static final int BIT_QUANTITY = 1;
-  static final int BIT_HASH_VALUE = 2;
-  static final int BIT_NEGATIVE = 4;
-  static final int BIT_STRING = 8;
-  static final int BIT_URL = 16;
-  static final int BIT_UNRESERVED_WORD = 64;
-  static final int BIT_UNICODE_RANGE = 128;
+  // These describe the token groups a property's value may contain.  The
+  // Property constructor is public and takes them, so they are public too;
+  // they were previously package-private, which left callers guessing.
+  /** A number, with or without a unit: {@code 4}, {@code 2px}, {@code 50%}. */
+  public static final int BIT_QUANTITY = 1;
+  /** A hash colour value: {@code #f00}. */
+  public static final int BIT_HASH_VALUE = 2;
+  /** A negative quantity: {@code -1px}.  Independent of BIT_QUANTITY. */
+  public static final int BIT_NEGATIVE = 4;
+  /** A quoted string: {@code "foo"}. */
+  public static final int BIT_STRING = 8;
+  /**
+   * A {@code url(...)} value.  Set this only deliberately: CSS URLs are
+   * fetched without user interaction, so a property that accepts one is a
+   * loading vector.
+   */
+  public static final int BIT_URL = 16;
+  /** A bare word not in the literal set, emitted as a quoted string. */
+  public static final int BIT_UNRESERVED_WORD = 64;
+  /** A unicode range: {@code U+0-7F}. */
+  public static final int BIT_UNICODE_RANGE = 128;
 
   static final Property DISALLOWED = new Property(
       0, Collections.emptySet(), Collections.emptyMap());
@@ -171,8 +272,11 @@ public final class CssSchema {
       for (String fnKey : property.fnKeys.values()) {
         if (!properties.containsKey(fnKey)) {
           throw new IllegalArgumentException(
-              "Property map is not self contained.  " + e.getValue()
-              + " depends on undefined function key " + fnKey);
+              "Property map is not self contained: \"" + e.getKey()
+              + "\" uses the function key \"" + fnKey
+              + "\" which the map does not define."
+              + "  Add it to the map, or build on a schema that already has"
+              + " it with CssSchema.withOverrides.");
         }
       }
       propertyMapBuilder.put(e.getKey(), e.getValue());
@@ -185,6 +289,12 @@ public final class CssSchema {
    *
    * @return A schema that allows all and only CSS properties that are allowed
    *    by at least one of the inputs.
+   * <p>Two schemas that define the same property differently cannot be
+   * reconciled automatically -- silently picking a winner would hand the
+   * caller a policy they did not write -- so this throws instead.  To extend
+   * or narrow a property that a schema already defines, say which one wins
+   * with {@link #withOverrides}.
+   *
    * @throws IllegalArgumentException if two schemas have properties with the
    *    same name, but different (per .equals) {@link Property} values.
    */
@@ -218,6 +328,82 @@ public final class CssSchema {
    */
   public Set<String> allowedProperties() {
     return properties.keySet();
+  }
+
+  /**
+   * The definition this schema uses for a property, so that it can be used as
+   * the basis of a modified one.
+   *
+   * @param propertyName a lower-case CSS property name, or a schema key for a
+   *     function's arguments such as {@code "rgb()"}.
+   * @return null if this schema does not allow the property.
+   */
+  public @Nullable Property property(String propertyName) {
+    return properties.get(Strings.toLowerCase(propertyName));
+  }
+
+  /**
+   * This schema with the named properties replaced or added.
+   *
+   * <p>{@link #union} refuses to reconcile two definitions of the same
+   * property; this is how you say which one wins.  Use it to extend, narrow
+   * or replace what a schema -- typically {@link #DEFAULT} -- allows for a
+   * property, without rebuilding the schema from scratch:
+   *
+   * <pre>{@code
+   * CssSchema schema = CssSchema.DEFAULT.withOverrides(
+   *     Collections.singletonMap(
+   *         "cursor",
+   *         CssSchema.DEFAULT.property("cursor").withLiterals("zoom-in")));
+   * }</pre>
+   *
+   * <p>Function keys are resolved against the combined schema, so a property
+   * may refer to a function this schema already defines without the caller
+   * having to supply that definition again:
+   *
+   * <pre>{@code
+   * // "linear-gradient()" is already in DEFAULT, so naming it is enough.
+   * CssSchema.DEFAULT.withOverrides(Collections.singletonMap(
+   *     "background-image",
+   *     CssSchema.DEFAULT.property("background-image")
+   *         .withFunctions(Collections.singletonMap(
+   *             "linear-gradient(", "linear-gradient()"))));
+   * }</pre>
+   *
+   * <p><b>This can widen what the schema accepts</b>, which is the point, but
+   * it means the result is only as safe as the definitions you supply.  Adding
+   * {@link #BIT_URL} to a property, or wiring in a function key the schema
+   * resolves loosely, opens whatever that implies.
+   *
+   * @param overrides maps lower-case property names to their new definitions.
+   *     A name this schema does not have is added.
+   * @return a new schema; this one is unchanged.
+   * @throws IllegalArgumentException if an override names a function key that
+   *     neither it nor this schema defines.
+   */
+  public CssSchema withOverrides(
+      Map<? extends String, ? extends Property> overrides) {
+    Map<String, Property> merged = new HashMap<>(properties);
+    for (Map.Entry<? extends String, ? extends Property> e
+         : overrides.entrySet()) {
+      merged.put(
+          Strings.toLowerCase(Objects.requireNonNull(e.getKey())),
+          Objects.requireNonNull(e.getValue()));
+    }
+    // Only the overrides can introduce a dangling function key; the schema we
+    // started from was checked when it was built.
+    for (Map.Entry<? extends String, ? extends Property> e
+         : overrides.entrySet()) {
+      for (String fnKey : e.getValue().fnKeys.values()) {
+        if (!merged.containsKey(fnKey)) {
+          throw new IllegalArgumentException(
+              "Override for \"" + e.getKey() + "\" uses the function key \""
+              + fnKey + "\" which neither the override nor the schema"
+              + " defines.  Add a definition for it to the overrides.");
+        }
+      }
+    }
+    return new CssSchema(Collections.unmodifiableMap(merged));
   }
 
   /**

@@ -225,6 +225,12 @@ public class HtmlPolicyBuilder {
   private HtmlStreamEventProcessor preprocessor =
       HtmlStreamEventProcessor.Processors.IDENTITY;
   private CssSchema stylingPolicySchema = null;
+  /**
+   * True when {@link #stylingPolicySchema} was installed by
+   * {@code allowAttributes("style").globally()} rather than chosen by the
+   * caller, so an explicit {@link #allowStyling(CssSchema)} may replace it.
+   */
+  private boolean stylingPolicySchemaIsImplicit = false;
   private AttributePolicy styleUrlPolicy =
       AttributePolicy.REJECT_ALL_ATTRIBUTE_POLICY;
   private Set<String> extraRelsForLinks;
@@ -586,14 +592,33 @@ public class HtmlPolicyBuilder {
   /**
    * Convert <code>style="&lt;CSS&gt;"</code> to sanitized CSS which allows
    * color, font-size, type-face, and other styling using the given schema.
+   * <p>
+   * Naming a schema here replaces the default that
+   * {@code allowAttributes("style").globally()} installs, in either order, so
+   * a schema narrower than {@link CssSchema#DEFAULT} stays narrow.  Calling
+   * this more than once with a schema of your own combines them with
+   * {@link CssSchema#union}, which throws if two of them define the same
+   * property differently; use {@link CssSchema#withOverrides} to say which
+   * definition wins.
+   *
+   * @param whitelist the CSS properties to allow in a style attribute.
    */
   public HtmlPolicyBuilder allowStyling(CssSchema whitelist) {
     invalidateCompiledState();
 
-    this.stylingPolicySchema =
-        this.stylingPolicySchema == null
-        ? whitelist
-        : CssSchema.union(stylingPolicySchema, whitelist);
+    // An implicit schema is the default that allowAttributes("style")
+    // .globally() installs so that styling is sanitized at all.  A caller
+    // naming a schema is choosing one, not adding to that default, so it
+    // replaces it.  Unioning instead would silently hand back DEFAULT to a
+    // caller who asked for something narrower.  Two explicit calls still
+    // union, which is the documented way to combine schemas.
+    if (this.stylingPolicySchema == null || this.stylingPolicySchemaIsImplicit) {
+      this.stylingPolicySchema = whitelist;
+    } else {
+      this.stylingPolicySchema =
+          CssSchema.union(stylingPolicySchema, whitelist);
+    }
+    this.stylingPolicySchemaIsImplicit = false;
 
     // Allow the style attribute, and then we will fix it up later.  This allows
     // us to attach the final URL policy to the style attribute policy, while
@@ -1041,7 +1066,12 @@ public class HtmlPolicyBuilder {
     @SuppressWarnings("synthetic-access")
     public HtmlPolicyBuilder globally() {
       if (attributeNames.contains("style")) {
-        allowStyling();
+        // Make sure styling is sanitized rather than passed through, but do
+        // not overrule a schema the caller named, in either order.
+        if (HtmlPolicyBuilder.this.stylingPolicySchema == null) {
+          allowStyling();
+          HtmlPolicyBuilder.this.stylingPolicySchemaIsImplicit = true;
+        }
       }
       return HtmlPolicyBuilder.this.allowAttributesGlobally(
           policy, attributeNames);

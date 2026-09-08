@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -55,6 +56,62 @@ class HtmlPolicyBuilderTest {
       "<p style='color: red; font-weight; expression(foo());",
       "          direction: rtl; font-weight: bold'>Stylish Para 2</p>",
       "");
+
+  /**
+   * allowAttributes("style").globally() installs a default schema so that
+   * styling is sanitized at all, but it must not overrule a schema the caller
+   * named -- in either order.  Unioning silently handed back CssSchema.DEFAULT
+   * to a caller who asked for something narrower.
+   */
+  @Test
+  void testGloballyDoesNotWidenAnExplicitStylingSchema() {
+    CssSchema colorOnly = CssSchema.withProperties(Arrays.asList("color"));
+    String css = "color:red;font-weight:bold;width:10px";
+
+    PolicyFactory globallyFirst = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").globally()
+        .allowStyling(colorOnly)
+        .toFactory();
+    assertEquals(
+        "<div style=\"color:red\">x</div>",
+        globallyFirst.sanitize("<div style=\"" + css + "\">x</div>"));
+
+    PolicyFactory stylingFirst = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowStyling(colorOnly)
+        .allowAttributes("style").globally()
+        .toFactory();
+    assertEquals(
+        "<div style=\"color:red\">x</div>",
+        stylingFirst.sanitize("<div style=\"" + css + "\">x</div>"));
+  }
+
+  /** With no explicit schema, allowing style globally still sanitizes it. */
+  @Test
+  void testGloballyStillInstallsADefaultStylingSchema() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").globally()
+        .toFactory();
+    assertEquals(
+        "<div style=\"color:red\">x</div>",
+        p.sanitize("<div style=\"color:red;position:fixed\">x</div>"));
+  }
+
+  /** Two explicit schemas still combine, which is the documented behaviour. */
+  @Test
+  void testTwoExplicitStylingSchemasStillUnion() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(CssSchema.withProperties(Arrays.asList("color")))
+        .allowStyling(CssSchema.withProperties(Arrays.asList("font-weight")))
+        .toFactory();
+    assertEquals(
+        "<div style=\"color:red;font-weight:bold\">x</div>",
+        p.sanitize("<div style=\"color:red;font-weight:bold;width:10px\">x</div>"));
+  }
 
   @Test
   void testTextFilter() {
