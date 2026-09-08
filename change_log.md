@@ -2,6 +2,12 @@
 
 Most recent at top.
   * Next release
+    * Docs: `disallowAttributes(...)` now says that a `matching(...)` call on
+      the builder it returns has no effect -- it already rejects every value,
+      and joining a narrower policy onto one that rejects everything cannot
+      widen it -- and shows the inverted `allowAttributes` that rejects only
+      some values, which also composes through `PolicyFactory.and`.  Two tests
+      pin both behaviours.  Reported in #292 by subbudvk.
     * Attributes: an attribute whose name matched an **earlier attribute's
       value** on the same tag was silently dropped as a duplicate.  The
       duplicate scan walks a flat list of alternating names and values but

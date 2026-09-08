@@ -398,6 +398,25 @@ public class HtmlPolicyBuilder {
    * <p>
    * Attributes are disallowed by default, so there is no need to call this
    * with a laundry list of attribute/element pairs.
+   * <p>
+   * This rejects the attribute whatever its value, and a
+   * {@link AttributeBuilder#matching matching} call on the returned builder
+   * has <b>no effect</b>: rejecting everything and then narrowing to the
+   * values that match still rejects everything.  To keep an attribute except
+   * where its value matches, allow it with a pattern that excludes those
+   * values instead:
+   * <pre class="prettyprint lang-java">
+   * // Not this: the pattern is ignored and every src is dropped.
+   * .disallowAttributes("src").matching(BAD_URL).onElements("img")
+   *
+   * // This: keep the values that are not bad.
+   * .allowAttributes("src")
+   *     .matching(v -&gt; BAD_URL.matcher(v).find() ? null : v)
+   *     .onElements("img")
+   * </pre>
+   * A factory built the second way can also narrow a more permissive one
+   * through {@link PolicyFactory#and}, since {@code and} intersects the two
+   * attribute policies.
    */
   public AttributeBuilder disallowAttributes(String... attributeNames) {
     return this.allowAttributes(attributeNames)
@@ -983,6 +1002,11 @@ public class HtmlPolicyBuilder {
      * Multiple calls to {@code matching} are combined so that the policies
      * receive the value in order, each seeing the value after any
      * transformation by a previous policy.
+     * <p>
+     * Since the combination fails as soon as one policy rejects, this has no
+     * effect on a builder from {@link HtmlPolicyBuilder#disallowAttributes},
+     * which already rejects every value.  See that method for how to reject
+     * only some.
      */
     public AttributeBuilder matching(AttributePolicy attrPolicy) {
       this.policy = AttributePolicy.Util.join(this.policy, attrPolicy);

@@ -607,6 +607,44 @@ class HtmlPolicyBuilderTest {
   }
 
   /**
+   * disallowAttributes rejects every value, and joining a policy onto one that
+   * already rejects everything cannot widen it, so a matching call after
+   * disallowAttributes does nothing.  Pinned because it reads as though it
+   * should reject only the matching values.
+   */
+  @Test
+  void testMatchingAfterDisallowAttributesHasNoEffect() {
+    String withMatching = apply(
+        new HtmlPolicyBuilder()
+        .allowUrlProtocols("http", "https")
+        .allowElements("img")
+        .allowAttributes("src").onElements("img")
+        .disallowAttributes("src")
+            .matching(Pattern.compile(".*example.*")).onElements("img"),
+        "<img src=\"http://other.example/a.png\">");
+
+    assertEquals("", withMatching, "the non-matching src is dropped too");
+  }
+
+  /** Rejecting only some values means allowing the rest. */
+  @Test
+  void testAnInvertedAllowRejectsOnlyTheMatchingValues() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowUrlProtocols("http", "https")
+        .allowElements("img")
+        .allowAttributes("src")
+            .matching((elementName, attributeName, value) ->
+                value.contains("example") ? null : value)
+            .onElements("img");
+
+    assertEquals(
+        "<img src=\"http://other.test/a.png\" />",
+        apply(b, "<img src=\"http://other.test/a.png\">"));
+    assertEquals(
+        "", apply(b, "<img src=\"http://other.example/a.png\">"));
+  }
+
+  /**
    * The duplicate-attribute scan walks a flat list of alternating names and
    * values, so it has to compare names against names.  It used to compare
    * against values too, which dropped an attribute whose name matched an
