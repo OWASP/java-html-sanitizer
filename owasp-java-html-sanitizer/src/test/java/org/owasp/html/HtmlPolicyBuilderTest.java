@@ -766,6 +766,29 @@ public class HtmlPolicyBuilderTest extends TestCase {
   }
 
   @Test
+  public final void testCalcInStyleAttribute() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowStyling()
+        .allowElements("div")
+        .toFactory();
+    assertEquals(
+        "<div style=\"width:calc( 100% - 20px );"
+        + "max-height:calc( ( 50% - 2em ) / 2 )\">x</div>",
+        policy.sanitize(
+            "<div style=\"width: calc(100% - 20px);"
+            + " max-height: calc((50% - 2em) / 2)\">x</div>"));
+    // Nothing executable or URL-bearing survives inside calc().
+    assertEquals(
+        "<div style=\"width:calc( )\">x</div>",
+        policy.sanitize(
+            "<div style=\"width: calc(expression(alert(1)))\">x</div>"));
+    assertEquals(
+        "<div style=\"width:calc( 100% - )\">x</div>",
+        policy.sanitize(
+            "<div style=\"width: calc(100% - url(//evil.org/x))\">x</div>"));
+  }
+
+  @Test
   public final void testBackgroundImageWithImageFunction() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowStandardUrlProtocols()

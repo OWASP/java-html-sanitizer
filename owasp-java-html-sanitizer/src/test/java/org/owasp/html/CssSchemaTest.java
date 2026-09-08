@@ -27,7 +27,11 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.junit.Test;
 
@@ -79,6 +83,29 @@ public final class CssSchemaTest extends TestCase {
           propName,
           property.fnKeys.containsKey("url("));
     }
+  }
+
+  @Test
+  public static final void testCalcIsScopedToSizingProperties() {
+    Set<String> withCalc = new TreeSet<>();
+    for (Map.Entry<String, CssSchema.Property> e
+         : CssSchema.DEFINITIONS.entrySet()) {
+      if (e.getValue().fnKeys.containsKey("calc(")) {
+        withCalc.add(e.getKey());
+      }
+    }
+    assertEquals(
+        new TreeSet<>(Arrays.asList(
+            "height", "max-height", "max-width",
+            "min-height", "min-width", "width")),
+        withCalc);
+    assertTrue(CssSchema.DEFAULT_WHITELIST.contains("calc()"));
+    CssSchema.Property calc = CssSchema.DEFAULT.forKey("calc()");
+    assertNotSame(CssSchema.DISALLOWED, calc);
+    // Operands are quantities only: no strings, URLs, colors, words or
+    // nested functions.
+    assertEquals(CssSchema.BIT_QUANTITY | CssSchema.BIT_NEGATIVE, calc.bits);
+    assertTrue(calc.fnKeys.isEmpty());
   }
 
   @Test

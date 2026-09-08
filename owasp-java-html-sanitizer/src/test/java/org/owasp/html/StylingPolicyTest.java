@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
 import java.util.function.Function;
 
 import javax.annotation.Nullable;
@@ -219,6 +220,87 @@ public class StylingPolicyTest extends TestCase {
   }
 
   @Test
+  public static final void testCalc() {
+    // https://drafts.csswg.org/css-values-4/#calc-func
+    // calc() is allowed in the six sizing properties (issue #361).
+    assertSanitizedCss(
+        "width:calc( 100% - 20px )", "width: calc(100% - 20px)");
+    assertSanitizedCss(
+        "min-width:calc( 100% - 20px )", "min-width: calc(100% - 20px)");
+    assertSanitizedCss(
+        "max-width:calc( 100% - 20px )", "max-width: calc(100% - 20px)");
+    assertSanitizedCss(
+        "height:calc( 100% - 20px )", "height: calc(100% - 20px)");
+    assertSanitizedCss(
+        "min-height:calc( 100% - 20px )", "min-height: calc(100% - 20px)");
+    assertSanitizedCss(
+        "max-height:calc( 100% - 20px )", "max-height: calc(100% - 20px)");
+    // All four operators, grouping, negative operands, and the function
+    // name is case-insensitive.
+    assertSanitizedCss(
+        "width:calc( 2 * 1em + 10px )", "width: calc(2 * 1em + 10px)");
+    assertSanitizedCss(
+        "width:calc( ( 100% - 20px ) / 2 )",
+        "width: calc((100% - 20px) / 2)");
+    assertSanitizedCss(
+        "width:calc( -1 * 20px + 100% )", "width: CALC(-1 * 20px + 100%)");
+    assertSanitizedCss(
+        "width:calc( 100% - 20px ) !important",
+        "width: calc(100% - 20px) !important");
+    assertSanitizedCss(
+        "width:calc( 100% - 20px );color:red",
+        "width: calc(100% - 20px); color: red");
+    // Comments are dropped and unbalanced parentheses are repaired.
+    assertSanitizedCss(
+        "width:calc( 100% - 20px )", "width: calc(100%/*a*/-/*b*/20px");
+    assertSanitizedCss(
+        "width:calc( 100% - 20px )", "width: calc(100% - 20px))");
+    // Only quantities and arithmetic survive inside calc().  Anything else
+    // is stripped, leaving an invalid expression that browsers ignore.
+    assertSanitizedCss(
+        "width:calc( )", "width: calc(expression(alert(1337)))");
+    assertSanitizedCss(
+        "width:calc( )", "width: calc(url('//evil.org/x'))");
+    assertSanitizedCss(
+        "width:calc( )", "width: calc(\"//evil.org/x\")");
+    assertSanitizedCss(
+        "width:calc( 100% - )", "width: calc(100% - var(--x))");
+    assertSanitizedCss(
+        "width:calc( 100% - )", "width: calc(100% - attr(data-x px))");
+    assertSanitizedCss(
+        "width:calc( 100% - )",
+        "width: calc(100% - env(safe-area-inset-left))");
+    assertSanitizedCss(
+        "width:calc( 100% - )", "width: calc(100% - rgb(0, 0, 0))");
+    assertSanitizedCss(
+        "width:calc( 100% - )", "width: calc(100% - #fff)");
+    assertSanitizedCss(
+        "width:calc( 100% - )", "width: calc(100% - auto)");
+    // calc() is not allowed in properties outside the sizing set, ...
+    assertSanitizedCss(null, "margin: calc(100% - 20px)");
+    assertSanitizedCss(null, "padding-left: calc(100% - 20px)");
+    assertSanitizedCss(null, "font-size: calc(1em + 2px)");
+    assertSanitizedCss(null, "border-width: calc(1px + 1px)");
+    assertSanitizedCss("margin:20px", "margin: calc(100% - 20px) 20px");
+    // ... and its operators are not allowed outside calc().
+    assertSanitizedCss("width:100% 20px", "width: 100% - 20px");
+    assertSanitizedCss("width:20px", "width: (20px)");
+  }
+
+  @Test
+  public static final void testCalcRequiresOptIn() {
+    // As with rgb() and color, a custom schema has to list calc() next to
+    // the sizing property for the function to be accepted.
+    CssSchema widthOnly = CssSchema.withProperties(Arrays.asList("width"));
+    assertSanitizedCss(widthOnly, "width:20px", "width: 20px");
+    assertSanitizedCss(widthOnly, null, "width: calc(100% - 20px)");
+    CssSchema widthAndCalc = CssSchema.withProperties(
+        Arrays.asList("width", "calc()"));
+    assertSanitizedCss(
+        widthAndCalc, "width:calc( 100% - 20px )", "width: calc(100% - 20px)");
+  }
+
+  @Test
   public static final void testLongUrls() {
     // Test that a long URL does not blow out the stack or consume quadratic
     // amounts of processor as when the CSS lexer was implemented as a bunch of
@@ -345,8 +427,13 @@ public class StylingPolicyTest extends TestCase {
 
   private static void assertSanitizedCss(
       @Nullable String expectedCss, String css) {
+    assertSanitizedCss(CssSchema.DEFAULT, expectedCss, css);
+  }
+
+  private static void assertSanitizedCss(
+      CssSchema cssSchema, @Nullable String expectedCss, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(
-        CssSchema.DEFAULT,
+        cssSchema,
         new Function<String, String>() {
           public String apply(String url) {
             String safeUrl =

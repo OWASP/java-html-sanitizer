@@ -354,9 +354,14 @@ public final class CssSchema {
     Set<String> bottomLiterals0 = j8().setOf("auto", "inherit");
     Set<String> boxShadowLiterals0 = j8().setOf(
         ",", "inset", "none");
-
-    Map<String, String> maxWidthFunctions = j8().mapOfEntries(j8().mapEntry("calc(", "calc()"));
-
+    // Arithmetic inside calc().  Operands are limited to numbers, dimensions
+    // and percentages, so nested functions such as var(), attr() and url()
+    // are stripped.  A bare "-" lexes as an identifier rather than as
+    // punctuation, but both paths consult this literal set.
+    Set<String> calc$FunLiterals0 = j8().setOf(
+        "+", "-", "*", "/", "(", ")");
+    Map<String, String> calcFunctions = j8().mapOfEntries(
+        j8().mapEntry("calc(", "calc()"));
     Set<String> clearLiterals0 = j8().setOf(
         "both", "inherit", "none");
     Map<String, String> clipFunctions =
@@ -645,8 +650,11 @@ public final class CssSchema {
     Property fontWeight = new Property(
         0, union(fontLiterals0, fontStyleLiterals0), zeroFns);
     builder.put("font-weight", fontWeight);
-    Property height = new Property(5, bottomLiterals0, zeroFns);
+    Property height = new Property(5, bottomLiterals0, calcFunctions);
     builder.put("height", height);
+    // top, left and right take the same values as height but are not on the
+    // default white-list and do not admit calc().
+    Property offset = new Property(5, bottomLiterals0, zeroFns);
     Property letterSpacing = new Property(5, fontStyleLiterals0, zeroFns);
     builder.put("letter-spacing", letterSpacing);
     builder.put("line-height", new Property(1, fontStyleLiterals0, zeroFns));
@@ -668,10 +676,11 @@ public final class CssSchema {
     builder.put("list-style-type", listStyleType);
     Property margin = new Property(1, bottomLiterals0, zeroFns);
     builder.put("margin", margin);
-    Property maxHeight = new Property(1, maxHeightLiterals0, zeroFns);
+    // width, min-width and min-height take the same values as margin but
+    // also admit calc().
+    Property width = new Property(1, bottomLiterals0, calcFunctions);
+    Property maxHeight = new Property(1, maxHeightLiterals0, calcFunctions);
     builder.put("max-height", maxHeight);
-    Property maxWidth = new Property(1, maxHeightLiterals0, maxWidthFunctions);
-    builder.put("max-width", maxWidth);
     Property opacity = new Property(1, mozOpacityLiterals0, zeroFns);
     builder.put("opacity", opacity);
     builder.put("overflow", new Property(0, overflowLiterals0, zeroFns));
@@ -761,8 +770,7 @@ public final class CssSchema {
     builder.put("rgba()", rgb$Fun);
     builder.put("hsl()", rgb$Fun);
     builder.put("hsla()", rgb$Fun);
-    Property calc$Fun = new Property(1, j8().setOf(), zeroFns);
-    builder.put("calc()", calc$Fun);
+    builder.put("calc()", new Property(5, calc$FunLiterals0, zeroFns));
     @SuppressWarnings("unchecked")
     Property image$Fun = new Property(
         18, union(mozOutlineLiterals0, rgb$FunLiterals0), mozOutlineFunctions);
@@ -824,14 +832,14 @@ public final class CssSchema {
     builder.put("border-width", mozOutlineWidth);
     builder.put("cue-after", cue);
     builder.put("cue-before", cue);
-    builder.put("left", height);
+    builder.put("left", offset);
     builder.put("margin-bottom", margin);
     builder.put("margin-left", margin);
     builder.put("margin-right", margin);
     builder.put("margin-top", margin);
     builder.put("max-width", maxHeight);
-    builder.put("min-height", margin);
-    builder.put("min-width", margin);
+    builder.put("min-height", width);
+    builder.put("min-width", width);
     builder.put("outline", mozOutline);
     builder.put("outline-color", mozOutlineColor);
     builder.put("outline-style", mozOutlineStyle);
@@ -847,13 +855,13 @@ public final class CssSchema {
     builder.put("pause-before", borderSpacing);
     builder.put("pitch-range", borderSpacing);
     builder.put("richness", borderSpacing);
-    builder.put("right", height);
+    builder.put("right", offset);
     builder.put("stress", borderSpacing);
     builder.put("text-indent", borderSpacing);
     builder.put("text-overflow", oTextOverflow);
     builder.put("text-shadow", boxShadow);
-    builder.put("top", height);
-    builder.put("width", margin);
+    builder.put("top", offset);
+    builder.put("width", width);
     builder.put("word-spacing", letterSpacing);
     builder.put("z-index", bottom);
     builder.put("repeating-linear-gradient()", linearGradient$Fun);
@@ -926,6 +934,7 @@ public final class CssSchema {
       "border-top-width",
       "border-width",
       "box-shadow",
+      "calc()",
       "caption-side",
       "color",
       "cue",
@@ -982,7 +991,6 @@ public final class CssSchema {
       "rgba()",
       "hsl()",
       "hsla()",
-      "calc()",
       "richness",
       "speak",
       "speak-header",
