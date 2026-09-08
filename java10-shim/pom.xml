@@ -22,18 +22,6 @@
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-release-plugin</artifactId>
-        <configuration>
-          <arguments>-Dmaven.javadoc.skip=true</arguments> <!-- No public classes -->
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
-
   <dependencies>
     <dependency>
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>

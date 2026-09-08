@@ -105,7 +105,7 @@ import static org.owasp.shim.Java8Shim.j8;
  * </p>
  * <pre class="prettyprint lang-java">
  * new HtmlPolicyBuilder()
- *   .allowElement(
+ *   .allowElements(
  *     new ElementPolicy() {
  *       public String apply(String elementName, List&lt;String&gt; attributes){
  *         attributes.add("class");

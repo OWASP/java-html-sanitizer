@@ -102,17 +102,6 @@ application while protecting against XSS.
   <build>
     <pluginManagement>
       <plugins>
-        <plugin>
-          <groupId>external.atlassian.jgitflow</groupId>
-          <artifactId>jgitflow-maven-plugin</artifactId>
-          <version>1.0-m5.1</version>
-          <configuration>
-            <pushReleases>true</pushReleases>
-            <enableSshAgent>true</enableSshAgent>
-            <autoVersionSubmodules>true</autoVersionSubmodules>
-            <updateDependencies>true</updateDependencies>
-          </configuration>
-        </plugin>
         <!-- For building the source jar. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -167,11 +156,6 @@ application while protecting against XSS.
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-release-plugin</artifactId>
-          <version>3.1.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-project-info-reports-plugin</artifactId>
           <version>2.9</version>
         </plugin>
@@ -210,6 +194,12 @@ application while protecting against XSS.
             <artifactId>maven-shade-plugin</artifactId>
             <version>3.6.0</version>
           </plugin>
+        <plugin>
+          <!-- Used by empiricism/rebuild.sh; pinned so exec:java does not float. -->
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>3.6.3</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>

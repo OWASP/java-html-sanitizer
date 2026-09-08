@@ -1,15 +1,15 @@
 # OWASP Java HTML Sanitizer
 
-[![Java CI with Maven](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/maven.yml) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=main)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=main) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+[![Build](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=main)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=main) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
 you include HTML authored by third-parties in your web application while
 protecting against XSS.
 
-The existing dependency is on JSR 305. The other jars
-are only needed by the test suite.  The JSR 305 dependency is a
-compile-only dependency, only needed for annotations.
+The sanitizer JAR has no runtime dependencies.  Its only compile-time
+dependency is `spotbugs-annotations` (provided scope, annotations only);
+the other jars are only needed by the test suite.
 
 This code was written with security best practices in mind, has an
 extensive test suite, and has undergone
@@ -36,7 +36,7 @@ how to get started with or without Maven.
 ## Prepackaged Policies
 
 You can use
-[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/Sanitizers.html):
+[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
@@ -46,9 +46,9 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Crafting a policy
 
 The
-[tests](https://github.com/OWASP/java-html-sanitizer/blob/main/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
+[tests](https://github.com/OWASP/java-html-sanitizer/blob/main/owasp-java-html-sanitizer/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
-[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/HtmlPolicyBuilder.html):
+[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -63,7 +63,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Custom Policies
 
 You can write
-[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/ElementPolicy.html)
+[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/ElementPolicy.html)
 to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
@@ -86,15 +86,16 @@ need to be explicitly whitelisted using the `allowWithoutAttributes()`
 method if you want them to be allowed through the filter when these
 elements do not include any attributes.
 
-[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
+[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
 
 ```Java
 PolicyFactory myPolicy = new HtmlPolicyBuilder()
-    .allowElement("div", "span")
+    .allowElements("div", "span")
     .allowAttributes("data-foo")
         .matching(
             (String elementName, String attributeName, String value) -> {
               // Return value for the attribute or null to drop.
+              return value;
             })
         .onElements("div", "span")
     .toFactory();

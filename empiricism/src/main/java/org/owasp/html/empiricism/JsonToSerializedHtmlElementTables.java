@@ -22,9 +22,11 @@ import javax.json.JsonReader;
 import static org.owasp.shim.Java8Shim.j8;
 
 /**
- * Can be run thus:
+ * Generates HtmlElementTablesCanned.java from canned-data.json.
+ * Run it via {@code empiricism/rebuild.sh}, which first installs the
+ * reactor so the sibling modules resolve and then runs, from this module:
  * <pre>
- * mvn exec:java \
+ * ../mvnw -ntp -B exec:java \
  * -Dexec.mainClass=org.owasp.html.empiricism.JsonToSerializedHtmlElementTables
  * </pre>
  */
@@ -381,7 +383,7 @@ public final class JsonToSerializedHtmlElementTables {
       for (String name : iset) {
         vals[i++] = en.getElementNameIndex(name);
       }
-      if (vals.length != 3) { throw new IllegalStateException(); }
+      if (vals.length != i) { throw new IllegalStateException(); }
       Arrays.sort(vals);
 
       int[] ints = new int[vals.length + 1];
