@@ -37,6 +37,9 @@ Most recent at top.
     * Build: `empiricism/rebuild.sh` regenerates `HtmlElementTablesCanned.java`
       again.  The 2024 Guava removal had turned the generator's array-length
       check into a literal `3`, so it rejected every `explicitClosers` entry.
+    * Build: Coveralls coverage reporting is removed.  The plugin had not run
+      since the Travis scripts were deleted in 2024, and the repo token that
+      was committed with it in 2019 has been revoked.
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
