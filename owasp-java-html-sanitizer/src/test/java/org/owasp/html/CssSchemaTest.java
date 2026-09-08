@@ -29,6 +29,7 @@ package org.owasp.html;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -217,6 +218,108 @@ final class CssSchemaTest {
     CssSchema.Property stroke = CssSchema.DEFAULT.forKey("stroke");
     assertEquals(0, stroke.bits & CssSchema.BIT_URL);
     assertFalse(stroke.fnKeys.containsKey("url("));
+  }
+
+  /** #380 item 4: a DEFAULT property can be widened without rebuilding. */
+  @Test
+  void testWithOverridesCanWidenADefaultProperty() {
+    CssSchema.Property style = CssSchema.DEFAULT.property("text-decoration-style");
+    assertFalse(style.literals().contains("zigzag"));
+    CssSchema widened = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap(
+            "text-decoration-style", style.withLiterals("zigzag")));
+    assertTrue(
+        widened.property("text-decoration-style").literals().contains("zigzag"));
+    // The schema it was derived from is untouched.
+    assertFalse(
+        CssSchema.DEFAULT.property("text-decoration-style")
+            .literals().contains("zigzag"));
+    // Everything else came along.
+    assertTrue(widened.allowedProperties().contains("color"));
+  }
+
+  /** #380 item 4: and narrowed, which is the safe direction. */
+  @Test
+  void testWithOverridesCanNarrowADefaultProperty() {
+    CssSchema narrowed = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap(
+            "color", CssSchema.DEFAULT.property("color").withoutLiterals("red")));
+    assertFalse(narrowed.property("color").literals().contains("red"));
+    assertTrue(narrowed.property("color").literals().contains("blue"));
+    assertTrue(CssSchema.DEFAULT.property("color").literals().contains("red"));
+  }
+
+  /**
+   * #380 item 5: an override may name a function the base schema already
+   * defines, without the caller supplying that definition again.
+   */
+  @Test
+  void testWithOverridesResolvesFunctionKeysAgainstTheBase() {
+    CssSchema.Property borderColor =
+        CssSchema.DEFAULT.property("border-top-color");
+    CssSchema extended = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap(
+            "border-top-color",
+            borderColor.withFunctions(Collections.singletonMap(
+                "linear-gradient(", "linear-gradient()"))));
+    assertTrue(
+        extended.property("border-top-color").fnKeys()
+            .containsKey("linear-gradient("));
+    // Building the same property standalone still fails, because there the
+    // function really would be unreachable.
+    Map<String, CssSchema.Property> standalone = new HashMap<>();
+    standalone.put("border-top-color",
+                   borderColor.withFunctions(Collections.singletonMap(
+                       "linear-gradient(", "linear-gradient()")));
+    try {
+      CssSchema.withProperties(standalone);
+      throw new AssertionError("expected a self-containment failure");
+    } catch (IllegalArgumentException ex) {
+      // It names the property and whichever function key it reached first
+      // -- border-top-color already refers to rgb(), hsl() and friends.
+      assertTrue(ex.getMessage().contains("border-top-color"), ex.getMessage());
+      assertTrue(ex.getMessage().contains("withOverrides"), ex.getMessage());
+    }
+  }
+
+  /** A dangling function key in an override is still an error. */
+  @Test
+  void testWithOverridesRejectsADanglingFunctionKey() {
+    try {
+      CssSchema.DEFAULT.withOverrides(Collections.singletonMap(
+          "color",
+          new CssSchema.Property(
+              0, Collections.<String>emptySet(),
+              Collections.singletonMap("nope(", "nope()"))));
+      throw new AssertionError("expected a dangling function key to be rejected");
+    } catch (IllegalArgumentException ex) {
+      assertTrue(ex.getMessage().contains("nope()"), ex.getMessage());
+    }
+  }
+
+  /** union still refuses to pick a winner; that is what withOverrides is for. */
+  @Test
+  void testUnionStillRefusesToReconcile() {
+    CssSchema narrowed = CssSchema.DEFAULT.withOverrides(
+        Collections.singletonMap(
+            "color", CssSchema.DEFAULT.property("color").withoutLiterals("red")));
+    try {
+      CssSchema.union(CssSchema.DEFAULT, narrowed);
+      throw new AssertionError("expected union to refuse");
+    } catch (IllegalArgumentException ex) {
+      assertTrue(ex.getMessage().contains("color"), ex.getMessage());
+    }
+  }
+
+  /** A property this schema does not allow reads as null, not DISALLOWED. */
+  @Test
+  void testPropertyAccessor() {
+    assertNotSame(null, CssSchema.DEFAULT.property("color"));
+    assertEquals(null, CssSchema.DEFAULT.property("position"));
+    assertEquals(null, CssSchema.DEFAULT.property("no-such-property"));
+    // Case-insensitive, like forKey.
+    assertEquals(
+        CssSchema.DEFAULT.property("color"), CssSchema.DEFAULT.property("COLOR"));
   }
 
   @Test
