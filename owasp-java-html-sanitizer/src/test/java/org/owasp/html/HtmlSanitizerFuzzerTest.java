@@ -59,6 +59,19 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
         public void text(String textChunk) { /* do nothing */ }
       };
 
+  /**
+   * Characters that the sanitizer strips, normalizes, writes as references
+   * or treats as whitespace, including the halves of surrogate pairs for
+   * the noncharacters at the end of the supplementary planes.
+   */
+  static final char[] AWKWARD_CHARS = {
+    '\0', '\u0001', '\t', '\n', '\u000b', '\f', '\r', '\u001c', '\u001f',
+    ' ', '\u007f', '\u0080', '\u0085', '\u009f', '\u00a0', '\u2028',
+    '\u3000', '\ud800', '\ud83f', '\udbff', '\udc00', '\udffe', '\udfff',
+    '\ufdd0', '\ufdef', '\ufe64', '\ufeff', '\uff1c', '\ufffd', '\ufffe',
+    '\uffff',
+  };
+
   public final void testFuzzHtmlParser() throws Exception {
     String html;
     try (InputStream resourceStream = getClass().getClassLoader()
@@ -89,7 +102,12 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
       for (int i = length; --i >= 0;) { fuzzyHtml0[i] = html.charAt(i); }
       for (int fuzz = 1 + rnd.nextInt(25); --fuzz >= 0;) {
         if (rnd.nextBoolean()) {
-          fuzzyHtml0[rnd.nextInt(length)] = (char) rnd.nextInt(0x10000);
+          // Half of the time pick a character that the sanitizer strips,
+          // normalizes or treats as whitespace, since dropping a character
+          // is where two harmless tokens can join into a harmful one.
+          fuzzyHtml0[rnd.nextInt(length)] = rnd.nextBoolean()
+              ? (char) rnd.nextInt(0x10000)
+              : AWKWARD_CHARS[rnd.nextInt(AWKWARD_CHARS.length)];
           continue;
         }
         int s0 = rnd.nextInt(length - 1);

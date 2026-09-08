@@ -28,6 +28,29 @@ Most recent at top.
       `<p class="test" "="">bar</p> <p>baz</p>` now keeps `bar` and `baz`
       instead of pairing the stray quote with the next one and swallowing the
       rest of the document (issue #189).
+    * HTML: Sanitized output no longer contains code points that HTML
+      forbids (issue #223, from PR #225 by Simon Greatrix).  The 66 Unicode
+      noncharacters, U+007F and the C1 controls U+0080..U+009F are removed
+      from text and attribute values, as the C0 controls already were,
+      instead of being passed through raw or written as `&#x5fffe;`-style
+      references, which browsers treat as parse errors.  CR and CRLF in
+      text and attribute values are normalized to LF as the HTML input
+      stream preprocessor does, so rendering is unchanged but the output
+      never contains a raw carriage return.  Characters whose compatibility
+      decomposition contains ASCII punctuation, such as U+FE64 SMALL
+      LESS-THAN SIGN, are written as numeric references so that a later
+      normalization of the output cannot produce an HTML special character;
+      everything from U+FE60 up is still written as a reference, as before.
+      Stripping happens after character references are decoded, so a
+      forbidden code point can neither hide a `javascript:` protocol from a
+      URL policy nor turn `&l?t;` into `&lt;`.  The February 2018 iOS
+      "query of death" workaround, which dropped U+200C before some
+      Devanagari, Bengali and Telugu vowels, is removed.
+    * HTML: Only the five ASCII whitespace characters separate tokens inside
+      a tag, as in the WHATWG tokenizer.  `Character.isWhitespace` also
+      accepted U+000B, U+001C..U+001F and Unicode space separators such as
+      U+3000, so `<b\u3000onclick=x>` was read as `<b onclick=x>` where a
+      browser sees an unknown element named `b\u3000onclick=x`.
     * HTML: Attribute names may begin with an underscore.
     * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
       `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
@@ -68,8 +91,8 @@ Most recent at top.
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
-      Martin Jackson, Raibipasha-24, strangelookingnerd, subbudvk,
-      Sven Strickroth, yangbongsoo
+      Martin Jackson, Raibipasha-24, Simon Greatrix, strangelookingnerd,
+      subbudvk, Sven Strickroth, yangbongsoo
     * HTML: Inside `<svg>` / `<math>`, the content of raw text elements such
       as `<style>` is escaped rather than emitted verbatim (since 20240325.1),
       but it was escaped without first decoding character references, so
