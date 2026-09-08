@@ -56,9 +56,9 @@ application while protecting against XSS.
 
   <developers>
     <developer>
-      <id>mikesamuel</id>
-      <name>Mike Samuel</name>
-      <email>mikesamuel@gmail.com</email>
+      <id>jmanico</id>
+      <name>Jim Manico</name>
+      <email>jim@owasp.org</email>
     </developer>
   </developers>
 
