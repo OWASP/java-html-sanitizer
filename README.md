@@ -197,7 +197,10 @@ If you wish to report a vulnerability, please see
 [AttackReviewGroundRules](docs/attack_review_ground_rules.md).
 
 Subscribe to the
-[mailing list](https://groups.google.com/group/owasp-java-html-sanitizer-support)
+[mailing list](https://groups.google.com/g/owasp-java-html-sanitizer-support)
+or watch this repository's
+[releases](https://github.com/OWASP/java-html-sanitizer/releases) and
+[security advisories](https://github.com/OWASP/java-html-sanitizer/security/advisories)
 to be notified of known [Vulnerabilities](docs/vulnerabilities.md) and important updates.
 
 ## Contributing
