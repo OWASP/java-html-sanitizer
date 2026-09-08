@@ -51,6 +51,12 @@ Most recent at top.
       accepted U+000B, U+001C..U+001F and Unicode space separators such as
       U+3000, so `<b\u3000onclick=x>` was read as `<b onclick=x>` where a
       browser sees an unknown element named `b\u3000onclick=x`.
+    * HTML: Numeric character references in the C1 range, `&#x80;` through
+      `&#x9f;`, decode to the Windows-1252 characters that browsers use, so
+      `&#x85;` is U+2026 HORIZONTAL ELLIPSIS and `&#x99;` is U+2122 TRADE
+      MARK SIGN rather than control characters that are then removed.  The
+      five bytes Windows-1252 leaves undefined, 0x81, 0x8D, 0x8F, 0x90 and
+      0x9D, remain controls and are removed.
     * HTML: Attribute names may begin with an underscore.
     * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
       `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.

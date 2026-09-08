@@ -2468,9 +2468,29 @@ final class HtmlEntities {
       sb.append('&');
       return offset + 1;
     }
+    if (0x80 <= codepoint && codepoint <= 0x9f) {
+      // Browsers read a numeric reference in the C1 range as a Windows-1252
+      // byte, so "&#x85;" is U+2026 HORIZONTAL ELLIPSIS and not the NEL
+      // control.  The five bytes that Windows-1252 leaves undefined keep
+      // their C1 meaning and are stripped later like any other control.
+      // https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state
+      codepoint = WINDOWS_1252_C1[codepoint - 0x80];
+    }
     sb.appendCodePoint(codepoint);
     return tail;
   }
+
+  /**
+   * Maps the byte values 0x80..0x9F to the characters that Windows-1252
+   * assigns them, as the HTML numeric character reference end state does.
+   * Bytes that Windows-1252 leaves undefined map to themselves.
+   */
+  private static final char[] WINDOWS_1252_C1 = {
+    '\u20ac', '\u0081', '\u201a', '\u0192', '\u201e', '\u2026', '\u2020', '\u2021',
+    '\u02c6', '\u2030', '\u0160', '\u2039', '\u0152', '\u008d', '\u017d', '\u008f',
+    '\u0090', '\u2018', '\u2019', '\u201c', '\u201d', '\u2022', '\u2013', '\u2014',
+    '\u02dc', '\u2122', '\u0161', '\u203a', '\u0153', '\u009d', '\u017e', '\u0178',
+  };
 
   private static boolean isHtmlIdContinueChar(char ch) {
     int chLower = ch | 32;

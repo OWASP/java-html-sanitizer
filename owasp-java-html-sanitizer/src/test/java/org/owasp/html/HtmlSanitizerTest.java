@@ -62,6 +62,23 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   @Test
+  public static final void testC1NumericReferencesAreWindows1252() {
+    // "&#x85;" is an ellipsis in a browser, not the NEL control.  The
+    // ellipsis is written back as a reference since its compatibility
+    // decomposition is three full stops.
+    assertEquals(
+        "<b>a&#x2026;b</b>",
+        Sanitizers.FORMATTING.sanitize("<b>a&#x85;b</b>"));
+    assertEquals(
+        "<b>a\u20acb</b>",
+        Sanitizers.FORMATTING.sanitize("<b>a&#128;b</b>"));
+    // An undefined Windows-1252 byte stays a control and is removed.
+    assertEquals(
+        "<b>ab</b>",
+        Sanitizers.FORMATTING.sanitize("<b>a&#x81;b</b>"));
+  }
+
+  @Test
   public static final void testUnknownTagsRemoved() {
     assertEquals("<b>hello <i>world</i></b>",
                  sanitize("<b>hello <bogus></bogus><i>world</i></b>"));
