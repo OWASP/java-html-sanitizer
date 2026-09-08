@@ -151,8 +151,11 @@ final class StylingPolicy implements JoinableAttributePolicy {
         if ((meaning & (meaning - 1)) == 0) {  // meaning is unambiguous
           if (meaning == CssSchema.BIT_UNRESERVED_WORD
               && token.length() > 2
-              && isAlphanumericOrSpaceOrHyphen(token, 1, token.length() - 1)) {
-            emitToken(Strings.toLowerCase(token));
+              && isSafeQuotedIdentifier(token, 1, token.length() - 1)) {
+            // Emit as written: a font name is a name, not a keyword, so its
+            // case matters to the reader even though CSS matches it
+            // case-insensitively.
+            emitToken(token);
           } else if (meaning == CssSchema.BIT_URL) {
             // convert to a URL token and hand-off to the appropriate method
             sanitizeAndAppendUrl(CssGrammar.cssContent(token));
@@ -188,7 +191,13 @@ final class StylingPolicy implements JoinableAttributePolicy {
           emitToken("!important");
         } else if (cssProperty.literals.contains(token)) {
           emitToken(token);
-        } else if ((cssProperty.bits & IDENT_TO_STRING) == IDENT_TO_STRING) {
+        } else if ((cssProperty.bits & IDENT_TO_STRING) == IDENT_TO_STRING
+                   && isSafeQuotedIdentifier(
+                       uncanonToken, 0, uncanonToken.length())) {
+          // Same test as the quoted path.  This path had none at all, so a
+          // bare name could carry a format character -- a bidi override, say
+          // -- into the output, and a name the quoted path would reject
+          // survived one pass and vanished on the next.
           if (!inQuotedIdents) {
             inQuotedIdents = true;
             if (hasTokens) { sanitizedCss.append(' '); }
@@ -197,7 +206,9 @@ final class StylingPolicy implements JoinableAttributePolicy {
           } else {
             sanitizedCss.append(' ');
           }
-          sanitizedCss.append(Strings.toLowerCase(token));
+          // As above: emit the name as the author wrote it.  Matching against
+          // the schema is case-insensitive, but the output is a name.
+          sanitizedCss.append(uncanonToken);
         }
         lastToken = token;
       }
@@ -228,7 +239,26 @@ final class StylingPolicy implements JoinableAttributePolicy {
     return sanitizedCss.length() == 0 ? null : sanitizedCss.toString();
   }
 
-  static boolean isAlphanumericOrSpaceOrHyphen(
+  /**
+   * True if the given range of a quoted token can be re-emitted between single
+   * quotes without any further escaping.
+   *
+   * <p>This is deliberately a small set.  The CSS lexer normalizes a string's
+   * contents, so a quote or a backslash reaches us already escaped -- {@code
+   * 'it\27s'}, {@code 'a\5c b'} -- and re-emitting an escape verbatim would
+   * mean reasoning about escape parity to be sure the closing quote is still
+   * the closing quote.  Rejecting the backslash outright avoids that question
+   * entirely, at the cost of dropping the rare font name that needs one.
+   *
+   * <p>What it does allow is everything a font name legitimately contains and
+   * that carries no meaning inside a CSS string: letters and digits in any
+   * script, spaces, and the hyphen, underscore and period that appear in names
+   * like {@code Foo_Bar} and {@code Helvetica Neue LT Std.55 Roman}.  The
+   * underscore matters in practice because Word emits font names containing
+   * one, and because the unquoted path already accepted it -- so a name would
+   * survive sanitization once and be dropped on the way back in.
+   */
+  static boolean isSafeQuotedIdentifier(
       String token, int start, int end) {
     for (int i = start; i < end; ++i) {
       char ch = token.charAt(i);
@@ -236,13 +266,18 @@ final class StylingPolicy implements JoinableAttributePolicy {
         if (ch != '\t' && ch != ' ') {
           return false;
         }
-      } else {
+      } else if (ch < 0x80) {
         int chLower = ch | 32;
         if (!(('0' <= chLower && chLower <= '9')
               || ('a' <= chLower && chLower <= 'z')
-              || ('-' == ch))) {
+              || '-' == ch || '_' == ch || '.' == ch)) {
           return false;
         }
+      } else if (!Character.isLetterOrDigit(ch)) {
+        // Non-ASCII font names are ordinary -- CJK families, for instance --
+        // but only letters and digits, so that format and control characters
+        // cannot ride along.
+        return false;
       }
     }
     return true;

@@ -103,41 +103,125 @@ class StylingPolicyTest {
 
   @Test
   void testFontFace() {
+    // A font name is a name, not a keyword: it is emitted as the author wrote
+    // it, even though the schema matches it case-insensitively.  See #289.
     assertSanitizedCss(
-        "font:'arial' , 'helvetica'", "font: Arial, Helvetica");
+        "font:'Arial' , 'Helvetica'", "font: Arial, Helvetica");
     assertSanitizedCss(
-        "font-family:'arial' , 'helvetica' , sans-serif",
+        "font-family:'Arial' , 'Helvetica' , sans-serif",
         "Font-family: Arial, Helvetica, sans-serif");
+    // A quoted "Monospace" is a font name, not the generic family keyword, so
+    // it stays quoted; the bare keyword below does not.
     assertSanitizedCss(
-        "font-family:'monospace' , sans-serif",
+        "font-family:'Monospace' , sans-serif",
         "Font-family: \"Monospace\", Sans-serif");
     assertSanitizedCss(
-        "font:'arial bold' , 'helvetica' , monospace",
+        "font:'Arial Bold' , 'Helvetica' , monospace",
         "FONT: \"Arial Bold\", Helvetica, monospace");
     assertSanitizedCss(
-        "font-family:'arial bold' , 'helvetica'",
+        "font-family:'Arial Bold' , 'Helvetica'",
         "font-family: \"Arial Bold\", Helvetica");
     assertSanitizedCss(
-        "font-family:'arial bold' , 'helvetica'",
+        "font-family:'Arial Bold' , 'Helvetica'",
         "font-family: 'Arial Bold', Helvetica");
     assertSanitizedCss(
         "font-family:'evil'",
         "font-family: 3execute evil");
+    // An empty name really is empty, so it drops and leaves the separators.
     assertSanitizedCss(
-        "font-family:'arial bold' , , , 'helvetica' , sans-serif",
+        "font-family:'Arial Bold' , , , 'Helvetica' , sans-serif",
         "font-family: 'Arial Bold',,\"\",Helvetica,sans-serif");
     assertSanitizedCss(
-        "font:'chalkboardse-light' , 'helvetica' , monospace",
+        "font:'ChalkboardSE-Light' , 'Helvetica' , monospace",
         "FONT: \"ChalkboardSE-Light\", Helvetica, monospace");
+  }
+
+  /**
+   * Issue #232.  Sanitizing twice must not change the result.  A font name
+   * containing an underscore -- which is what Word emits -- was accepted
+   * unquoted but rejected once quoted, so the first pass produced a name the
+   * second pass dropped, leaving a stray comma and invalid CSS.
+   */
+  @Test
+  void testFontFamilyIsIdempotent() {
+    String once = "font-family:'WordVisi_MSFontService' , 'Algerian' ,"
+        + " 'Algerian_EmbeddedFont' , sans-serif";
+    assertSanitizedCss(
+        once,
+        "font-family: WordVisi_MSFontService, Algerian,"
+        + " Algerian_EmbeddedFont, sans-serif");
+    // The output of the first pass survives a second unchanged.
+    assertSanitizedCss(once, once);
+    // Periods and non-ASCII names round-trip too.
+    assertSanitizedCss("font-family:'Foo.Bar_1'", "font-family: 'Foo.Bar_1'");
+    assertSanitizedCss("font-family:'\u4e2d\u6587\u5b57\u4f53'",
+                       "font-family: '\u4e2d\u6587\u5b57\u4f53'");
+  }
+
+  /**
+   * Issue #229.  A generic family is a keyword and must not be quoted, or the
+   * declaration stops meaning what it said.
+   */
+  @Test
+  void testGenericFontFamiliesAreNotQuoted() {
+    assertSanitizedCss(
+        "font-family:sans-serif , system-ui , -apple-system",
+        "font-family: sans-serif, system-ui, -apple-system");
+    assertSanitizedCss(
+        "font-family:ui-serif , ui-sans-serif , ui-monospace , ui-rounded",
+        "font-family: ui-serif, ui-sans-serif, ui-monospace, ui-rounded");
+    assertSanitizedCss(
+        "font-family:math , emoji , fangsong , cursive , fantasy",
+        "font-family: math, emoji, fangsong, cursive, fantasy");
+    // A real font name is still quoted.
+    assertSanitizedCss(
+        "font-family:'BlinkMacSystemFont' , sans-serif",
+        "font-family: BlinkMacSystemFont, sans-serif");
+  }
+
+  /**
+   * Both paths that emit a font name apply the same test, so a name cannot
+   * survive one sanitization pass and vanish on the next, and a format
+   * character cannot ride into the output on the unquoted path.
+   */
+  @Test
+  void testFontNamePathsAgree() {
+    // U+202E RIGHT-TO-LEFT OVERRIDE reorders the text around it, so it has no
+    // business in a font name.  It used to be accepted unquoted and rejected
+    // quoted, which also made sanitization non-idempotent.
+    assertSanitizedCss(null, "font-family: a\u202eb");
+    assertSanitizedCss(null, "font-family: 'a\u202eb'");
+    // U+FEFF ZERO WIDTH NO-BREAK SPACE never reaches the output either, but
+    // by a different route: quoted it is rejected here, and unquoted the
+    // lexer has already split it into two identifiers.
+    assertSanitizedCss("font-family:'a b'", "font-family: a\ufeffb");
+    assertSanitizedCss(null, "font-family: 'a\ufeffb'");
+    // Ordinary names go through either way, and agree.
+    assertSanitizedCss("font-family:'Foo_Bar'", "font-family: Foo_Bar");
+    assertSanitizedCss("font-family:'Foo_Bar'", "font-family: 'Foo_Bar'");
+  }
+
+  /**
+   * Widening what a quoted name may contain must not let a name break out of
+   * the quotes it is emitted in.  The lexer hands us quotes and backslashes
+   * already escaped, and an escape is exactly what is rejected.
+   */
+  @Test
+  void testQuotedFontNamesCannotBreakOut() {
+    assertSanitizedCss(null, "font-family: 'it\\27s'");
+    assertSanitizedCss(null, "font-family: 'a\\5c b'");
+    assertSanitizedCss(null, "font-family: 'a\\22 b'");
+    assertSanitizedCss(null, "font-family: '</style>'");
+    assertSanitizedCss(null, "font-family: 'a\\a b'");
   }
 
   @Test
   void testFont() {
     assertSanitizedCss(
-        "font:'arial' 12pt bold oblique",
+        "font:'Arial' 12pt bold oblique",
         "font: Arial 12pt bold oblique");
     assertSanitizedCss(
-        "font:'times new roman' 24px bolder",
+        "font:'Times New Roman' 24px bolder",
         "font: \"Times New Roman\" 24px bolder");
     assertSanitizedCss("font:24px", "font: 24px");
     // Non-ascii characters discarded.
@@ -151,7 +235,7 @@ class StylingPolicyTest {
         null, "font: rgb(\"expression(alert(1337))//\")");
     assertSanitizedCss("font-size:smaller", "font-size: smaller");
     assertSanitizedCss("font:smaller", "font: smaller");
-    assertSanitizedCss("font:'chalkboardse-light'", "font: 'ChalkboardSE-Light'");
+    assertSanitizedCss("font:'ChalkboardSE-Light'", "font: 'ChalkboardSE-Light'");
     assertSanitizedCss(null, "font: '---");
   }
 
