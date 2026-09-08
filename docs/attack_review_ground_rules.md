@@ -1,13 +1,15 @@
-# Attack Review Ground Rules 
-## How to win 
+# Attack Review Ground Rules
+
+## How to win
+
 There are many ways we might have failed.
 
-If you are the first to provide me with a payload that does any of the following on a current release of a mainstream browser (Chrome, Firefox, Safari, or Edge), then I will be happy to give credit via the project wiki and README, and I owe you a nice dinner next time we're in the same city (or coupon for dinner in your city).  Only the first reported payload that demonstrates a particular bug counts.
+If you are the first to provide a payload that does any of the following on a current release of a mainstream browser (Chrome, Firefox, Safari, or Edge), we will be happy to give credit in the project documentation and README.  Only the first reported payload that demonstrates a particular bug counts.
 
   * Pop up an `alert` with any text.
   * Cause a network load of `https://attacker.example/xss.js` as JS
   * Set or retrieve `document.cookie`.
-  * Cause the DOM to contain an element or attribute not explicitly allowed by the policy linked above (and not contained by `/reflect` with a blank input).
+  * Cause the DOM to contain an element or attribute not explicitly allowed by the policy in use.
   * Cause an redirect to `https://attacker.example/` or a URL of your choosing without user interaction.
   * Cause a save-file dialog to pop-up.
   * Crash the browser or cause it to loop infinitely until the browser halts JS or consume inordinate resources for an input of that size.
@@ -17,20 +19,20 @@ If you are the first to provide me with a payload that does any of the following
 
 This is not an exhaustive list and creative attacks are welcome.
 
-If you find the web interface cumbersome, feel free to download and test the sanitizer directly.  See [GettingStarted](getting_started.md) for instructions.
+See [GettingStarted](getting_started.md) for how to build the sanitizer and run it locally against a policy of your choosing.
 
-## Reporting Vulnerabilities 
-Please report successful attacks with example input via [OWASP's bugcrowd queue](https://bugcrowd.com/owaspjavasanitizer)
-or contact `mikesamuel`@`gmail`.`com` and I will create a [repository security advisory](https://docs.github.com/en/code-security/security-advisories/repository-security-advisories/creating-a-repository-security-advisory) to coordinate.
+## Reporting Vulnerabilities
 
-If you wish to be credited, please provide a name or handle for me to credit.
+Please follow the project's [security policy](../SECURITY.md).  In short: report successful attacks with example input via [OWASP's Bugcrowd queue](https://bugcrowd.com/owaspjavasanitizer) or by email to `jim@owasp.org`, and a maintainer will create a [repository security advisory](https://docs.github.com/en/code-security/security-advisories/repository-security-advisories/creating-a-repository-security-advisory) to coordinate a fix.
 
-If you wish to remain anonymous, please create a sock account, and email the address above.
+If you wish to be credited, please provide a name or handle.
 
-## Out of Bounds 
-We are testing the HTML sanitizer as written, not the servers on which the test framework runs, so hacking the server to change the code behind it or rewrite the HTML sanitizer is out of bounds.
+If you wish to remain anonymous, say so in your report.
 
-## Questions 
-Feel free to ask questions by opening a [GitHub issue](https://github.com/OWASP/java-html-sanitizer/issues), or via the email address above.
+## Out of Bounds
 
-I will also lurk on IRC `/join #owasp-html-sanitizer` using the handle `mikesamuel`.
+The target is the sanitizer as written.  Attacks on the project's infrastructure, such as GitHub, the CI runners, or Bugcrowd, are out of bounds.
+
+## Questions
+
+Feel free to ask questions in the project's [GitHub Discussions](https://github.com/OWASP/java-html-sanitizer/discussions/categories/q-a).
