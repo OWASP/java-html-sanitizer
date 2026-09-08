@@ -476,6 +476,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     COMMENT_DASH_DASH,
     COMMENT_DASH_DASH_BANG,
     COMMENT_DASH_AFTER_BANG,
+    COMMENT_START_DASH,
     DIRECTIVE,
     DONE,
     BOGUS_COMMENT,
@@ -650,16 +651,32 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                 case BANG_DASH:
                   if ('-' == ch) {
                     state = State.COMMENT_DASH_AFTER_BANG;
+                  } else if ('>' == ch) {
+                    // <!-> is a bogus comment that ends at the first '>'
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
                   } else {
                     state = State.DIRECTIVE;
                   }
                   break;
-                case COMMENT_DASH_AFTER_BANG:
+                case COMMENT_DASH_AFTER_BANG:  // Just after "<!--"
                   if ('>' == ch) { // <!--> is a valid html comment
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
-                  } else if ('-' == ch) { // <!---> is a valid html comment
-                    state = State.COMMENT_DASH_AFTER_BANG;
+                  } else if ('-' == ch) {
+                    state = State.COMMENT_START_DASH;
+                  } else {
+                    state = State.COMMENT;
+                  }
+                  break;
+                case COMMENT_START_DASH:  // Just after "<!---"
+                  if ('>' == ch) { // <!---> is a valid html comment
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
+                  } else if ('-' == ch) {
+                    // <!---- is in the comment end state, so --!> or more
+                    // dashes followed by > will close the comment.
+                    state = State.COMMENT_DASH_DASH;
                   } else {
                     state = State.COMMENT;
                   }
@@ -672,9 +689,11 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   }
                   break;
                 case COMMENT_DASH:
+                  // Anything but a second dash is ordinary comment content,
+                  // so "-x->" must not close the comment.
                   state = ('-' == ch)
                       ? State.COMMENT_DASH_DASH
-                      : State.COMMENT_DASH;
+                      : State.COMMENT;
                   break;
                 case COMMENT_DASH_DASH:
                   if ('>' == ch) {
@@ -685,7 +704,7 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   } else if ('-' == ch) {
                     state = State.COMMENT_DASH_DASH;
                   } else {
-                    state = State.COMMENT_DASH;
+                    state = State.COMMENT;
                   }
                   break;
                 case COMMENT_DASH_DASH_BANG:

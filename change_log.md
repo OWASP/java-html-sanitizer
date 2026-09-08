@@ -17,9 +17,11 @@ Most recent at top.
       artifacts are no longer published separately. If you added an explicit
       dependency on `java8-shim` or `java10-shim` as a workaround, remove it.
     * HTML: Follow the WHATWG tokenizer for degenerate comments. `<!>`,
-      `<!-->` and `<!--->` are complete empty comments, and `--!>` closes a
-      comment, matching browser behaviour instead of swallowing the content
-      that followed.
+      `<!-->`, `<!--->` and `<!->` are complete empty comments, and `--!>`
+      closes a comment even when only dashes precede it (`<!----!>`),
+      matching browser behaviour instead of swallowing the content that
+      followed (issue #258).  Conversely, only a contiguous `-->` or `--!>`
+      closes a comment: `<!-- a -x->` no longer ends it early.
     * HTML: Attribute names may begin with an underscore.
     * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
       `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
