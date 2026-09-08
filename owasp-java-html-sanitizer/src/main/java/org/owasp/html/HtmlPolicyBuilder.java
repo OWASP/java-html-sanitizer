@@ -142,14 +142,34 @@ import static org.owasp.shim.Java8Shim.j8;
  *
  * <h3>Thread safety and efficiency</h3>
  * <p>
- * This class is not thread-safe.  The resulting policy will not violate its
- * security guarantees as a result of race conditions, but is not thread safe
- * because it maintains state to track whether text inside disallowed elements
- * should be suppressed.
+ * In short: build a {@link PolicyFactory} once with {@link #toFactory()} and
+ * share it across threads.  Do not share a builder, and do not share a policy
+ * built with {@link #build}.
  * <p>
- * The resulting policy can be reused, but if you use the
- * {@link HtmlPolicyBuilder#toFactory()} method instead of {@link #build}, then
- * binding policies to output channels is cheap so there's no need.
+ * In detail, there are three objects here with three different rules:
+ * <ul>
+ *   <li><b>{@code HtmlPolicyBuilder} is not thread-safe.</b>  It is mutable,
+ *     so confine it to the thread that is configuring it.
+ *   <li><b>{@link PolicyFactory}, from {@link #toFactory()}, is thread-safe
+ *     and immutable.</b>  This is the object to build once and reuse.  Binding
+ *     one to an output channel is cheap, so there is no reason to cache
+ *     anything further down.
+ *   <li><b>The {@link HtmlSanitizer.Policy} from {@link #build} is not
+ *     thread-safe</b>, and neither is it reusable across concurrent
+ *     sanitizations: it is bound to a single output channel and keeps state to
+ *     track whether text inside disallowed elements should be suppressed.  Use
+ *     one per sanitization.
+ * </ul>
+ * <p>
+ * Sharing a stateful policy across threads corrupts output rather than
+ * security: a race cannot make the policy accept something it would otherwise
+ * reject, but it can interleave or suppress the wrong content.
+ * <p>
+ * The same rule applies to anything you plug in.  An
+ * {@link HtmlStreamEventProcessor} is asked to
+ * {@link HtmlStreamEventProcessor#wrap wrap} a sink once per sanitization, so
+ * any per-document state a pre-processor keeps belongs in the receiver it
+ * returns, not in the processor itself.
  * </p>
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
@@ -281,6 +301,17 @@ public class HtmlPolicyBuilder {
    * <p>
    * To write a policy that whitelists {@code <script>} or {@code <style>}
    * elements, first {@code allowTextIn("script")}.
+   * <p>
+   * <b>Security note:</b> this method allows the element's text through as
+   * <i>text</i>; it does not vet that text.  In particular, allowing text in
+   * {@code <style>} does <b>not</b> run the stylesheet through
+   * {@link CssSchema}: the schema guards the {@code style} <i>attribute</i>,
+   * so a rule like {@code a { background: url(javascript:alert(1)) }} inside a
+   * {@code <style>} element survives untouched, as does any selector that
+   * restyles the surrounding page.  The same goes for {@code <script>}, where
+   * the text is script source.  If you allow text in either element and the
+   * input is untrusted, vet that text yourself, for example with a
+   * {@link #withPreprocessor pre-processor} that parses and rewrites it.
    */
   public HtmlPolicyBuilder allowTextIn(String... elementNames) {
     invalidateCompiledState();
@@ -553,6 +584,21 @@ public class HtmlPolicyBuilder {
    * <p>
    * URLs in CSS are typically loaded without user-interaction, the way links
    * are, so a greater degree of scrutiny is warranted.
+   * <p>
+   * <b>This method only narrows what is allowed; it cannot widen it.</b>  The
+   * policy given here runs <i>after</i> the protocol filter built from
+   * {@link #allowUrlProtocols(String...)}, so a URL has to clear both.  If
+   * {@code allowUrlProtocols} was never called, that filter rejects every
+   * URL and this policy is never consulted -- calling
+   * {@code allowUrlsInStyles} on its own looks like a no-op.  Pair it with an
+   * {@code allowUrlProtocols} call:
+   *
+   * <pre>{@code
+   * new HtmlPolicyBuilder()
+   *     .allowStyling()
+   *     .allowUrlProtocols("https")          // without this, the next line
+   *     .allowUrlsInStyles(myUrlPolicy)      // never sees a URL
+   * }</pre>
    *
    * @param newStyleUrlPolicy receives URLs from the CSS that pass the allowed
    *     protocol policies, and may return null to veto the URL or the URL
