@@ -34,13 +34,17 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 
+import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
+import org.junit.jupiter.api.Test;
 import org.w3c.dom.Attr;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Throws random policy calls to find evidence against the claim that the
@@ -51,8 +55,7 @@ import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
  *
  * @author Mike Samuel (mikesamuel@gmail.com)
  */
-@SuppressWarnings("javadoc")
-public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
+class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
 
   final Function<HtmlStreamEventReceiver, HtmlSanitizer.Policy> policyFactory
       = new HtmlPolicyBuilder()
@@ -83,52 +86,45 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
     "href", "id", "class", "onclick", "checked", "style",
   };
 
-  public final void testFuzzedOutput() throws IOException, SAXException {
-    boolean passed = false;
-    try {
-      for (int i = 1000; --i >= 0;) {
-        StringBuilder sb = new StringBuilder();
-        HtmlSanitizer.Policy policy = policyFactory.apply(
-            HtmlStreamRenderer.create(sb, Handler.DO_NOTHING));
-        policy.openDocument();
-        List<String> attributes = new ArrayList<>();
-        for (int j = 50; --j >= 0;) {
-          int r = rnd.nextInt(3);
-          switch (r) {
-            case 0:
-              attributes.clear();
-              if (rnd.nextBoolean()) {
-                for (int k = rnd.nextInt(4); --k >= 0;) {
-                  attributes.add(pick(rnd, ATTR_NAMES));
-                  attributes.add(pickChunk(rnd));
-                }
+  @Test
+  void testFuzzedOutput() throws IOException, SAXException {
+    for (int i = 1000; --i >= 0;) {
+      StringBuilder sb = new StringBuilder();
+      HtmlSanitizer.Policy policy = policyFactory.apply(
+          HtmlStreamRenderer.create(sb, Handler.DO_NOTHING));
+      policy.openDocument();
+      List<String> attributes = new ArrayList<>();
+      for (int j = 50; --j >= 0;) {
+        int r = rnd.nextInt(3);
+        switch (r) {
+          case 0:
+            attributes.clear();
+            if (rnd.nextBoolean()) {
+              for (int k = rnd.nextInt(4); --k >= 0;) {
+                attributes.add(pick(rnd, ATTR_NAMES));
+                attributes.add(pickChunk(rnd));
               }
-              policy.openTag(pick(rnd, ELEMENT_NAMES), attributes);
-              break;
-            case 1:
-              policy.closeTag(pick(rnd, ELEMENT_NAMES));
-              break;
-            case 2:
-              policy.text(pickChunk(rnd));
-              break;
-            default:
-              throw new AssertionError(
-                  "Randomly chosen number in [0-3) was " + r);
-          }
+            }
+            policy.openTag(pick(rnd, ELEMENT_NAMES), attributes);
+            break;
+          case 1:
+            policy.closeTag(pick(rnd, ELEMENT_NAMES));
+            break;
+          case 2:
+            policy.text(pickChunk(rnd));
+            break;
+          default:
+            throw new AssertionError(
+                "Randomly chosen number in [0-3) was " + r);
         }
-        policy.closeDocument();
+      }
+      policy.closeDocument();
 
-        String html = sb.toString();
-        HtmlDocumentBuilder parser = new HtmlDocumentBuilder();
-        Node node = parser.parseFragment(
-            new InputSource(new StringReader(html)), "body");
-        checkSafe(node, html);
-      }
-      passed = true;
-    } finally {
-      if (!passed) {
-        System.err.println("Using seed " + seed + "L");
-      }
+      String html = sb.toString();
+      HtmlDocumentBuilder parser = new HtmlDocumentBuilder();
+      Node node = parser.parseFragment(
+          new InputSource(new StringReader(html)), "body");
+      checkSafe(node, html);
     }
   }
 
@@ -145,9 +141,9 @@ public class HtmlPolicyBuilderFuzzerTest extends FuzzyTestCase {
           if ("title".equals(a.getName())) {
             // ok
           } else if ("href".equals(a.getName())) {
-            assertEquals(html, "a", name);
+            assertEquals("a", name, html);
             assertFalse(
-                html, Strings.toLowerCase(a.getValue()).contains("script:"));
+                Strings.toLowerCase(a.getValue()).contains("script:"), html);
           }
         }
         break;

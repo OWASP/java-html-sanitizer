@@ -31,52 +31,51 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.FieldSource;
 import org.owasp.html.examples.EbayPolicyExample;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class ExamplesTest extends TestCase {
-  @Test
-  public static final void testExamplesRun() throws Exception {
+class ExamplesTest {
+
+  /** Each example's main must run to completion on empty input. */
+  @ParameterizedTest
+  @FieldSource("org.owasp.html.AllExamples#CLASSES")
+  void testExampleRuns(Class<?> exampleClass) throws Throwable {
     InputStream stdin = System.in;
     PrintStream stdout = System.out;
     PrintStream stderr = System.err;
-    for (Class<?> exampleClass : AllExamples.CLASSES) {
-      InputStream emptyIn = new ByteArrayInputStream(new byte[0]);
-      ByteArrayOutputStream captured = new ByteArrayOutputStream();
-      PrintStream capturingOut = new PrintStream(captured, true, "UTF-8");
-      System.setIn(emptyIn);
-      System.setOut(capturingOut);
-      System.setErr(capturingOut);
-
-      Method main;
-      try {
-        main = exampleClass.getDeclaredMethod("main", String[].class);
-        // Invoke with no arguments to sanitize empty input stream to output.
-        main.invoke(null, new Object[] { new String[0] });
-      } catch (Exception ex) {
-        capturingOut.flush();
-        System.err.println(
-            "Example " + exampleClass.getSimpleName() + "\n"
-            + captured.toString("UTF-8"));
-        if (ex instanceof RuntimeException) {
-          throw (RuntimeException) ex;
-        }
-        throw new AssertionError(null, ex);
-      } finally {
-        System.setIn(stdin);
-        System.setOut(stdout);
-        System.setErr(stderr);
-      }
+    InputStream emptyIn = new ByteArrayInputStream(new byte[0]);
+    ByteArrayOutputStream captured = new ByteArrayOutputStream();
+    PrintStream capturingOut = new PrintStream(captured, true, "UTF-8");
+    System.setIn(emptyIn);
+    System.setOut(capturingOut);
+    System.setErr(capturingOut);
+    try {
+      Method main = exampleClass.getDeclaredMethod("main", String[].class);
+      // Invoke with no arguments to sanitize empty input stream to output.
+      main.invoke(null, new Object[] { new String[0] });
+    } catch (InvocationTargetException ex) {
+      capturingOut.flush();
+      stderr.println(
+          "Example " + exampleClass.getSimpleName() + "\n"
+          + captured.toString("UTF-8"));
+      // Report the example's own exception, not the reflective wrapper.
+      throw ex.getCause();
+    } finally {
+      System.setIn(stdin);
+      System.setOut(stdout);
+      System.setErr(stderr);
     }
   }
 
   @Test
-  public static final void testSanitizeRemovesScripts() {
+  void testSanitizeRemovesScripts() {
     String input =
       "<p>Hello World</p>"
       + "<script language=\"text/javascript\">alert(\"bad\");</script>";
@@ -85,14 +84,14 @@ public class ExamplesTest extends TestCase {
   }
 
   @Test
-  public static final void testSanitizeRemovesOnclick() {
+  void testSanitizeRemovesOnclick() {
     String input = "<p onclick=\"alert(\"bad\");\">Hello World</p>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals("<p>Hello World</p>", sanitized);
   }
 
   @Test
-  public static final void testTextAllowedInLinks() {
+  void testTextAllowedInLinks() {
     String input = "<a href=\"../good.html\">click here</a>";
     String sanitized = EbayPolicyExample.POLICY_DEFINITION.sanitize(input);
     assertEquals(

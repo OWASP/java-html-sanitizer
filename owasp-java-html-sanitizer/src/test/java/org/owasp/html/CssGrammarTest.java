@@ -30,17 +30,16 @@ package org.owasp.html;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
-@SuppressWarnings("javadoc")
-public class CssGrammarTest extends TestCase {
+class CssGrammarTest {
   @Test
-  public static final void testLex() {
-    CssTokens tokens = CssTokens.lex(Arrays.stream(new String[] {
+  void testLex() {
+    CssTokens tokens = CssTokens.lex(String.join("\n",
         "/* A comment */",
         "words with-dashes #hashes .dots. -and-leading-dashes",
         "quantities: 3px 4ex -.5pt 12.5%",
@@ -49,7 +48,7 @@ public class CssGrammarTest extends TestCase {
         "rgb(255, 127, 127)",
         "'strings' \"oh \\\"my\" 'foo bar'",
         "color:blue!important",
-        ""}).collect(Collectors.joining("\n")));
+        ""));
 
     List<String> actualTokens = new ArrayList<>();
     for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
@@ -60,8 +59,8 @@ public class CssGrammarTest extends TestCase {
       }
     }
 
-    assertEquals(
-        Arrays.stream(new String[] {
+    assertIterableEquals(
+        Arrays.asList(
             // "/* A comment */",  // Comments are elided.
             "words:IDENT",
             "with-dashes:IDENT",
@@ -101,13 +100,12 @@ public class CssGrammarTest extends TestCase {
             "blue:IDENT",
             "!:DELIM",
             "important:IDENT",
-            "]:RIGHT_SQUARE"  // Manufactured due to unmatched '['.
-        }).collect(Collectors.joining("\n")),
-        actualTokens.stream().collect(Collectors.joining("\n")));
+            "]:RIGHT_SQUARE"),  // Manufactured due to unmatched '['.
+        actualTokens);
   }
 
   @Test
-  public static final void testCssContent() {
+  void testCssContent() {
     assertEquals("", CssGrammar.cssContent(""));
     assertEquals("azimuth", CssGrammar.cssContent("\\61zimuth"));
     assertEquals("table-cell", CssGrammar.cssContent("t\\61\tble-cell"));

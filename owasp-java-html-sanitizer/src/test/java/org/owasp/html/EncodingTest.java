@@ -28,15 +28,17 @@
 package org.owasp.html;
 
 import java.io.IOException;
-import java.text.Normalizer;
 import java.text.Normalizer.Form;
+import java.text.Normalizer;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
-@SuppressWarnings("javadoc")
-public final class EncodingTest extends TestCase {
+final class EncodingTest {
   private static void assertDecodedHtml(String want, String inputHtml) {
     assertDecodedHtml(want, want, inputHtml);
   }
@@ -45,19 +47,19 @@ public final class EncodingTest extends TestCase {
       String wantText, String wantAttr, String inputHtml
   ) {
     assertEquals(
-        "!inAttribute: " + inputHtml,
         wantText,
-        Encoding.decodeHtml(inputHtml, false)
+        Encoding.decodeHtml(inputHtml, false),
+        "!inAttribute: " + inputHtml
     );
     assertEquals(
-        "inAttribute: " + inputHtml,
         wantAttr,
-        Encoding.decodeHtml(inputHtml, true)
+        Encoding.decodeHtml(inputHtml, true),
+        "inAttribute: " + inputHtml
     );
   }
 
   @Test
-  public static final void testDecodeHtml() {
+  void testDecodeHtml() {
     String html =
       "The quick&nbsp;brown fox&#xa;jumps over&#xd;&#10;the lazy dog&#x000a;";
     //          1         2         3         4         5         6
@@ -203,7 +205,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testC1NumericReferencesDecodeAsWindows1252() {
+  void testC1NumericReferencesDecodeAsWindows1252() {
     // https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state
     int[][] table = {
         {0x80, 0x20ac}, {0x82, 0x201a}, {0x83, 0x0192}, {0x84, 0x201e},
@@ -229,7 +231,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testAppendNumericEntityAndEncodeOnto()
+  void testAppendNumericEntityAndEncodeOnto()
       throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
@@ -257,7 +259,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testAppendIllegalNumericEntityAndEncodeOnto()
+  void testAppendIllegalNumericEntityAndEncodeOnto()
       throws Exception {
     StringBuilder sb = new StringBuilder();
     StringBuilder cps = new StringBuilder();
@@ -266,12 +268,10 @@ public final class EncodingTest extends TestCase {
         0, 8, '\r', 0x1f, 0x7f, 0x80, 0x85, 0x9f, 0xd800, 0xdfff,
         0xfdd0, 0xfdef, 0xfffe, 0xffff, 0x1fffe, 0x3ffff, 0x10ffff,
         Character.MAX_CODE_POINT + 1, -1 }) {
-      try {
-        Encoding.appendNumericEntity(codepoint, sb);
-        fail("Illegal code point was accepted: " + codepoint);
-      } catch (IllegalArgumentException e) {
-        // expected behaviour
-      }
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> Encoding.appendNumericEntity(codepoint, sb),
+          "Illegal code point was accepted: " + codepoint);
       if (0 <= codepoint && codepoint <= Character.MAX_CODE_POINT) {
         cps.appendCodePoint(codepoint).append(',');
       }
@@ -285,7 +285,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testAngularJsBracesInTextNode() throws Exception {
+  void testAngularJsBracesInTextNode() throws Exception {
     StringBuilder sb = new StringBuilder();
 
     Encoding.encodePcdataOnto("{{angularVariable}}", sb);
@@ -298,20 +298,20 @@ public final class EncodingTest extends TestCase {
     assertEquals("{<!-- -->{angularVariable}}", sb.toString());
   }
 
-  private static final void assertStripped(String stripped, String orig) {
+  private static void assertStripped(String stripped, String orig) {
     String actual = Encoding.stripBannedCodeunits(orig);
-    assertEquals(orig, stripped, actual);
+    assertEquals(stripped, actual, orig);
     if (stripped.equals(orig)) {
       assertSame(actual, orig);
     }
 
     StringBuilder sb = new StringBuilder(orig);
     Encoding.stripBannedCodeunits(sb);
-    assertEquals(orig, stripped, sb.toString());
+    assertEquals(stripped, sb.toString(), orig);
   }
 
   @Test
-  public static final void testStripBannedCodeunits() {
+  void testStripBannedCodeunits() {
     assertStripped("", "");
     assertStripped("foo", "foo");
     assertStripped("foobar", "foo\u0000bar");
@@ -349,7 +349,6 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final
   void testBadlyDonePostProcessingWillnotAllowInsertingNonceAttributes()
   throws Exception {
     // Some clients do ad-hoc post processing of the output.
@@ -376,7 +375,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testRiskyNormalizationSetContents() {
+  void testRiskyNormalizationSetContents() {
     // The table in Encoding is spelled out so that output does not depend
     // on the JDK's Unicode version.  Check it against the running JDK.
     for (char c = '\u0080'; c < '\ufffe'; c++) {
@@ -405,11 +404,11 @@ public final class EncodingTest extends TestCase {
       throws IOException {
     StringBuilder sb = new StringBuilder();
     Encoding.encodeRcdataOnto(plainText, sb);
-    assertEquals(plainText, want, sb.toString());
+    assertEquals(want, sb.toString(), plainText);
   }
 
   @Test
-  public static final void testRiskyNormalization() throws IOException {
+  void testRiskyNormalization() throws IOException {
     // Characters whose compatibility decomposition contains ASCII
     // punctuation are written as references so that a later normalization
     // of the output cannot produce an HTML special character.
@@ -439,7 +438,7 @@ public final class EncodingTest extends TestCase {
   }
 
   @Test
-  public static final void testNewLineNormalization() throws IOException {
+  void testNewLineNormalization() throws IOException {
     // https://infra.spec.whatwg.org/#normalize-newlines
     assertRcdataEncoded("\none\ntwo\n", "\rone\ntwo\r");
     assertRcdataEncoded("\none\ntwo\n", "\none\rtwo\n");

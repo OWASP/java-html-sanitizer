@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * Tests: the suite now runs on JUnit Jupiter (JUnit 5.14) instead of the
+      JUnit 3 `TestCase` style.  This affects only contributors: `./mvnw
+      verify` works as before, a failing fuzz test now prints the exact
+      `-Djunit.seed=<seed>` that replays it (a malformed seed is rejected
+      instead of silently ignored), builder tests fail on renderer errors
+      that were previously swallowed, and the nested-anchor tag balancing
+      case that was hidden behind a `failingtest` prefix now runs and passes.
+      Based on PR #374 by strangelookingnerd.
     * Licensing: the BSD arm of the dual license is **BSD 2-Clause**, and the
       whole repository now says so consistently.  `COPYING` had offered
       "Apache-2.0 or BSD 3-Clause" since 2014 while printing BSD 2-Clause text

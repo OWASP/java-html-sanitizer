@@ -20,12 +20,4 @@
     Java8 in a way that uses the real ones where available, falls back
     to a conforming implementation on Java8 and JIT compiles well.
   </description>
-
-  <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
 </project>

@@ -34,15 +34,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SuppressWarnings("javadoc")
-public class HtmlLexerTest extends TestCase {
+class HtmlLexerTest {
 
   @Test
-  public final void testHtmlLexer() throws Exception {
+  void testHtmlLexer() throws Exception {
     // Do the lexing.
     String input = new String(Files.readAllBytes(Paths.get(getClass().getResource("htmllexerinput1.html").toURI())), StandardCharsets.UTF_8);
     // Normalize line endings in input to handle Windows/Unix differences
@@ -61,7 +60,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testEofInTag() {
+  void testEofInTag() {
     assertTokens("<div", "TAGBEGIN: <div");
     assertTokens("</div", "TAGBEGIN: </div");
     assertTokens("<div\n", "TAGBEGIN: <div");
@@ -73,7 +72,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testPartialTagInCData() {
+  void testPartialTagInCData() {
     assertTokens(
         "<script>w('</b')</script>",
         "TAGBEGIN: <script",
@@ -84,7 +83,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testUrlEndingInSlashOutsideQuotes() {
+  void testUrlEndingInSlashOutsideQuotes() {
     assertTokens(
         "<a href=http://foo.com/>Clicky</a>",
         "TAGBEGIN: <a",
@@ -97,7 +96,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testShortTags() {
+  void testShortTags() {
     // See comments in html-sanitizer-test.js as to why we don't bother with
     // short tags.  In short, they are not in HTML5 and not implemented properly
     // in existing HTML4 clients.
@@ -122,7 +121,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testCommentDeclarationWith0CommentsAndXss() throws Exception
+  void testCommentDeclarationWith0CommentsAndXss() throws Exception
   {
     //check https://datatracker.ietf.org/doc/html/rfc1866#section-3.2.5
     assertTokens("<!><img src=1 onError=alert(\"nice\")>",
@@ -137,7 +136,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testTextEndingWithTagOpenAndBang() throws Exception
+  void testTextEndingWithTagOpenAndBang() throws Exception
   {
     //taken from https://html.spec.whatwg.org/#comments
     assertTokens("<!--My favorite operators are > and <!--><a></a>",
@@ -150,14 +149,14 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testDashDashBangComment() throws Exception
+  void testDashDashBangComment() throws Exception
   {
     assertTokens("<!-- --!-->",
             "COMMENT: <!-- --!-->"
     );
   }
   @Test
-  public static final void testAbruptClosingOfEmptyComment() throws Exception
+  void testAbruptClosingOfEmptyComment() throws Exception
   {
     assertTokens("<!--><img>a<!--->b<!->c",
             "COMMENT: <!-->",
@@ -172,7 +171,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testBangDashIsABogusComment() throws Exception
+  void testBangDashIsABogusComment() throws Exception
   {
     // <!- followed by anything but a dash is a bogus comment that ends at
     // the first '>', so <!-> must not swallow the following tag.
@@ -197,7 +196,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testDashDashBangClosesCommentAfterLeadingDashes() throws Exception
+  void testDashDashBangClosesCommentAfterLeadingDashes() throws Exception
   {
     // Issue #258: <!-- followed only by dashes and then --!> must terminate
     // rather than swallowing the rest of the document.
@@ -228,7 +227,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testCommentCloseRequiresAdjacentDashes() throws Exception
+  void testCommentCloseRequiresAdjacentDashes() throws Exception
   {
     // A dash followed by other content is ordinary comment text; only a
     // contiguous "-->" (or "--!>") closes the comment, as in a browser.
@@ -262,7 +261,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testIncorrectlyClosedComment() throws Exception
+  void testIncorrectlyClosedComment() throws Exception
   {
     assertTokens("<!-- Comment --!><img>",
             "COMMENT: <!-- Comment --!>",
@@ -272,7 +271,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testQuoteNotAfterEqualsIsPartOfAttributeName() throws Exception
+  void testQuoteNotAfterEqualsIsPartOfAttributeName() throws Exception
   {
     // Issue #189: the WHATWG tokenizer only starts a quoted value directly
     // after an attribute name and '='.  A quote anywhere else in a tag is an
@@ -335,7 +334,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testSlashInTagReturnsToBeforeAttributeName() throws Exception
+  void testSlashInTagReturnsToBeforeAttributeName() throws Exception
   {
     // A '/' that does not close the tag puts the tokenizer back before an
     // attribute name, so the '=' after it starts a name rather than
@@ -375,7 +374,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testQuoteInUnquotedValueIsPartOfTheValue() throws Exception
+  void testQuoteInUnquotedValueIsPartOfTheValue() throws Exception
   {
     // Once an unquoted value has started, a quote belongs to that value even
     // when it directly follows an '=', as in the tokenizer's unquoted value
@@ -401,7 +400,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testUnterminatedQuotedValueRunsToEndOfInput() throws Exception
+  void testUnterminatedQuotedValueRunsToEndOfInput() throws Exception
   {
     // Conversely, a quote that does begin a value and is never closed takes
     // the rest of the input, which is where a browser hits EOF in the tag.
@@ -425,7 +424,7 @@ public class HtmlLexerTest extends TestCase {
   }
 
   @Test
-  public static final void testOnlyAsciiWhitespaceSeparatesTagTokens()
+  void testOnlyAsciiWhitespaceSeparatesTagTokens()
       throws Exception {
     // The five ASCII whitespace characters end a tag name or an unquoted
     // attribute value.  Character.isWhitespace also accepts U+000B,
@@ -501,6 +500,6 @@ public class HtmlLexerTest extends TestCase {
       HtmlToken t = lexer.next();
       actual.add(t.type + ": " + markup.substring(t.start, t.end));
     }
-    assertEquals(message, Arrays.asList(golden), actual);
+    assertEquals(Arrays.asList(golden), actual, message);
   }
 }

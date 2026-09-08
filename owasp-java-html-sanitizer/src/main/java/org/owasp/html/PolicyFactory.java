@@ -72,6 +72,11 @@ public final class PolicyFactory
     this.postprocessor = postprocessor;
   }
 
+  /** The processor that {@link #sanitize} applies before the policy. */
+  HtmlStreamEventProcessor preprocessor() {
+    return preprocessor;
+  }
+
   /** Produces a sanitizer that emits tokens to {@code out}. */
   public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {
     return new ElementAndAttributePolicyBasedSanitizerPolicy(
