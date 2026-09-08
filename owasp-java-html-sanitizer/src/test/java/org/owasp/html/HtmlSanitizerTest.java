@@ -27,18 +27,124 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nullable;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
 class HtmlSanitizerTest {
+
+  private static String nest(String inner, int depth) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < depth; ++i) { sb.append("<div>"); }
+    sb.append(inner);
+    for (int i = 0; i < depth; ++i) { sb.append("</div>"); }
+    return sb.toString();
+  }
+
+  /**
+   * Issue #205.  The nesting limit bounds how deep the output nests; it is not
+   * a licence to delete content.  Markup nested past the limit used to come
+   * out as a well-formed stack of empty elements with the author's text
+   * removed from the middle, silently.  It should flatten instead.
+   */
+  @Test
+  void testTextSurvivesPastTheNestingLimit() {
+    PolicyFactory p = new HtmlPolicyBuilder().allowElements("div").toFactory();
+    for (int depth : new int[] { 100, 255, 256, 257, 300, 1000 }) {
+      assertTrue(
+          p.sanitize(nest("MARKER", depth)).contains("MARKER"),
+          "text should survive at depth " + depth);
+    }
+    // The output itself stays bounded; it is the text that is kept.
+    String deep = p.sanitize(nest("MARKER", 1000));
+    assertEquals(256, deep.split("<div>", -1).length - 1);
+    assertEquals(256, deep.split("</div>", -1).length - 1);
+  }
+
+  /**
+   * Issue #205.  Text kept past the limit is still text: it is escaped on the
+   * way out and cannot reintroduce markup.
+   */
+  @Test
+  void testTextKeptPastTheNestingLimitIsEscaped() {
+    PolicyFactory p = new HtmlPolicyBuilder().allowElements("div").toFactory();
+    String out = p.sanitize(nest("1<2 & <img src=x onerror=alert(1)>", 300));
+    assertTrue(out.contains("1&lt;2"), out);
+    assertFalse(out.contains("<img"), out);
+    assertFalse(out.contains("onerror"), out);
+  }
+
+  /**
+   * Keeping text past the limit must not resurface content the policy would
+   * have suppressed.  The policy decides to skip a script or style body when
+   * it sees the start tag; a tag the balancer drops never reaches it, so the
+   * balancer has to keep that content suppressed itself.
+   */
+  @Test
+  void testSuppressedContentDoesNotResurfacePastTheNestingLimit() {
+    PolicyFactory p = new HtmlPolicyBuilder().allowElements("div").toFactory();
+    for (String elementName : new String[] {
+        "script", "style", "noscript", "nostyle", "noembed", "noframes",
+        "iframe", "object", "title" }) {
+      String out = p.sanitize(
+          nest("<" + elementName + ">SECRET</" + elementName + ">", 300));
+      assertFalse(
+          out.contains("SECRET"),
+          elementName + " content should stay suppressed: " + out);
+    }
+    // Unbalanced input fails closed rather than open.
+    assertFalse(p.sanitize(nest("<script>SECRET", 300)).contains("SECRET"));
+    assertFalse(
+        p.sanitize(nest("<script><script>SECRET</script></script>", 300))
+            .contains("SECRET"));
+    // But ordinary text outside the suppressed element still comes through.
+    assertTrue(
+        p.sanitize(nest("<script>S</script>VISIBLE", 300)).contains("VISIBLE"));
+  }
+
+  /**
+   * Issue #205.  A tag dropped for exceeding the nesting limit is discarded
+   * from the input, so a listener should hear about it.  The tag balancer runs
+   * upstream of the policy, and so upstream of HtmlChangeReporter, so this
+   * previously went unreported and the loss was undetectable.
+   */
+  @Test
+  void testNestingLimitReportsDiscardedTags() {
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(@Nullable Object context, String elementName) {
+        discarded.add(elementName);
+      }
+      public void discardedAttributes(
+          @Nullable Object context, String tagName, String... attributeNames) {
+        // Not under test.
+      }
+    };
+    PolicyFactory p = new HtmlPolicyBuilder().allowElements("div").toFactory();
+
+    String out = p.sanitize(nest("MARKER", 300), listener, null);
+    assertTrue(out.contains("MARKER"));
+    // 300 requested, 256 emitted, so 44 were dropped by the limit.
+    assertEquals(44, discarded.size(), discarded.toString());
+    for (String name : discarded) {
+      assertEquals("div", name);
+    }
+
+    // Nothing to report when the input stays within the limit.
+    discarded.clear();
+    p.sanitize(nest("MARKER", 10), listener, null);
+    assertEquals(Arrays.asList(), discarded);
+  }
 
   @Test
   void testEmpty() {
