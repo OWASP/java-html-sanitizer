@@ -55,13 +55,6 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.eluder.coveralls</groupId>
-        <artifactId>coveralls-maven-plugin</artifactId>
-        <configuration>
-          <repoToken>TENYw0IKRulLOXgkyzjGqNi0hQyhBiSiU</repoToken>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>

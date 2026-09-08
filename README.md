@@ -1,6 +1,6 @@
 # OWASP Java HTML Sanitizer
 
-[![Build](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=main)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=main) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+[![Build](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
