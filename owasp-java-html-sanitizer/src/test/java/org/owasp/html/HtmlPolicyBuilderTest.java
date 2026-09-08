@@ -1318,6 +1318,14 @@ class HtmlPolicyBuilderTest {
     String toSanitizeTextAlignEnd = "<span style=\"text-align:end\">end</span>";
     assertEquals(toSanitizeTextAlignEnd, factory.sanitize(toSanitizeTextAlignEnd));
 
+    // The CSS-wide keywords are valid on every property, text-align included.
+    for (String keyword
+         : new String[] {
+             "inherit", "initial", "revert", "revert-layer", "unset" }) {
+      String toSanitize = "<span style=\"text-align:" + keyword + "\">x</span>";
+      assertEquals(toSanitize, factory.sanitize(toSanitize), keyword);
+    }
+
     String toSanitizeTextAlignFoo = "<span style=\"text-align:foo\">foo</span>";
     assertEquals("foo", factory.sanitize(toSanitizeTextAlignFoo));
   }

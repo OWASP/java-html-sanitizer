@@ -2,6 +2,10 @@
 
 Most recent at top.
   * Next release
+    * CSS: `text-align` now accepts the CSS-wide keywords `initial`, `revert`,
+      `revert-layer` and `unset` alongside the `inherit` it already allowed,
+      so declarations that reset the property survive sanitizing instead of
+      being dropped.  Follow-up to PR #335; requested by EugenMayer.
     * Examples: `EbayPolicyExample` and `SlashdotPolicyExample` gain a
       `run(Reader, Appendable)` method that does the sanitizing; `main` now
       handles only the command line and delegates to it.  Purely additive;

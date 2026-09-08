@@ -459,7 +459,8 @@ public final class CssSchema {
     Set<String> tableLayoutLiterals0 = j8().setOf(
         "auto", "fixed", "inherit");
     Set<String> textAlignLiterals0 = j8().setOf(
-        "center", "end", "inherit", "justify", "justify-all", "match-parent", "start");
+        "center", "end", "inherit", "initial", "justify", "justify-all",
+        "match-parent", "revert", "revert-layer", "start", "unset");
     Set<String> textDecorationLiterals0 = j8().setOf(
         "blink", "line-through", "overline", "underline");
     Set<String> textTransformLiterals0 = j8().setOf(
