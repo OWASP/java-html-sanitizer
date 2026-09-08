@@ -6,5 +6,11 @@
       <location>target/classes/META-INF/MANIFEST.MF</location>
       <contains>Export-Package: org.owasp.html</contains>
     </file>
+    <!-- The examples are demonstration code, not API, and must stay out of
+         the published artifact.  See #180. -->
+    <file>
+      <location>target/classes/org/owasp/html/examples</location>
+      <exists>false</exists>
+    </file>
   </files>
 </verifications>
