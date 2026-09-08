@@ -424,6 +424,47 @@ public class HtmlLexerTest extends TestCase {
     );
   }
 
+  @Test
+  public static final void testOnlyAsciiWhitespaceSeparatesTagTokens()
+      throws Exception {
+    // The five ASCII whitespace characters end a tag name or an unquoted
+    // attribute value.  Character.isWhitespace also accepts U+000B,
+    // U+001C..U+001F and the Unicode space separators, but the WHATWG
+    // tokenizer keeps those inside names and values, as validator.nu
+    // confirms for each of the characters below.
+    for (String ws : new String[] {" ", "\t", "\n", "\f", "\r"}) {
+      assertTokens("<b" + ws + "title=x>y</b>",
+          "TAGBEGIN: <b", "ATTRNAME: title", "ATTRVALUE: x", "TAGEND: >",
+          "TEXT: y", "TAGBEGIN: </b", "TAGEND: >");
+      assertTokens("<style>a</style" + ws + ">b",
+          "TAGBEGIN: <style", "TAGEND: >", "UNESCAPED: a",
+          "TAGBEGIN: </style", "TAGEND: >", "TEXT: b");
+    }
+    for (String notWs : new String[] {
+        "\u000b", "\u001c", "\u001f", "\u0085", "\u00a0", "\u1680",
+        "\u2000", "\u2028", "\u2029", "\u205f", "\u3000"}) {
+      String m = String.format("U+%04X", (int) notWs.charAt(0));
+      // Part of the tag name.
+      assertTokensFor(m, "<b" + notWs + "title=x>y</b>",
+          "TAGBEGIN: <b" + notWs + "title=x", "TAGEND: >",
+          "TEXT: y", "TAGBEGIN: </b", "TAGEND: >");
+      // Part of an unquoted attribute value.
+      assertTokensFor(m, "<b title=x" + notWs + "id=z>y</b>",
+          "TAGBEGIN: <b", "ATTRNAME: title", "ATTRVALUE: x" + notWs + "id=z",
+          "TAGEND: >", "TEXT: y", "TAGBEGIN: </b", "TAGEND: >");
+      // Part of the next attribute's name after a quoted value.
+      assertTokensFor(m, "<b title='x'" + notWs + "id=z>y</b>",
+          "TAGBEGIN: <b", "ATTRNAME: title", "ATTRVALUE: 'x'",
+          "ATTRNAME: " + notWs + "id", "ATTRVALUE: z", "TAGEND: >",
+          "TEXT: y", "TAGBEGIN: </b", "TAGEND: >");
+      // Does not end the end tag of a raw text element, so the element
+      // stays open just as it does in a browser.
+      assertTokensFor(m, "<style>a</style" + notWs + ">b",
+          "TAGBEGIN: <style", "TAGEND: >",
+          "UNESCAPED: a</style" + notWs + ">b");
+    }
+  }
+
   private static void lex(String input, Appendable out) throws Exception {
     HtmlLexer lexer = new HtmlLexer(input);
     int maxTypeLength = 0;
@@ -449,12 +490,17 @@ public class HtmlLexerTest extends TestCase {
   }
 
   private static void assertTokens(String markup, String... golden) {
+    assertTokensFor(markup, markup, golden);
+  }
+
+  private static void assertTokensFor(
+      String message, String markup, String... golden) {
     HtmlLexer lexer = new HtmlLexer(markup);
     List<String> actual = new ArrayList<>();
     while (lexer.hasNext()) {
       HtmlToken t = lexer.next();
       actual.add(t.type + ": " + markup.substring(t.start, t.end));
     }
-    assertEquals(Arrays.asList(golden), actual);
+    assertEquals(message, Arrays.asList(golden), actual);
   }
 }

@@ -28,9 +28,8 @@
 package org.owasp.html;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.BitSet;
+
 import javax.annotation.Nullable;
 
 /** Encoders and decoders for HTML. */
@@ -87,8 +86,11 @@ public final class Encoding {
   }
 
   /**
-   * Returns the portion of its input that consists of XML safe chars.
+   * Returns the portion of its input that consists of chars that are safe in
+   * both XML and HTML: the XML Character production without the
+   * noncharacters, DEL and the C1 controls that HTML treats as parse errors.
    * @see <a href="http://www.w3.org/TR/2008/REC-xml-20081126/#charsets">XML Ch. 2.2 - Characters</a>
+   * @see <a href="https://html.spec.whatwg.org/multipage/parsing.html#preprocessing-the-input-stream">HTML 13.2.3.5 - Preprocessing the input stream</a>
    */
   @TCB
   static String stripBannedCodeunits(String s) {
@@ -101,14 +103,14 @@ public final class Encoding {
   }
 
   /**
-   * Leaves in the input buffer only code-units that comprise XML safe chars.
-   * @see <a href="http://www.w3.org/TR/2008/REC-xml-20081126/#charsets">XML Ch. 2.2 - Characters</a>
+   * Leaves in the input buffer only code-units that comprise chars that are
+   * safe in both XML and HTML.
+   * @see #stripBannedCodeunits(String)
    */
   @TCB
   static void stripBannedCodeunits(StringBuilder sb) {
     stripBannedCodeunits(sb, 0);
   }
-
 
   @TCB
   private static void stripBannedCodeunits(StringBuilder sb, int start) {
@@ -119,13 +121,18 @@ public final class Encoding {
         if (IS_BANNED_ASCII[ch]) {
           continue;
         }
+      } else if (0x7f <= ch && ch <= 0x9f) {
+        // DEL and the C1 controls.  encodeHtmlOnto elides them, so they are
+        // stripped here too: policies must judge the text that will be
+        // emitted, not text that a later elision would join up differently.
+        continue;
       } else if (0xd800 <= ch) {
         if (ch <= 0xdfff) {
           if (i+1 < n) {
             char next = sb.charAt(i+1);
             if (Character.isSurrogatePair(ch, next)) {
-              // The last two code points in each plane are non-characters that should be elided.
-              if ((ch & 0xfc3f) != 0xd83f || (next & 0xfffe) != 0xdffe) {
+              // The last two code points of each plane are noncharacters.
+              if (!isNoncharacter(Character.toCodePoint(ch, next))) {
                 sb.setCharAt(k++, ch);
                 sb.setCharAt(k++, next);
               }
@@ -133,7 +140,7 @@ public final class Encoding {
             }
           }
           continue;
-        } else if ((ch & 0xfffe) == 0xfffe || (0xfdd0 <= ch && ch <= 0xfdef)) {
+        } else if (isNoncharacter(ch)) {
           continue;
         }
       }
@@ -143,9 +150,9 @@ public final class Encoding {
   }
 
   /**
-   * The number of code-units at the front of s that form code-points in the
-   * XML Character production.
-   * @return -1 if all of s is in the XML Character production.
+   * The number of code-units at the front of s that form code-points that
+   * {@link #stripBannedCodeunits(String)} keeps.
+   * @return -1 if all of s is kept.
    */
   @TCB
   private static int longestPrefixOfGoodCodeunits(String s) {
@@ -156,36 +163,40 @@ public final class Encoding {
         if (IS_BANNED_ASCII[ch]) {
           return i;
         }
+      } else if (0x7f <= ch && ch <= 0x9f) {
+        return i;
       } else if (0xd800 <= ch) {
         if (ch <= 0xdfff) {
-          if (i + 1 < n ) {
-            // could be a surrogate pair
-            char cn = s.charAt(i+1);
-            if( Character.isSurrogatePair(ch,cn) ) {
-              int cp = Character.toCodePoint(ch, cn);
-              // Could be a non-character
-              if ((cp & 0xfffe) == 0xfffe) {
-                // not valid
-                return i;
-              }
-
-              // skip over trailing surrogate since we know it is OK
-              i++;
+          if (i + 1 < n) {
+            char next = s.charAt(i + 1);
+            if (Character.isSurrogatePair(ch, next)
+                && !isNoncharacter(Character.toCodePoint(ch, next))) {
+              ++i;  // Skip over low surrogate since we know it's ok.
             } else {
-              // not a surrogate pair
               return i;
             }
           } else {
-            // isolated surrogate at end of string
-            return i;
+            return i;  // Orphaned surrogate at the end of the string.
           }
-        } else if ((ch & 0xfffe) == 0xfffe || (0xfdd0 <= ch && ch <= 0xfdef)) {
+        } else if (isNoncharacter(ch)) {
           return i;
         }
       }
     }
     return -1;
   }
+
+  /**
+   * True for the 66 Unicode noncharacters: U+FDD0..U+FDEF and the last two
+   * code points of every plane.  HTML treats them as parse errors and forbids
+   * numeric character references to them.
+   * @see <a href="https://infra.spec.whatwg.org/#noncharacter">Infra - noncharacter</a>
+   */
+  static boolean isNoncharacter(int codepoint) {
+    return (codepoint & 0xfffe) == 0xfffe
+        || (0xfdd0 <= codepoint && codepoint <= 0xfdef);
+  }
+
   /**
    * Appends an encoded form of plainText to output where the encoding is
    * sufficient to prevent an HTML parser from interpreting any characters in
@@ -230,7 +241,6 @@ public final class Encoding {
     encodeHtmlOnto(plainText, output, "{<!-- -->");
   }
 
-
   /**
    * Appends an encoded form of plainText to putput where the encoding is
    * sufficient to prevent an HTML parser from transitioning out of the
@@ -262,8 +272,15 @@ public final class Encoding {
    * For example, {@code escapeHtmlOnto("1 < 2", w)},
    * is equivalent to {@code w.append("1 &lt; 2")} but possibly with fewer
    * smaller appends.
-   * Elides code-units that are not valid XML Characters.
+   *
+   * <p>Elides code-units that are not valid XML Characters, and the
+   * noncharacters, DEL and C1 controls that HTML forbids in character
+   * references and treats as parse errors in the input stream.  Normalizes
+   * CR and CRLF to LF as the HTML input stream preprocessor does, so the
+   * output never contains a raw carriage return.
    * @see <a href="http://www.w3.org/TR/2008/REC-xml-20081126/#charsets">XML Ch. 2.2 - Characters</a>
+   * @see <a href="https://html.spec.whatwg.org/multipage/syntax.html#character-references">HTML 13.1.4 - Character references</a>
+   * @see <a href="https://infra.spec.whatwg.org/#normalize-newlines">Infra - normalize newlines</a>
    */
   @TCB
   private static void encodeHtmlOnto(
@@ -275,48 +292,34 @@ public final class Encoding {
       char ch = plainText.charAt(i);
       if (ch < REPLACEMENTS.length) {  // Handles all ASCII.
         String repl = REPLACEMENTS[ch];
-        if( repl==null ) {
+        if (repl == null) {
           if (ch == '{') {
             if (i + 1 == n || plainText.charAt(i + 1) == '{') {
-              // "{{" detected, so use the brace replacement
               repl = braceReplacement;
             }
-          }
-          if (ch == '\r') {
-            // If this CR is followed by a LF, just remove it. Otherwise replace it with a LF.
-            if (i + 1 == n || plainText.charAt(i + 1) != '\n' ) {
-              // CR not followed by LF, so turn into LF
-              repl = "\n";
-            } else {
-              // CRLF, so remove CR
-              repl = "";
-            }
+          } else if (ch == '\r') {
+            // CRLF becomes LF by dropping the CR; a lone CR becomes LF.
+            repl = (i + 1 < n && plainText.charAt(i + 1) == '\n') ? "" : "\n";
           }
         }
         if (repl != null) {
           output.append(plainText, pos, i).append(repl);
           pos = i + 1;
         }
-      } else if (RISKY_NORMALIZATION.contains(ch)) {
-        // Application of unicode compatibility normalization produces a risky character.
-        output.append(plainText, pos, i);
-        pos = i + 1;
-        appendNumericEntity(ch,output);
-      } else if ((ch <= 0x9f) || (0xfdd0 <= ch && ch <= 0xfdef) || ((ch & 0xfffe) == 0xfffe)) {
-        // Elide C1 escapes and BMP non-characters.
+      } else if (ch <= 0x9f || isNoncharacter(ch)) {
+        // Elide the C1 controls and the BMP noncharacters.
         output.append(plainText, pos, i);
         pos = i + 1;
       } else if (0xd800 <= ch && ch <= 0xdfff) {
-        // handle surrogates
         char next;
-        if (i + 1 < n && Character.isSurrogatePair(ch, next = plainText.charAt(i + 1))) {
-          // Emit supplemental codepoints as entity so that they cannot
-          // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
-          // and get involved in UTF-16/UCS-2 confusion.
+        if (i + 1 < n
+            && Character.isSurrogatePair(ch, next = plainText.charAt(i + 1))) {
           int codepoint = Character.toCodePoint(ch, next);
           output.append(plainText, pos, i);
-          // do not append 0xfffe and 0xffff from any plane
-          if( (codepoint & 0xfffe) != 0xfffe ) {
+          if (!isNoncharacter(codepoint)) {
+            // Emit supplemental codepoints as entity so that they cannot
+            // be mis-encoded as UTF-8 of surrogates instead of UTF-8 proper
+            // and get involved in UTF-16/UCS-2 confusion.
             appendNumericEntity(codepoint, output);
           }
           ++i;
@@ -326,41 +329,52 @@ public final class Encoding {
           // Elide the orphaned surrogate.
           pos = i + 1;
         }
+      } else if (0xfe60 <= ch || isRiskyNormalization(ch)) {
+        // Above U+FE60 lie the small form variants, Arabic presentation
+        // forms, the halfwidth and fullwidth forms, the byte order mark and
+        // the specials block: full-width versions of HTML special characters
+        // and code points that an encoding conversion may drop or mangle.
+        // Elsewhere in the BMP, isRiskyNormalization picks out characters
+        // whose compatibility decomposition contains ASCII punctuation, such
+        // as U+1FEF GREEK VARIA which normalizes to a backtick.
+        // Either way, a numeric reference survives any later normalization
+        // of the output unchanged.
+        output.append(plainText, pos, i);
+        pos = i + 1;
+        appendNumericEntity(ch, output);
       }
     }
     output.append(plainText, pos, n);
   }
 
-
   /**
-   * Append a codepoint to the output as a numeric entity.
+   * Appends a numeric character reference for the code point to the output.
    *
-   * @param codepoint the codepoint
-   * @param output    the output
-   *
-   * @throws IOException              if the output cannot be written to
-   * @throws IllegalArgumentException if the codepoint cannot be represented as a numeric escape.
+   * @throws IllegalArgumentException if HTML forbids a numeric character
+   *     reference to the code point: controls other than TAB and LF,
+   *     surrogates, noncharacters and values above U+10FFFF.
+   * @see <a href="https://html.spec.whatwg.org/multipage/syntax.html#character-references">HTML 13.1.4 - Character references</a>
    */
   @TCB
   static void appendNumericEntity(int codepoint, Appendable output)
       throws IOException {
-    if (((codepoint <= 0x1f) && (codepoint != 9 && codepoint != 0xa)) || (0x7f <= codepoint && codepoint <= 0x9f)) {
-      throw new IllegalArgumentException("Illegal numeric escape. Cannot represent control code: " + codepoint);
+    if ((codepoint < 0x20 && codepoint != '\t' && codepoint != '\n')
+        || (0x7f <= codepoint && codepoint <= 0x9f)
+        || (0xd800 <= codepoint && codepoint <= 0xdfff)
+        || codepoint > Character.MAX_CODE_POINT
+        || isNoncharacter(codepoint)) {
+      throw new IllegalArgumentException(
+          "Cannot write a character reference to U+"
+          + Integer.toHexString(codepoint));
     }
-    if ((0xfdd0 <= codepoint && codepoint <= 0xfdef) || ((codepoint & 0xfffe) == 0xfffe)) {
-      throw new IllegalArgumentException("Illegal numeric escape. Cannot represent non-character: " + codepoint);
-    }
-
     output.append("&#");
     if (codepoint < 100) {
-      // Below 100, a decimal representation is shortest
+      // Below 100 the decimal form is shortest.
       output.append(Integer.toString(codepoint));
     } else {
-      // Append a hexadecimal value
-      output.append('x');
-      output.append(Integer.toHexString(codepoint));
+      output.append('x').append(Integer.toHexString(codepoint));
     }
-    output.append(";");
+    output.append(';');
   }
 
   /** Maps ASCII chars that need to be encoded to an equivalent HTML entity. */
@@ -387,7 +401,7 @@ public final class Encoding {
     REPLACEMENTS['>']  = "&gt;";                     // HTML special.
     REPLACEMENTS['@']  = "&#" + ((int) '@')  + ";";  // Conditional compilation.
     REPLACEMENTS['`']  = "&#" + ((int) '`')  + ";";  // Attribute delimiter.
-    REPLACEMENTS['\u007f']  = "";                    // Elide delete
+    REPLACEMENTS[0x7f] = "";                         // DEL is a control; elide.
   }
 
   /**
@@ -401,27 +415,42 @@ public final class Encoding {
     }
   }
 
-  /** Set of all Unicode characters which when processed with unicode compatibility decomposition will include a non-alphanumeric ascii character. */
-  static final Set<Character> RISKY_NORMALIZATION;
+  /**
+   * Bit {@code c} is set when the BMP character U+c has a compatibility
+   * decomposition (NFKD) that contains a printable, non-alphanumeric ASCII
+   * character, so that a downstream normalization could turn it into an HTML
+   * special character: U+FE64 SMALL LESS-THAN SIGN normalizes to {@code <}.
+   *
+   * <p>The table is spelled out rather than derived from
+   * {@code java.text.Normalizer} at class load so that output does not vary
+   * with the JDK's Unicode version; {@code EncodingTest} checks it against
+   * the running JDK's tables and says which characters to add if they drift.
+   */
+  private static final BitSet RISKY_NORMALIZATION = new BitSet(0x10000);
   static {
-    HashSet<Character> set = new HashSet<Character>();
-
-    // These characters all decompose riskily
-    String singles = "\u037e\u1fef\u203c\u207a\u208a\u2100\u2101\u2105\u2106\u2260\u226e\u226f\u33c2\u33c7\u33d8\ufb29\ufe10\ufe19\ufe30\ufe47\ufe48\ufe52";
-    for(char ch : singles.toCharArray()) {
-      set.add(ch);
+    // Single characters.
+    String singles = "\u037e\u1fef\u203c\u207a\u208a\u2100\u2101\u2105\u2106"
+        + "\u2260\u226e\u226f\u33c2\u33c7\u33d8\ufb29\ufe10\ufe19\ufe30\ufe47"
+        + "\ufe48\ufe52";
+    for (int i = 0, n = singles.length(); i < n; ++i) {
+      RISKY_NORMALIZATION.set(singles.charAt(i));
     }
-
-    // This string is composed of pairs of characters defining inclusive start and end ranges.
-    String pairs =
-              "\u2024\u2026\u2047\u2049\u207c\u207e\u208c\u208e\u2474\u24b5\u2a74\u2a76\u3200\u321e\u3220\u3243\ufe13\ufe16\ufe33"
-            + "\ufe38\ufe4d\ufe50\ufe54\ufe57\ufe59\ufe5c\ufe5f\ufe66\ufe68\ufe6b\uff01\uff0f\uff1a\uff20\uff3b\uff40\uff5b\uff5e";
-    for(int i=0;i<pairs.length();i+=2) {
-      for(char ch=pairs.charAt(i);ch<=pairs.charAt(i+1);ch++) {
-        set.add(ch);
-      }
+    // Pairs of characters bounding inclusive ranges.
+    String ranges = "\u2024\u2026\u2047\u2049\u207c\u207e\u208c\u208e\u2474"
+        + "\u24b5\u2a74\u2a76\u3200\u321e\u3220\u3243\ufe13\ufe16\ufe33\ufe38"
+        + "\ufe4d\ufe50\ufe54\ufe57\ufe59\ufe5c\ufe5f\ufe66\ufe68\ufe6b\uff01"
+        + "\uff0f\uff1a\uff20\uff3b\uff40\uff5b\uff5e";
+    for (int i = 0, n = ranges.length(); i < n; i += 2) {
+      RISKY_NORMALIZATION.set(ranges.charAt(i), ranges.charAt(i + 1) + 1);
     }
+  }
 
-    RISKY_NORMALIZATION = Collections.unmodifiableSet(set);
+  /**
+   * True if a compatibility normalization of ch could produce an ASCII
+   * punctuation character.
+   * @see #RISKY_NORMALIZATION
+   */
+  static boolean isRiskyNormalization(char ch) {
+    return RISKY_NORMALIZATION.get(ch);
   }
 }
