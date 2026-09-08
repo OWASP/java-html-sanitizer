@@ -1,6 +1,71 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * Licensing: the BSD arm of the dual license is **BSD 2-Clause**, and the
+      whole repository now says so consistently.  `COPYING` had offered
+      "Apache-2.0 or BSD 3-Clause" since 2014 while printing BSD 2-Clause text
+      beneath it (issues #271, #288), and every source header carried the
+      3-Clause form.  Headers are normalized to 2-Clause and every source file
+      now carries `SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause`.
+      This only widens the grant -- the 2-Clause text has been the published
+      offer for over a decade -- so no action is required of existing users.
+      Two AntiSamy-derived test files remain BSD 3-Clause and are now listed
+      as third-party code in `COPYING`.
+    * Fix: `java8-shim` and `java10-shim` are now bundled inside the main JAR,
+      resolving the JPMS split-package error on the module path. The shim
+      artifacts are no longer published separately. If you added an explicit
+      dependency on `java8-shim` or `java10-shim` as a workaround, remove it.
+    * HTML: Follow the WHATWG tokenizer for degenerate comments. `<!>`,
+      `<!-->`, `<!--->` and `<!->` are complete empty comments, and `--!>`
+      closes a comment even when only dashes precede it (`<!----!>`),
+      matching browser behaviour instead of swallowing the content that
+      followed (issue #258).  Conversely, only a contiguous `-->` or `--!>`
+      closes a comment: `<!-- a -x->` no longer ends it early.
+    * HTML: Attribute names may begin with an underscore.
+    * HTML: `Sanitizers.TABLES` allows integer `colspan` and `rowspan` on
+      `td` and `th`; `Sanitizers.IMAGES` allows `loading="lazy|eager"`.
+    * CSS: `text-align` accepts `start`, `end`, `justify-all` and `match-parent`.
+    * Build: Dependency version ranges replaced with pinned versions; the
+      findbugs `jsr305`/`annotations` pair is replaced by `spotbugs-annotations`.
+    * Build: The `empiricism` test harness is no longer published to Maven Central.
+    * Build: Pull requests now run the full build matrix.
+    * Build: Removed the legacy manual release scaffolding (`RELEASE-checklist.sh`,
+      the `aggregate` POM and `scripts/fix_javadoc_links.sh`) together with the
+      unused `maven-release-plugin` and `jgitflow` configuration.  Releases are
+      cut by the GitHub `Release` workflow.
+    * Build: `empiricism/rebuild.sh` regenerates `HtmlElementTablesCanned.java`
+      again.  The 2024 Guava removal had turned the generator's array-length
+      check into a literal `3`, so it rejected every `explicitClosers` entry.
+    * Build: Coveralls coverage reporting is removed.  The plugin had not run
+      since the Travis scripts were deleted in 2024, and the repo token that
+      was committed with it in 2019 has been revoked.
+    * Docs: README examples compile again; Javadoc links point at `latest`.
+    * Special thanks to (in lexicographic order):
+      Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,
+      Martin Jackson, strangelookingnerd, Sven Strickroth, yangbongsoo
+  * Release 20260313.1
+    * Fix: Preserve the order of `rel` attribute values while still
+      de-duplicating them.
+    * Fix: Invalid nested `<select>` when sanitizing `<optgroup>`.
+    * Fix: The shim loader catches `Throwable` rather than `Error` so class
+      loaders that throw checked exceptions fall back to the Java 8 shim.
+    * Docs: SECURITY.md updated with CVE-2025-66021 details.
+    * Special thanks to (in lexicographic order):
+      Andres Almiray, Melloware, Shangeeth Rajasekar, strangelookingnerd,
+      Sven Strickroth
+  * Release 20260102.1
+    * Fix: The `owasp-java-html-sanitizer` artifact targets Java 8 again
+      ([#369](https://github.com/OWASP/java-html-sanitizer/issues/369)).
+    * Docs: Fixed broken examples link.
+  * Release 20260101.1
+    * Security: Fix [CVE-2025-66021](https://github.com/OWASP/java-html-sanitizer/security/advisories)
+      ([#363](https://github.com/OWASP/java-html-sanitizer/issues/363)).
+    * Build: Maven wrapper, GitHub Actions release workflow via JReleaser,
+      updated Maven configuration.
+    * Build: `empiricism` no longer uses Guava; defunct `html-types` removed.
+    * Special thanks to (in lexicographic order):
+      Andres Almiray, José Pintado, Melloware
   * Release 20240325.1
     * Remove dependency on Guava
     * Raise minimum supported JVM release to 8

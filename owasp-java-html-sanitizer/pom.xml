@@ -3,18 +3,22 @@
   <artifactId>owasp-java-html-sanitizer</artifactId>
   <packaging>bundle</packaging>
   <parent>
-    <relativePath>..</relativePath>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>parent</artifactId>
-    <version>20240325.2-SNAPSHOT</version>
+    <version>20000101-SNAPSHOT</version>
   </parent>
 
   <name>OWASP Java HTML Sanitizer</name>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     Takes third-party HTML and produces HTML that is safe to embed in
     your web application.
     Fast and easy to configure.
   </description>
+
+  <properties>
+    <maven.compiler.release>8</maven.compiler.release>
+  </properties>
 
   <build>
     <plugins>
@@ -51,18 +55,15 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.eluder.coveralls</groupId>
-        <artifactId>coveralls-maven-plugin</artifactId>
-        <configuration>
-          <repoToken>TENYw0IKRulLOXgkyzjGqNi0hQyhBiSiU</repoToken>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
             <Export-Package>org.owasp.html</Export-Package>
+            <!-- Explicit JPMS automatic module name so consumers using the
+                 module path can require this module by a stable name that
+                 is independent of the JAR filename. -->
+            <Automatic-Module-Name>owasp.java.html.sanitizer</Automatic-Module-Name>
           </instructions>
         </configuration>
       </plugin>
@@ -84,11 +85,41 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>10</source>
-          <target>10</target>
-        </configuration>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <!-- Inline java8-shim and java10-shim into this JAR so that
+                   consumers using the JPMS module path do not encounter a
+                   split-package error from org.owasp.shim appearing in
+                   multiple JARs. See https://github.com/OWASP/java-html-sanitizer/issues/341 -->
+              <artifactSet>
+                <includes>
+                  <include>com.googlecode.owasp-java-html-sanitizer:java8-shim</include>
+                  <include>com.googlecode.owasp-java-html-sanitizer:java10-shim</include>
+                </includes>
+              </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <!-- Exclude shim Maven metadata to avoid duplicate
+                         pom.properties / pom.xml entries in the JAR -->
+                    <exclude>META-INF/maven/com.googlecode.owasp-java-html-sanitizer/java*/**</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <!-- Replace the original JAR with the shaded one as the
+                   main artifact; do not attach a separate shaded artifact -->
+              <shadedArtifactAttached>false</shadedArtifactAttached>
+              <!-- Generate a reduced POM that omits the now-inlined shim
+                   dependencies, keeping the published POM accurate -->
+              <createDependencyReducedPom>true</createDependencyReducedPom>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -97,10 +128,12 @@
     <dependency>
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
       <artifactId>java8-shim</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
       <artifactId>java10-shim</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>commons-codec</groupId>
@@ -108,13 +141,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>annotations</artifactId>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>

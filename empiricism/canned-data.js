@@ -10,8 +10,8 @@ import sys
 json_dump = sys.stdin.read()
 json_decoder = json.JSONDecoder()
 canned_data, _ = json_decoder.raw_decode(json_dump)
-print "var cannedData = %s;" % (
-    json.dumps(canned_data, sort_keys=True, indent=2).replace(", \n", ",\n"))'
+print("var cannedData = %s;" % (
+    json.dumps(canned_data, sort_keys=True, indent=2).replace(", \n", ",\n")))'
 */
 
 

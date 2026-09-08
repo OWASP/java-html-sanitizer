@@ -1,6 +1,8 @@
 // Copyright (c) 2013, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -455,7 +454,7 @@ public final class CssSchema {
     Set<String> tableLayoutLiterals0 = j8().setOf(
         "auto", "fixed", "inherit");
     Set<String> textAlignLiterals0 = j8().setOf(
-        "center", "inherit", "justify");
+        "center", "end", "inherit", "justify", "justify-all", "match-parent", "start");
     Set<String> textDecorationLiterals0 = j8().setOf(
         "blink", "line-through", "overline", "underline");
     Set<String> textTransformLiterals0 = j8().setOf(

@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -271,23 +270,22 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       if (!lastTagOpened.equals(elementName)) {
         error("Tag content cannot appear inside CDATA element", elementName);
         return;
-      } else {
-        StringBuilder cdataContent = pendingUnescaped;
-        pendingUnescaped = null;
-        Encoding.stripBannedCodeunits(cdataContent);
-        int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
-        if (problemIndex == -1) {
-          if (cdataContent.length() != 0) {
-            output.append(cdataContent);
-          }
-        } else {
-          error(
-              "Invalid CDATA text content",
-              cdataContent.subSequence(
-                  problemIndex,
-                  Math.min(problemIndex + 10, cdataContent.length())));
-          // Still output the close tag.
+      }
+      StringBuilder cdataContent = pendingUnescaped;
+      pendingUnescaped = null;
+      Encoding.stripBannedCodeunits(cdataContent);
+      int problemIndex = checkHtmlCdataCloseable(lastTagOpened, cdataContent);
+      if (problemIndex == -1) {
+        if (cdataContent.length() != 0) {
+          output.append(cdataContent);
         }
+      } else {
+        error(
+            "Invalid CDATA text content",
+            cdataContent.subSequence(
+                problemIndex,
+                Math.min(problemIndex + 10, cdataContent.length())));
+        // Still output the close tag.
       }
       if ("plaintext".equals(elementName)) { return; }
     }
@@ -393,8 +391,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
           if (i == 0 || i + 1 == n) { return false; }
           break;
         case '-':
-        case '_':
           if (i == 0 || i + 1 == n) { return false; }
+          break;
+        case '_':
+          if (i + 1 == n) { return false; }
           break;
         default:
           if (ch <= '9') {

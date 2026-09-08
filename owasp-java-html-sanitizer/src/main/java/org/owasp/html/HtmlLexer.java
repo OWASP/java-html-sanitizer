@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -148,11 +147,10 @@ final class HtmlLexer extends AbstractTokenStream {
                 state = State.SAW_EQ;
                 // Skip the '=' token
                 return produce();
-              } else {
-                // Reclassify as attribute name
-                token = HtmlInputSplitter.reclassify(
-                    token, HtmlTokenType.ATTRNAME);
               }
+              // Reclassify as attribute name
+              token = HtmlInputSplitter.reclassify(
+                  token, HtmlTokenType.ATTRNAME);
             } else {
               state = State.IN_TAG;
             }
@@ -476,6 +474,9 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     COMMENT,
     COMMENT_DASH,
     COMMENT_DASH_DASH,
+    COMMENT_DASH_DASH_BANG,
+    COMMENT_DASH_AFTER_BANG,
+    COMMENT_START_DASH,
     DIRECTIVE,
     DONE,
     BOGUS_COMMENT,
@@ -640,35 +641,80 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                 case BANG:
                   if ('-' == ch) {
                     state = State.BANG_DASH;
+                  } else if('>' == ch) { // <!> is a valid html comment
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
                   } else {
                     state = State.DIRECTIVE;
                   }
                   break;
                 case BANG_DASH:
                   if ('-' == ch) {
-                    state = State.COMMENT;
+                    state = State.COMMENT_DASH_AFTER_BANG;
+                  } else if ('>' == ch) {
+                    // <!-> is a bogus comment that ends at the first '>'
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
                   } else {
                     state = State.DIRECTIVE;
+                  }
+                  break;
+                case COMMENT_DASH_AFTER_BANG:  // Just after "<!--"
+                  if ('>' == ch) { // <!--> is a valid html comment
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
+                  } else if ('-' == ch) {
+                    state = State.COMMENT_START_DASH;
+                  } else {
+                    state = State.COMMENT;
+                  }
+                  break;
+                case COMMENT_START_DASH:  // Just after "<!---"
+                  if ('>' == ch) { // <!---> is a valid html comment
+                    state = State.DONE;
+                    type = HtmlTokenType.COMMENT;
+                  } else if ('-' == ch) {
+                    // <!---- is in the comment end state, so --!> or more
+                    // dashes followed by > will close the comment.
+                    state = State.COMMENT_DASH_DASH;
+                  } else {
+                    state = State.COMMENT;
                   }
                   break;
                 case COMMENT:
                   if ('-' == ch) {
                     state = State.COMMENT_DASH;
+                  } else {
+                    state = State.COMMENT;
                   }
                   break;
                 case COMMENT_DASH:
+                  // Anything but a second dash is ordinary comment content,
+                  // so "-x->" must not close the comment.
                   state = ('-' == ch)
                       ? State.COMMENT_DASH_DASH
-                      : State.COMMENT_DASH;
+                      : State.COMMENT;
                   break;
                 case COMMENT_DASH_DASH:
                   if ('>' == ch) {
                     state = State.DONE;
                     type = HtmlTokenType.COMMENT;
+                  } else if ('!' == ch) {  // --!> is also valid closing sequence
+                    state = State.COMMENT_DASH_DASH_BANG;
                   } else if ('-' == ch) {
                     state = State.COMMENT_DASH_DASH;
                   } else {
-                    state = State.COMMENT_DASH;
+                    state = State.COMMENT;
+                  }
+                  break;
+                case COMMENT_DASH_DASH_BANG:
+                  if ('>' == ch) {
+                      state = State.DONE;
+                      type = HtmlTokenType.COMMENT;
+                  }else if ('-' == ch) {
+                      state = State.COMMENT_DASH;
+                  }else {
+                      state = State.COMMENT;
                   }
                   break;
                 case DIRECTIVE:

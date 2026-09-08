@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -79,26 +78,9 @@ public final class Sanitizers {
       .allowAttributes("href").onElements("a").requireRelNofollowOnLinks()
       .toFactory();
 
-  /**
-   * Allows common table elements.
-   */
-  public static final PolicyFactory TABLES = new HtmlPolicyBuilder()
-    .allowStandardUrlProtocols()
-    .allowElements(
-                   "table", "tr", "td", "th",
-                   "colgroup", "caption", "col",
-                   "thead", "tbody", "tfoot")
-    .allowAttributes("summary").onElements("table")
-    .allowAttributes("align", "valign")
-    .onElements("table", "tr", "td", "th",
-                "colgroup", "col",
-                "thead", "tbody", "tfoot")
-    .allowTextIn("table")  // WIDGY
-    .toFactory();
-
   private static final AttributePolicy INTEGER = new AttributePolicy() {
     public String apply(
-        String elementName, String attributeName, String value) {
+            String elementName, String attributeName, String value) {
       int n = value.length();
       if (n == 0) { return null; }
       for (int i = 0; i < n; ++i) {
@@ -115,13 +97,33 @@ public final class Sanitizers {
   };
 
   /**
+   * Allows common table elements.
+   */
+  public static final PolicyFactory TABLES = new HtmlPolicyBuilder()
+    .allowStandardUrlProtocols()
+    .allowElements(
+                   "table", "tr", "td", "th",
+                   "colgroup", "caption", "col",
+                   "thead", "tbody", "tfoot")
+    .allowAttributes("summary").onElements("table")
+    .allowAttributes("align", "valign")
+    .onElements("table", "tr", "td", "th",
+                "colgroup", "col",
+                "thead", "tbody", "tfoot")
+    .allowAttributes("colspan", "rowspan").matching(INTEGER).onElements("td", "th")
+    .allowTextIn("table")  // WIDGY
+    .toFactory();
+
+  /**
    * Allows {@code <img>} elements from HTTP, HTTPS, and relative sources.
+   * Allows loading elements
    */
   public static final PolicyFactory IMAGES = new HtmlPolicyBuilder()
       .allowUrlProtocols("http", "https").allowElements("img")
       .allowAttributes("alt", "src").onElements("img")
       .allowAttributes("border", "height", "width").matching(INTEGER)
           .onElements("img")
+      .allowAttributes("loading").matching(true, "lazy", "eager").onElements("img")
       .toFactory();
 
   private Sanitizers() {

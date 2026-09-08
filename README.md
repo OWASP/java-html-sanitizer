@@ -1,15 +1,15 @@
 # OWASP Java HTML Sanitizer
 
-[![Java CI with Maven](https://github.com/OWASP/java-html-sanitizer/actions/workflows/maven.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/maven.yml) [![Coverage Status](https://coveralls.io/repos/github/OWASP/java-html-sanitizer/badge.svg?branch=main)](https://coveralls.io/github/OWASP/java-html-sanitizer?branch=main) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/badge.png?style=plastic)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+[![Build](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2602/badge)](https://bestpractices.coreinfrastructure.org/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
 you include HTML authored by third-parties in your web application while
 protecting against XSS.
 
-The existing dependency is on JSR 305. The other jars
-are only needed by the test suite.  The JSR 305 dependency is a
-compile-only dependency, only needed for annotations.
+The sanitizer JAR has no runtime dependencies.  Its only compile-time
+dependency is `spotbugs-annotations` (provided scope, annotations only);
+the other jars are only needed by the test suite.
 
 This code was written with security best practices in mind, has an
 extensive test suite, and has undergone
@@ -25,6 +25,7 @@ extensive test suite, and has undergone
 *  [Telemetry](#telemetry)
 *  [Questions\?](#questions)
 *  [Contributing](#contributing)
+*  [License](#license)
 *  [Credits](#credits)
 
 ## Getting Started
@@ -35,7 +36,7 @@ how to get started with or without Maven.
 ## Prepackaged Policies
 
 You can use
-[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/Sanitizers.html):
+[prepackaged policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
@@ -45,9 +46,9 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Crafting a policy
 
 The
-[tests](https://github.com/OWASP/java-html-sanitizer/blob/main/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
+[tests](https://github.com/OWASP/java-html-sanitizer/blob/main/owasp-java-html-sanitizer/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
-[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/HtmlPolicyBuilder.html):
+[policy](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -62,7 +63,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Custom Policies
 
 You can write
-[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/ElementPolicy.html)
+[custom policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/ElementPolicy.html)
 to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
@@ -85,18 +86,19 @@ need to be explicitly whitelisted using the `allowWithoutAttributes()`
 method if you want them to be allowed through the filter when these
 elements do not include any attributes.
 
-[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
+[Attribute policies](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
 
 ```Java
-new HtmlPolicyBuilder = new HtmlPolicyBuilder()
-    .allowElement("div", "span")
+PolicyFactory myPolicy = new HtmlPolicyBuilder()
+    .allowElements("div", "span")
     .allowAttributes("data-foo")
         .matching(
             (String elementName, String attributeName, String value) -> {
               // Return value for the attribute or null to drop.
+              return value;
             })
         .onElements("div", "span")
-    .build()
+    .toFactory();
 ```
 
 ## Preprocessors
@@ -104,9 +106,7 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
 Preprocessors allow inserting text and large scale structural changes.
 
 ```Java
-new HtmlPolicyBuilder = new HtmlPolicyBuilder()
-    // Use a preprocessor to be backwards compatible with the
-    // <plaintext> element which 
+PolicyFactory myPolicy = new HtmlPolicyBuilder()
     .withPreprocessor(
         (HtmlStreamEventReceiver r) -> {
           // Provide user with info about links before they click.
@@ -116,7 +116,7 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
             @Override public void openTag(String elementName, List<String> attrs) {
               if ("a".equals(elementName)) {
                 for (int i = 0, n = attrs.size(); i < n; i += 2) {
-                  if ("href".equals(attrs.get(i)) {
+                  if ("href".equals(attrs.get(i))) {
                     String url = attrs.get(i + 1);
                     String origin;
                     try {
@@ -141,10 +141,12 @@ new HtmlPolicyBuilder = new HtmlPolicyBuilder()
               super.openTag(elementName, attrs);
             }
           };
-        }
-    .allowElement("a")
+        })
+     .allowElements("a")
+     .allowAttributes("href").onElements("a")
+     .allowStandardUrlProtocols()
     ...
-    .build()
+    .toFactory();
 
 ```
 
@@ -153,7 +155,7 @@ of the output.
 
 ## Telemetry
 
-When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/org/owasp/html/HtmlChangeListener.html).
+When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlChangeListener.html).
 
 You can use this to keep track of policy violation trends and find out when someone
 is making an effort to breach your security.
@@ -206,7 +208,25 @@ We welcome [issue reports](https://github.com/OWASP/java-html-sanitizer/issues) 
 PRs that change behavior or that add functionality should include both positive and
 [negative tests](https://www.guru99.com/negative-testing.html).
 
-Please be aware that contributions fall under the [Apache 2.0 License](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING).
+Please be aware that contributions fall under the project's dual license:
+`Apache-2.0 OR BSD-2-Clause`, at the recipient's option. See
+[COPYING](https://github.com/OWASP/java-html-sanitizer/blob/main/COPYING).
+
+## License
+
+Dual licensed: **`Apache-2.0 OR BSD-2-Clause`**.  You may use this software
+under either the [Apache License, Version 2.0](LICENSE) or the BSD 2-Clause
+License, at your option -- you do not need to comply with both.
+
+[COPYING](COPYING) is the authoritative statement of the grant and contains
+the full text of both licenses.  `LICENSE` holds only the Apache-2.0 arm, so
+that automated tooling which understands a single license file detects one;
+it does not narrow the choice offered by `COPYING`.
+
+Every source file carries an SPDX identifier.  Two AntiSamy-derived test
+files are third-party code under `BSD-3-Clause` and are listed under
+THIRD-PARTY CODE in `COPYING`; they are not compiled into the published
+artifact.
 
 ## Credits
 

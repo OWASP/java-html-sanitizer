@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -196,6 +195,13 @@ public class HtmlSanitizerTest extends TestCase {
   }
 
   @Test
+  public final void testAllowedAttributes() {
+    assertEquals(
+            "<div __foo=\"__foo\" __bar=\"foo\" foo-bar=\"foo-bar\"></div>",
+            sanitize("<div __foo __bar=\"foo\" foo-bar></div>"));
+  }
+
+  @Test
   public static final void testSgmlShortTags() {
     // We make no attempt to correctly handle SGML short tags since they are
     // not implemented consistently across browsers, and have been removed from
@@ -312,6 +318,30 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals("",               sanitize("\u0000"));
     assertEquals("<b>Hello, </b>", sanitize("<b>Hello, &#0;</b>"));
     assertEquals("",               sanitize("&#0;"));
+  }
+
+  @Test
+  public static final void testDegenerateComments() {
+    // Issue #258: a comment opened by <!-- and closed by --!> after nothing
+    // but dashes must not swallow the rest of the document.
+    assertEquals("<b>after</b>", sanitize("<!----!><b>after</b>"));
+    assertEquals("<b>after</b>", sanitize("<!-----!><b>after</b>"));
+    // <!-> is an empty bogus comment, not a directive that runs to the
+    // next '>' and eats the following tag.
+    assertEquals("c<b>after</b>", sanitize("<!->c<b>after</b>"));
+    // Other complete empty comments.
+    assertEquals("x", sanitize("<!>x"));
+    assertEquals("x", sanitize("<!-->x"));
+    assertEquals("x", sanitize("<!--->x"));
+    // Fewer than two dashes after <!-- leave !> as comment content, so the
+    // comment runs to the end of input, as it does in a browser.
+    assertEquals("", sanitize("<!--!><b>after</b>"));
+    assertEquals("", sanitize("<!---!><b>after</b>"));
+    // Only a contiguous --> or --!> closes a comment; a lone dash followed
+    // later by -> does not, so these comments also run to end of input.
+    assertEquals("", sanitize("<!-- a -x-><b>after</b>"));
+    assertEquals("", sanitize("<!-- a --b-><b>after</b>"));
+    assertEquals("<b>after</b>", sanitize("<!-- a -x--><b>after</b>"));
   }
 
   @Test
@@ -454,6 +484,158 @@ public class HtmlSanitizerTest extends TestCase {
     assertEquals(want, sanitize(input));
   }
 
+  /**
+   * These 5 tests cover regression scenarios for CVE-2025-66021, which relates to
+   * improper sanitization of HTML content involving <style> and <noscript> tags.
+   * The tests ensure that HTMLSanitizer:
+   *   - properly closes any opened elements,
+   *   - only allows allowed elements inside <style> blocks,
+   *   - prevents injection of forbidden HTML or scripts within style or noscript,
+   *   - does not allow unexpected element escape or context breaking.
+   */
+
+  /**
+   * Test #1:
+   * Verify that unallowed elements (<div>) injected inside <style> are removed,
+   * and only allowed content (CSS and allowed elements) remain.
+   */
+  @Test
+  public static final void testCVE202566021_1() {
+    // Arrange: Attempt to inject a <div> inside <style>. Only 'style' and 'noscript' are allowed.
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"evil\">XSS?</div></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  /**
+   * Test #2:
+   * Ensure that <script> tags (attempting script injection) are stripped out
+   * even when they appear inside allowed <style> tags.
+   */
+  @Test
+  public static final void testCVE202566021_2() {
+    // Arrange: Attempt to inject a <script> inside <style>. Only 'style' and 'noscript' are allowed.
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<script>alert('XSS Attack!')</script></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  /**
+   * Test #3:
+   * Ensure that, if <div> is allowed, then <div> injected inside <style>
+   * is retained by the sanitizer (since it is now in the policy).
+   */
+  @Test
+  public static final void testCVE202566021_3() {
+    // Arrange: <div> is now allowed, so it should survive sanitization inside <style>.
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript", "div")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  /**
+   * Test #4:
+   * Confirm that an attempt to prematurely close <style> with </noscript>, then inject a script,
+   * does not allow the injected script. Sanitizer closes elements properly and only emits allowed tags.
+   */
+  @Test
+  public static final void testCVE202566021_4() {
+    // Arrange: Try to break out of <style> and <noscript>, then add a script. Only style/noscript/p allowed.
+    String actualPayload = "<noscript><style></noscript><script>alert(1)</script>";
+    String expectedPayload = "<noscript><style></noscript></style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript", "p")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  /**
+   * Test #5:
+   * Like Test #4, but with <p> instead of <noscript>. Ensures sanitizer emits correctly closed tags
+   * and strips the injected script tag completely.
+   */
+  @Test
+  public static final void testCVE202566021_5() {
+    // Arrange: Try to break out of <style> through <p>, then add a script. Only style/noscript/p allowed.
+    String actualPayload = "<p><style></p><script>alert(1)</script>";
+    String expectedPayload = "<p><style></p></style></p>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript", "p")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
+  /**
+   * Test that <script> tags with space < script> are sanitized correctly.
+   */
+  @Test
+  public static final void testCVE202566021_6() {
+    // Arrange: Attempt to inject a <script> inside <style>. Only 'style' and 'noscript' elements are allowed.
+    String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }< script>alert('XSS Attack!')</script></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
+
+    HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
+    PolicyFactory policy = htmlPolicyBuilder
+        .allowElements("style", "noscript")
+        .allowTextIn("style")
+        .toFactory();
+
+    // Act
+    String sanitized = policy.sanitize(actualPayload);
+
+    // Assert
+    assertEquals(expectedPayload, sanitized);
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
@@ -471,7 +653,8 @@ public class HtmlSanitizerTest extends TestCase {
            "ol", "p", "span", "ul", "noscript", "noframes", "noembed", "noxss")
        // And these attributes.
        .allowAttributes(
-           "dir", "checked", "class", "href", "id", "target", "title", "type")
+           "dir", "checked", "class", "href", "id", "target", "title", "type",
+               "__foo", "__bar", "foo-bar")
        .globally()
        // Cleanup IDs and CLASSes and prefix them with p- to move to a separate
        // name-space.

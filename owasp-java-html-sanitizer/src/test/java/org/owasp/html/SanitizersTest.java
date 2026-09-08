@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -156,6 +155,18 @@ public class SanitizersTest extends TestCase {
         s.sanitize(
             "<img src=\"x.png\" alt=\"y\" width=\"widgy\" height=64 border=0>")
         );
+    assertEquals(
+            "<img src=\"test.jpg\" loading=\"lazy\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"lazy\">"));
+    assertEquals(
+            "<img src=\"test.jpg\" loading=\"eager\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"eager\">"));
+    assertEquals(
+            "<img src=\"test.jpg\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"auto\">"));
+    assertEquals(
+            "<img src=\"test.jpg\" />",
+            s.sanitize("<img src=\"test.jpg\" loading=\"javascript:alert(1337)\">"));
   }
 
   @Test
@@ -211,6 +222,24 @@ public class SanitizersTest extends TestCase {
   }
 
   @Test
+  public static final void testTableColspanRowspan() {
+    PolicyFactory s = Sanitizers.TABLES;
+
+    assertEquals(
+        "<table><tbody><tr><td colspan=\"3\">cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td colspan=\"3\">cell</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td rowspan=\"4\">cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td rowspan=\"4\">cell</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td>cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td colspan=\"three\">cell</td></tr></table>"));
+    assertEquals(
+        "<table><tbody><tr><td colspan=\"3\">cell</td></tr></tbody></table>",
+        s.sanitize("<table><tr><td colspan=\"3.5\">cell</td></tr></table>"));
+  }
+
+  @Test
   public static final void testLinks() {
     PolicyFactory s = Sanitizers.LINKS;
     assertEquals(
@@ -250,6 +279,30 @@ public class SanitizersTest extends TestCase {
     assertEquals(
         "Header text",
         s.sanitize("<a name=\"header\" id=\"header\">Header text</a>"));
+  }
+
+  @Test
+  public static final void testLinksRelAttributeAdditionsOrder() {
+    // Issue 336.
+    PolicyFactory pf = Sanitizers.LINKS.and(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .requireRelsOnLinks("noopener", "noreferrer")
+            .toFactory());
+
+    assertEquals(
+            "<a href=\"foo.html\" rel=\"nofollow noopener noreferrer\">Link text</a>",
+            pf.sanitize("<a href=\"foo.html\">Link text</a>"));
+
+    pf = Sanitizers.LINKS.and(
+            new HtmlPolicyBuilder()
+                    .allowElements("a")
+                    .requireRelsOnLinks("noreferrer", "noopener")
+                    .toFactory());
+
+    assertEquals(
+            "<a href=\"foo.html\" rel=\"nofollow noreferrer noopener\">Link text</a>",
+            pf.sanitize("<a href=\"foo.html\">Link text</a>"));
   }
 
   @Test
@@ -552,7 +605,26 @@ public class SanitizersTest extends TestCase {
     String want = "<h1 style=\"color:green\">This is some green text</h1>";
     assertEquals(want, policyBuilder.sanitize(input));
   }
-  
+
+  /**
+   * Regression test for
+   * <a href="https://github.com/OWASP/java-html-sanitizer/issues/237">#237</a>:
+   * other attributes allowed globally alongside {@code style} must survive,
+   * and {@code style} must still be filtered through the CSS schema.
+   */
+  @Test
+  public static final void testStyleWithOtherAttributesGlobally() {
+    PolicyFactory policyBuilder = new HtmlPolicyBuilder()
+        .allowAttributes("style", "align").globally()
+        .allowElements("a", "label", "h1", "h2", "h3", "h4", "h5", "h6")
+        .toFactory();
+    String input = "<h1 style=\"color:green ;name:user ;\" align=\"center\">"
+        + "This is some green centered text</h1>";
+    String want = "<h1 style=\"color:green\" align=\"center\">"
+        + "This is some green centered text</h1>";
+    assertEquals(want, policyBuilder.sanitize(input));
+  }
+
   static int fac(int n) {
     int ifac = 1;
     for (int i = 1; i <= n; ++i) {

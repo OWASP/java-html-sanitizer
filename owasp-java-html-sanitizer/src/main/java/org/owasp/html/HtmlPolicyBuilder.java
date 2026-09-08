@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -33,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -105,7 +105,7 @@ import static org.owasp.shim.Java8Shim.j8;
  * </p>
  * <pre class="prettyprint lang-java">
  * new HtmlPolicyBuilder()
- *   .allowElement(
+ *   .allowElements(
  *     new ElementPolicy() {
  *       public String apply(String elementName, List&lt;String&gt; attributes){
  *         attributes.add("class");
@@ -428,7 +428,7 @@ public class HtmlPolicyBuilder {
   public HtmlPolicyBuilder requireRelsOnLinks(String... linkValues) {
     this.invalidateCompiledState();
     if (this.extraRelsForLinks == null) {
-      this.extraRelsForLinks = new HashSet<>();
+      this.extraRelsForLinks = new LinkedHashSet<>();
     }
     for (String linkValue : linkValues) {
       linkValue = HtmlLexer.canonicalKeywordAttributeValue(linkValue);
@@ -857,9 +857,8 @@ public class HtmlPolicyBuilder {
     if (htmlTagSkipType == null) {
       if (DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR.containsKey(elementName)) {
         return HtmlTagSkipType.SKIP_BY_DEFAULT;
-      } else {
-        return HtmlTagSkipType.DO_NOT_SKIP_BY_DEFAULT;
       }
+      return HtmlTagSkipType.DO_NOT_SKIP_BY_DEFAULT;
     }
 
     return htmlTagSkipType;
@@ -1112,8 +1111,8 @@ public class HtmlPolicyBuilder {
 
     public JoinableElementPolicy join(
         Iterable<? extends JoinableElementPolicy> toJoin) {
-      Set<String> extra = new HashSet<>();
-      Set<String> skip = new HashSet<>();
+      Set<String> extra = new LinkedHashSet<>();
+      Set<String> skip = new LinkedHashSet<>();
       for (JoinableElementPolicy ep : toJoin) {
         RelsOnLinksPolicy p = (RelsOnLinksPolicy) ep;
         extra.addAll(p.extra);

@@ -9,11 +9,15 @@ Including among your POMs `<dependencies>` this snippet of XML...
 <dependency>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
     <artifactId>owasp-java-html-sanitizer</artifactId>
-    <version>20180219.1</version>
+    <version>20260313.1</version>
 </dependency>
 ```
 
 ...will make the sanitizer available.
+
+The sanitizer JAR is self-contained: the `java8-shim` and `java10-shim` artifacts
+are bundled inside it and do **not** need to be declared as separate dependencies,
+including when using the JPMS module path.
 
 Be sure to change the
 [version](https://cwiki.apache.org/confluence/display/MAVENOLD/Dependency+Mediation+and+Conflict+Resolution#DependencyMediationandConflictResolution-DependencyVersionRanges)
@@ -23,7 +27,7 @@ Bigger numbers are more recent and the [change log](../change_log.md)
 can shed light on the salient differences.
 
 You should be able to build with the HTML sanitizer.  You can read the
-[javadoc](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/20240325.1/index.html),
+[javadoc](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/index.html),
 and if you have questions that aren't answered by these wiki pages,
 you can ask on the
 [mailing list](http://groups.google.com/group/owasp-java-html-sanitizer-support).

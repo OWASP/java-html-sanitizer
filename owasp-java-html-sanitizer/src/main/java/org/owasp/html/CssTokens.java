@@ -1,6 +1,8 @@
 // Copyright (c) 2013, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -736,16 +735,15 @@ final class CssTokens implements Iterable<String> {
               if (ast < 0) {
                 pos = cssLimit;  // Unclosed /* comment */
                 break;
-              } else {
-                // Advance over a run of '*'s.
-                pos = ast + 1;
-                while (pos < cssLimit && css.charAt(pos) == '*') {
-                  ++pos;
-                }
-                if (pos < cssLimit && css.charAt(pos) == '/') {
-                  ++pos;
-                  break;
-                }
+              }
+              // Advance over a run of '*'s.
+              pos = ast + 1;
+              while (pos < cssLimit && css.charAt(pos) == '*') {
+                ++pos;
+              }
+              if (pos < cssLimit && css.charAt(pos) == '/') {
+                ++pos;
+                break;
               }
             }
           } else if (next == '/') {  // Non-standard but widely supported
@@ -778,10 +776,9 @@ final class CssTokens implements Iterable<String> {
       }
       if (pos == posBefore) {
         return false;
-      } else {
-        breakOutput();
-        return true;
       }
+      breakOutput();
+      return true;
     }
 
     private void breakOutput() {
@@ -846,9 +843,8 @@ final class CssTokens implements Iterable<String> {
         --pos;  // back up over '@'
         sb.setLength(bufferLengthBeforeWrite);  // Unwrite the '@'
         return false;
-      } else {
-        return true;
       }
+      return true;
     }
 
 
@@ -1122,11 +1118,10 @@ final class CssTokens implements Iterable<String> {
               pos += 2;
             }
             continue;
-          } else {
-            decoded = consumeAndDecodeEscapeSequence();
-            if (decoded < 0) {
-              break;
-            }
+          }
+          decoded = consumeAndDecodeEscapeSequence();
+          if (decoded < 0) {
+            break;
           }
         } else {
           ++pos;
@@ -1137,11 +1132,11 @@ final class CssTokens implements Iterable<String> {
       if (closed) {
         sb.append('\'');
         return TokenType.STRING;
-      } else {  // Drop <bad-string>s
-        sb.setLength(startOfStringOnOutput);
-        breakOutput();
-        return TokenType.WHITESPACE;
       }
+      // Drop <bad-string>s
+      sb.setLength(startOfStringOnOutput);
+      breakOutput();
+      return TokenType.WHITESPACE;
     }
 
     private @Nullable TokenType consumeHash() {
@@ -1258,11 +1253,10 @@ final class CssTokens implements Iterable<String> {
           sb.setCharAt(bufferStart + 1, 'r');
           sb.setCharAt(bufferStart + 2, 'l');
           return TokenType.URL;
-        } else {
-          sb.setLength(bufferStart);
-          breakOutput();
-          return TokenType.WHITESPACE;
         }
+        sb.setLength(bufferStart);
+        breakOutput();
+        return TokenType.WHITESPACE;
       } else if (parenAfter) {
         openBracket('(');
         ++pos;

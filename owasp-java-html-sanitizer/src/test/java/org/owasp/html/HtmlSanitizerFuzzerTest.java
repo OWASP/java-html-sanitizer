@@ -1,6 +1,8 @@
 // Copyright (c) 2011, Mike Samuel
 // All rights reserved.
 //
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
 // are met:
@@ -10,9 +12,6 @@
 // Redistributions in binary form must reproduce the above copyright
 // notice, this list of conditions and the following disclaimer in the
 // documentation and/or other materials provided with the distribution.
-// Neither the name of the OWASP nor the names of its contributors may
-// be used to endorse or promote products derived from this software
-// without specific prior written permission.
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -29,6 +28,7 @@
 package org.owasp.html;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -36,8 +36,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import org.apache.commons.codec.Resources;
 
 /**
  * Throws malformed inputs at the HTML sanitizer to try and crash it.
@@ -62,9 +60,17 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
       };
 
   public final void testFuzzHtmlParser() throws Exception {
-    String html = new BufferedReader(new InputStreamReader(
-        Resources.getInputStream("benchmark-data/Yahoo!.html"),
-        StandardCharsets.UTF_8)).lines().collect(Collectors.joining()); 
+    String html;
+    try (InputStream resourceStream = getClass().getClassLoader()
+        .getResourceAsStream("benchmark-data/Yahoo!.html")) {
+      if (resourceStream == null) {
+        throw new IllegalArgumentException(
+            "Unable to resolve required resource: benchmark-data/Yahoo!.html");
+      }
+      html = new BufferedReader(new InputStreamReader(
+          resourceStream,
+          StandardCharsets.UTF_8)).lines().collect(Collectors.joining());
+    }
     int length = html.length();
 
     char[] fuzzyHtml0 = new char[length];
@@ -149,9 +155,8 @@ public class HtmlSanitizerFuzzerTest extends FuzzyTestCase {
     if (failure != null) {
       if (failure instanceof RuntimeException) {
         throw (RuntimeException) failure;
-      } else {
-        throw new AssertionError(null, failure);
       }
+      throw new AssertionError(null, failure);
     }
   }
 
