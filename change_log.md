@@ -2,6 +2,11 @@
 
 Most recent at top.
   * Next release
+    * Examples: `EbayPolicyExample` and `SlashdotPolicyExample` gain a
+      `run(Reader, Appendable)` method that does the sanitizing; `main` now
+      handles only the command line and delegates to it.  Purely additive;
+      command-line behaviour is unchanged.  The example classes also drop out
+      of the published javadoc, as the exclusion pattern always intended.
     * Tests: the suite now runs on JUnit Jupiter (JUnit 5.14) instead of the
       JUnit 3 `TestCase` style.  This affects only contributors: `./mvnw
       verify` works as before, a failing fuzz test now prints the exact

@@ -27,51 +27,92 @@
 
 package org.owasp.html;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.PrintStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.io.IOException;
+import java.io.StringReader;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.FieldSource;
 import org.owasp.html.examples.EbayPolicyExample;
+import org.owasp.html.examples.SlashdotPolicyExample;
+import org.owasp.html.examples.UrlTextExample;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ExamplesTest {
 
-  /** Each example's main must run to completion on empty input. */
-  @ParameterizedTest
-  @FieldSource("org.owasp.html.AllExamples#CLASSES")
-  void testExampleRuns(Class<?> exampleClass) throws Throwable {
-    InputStream stdin = System.in;
-    PrintStream stdout = System.out;
-    PrintStream stderr = System.err;
-    InputStream emptyIn = new ByteArrayInputStream(new byte[0]);
-    ByteArrayOutputStream captured = new ByteArrayOutputStream();
-    PrintStream capturingOut = new PrintStream(captured, true, "UTF-8");
-    System.setIn(emptyIn);
-    System.setOut(capturingOut);
-    System.setErr(capturingOut);
-    try {
-      Method main = exampleClass.getDeclaredMethod("main", String[].class);
-      // Invoke with no arguments to sanitize empty input stream to output.
-      main.invoke(null, new Object[] { new String[0] });
-    } catch (InvocationTargetException ex) {
-      capturingOut.flush();
-      stderr.println(
-          "Example " + exampleClass.getSimpleName() + "\n"
-          + captured.toString("UTF-8"));
-      // Report the example's own exception, not the reflective wrapper.
-      throw ex.getCause();
-    } finally {
-      System.setIn(stdin);
-      System.setOut(stdout);
-      System.setErr(stderr);
-    }
+  /** Each example must run to completion, and emit nothing, on empty input. */
+  @Test
+  void testRunOnEmptyInput() throws IOException {
+    StringBuilder ebay = new StringBuilder();
+    EbayPolicyExample.run(new StringReader(""), ebay);
+    assertEquals("", ebay.toString());
+
+    StringBuilder slashdot = new StringBuilder();
+    SlashdotPolicyExample.run(new StringReader(""), slashdot);
+    assertEquals("", slashdot.toString());
+
+    StringBuilder urlText = new StringBuilder();
+    UrlTextExample.run(urlText);
+    assertEquals("", urlText.toString());
+  }
+
+  /**
+   * Exercises the Slashdot policy: allowed elements ({@code p}, {@code b},
+   * {@code tt}, {@code blockquote}, {@code a}, and the custom {@code quote}
+   * and {@code ecode}) survive; {@code align} is kept but lower-cased;
+   * {@code href} is kept and gains {@code rel="nofollow"}; {@code style},
+   * {@code onclick}, {@code script} (with its body) and a
+   * {@code javascript:} link are dropped, the latter leaving only its text.
+   */
+  @Test
+  void testSlashdotRun() throws IOException {
+    String input =
+        "<p align=\"Right\" style=\"color:red\">Hello <b>bold</b>"
+        + " <tt>mono</tt> <script>alert(1)</script></p>\n"
+        + "<blockquote>quoted <a href=\"http://example.com/\""
+        + " onclick=\"evil()\">link</a>"
+        + " <a href=\"javascript:alert(1)\">bad</a></blockquote>\n"
+        + "<quote>custom</quote><ecode>x &lt; y</ecode>";
+    StringBuilder out = new StringBuilder();
+    SlashdotPolicyExample.run(new StringReader(input), out);
+    assertEquals(
+        "<p align=\"right\">Hello <b>bold</b> <tt>mono</tt> </p>\n"
+        + "<blockquote>quoted <a href=\"http://example.com/\""
+        + " rel=\"nofollow\">link</a> bad</blockquote>\n"
+        + "<quote>custom</quote><ecode>x &lt; y</ecode>",
+        out.toString());
+  }
+
+  /**
+   * Exercises the eBay policy through {@code run}: ids, classes, styling,
+   * titles, fonts, on-site image URLs and sized images survive; event
+   * handlers, {@code script} and {@code iframe} are dropped; links gain
+   * {@code rel="nofollow"} and have {@code =} encoded in the URL.
+   */
+  @Test
+  void testEbayRun() throws IOException {
+    String input =
+        "<div id=\"listing\" class=\"item\" style=\"color: red\">\n"
+        + "<h1 title=\"Sale!\">Big <font color=\"#ff0000\" size=\"3\">Sale"
+        + "</font></h1>\n"
+        + "<p align=\"center\" onclick=\"alert(1)\">Buy "
+        + "<a href=\"http://example.com/item?id=1\">now</a>\n"
+        + "<img src=\"/images/item.png\" alt=\"Item\" width=\"100\""
+        + " onerror=\"alert(1)\"></p>"
+        + "<script>alert(\"bad\")</script>"
+        + "<iframe src=\"http://evil.example.com/\"></iframe>\n"
+        + "</div>";
+    StringBuilder out = new StringBuilder();
+    EbayPolicyExample.run(new StringReader(input), out);
+    assertEquals(
+        "<div id=\"listing\" class=\"item\" style=\"color:red\">\n"
+        + "<h1 title=\"Sale!\">Big <font color=\"#ff0000\" size=\"3\">Sale"
+        + "</font></h1>\n"
+        + "<p align=\"center\">Buy "
+        + "<a href=\"http://example.com/item?id&#61;1\" rel=\"nofollow\">"
+        + "now</a>\n"
+        + "<img src=\"/images/item.png\" alt=\"Item\" width=\"100\" /></p>\n"
+        + "</div>",
+        out.toString());
   }
 
   @Test
