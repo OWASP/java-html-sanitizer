@@ -2,6 +2,21 @@
 
 Most recent at top.
   * Next release
+    * CSS: `CssSchema.toAttributePolicy()` and
+      `toAttributePolicy(Function<String, String> urlRewriter)` turn a schema
+      into an `AttributePolicy`, so a policy can allow different CSS
+      properties on different elements -- `color` on `span`, `width` on
+      `table` -- which the global `allowStyling(CssSchema)` cannot express.
+      Such a policy is **not** wired to `allowUrlsInStyles` /
+      `allowUrlProtocols`, since that wiring lives in the `style` attribute
+      guard and cannot see a policy handed to `matching`: the no-arg variant
+      therefore drops every `url(...)` value, and the rewriter variant puts
+      URL vetting entirely on the caller.  Joining one of these with a global
+      `allowStyling` takes the union of the schemas but runs both URL
+      rewriters, so a per-element policy that drops URLs is never widened by
+      a permissive global one.  Requested in #131 by ggrandes and EugenMayer;
+      an alternative to PR #339 that keeps `StylingPolicy` internal.
+      Closes #381.
     * CSS: the CSS-wide keywords -- `inherit`, `initial`, `revert`,
       `revert-layer` and `unset` -- are now accepted on **every** property,
       not just the handful whose literal sets happened to name `inherit`.

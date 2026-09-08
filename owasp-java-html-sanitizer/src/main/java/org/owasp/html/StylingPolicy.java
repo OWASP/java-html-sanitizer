@@ -248,15 +248,21 @@ final class StylingPolicy implements JoinableAttributePolicy {
     return true;
   }
 
+  // The url rewriter takes part in equality because joining groups policies
+  // into a Set first: two styling policies that share a schema but vet URLs
+  // differently must both survive to be joined, or one rewriter would be
+  // dropped silently.
   @Override
   public boolean equals(Object o) {
-    return o != null && getClass() == o.getClass()
-        && cssSchema.equals(((StylingPolicy) o).cssSchema);
+    if (o == null || getClass() != o.getClass()) { return false; }
+    StylingPolicy that = (StylingPolicy) o;
+    return cssSchema.equals(that.cssSchema)
+        && urlRewriter.equals(that.urlRewriter);
   }
 
   @Override
   public int hashCode() {
-    return cssSchema.hashCode();
+    return cssSchema.hashCode() + 31 * urlRewriter.hashCode();
   }
 
   public Joinable.JoinStrategy<JoinableAttributePolicy> getJoinStrategy() {
