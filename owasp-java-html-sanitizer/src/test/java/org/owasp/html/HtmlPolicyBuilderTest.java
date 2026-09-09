@@ -1672,6 +1672,8 @@ class HtmlPolicyBuilderTest {
     assertEquals(
         "<h1>allowed text</h1><template></template>",
         apply(b, "<h1>allowed text</h1><template>excluded-text</template>"));
+  }
+
   /**
    * A factory is typically parked in a static final for the life of the JVM,
    * so nothing it holds may point back at the throwaway builder.  The value
