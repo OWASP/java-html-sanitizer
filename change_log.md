@@ -2,6 +2,16 @@
 
 Most recent at top.
   * Next release
+    * `<template>` keeps its children.  The browser probe that generates the
+      element tables cannot see into `template.content`, so the tables said a
+      template could hold nothing, and the tag balancer hoisted every child
+      out to be its sibling: `<template><b>x</b></template>` came out as
+      `<template></template><b>x</b>`.  A template now takes flow content and
+      table parts, as the "in template" insertion mode does, and
+      `disallowTextIn("template")` -- the documented way to keep template
+      text out of the output -- has a template to apply to.  Table parts
+      directly inside a template still get the implied `<table><tbody>` they
+      get anywhere else.  Closes #113.
     * `PolicyFactory` no longer keeps the `HtmlPolicyBuilder` that built it
       alive.  The value policies behind `matching(Pattern)`,
       `matching(Predicate)` and `matching(ignoreCase, values)` were anonymous

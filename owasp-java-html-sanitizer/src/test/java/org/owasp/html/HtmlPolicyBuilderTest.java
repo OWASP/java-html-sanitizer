@@ -1641,6 +1641,39 @@ class HtmlPolicyBuilderTest {
     assertEquals(toSanitize, factory.sanitize(toSanitize));
   }
 
+  /** The input from #113: children of a template came out as its siblings. */
+  @Test
+  void testTemplateKeepsItsChildren() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements("template", "b", "a")
+        .allowAttributes("id").onElements("template")
+        .allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols();
+    assertEquals(
+        "<template id=\"something\"><b>"
+        + "<a href=\"https://www.google.com\"> google </a></b></template>",
+        apply(
+            b,
+            "<template id=\"something\"><b>"
+            + "<a href=https://www.google.com> google </a></b></template>"));
+  }
+
+  /**
+   * The javadoc of {@link HtmlPolicyBuilder#disallowTextIn} names
+   * {@code <template>} as the element it exists for.  While the tables said a
+   * template could hold no text, the balancer moved the text out before the
+   * policy could suppress it.
+   */
+  @Test
+  void testDisallowTextInTemplate() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements("template", "h1")
+        .disallowTextIn("template");
+    assertEquals(
+        "<h1>allowed text</h1><template></template>",
+        apply(b, "<h1>allowed text</h1><template>excluded-text</template>"));
+  }
+
   /**
    * A factory is typically parked in a static final for the life of the JVM,
    * so nothing it holds may point back at the throwaway builder.  The value

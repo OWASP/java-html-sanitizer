@@ -511,6 +511,77 @@ class TagBalancingHtmlStreamRendererTest {
         htmlOutputBuffer.toString());
   }
 
+  /**
+   * {@code <template>} used to be tabled as unable to contain anything, so
+   * its children were hoisted out to be its siblings (#113).
+   */
+  @Test
+  void testTemplateKeepsItsChildren() {
+    balancer.openDocument();
+    balancer.openTag("template", j8().listOf("id", "t"));
+    balancer.openTag("b", j8().listOf());
+    balancer.openTag("a", j8().listOf("href", "https://example.com/"));
+    balancer.text("link");
+    balancer.closeTag("a");
+    balancer.closeTag("b");
+    balancer.closeTag("template");
+    balancer.closeDocument();
+    assertEquals(
+        "<template id=\"t\"><b><a href=\"https://example.com/\">link</a></b>"
+        + "</template>",
+        htmlOutputBuffer.toString());
+  }
+
+  @Test
+  void testTemplateHoldsTextAndNestedTemplates() {
+    balancer.openDocument();
+    balancer.openTag("template", j8().listOf());
+    balancer.text("outer ");
+    balancer.openTag("template", j8().listOf());
+    balancer.text("inner");
+    balancer.closeTag("template");
+    balancer.closeTag("template");
+    balancer.closeDocument();
+    assertEquals(
+        "<template>outer <template>inner</template></template>",
+        htmlOutputBuffer.toString());
+  }
+
+  @Test
+  void testUnclosedTemplateClosesAtEndOfDocument() {
+    balancer.openDocument();
+    balancer.openTag("template", j8().listOf());
+    balancer.openTag("b", j8().listOf());
+    balancer.text("x");
+    balancer.closeDocument();
+    assertEquals("<template><b>x</b></template>", htmlOutputBuffer.toString());
+  }
+
+  /**
+   * A browser leaves table parts bare in {@code template.content}.  Here they
+   * stay inside the template, but get the implied {@code <table><tbody>} they
+   * get anywhere else: the balancer never emits a row or cell without a table
+   * on the stack, since it cannot know what the output is embedded in.
+   */
+  @Test
+  void testTablePartsInsideTemplateStayInsideIt() {
+    balancer.openDocument();
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("template", j8().listOf());
+    balancer.openTag("tr", j8().listOf());
+    balancer.openTag("td", j8().listOf());
+    balancer.text("x");
+    balancer.closeTag("td");
+    balancer.closeTag("tr");
+    balancer.closeTag("template");
+    balancer.closeTag("div");
+    balancer.closeDocument();
+    assertEquals(
+        "<div><template><table><tbody><tr><td>x</td></tr></tbody></table>"
+        + "</template></div>",
+        htmlOutputBuffer.toString());
+  }
+
   @Test
   void testMenuItemNesting() {
     // issue 96
