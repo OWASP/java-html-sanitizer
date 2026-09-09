@@ -648,37 +648,95 @@ class HtmlPolicyBuilderTest {
   /**
    * The {@link Predicate} overload of {@code matching} keeps the values the
    * predicate accepts and drops the rest, just as the {@link Pattern} one
-   * does.  It takes a {@code Predicate<? super String>}, so a predicate
-   * written against a supertype fits as well.
+   * does.
    */
   @Test
   void testMatchingPredicateKeepsOnlyAcceptedValues() {
-    Predicate<String> isPng = value -> value.endsWith(".png");
+    Predicate<String> isNote = value -> value.startsWith("note-");
     HtmlPolicyBuilder b = new HtmlPolicyBuilder()
-        .allowUrlProtocols("http", "https")
-        .allowElements("img")
-        .allowAttributes("src")
-            .matching(isPng)
-            .onElements("img");
+        .allowElements("p")
+        .allowAttributes("class")
+            .matching(isNote)
+            .onElements("p");
 
     assertEquals(
-        "<img src=\"http://example.test/a.png\" />",
-        apply(b, "<img src=\"http://example.test/a.png\">"));
+        "<p class=\"note-aside\">Hi</p>",
+        apply(b, "<p class=\"note-aside\">Hi</p>"));
     assertEquals(
-        "", apply(b, "<img src=\"http://example.test/a.gif\">"),
-        "the img goes with its only attribute");
+        "<p>Hi</p>", apply(b, "<p class=\"warning\">Hi</p>"),
+        "the attribute goes, the element stays");
+  }
 
+  /**
+   * That overload takes a {@code Predicate<? super String>}, so a predicate
+   * written against a supertype fits as well.  Only the wildcard makes this
+   * compile.
+   */
+  @Test
+  void testMatchingAcceptsAPredicateOverASupertypeOfString() {
     Predicate<CharSequence> isNotEmpty = value -> value.length() != 0;
-    HtmlPolicyBuilder overSupertype = new HtmlPolicyBuilder()
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
         .allowElements("p")
         .allowAttributes("title")
             .matching(isNotEmpty)
             .onElements("p");
 
+    assertEquals("<p title=\"t\">Hi</p>", apply(b, "<p title=\"t\">Hi</p>"));
+    assertEquals("<p>Hi</p>", apply(b, "<p title=\"\">Hi</p>"));
+  }
+
+  /**
+   * The {@code ignoreCase} flag of the value-set overloads picks whether the
+   * value is lower-cased before it is looked up.  Every caller in the suite
+   * passed {@code true}, so the case-sensitive arm -- the one that compares
+   * the value as written -- went unexercised.
+   */
+  @Test
+  void testMatchingComparesValuesAsWrittenUnlessIgnoringCase() {
+    HtmlPolicyBuilder caseSensitive = new HtmlPolicyBuilder()
+        .allowElements("p")
+        .allowAttributes("class")
+            .matching(false, "Note")
+            .onElements("p");
+
     assertEquals(
-        "<p title=\"t\">Hi</p>", apply(overSupertype, "<p title=\"t\">Hi</p>"));
+        "<p class=\"Note\">Hi</p>",
+        apply(caseSensitive, "<p class=\"Note\">Hi</p>"));
     assertEquals(
-        "<p>Hi</p>", apply(overSupertype, "<p title=\"\">Hi</p>"));
+        "<p>Hi</p>", apply(caseSensitive, "<p class=\"note\">Hi</p>"),
+        "a value that differs in case is not one of the allowed values");
+
+    HtmlPolicyBuilder ignoringCase = new HtmlPolicyBuilder()
+        .allowElements("p")
+        .allowAttributes("class")
+            .matching(true, "note")
+            .onElements("p");
+
+    assertEquals(
+        "<p class=\"note\">Hi</p>",
+        apply(ignoringCase, "<p class=\"Note\">Hi</p>"),
+        "ignoring case keeps the lower-cased value, not the one written");
+  }
+
+  /**
+   * {@code ignoreCase} lower-cases the value it looks up but not the values it
+   * looks them up in, so an allowed value that is not already lower-case can
+   * never be matched and the policy rejects everything.  It fails closed, but
+   * silently: pinned so the asymmetry is visible to anyone changing it.
+   */
+  @Test
+  void testMatchingIgnoringCaseNeverMatchesAnUpperCaseAllowedValue() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements("p")
+        .allowAttributes("class")
+            .matching(true, "Note")
+            .onElements("p");
+
+    for (String written : new String[] { "Note", "note", "NOTE" }) {
+      assertEquals(
+          "<p>Hi</p>", apply(b, "<p class=\"" + written + "\">Hi</p>"),
+          "nothing matches the allowed value `Note`");
+    }
   }
 
   /**

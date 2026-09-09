@@ -4,19 +4,27 @@
 # ${project.version} (20000101-SNAPSHOT during development), which Dependabot
 # misreads as an ancient release and then tries to "bump" (see PRs #383, #439).
 #
-# The glob covers the root POM and every module directory, including any
-# module added later; `directories` supports globbing where `directory` does
-# not. Without it, a new module is unconfigured, and Dependabot's "fix" for
-# a ${project.version} dependency is to rewrite the root POM's <version>.
+# Every directory holding a pom.xml is listed, so **a new module needs a line
+# here**; without one, Dependabot's "fix" for its ${project.version}
+# dependency is to rewrite the root POM's <version> to an old release. The
+# `directories` key accepts a glob, which would cover new modules on its own,
+# but dependabot-core#12348 reports globbing silently matching no manifests,
+# and a silent miss here is exactly what this file exists to prevent.
 #
-# open-pull-requests-limit: 0 keeps version-update PRs off; security
-# updates still run, and the ignore rules below apply to both.
+# open-pull-requests-limit: 0 keeps version-update PRs off; security updates
+# still run, and the ignore rules below apply to both. The limit is one budget
+# shared by every directory listed, not one per directory, which matters only
+# if someone raises it above 0.
 version: 2
 updates:
   - package-ecosystem: "maven"
     directories:
       - "/"
-      - "/*"
+      - "/java8-shim"
+      - "/java10-shim"
+      - "/owasp-java-html-sanitizer"
+      - "/examples"
+      - "/empiricism"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
