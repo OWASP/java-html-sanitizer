@@ -147,6 +147,53 @@ class HtmlChangeReporterTest {
     assertEquals("", log.toString());
   }
 
+  /**
+   * {@link ElementPolicy#apply} may return another element name, and the
+   * reporter used to decide whether a tag survived by comparing names, so a
+   * renamed element was reported as discarded and, because a discarded tag's
+   * attributes are not reported, its attribute drops went unreported too
+   * (#435).
+   */
+  @Test
+  void testRenamedElementIsNotReportedAsDiscarded() {
+    Result result = sanitize(
+        renamingSpanToDiv(), "<span id=a id=b>hi</span>");
+
+    assertEquals("<div id=\"a\">hi</div>", result.html);
+    assertEquals("<span id> ", result.log);
+  }
+
+  /** Attribute reports on a renamed element carry the input element name. */
+  @Test
+  void testRejectedAttributesOnARenamedElementAreReported() {
+    Result result = sanitize(
+        renamingSpanToDiv(), "<span id=a onclick=alert(1)>hi</span>");
+
+    assertEquals("<div id=\"a\">hi</div>", result.html);
+    assertEquals("<span onclick> ", result.log);
+  }
+
+  @Test
+  void testRenamedElementWithNothingDroppedReportsNothing() {
+    Result result = sanitize(renamingSpanToDiv(), "<span id=a>hi</span>");
+
+    assertEquals("<div id=\"a\">hi</div>", result.html);
+    assertEquals("", result.log);
+  }
+
+  /**
+   * Renames {@code span} to {@code div}.  {@code div} is allowed as well so
+   * that text inside the renamed element is kept: the policy decides whether
+   * an element may hold text by the name it is emitted under.
+   */
+  private static PolicyFactory renamingSpanToDiv() {
+    return new HtmlPolicyBuilder()
+        .allowElements((elementName, attrs) -> "div", "span")
+        .allowElements("div")
+        .allowAttributes("id").onElements("span")
+        .toFactory();
+  }
+
   /** The sanitized HTML and the log of what the listener was told about it. */
   static final class Result {
     final String html;

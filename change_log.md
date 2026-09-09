@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * `HtmlChangeReporter` no longer reports an element that an
+      `ElementPolicy` renamed as a discarded tag.  It decided whether a tag
+      survived by comparing the output element name with the input one, so a
+      rename never matched: the listener heard `discardedTag` for an element
+      that was kept, and, since attribute reports are suppressed for a
+      discarded tag, never heard about the attributes the policy dropped from
+      it.  It now judges survival by whether the policy opened a tag at all.
+      Reports still carry the input element name.  Closes #435.
     * `<template>` keeps its children.  The browser probe that generates the
       element tables cannot see into `template.content`, so the tables said a
       template could hold nothing, and the tag balancer hoisted every child
