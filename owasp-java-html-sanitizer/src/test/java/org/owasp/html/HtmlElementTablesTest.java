@@ -72,6 +72,36 @@ final class HtmlElementTablesTest {
     assertFalse(t.canContain(ix("body"), ix("html")));
   }
 
+  /**
+   * The browser probe that generates the tables cannot see into
+   * {@code template.content}, so it used to record {@code <template>} as
+   * holding nothing, and the balancer hoisted every child out to be a
+   * sibling (#113).  Its content model is that of flow content plus the
+   * table parts the "in template" insertion mode accepts.
+   */
+  @Test
+  void testTemplateContainment() {
+    int template = ix("template");
+    for (String child : new String[] {
+             "a", "b", "div", "p", "span", "table", "template",
+             "caption", "colgroup", "col", "thead", "tbody", "tr", "td", "th",
+             "script", "style", "ul", "li" }) {
+      assertTrue(t.canContain(template, ix(child)), child);
+    }
+    for (String child : new String[] {
+             "html", "head", "body", "frameset", "frame" }) {
+      assertFalse(t.canContain(template, ix(child)), child);
+    }
+    assertTrue(t.canContainText(template));
+    assertTrue(t.canContainComment(template));
+    assertTrue(t.canContainPlainText(template));
+    assertFalse(t.isTextContentRaw(template));
+
+    assertTrue(t.canContain(ix("div"), template));
+    assertTrue(t.canContain(ix("body"), template));
+    assertTrue(t.canContain(ix("table"), template));
+  }
+
   @Test
   void testExplicitClosers() {
     int h1 = ix("h1"), h2 = ix("h2"), h3 = ix("h3"),

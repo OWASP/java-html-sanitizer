@@ -371,7 +371,14 @@ function tagStackToHtml(stack, body) {
           'base', 'command', 'link', 'meta', 'noscript', 'script', 'style',
           'title'];
       canContain['frameset'] = ['frame', 'frameset', 'noframes'];
-      // TODO: do the same for the text content model.
+      // <template> is the one element whose parsed children are not its DOM
+      // children: they go into the DocumentFragment at template.content, so
+      // the probe above sees an empty element whatever it holds.  Per the
+      // "in template" insertion mode it takes anything that is not a
+      // document-structure element, table parts included.
+      canContain['template'] = elementNames.filter(function (name) {
+        return ['body', 'frame', 'frameset', 'head', 'html'].indexOf(name) < 0;
+      });
       toSatisfy.satisfy();
     }
     displayJson(canContain, document.getElementById('can-contain-json'));
@@ -489,6 +496,12 @@ var textContentModel = getOwn(cannedData, 'textContentModel') || new Promise();
     var toSatisfy = textContentModel;
     if (toSatisfy instanceof Promise) {
       textContentModel = sortedMultiMap(result);
+      // As with canContain above: the probe cannot see into template.content,
+      // so it records <template> as holding no text.  Its content is parsed
+      // like any flow content.
+      textContentModel['template'] = sortedMultiMap({
+        comments: true, entities: true, plain_text: true, text: true
+      });
       toSatisfy.satisfy();
     }
     displayJson(textContentModel,
