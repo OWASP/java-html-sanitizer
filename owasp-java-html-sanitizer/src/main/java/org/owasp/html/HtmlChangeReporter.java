@@ -115,7 +115,7 @@ public final class HtmlChangeReporter<T> {
     }
 
     public void openTag(String elementName, List<String> attrs) {
-      output.expectedElementName = elementName;
+      output.openedElementName = null;
       output.expectedAttrNames.clear();
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
         output.expectedAttrNames.add(attrs.get(i));
@@ -125,17 +125,22 @@ public final class HtmlChangeReporter<T> {
         // Gather the notification details to avoid any problems with the
         // listener re-entering the stream event receiver.  This shouldn't
         // occur, but if it does it will be a source of subtle confusing bugs.
-        String discardedElementName = output.expectedElementName;
-        output.expectedElementName = null;
+        //
+        // The tag survived if the policy opened anything in response.  Its
+        // name is not compared with the input name: an ElementPolicy may
+        // rename the element, and a renamed element was kept, not dropped.
+        boolean discarded = output.openedElementName == null;
+        output.openedElementName = null;
         int nExpected = output.expectedAttrNames.size();
         String[] discardedAttrNames =
-            nExpected != 0 && discardedElementName == null
+            nExpected != 0 && !discarded
             ? output.expectedAttrNames.toArray(new String[nExpected])
             : ZERO_STRINGS;
         output.expectedAttrNames.clear();
-        // Dispatch notifications to the listener.
-        if (discardedElementName != null) {
-          listener.discardedTag(context, discardedElementName);
+        // Dispatch notifications to the listener, under the input name,
+        // which is the one the listener can relate to what came in.
+        if (discarded) {
+          listener.discardedTag(context, elementName);
         }
         if (discardedAttrNames.length != 0) {
           listener.discardedAttributes(
@@ -157,7 +162,11 @@ public final class HtmlChangeReporter<T> {
 
   private static final class OutputChannel implements HtmlStreamEventReceiver {
     private final HtmlStreamEventReceiver renderer;
-    String expectedElementName;
+    /**
+     * The name of the tag the policy has opened in response to the tag being
+     * opened, or null while it has opened none.
+     */
+    String openedElementName;
     /**
      * Names of the attributes on the tag being opened that have not turned up
      * in the output yet.  A list rather than a set: a name repeated on one tag
@@ -181,9 +190,7 @@ public final class HtmlChangeReporter<T> {
     }
 
     public void openTag(String elementName, List<String> attrs) {
-      if (elementName.equals(expectedElementName)) {
-        expectedElementName = null;
-      }
+      openedElementName = elementName;
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
         // Accounts for one copy of the name, so repeats the policy dropped
         // stay behind to be reported.
