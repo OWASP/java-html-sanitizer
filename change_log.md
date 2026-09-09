@@ -12,6 +12,15 @@ Most recent at top.
       text out of the output -- has a template to apply to.  Table parts
       directly inside a template still get the implied `<table><tbody>` they
       get anywhere else.  Closes #113.
+    * `PolicyFactory` no longer keeps the `HtmlPolicyBuilder` that built it
+      alive.  The value policies behind `matching(Pattern)`,
+      `matching(Predicate)` and `matching(ignoreCase, values)` were anonymous
+      classes, and each captured the `AttributeBuilder` and through it the
+      whole builder, so a factory held in a `static final` -- the usual way
+      to hold one -- pinned the builder and its intermediate maps for the
+      life of the JVM.  They are now lambdas that capture only the pattern,
+      predicate or value set.  A test walks the object graph under a factory
+      and fails naming the field if any builder is reachable.  Closes #441.
     * **Breaking:** the `org.owasp.html.examples` package no longer ships in
       the jar.  `EbayPolicyExample`, `SlashdotPolicyExample` and
       `UrlTextExample` move to a new `examples` module that is built and

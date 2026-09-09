@@ -1019,13 +1019,16 @@ public class HtmlPolicyBuilder {
      * Multiple calls to {@code matching} are combined to restrict to the
      * intersection of possible matched values.
      */
-    public AttributeBuilder matching(final Pattern pattern) {
-      return matching(new AttributePolicy() {
-        public @Nullable String apply(
-            String elementName, String attributeName, String value) {
-          return pattern.matcher(value).matches() ? value : null;
-        }
-      });
+    public AttributeBuilder matching(Pattern pattern) {
+      // These value policies are lambdas rather than anonymous classes on
+      // purpose.  An anonymous class here captures the AttributeBuilder, which
+      // captures the HtmlPolicyBuilder, so the PolicyFactory it ends up in --
+      // typically a static final that lives as long as the JVM -- would keep
+      // the whole builder and its intermediate maps reachable.  A lambda that
+      // uses only its parameters and locals captures nothing else.
+      return matching(
+          (elementName, attributeName, value) ->
+              pattern.matcher(value).matches() ? value : null);
     }
 
     /**
@@ -1034,14 +1037,11 @@ public class HtmlPolicyBuilder {
      * Multiple calls to {@code matching} are combined to restrict to the
      * intersection of possible matched values.
      */
-    public AttributeBuilder matching(
-        final Predicate<? super String> filter) {
-      return matching(new AttributePolicy() {
-        public @Nullable String apply(
-            String elementName, String attributeName, String value) {
-          return filter.test(value) ? value : null;
-        }
-      });
+    public AttributeBuilder matching(Predicate<? super String> filter) {
+      // A lambda, not an anonymous class; see matching(Pattern).
+      return matching(
+          (elementName, attributeName, value) ->
+              filter.test(value) ? value : null);
     }
 
     /**
@@ -1072,16 +1072,14 @@ public class HtmlPolicyBuilder {
      * never match.
      */
     public AttributeBuilder matching(
-        final boolean ignoreCase, Set<? extends String> allowedValues) {
-      final Set<String> allowed = j8().setCopyOf(allowedValues);
-      return matching(new AttributePolicy() {
-        public @Nullable String apply(
-            String elementName, String attributeName, String uncanonValue) {
-          String value = ignoreCase
-              ? Strings.toLowerCase(uncanonValue)
-              : uncanonValue;
-          return allowed.contains(value) ? value : null;
-        }
+        boolean ignoreCase, Set<? extends String> allowedValues) {
+      Set<String> allowed = j8().setCopyOf(allowedValues);
+      // A lambda, not an anonymous class; see matching(Pattern).
+      return matching((elementName, attributeName, uncanonValue) -> {
+        String value = ignoreCase
+            ? Strings.toLowerCase(uncanonValue)
+            : uncanonValue;
+        return allowed.contains(value) ? value : null;
       });
     }
 

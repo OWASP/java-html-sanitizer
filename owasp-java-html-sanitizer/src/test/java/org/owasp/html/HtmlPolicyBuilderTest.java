@@ -27,9 +27,16 @@
 
 package org.owasp.html;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -1665,6 +1672,102 @@ class HtmlPolicyBuilderTest {
     assertEquals(
         "<h1>allowed text</h1><template></template>",
         apply(b, "<h1>allowed text</h1><template>excluded-text</template>"));
+  /**
+   * A factory is typically parked in a static final for the life of the JVM,
+   * so nothing it holds may point back at the throwaway builder.  The value
+   * policies behind {@code matching(...)} used to be anonymous classes, and
+   * each one captured the {@code AttributeBuilder}, and through it the whole
+   * {@code HtmlPolicyBuilder} and its intermediate maps.
+   */
+  @Test
+  void testFactoryDoesNotRetainBuilder() {
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements("a", "p", "span", "img")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("lang").matching(Pattern.compile("[a-z]{2}"))
+            .globally()
+        .allowAttributes("title").matching(v -> !v.isEmpty()).globally()
+        .allowAttributes("align").matching(true, "left", "right")
+            .onElements("p")
+        .allowAttributes("dir").matching(false, j8().setOf("ltr", "rtl"))
+            .globally()
+        .allowAttributes("style").globally()
+        .allowUrlProtocols("https")
+        .allowTextIn("span")
+        .requireRelNofollowOnLinks()
+        .withPreprocessor(r -> r)
+        .toFactory()
+        .and(new HtmlPolicyBuilder()
+            .allowAttributes("id").matching(Pattern.compile("[a-z]+"))
+                .onElements("p")
+            .toFactory());
+
+    assertEquals(Collections.emptyList(), buildersReachableFrom(factory));
+    assertEquals(
+        Collections.emptyList(),
+        buildersReachableFrom(
+            Sanitizers.FORMATTING.and(Sanitizers.BLOCKS).and(Sanitizers.STYLES)
+                .and(Sanitizers.LINKS).and(Sanitizers.TABLES)
+                .and(Sanitizers.IMAGES)));
+  }
+
+  /**
+   * Walks the object graph under root and returns a field path for every
+   * builder found, so a regression names the field that leaked it.
+   * Descends through arrays, collections, maps, and the fields of this
+   * project's classes; JDK types such as strings and patterns are leaves.
+   */
+  private static List<String> buildersReachableFrom(Object root) {
+    List<String> found = new ArrayList<>();
+    Map<Object, Boolean> seen = new IdentityHashMap<>();
+    walk(root, root.getClass().getSimpleName(), seen, found);
+    return found;
+  }
+
+  private static void walk(
+      Object o, String path, Map<Object, Boolean> seen, List<String> found) {
+    if (o == null || seen.put(o, Boolean.TRUE) != null) { return; }
+    if (o instanceof HtmlPolicyBuilder
+        || o instanceof HtmlPolicyBuilder.AttributeBuilder) {
+      found.add(path);
+      return;
+    }
+    Class<?> c = o.getClass();
+    if (c.isArray()) {
+      if (!c.getComponentType().isPrimitive()) {
+        for (int i = 0, n = Array.getLength(o); i < n; ++i) {
+          walk(Array.get(o, i), path + "[" + i + "]", seen, found);
+        }
+      }
+    } else if (o instanceof Map) {
+      for (Map.Entry<?, ?> e : ((Map<?, ?>) o).entrySet()) {
+        walk(e.getKey(), path + ".key", seen, found);
+        walk(e.getValue(), path + "[" + e.getKey() + "]", seen, found);
+      }
+    } else if (o instanceof Iterable) {
+      int i = 0;
+      for (Object el : (Iterable<?>) o) {
+        walk(el, path + "[" + i++ + "]", seen, found);
+      }
+    } else if (c.getName().startsWith("org.owasp.")) {
+      for (Class<?> k = c; k != null && k.getName().startsWith("org.owasp.");
+           k = k.getSuperclass()) {
+        for (Field f : k.getDeclaredFields()) {
+          if (Modifier.isStatic(f.getModifiers())
+              || f.getType().isPrimitive()) {
+            continue;
+          }
+          f.setAccessible(true);
+          Object v;
+          try {
+            v = f.get(o);
+          } catch (IllegalAccessException ex) {
+            throw new AssertionError(path + "." + f.getName(), ex);
+          }
+          walk(v, path + "." + f.getName(), seen, found);
+        }
+      }
+    }
   }
 
   private static String apply(HtmlPolicyBuilder b) {
