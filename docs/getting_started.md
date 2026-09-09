@@ -22,9 +22,11 @@ to one of your project's `.java` files and compile it.
 ## Using the APIs
 
 The
-[examples](https://github.com/OWASP/java-html-sanitizer/tree/main/owasp-java-html-sanitizer/src/main/java/org/owasp/html/examples)
+[examples](https://github.com/OWASP/java-html-sanitizer/tree/main/examples/src/main/java/org/owasp/html/examples)
 include source code which defines a sanitization policy, and applies
-it to HTML.
+it to HTML.  They are sample source to read and copy into your own
+project, not classes in the jar: there is nothing under
+`org.owasp.html.examples` to import.
 
 The
 [javadoc](https://static.javadoc.io/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/index.html)

@@ -25,12 +25,11 @@
 // ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-package org.owasp.html;
+package org.owasp.html.examples;
 
 import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
-import org.owasp.html.examples.UrlTextExample;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
