@@ -1,7 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>examples</artifactId>
-  <version>20000101-SNAPSHOT</version>
   <packaging>jar</packaging>
   <parent>
     <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
@@ -12,17 +11,20 @@
   <name>examples</name>
 
   <properties>
-    <!-- Sample code for people to read and copy; never publish it.  See #180. -->
+    <!-- Sample code for people to read and copy, not an artifact anyone should
+         depend on, so none of it is published.  Skipping the javadoc and source
+         jars as well as the deploy avoids building two jars per release only to
+         discard them, and keeps doclint on demonstration code out of the
+         release path.  See #180. -->
     <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.javadoc.skip>true</maven.javadoc.skip>
+    <maven.source.skip>true</maven.source.skip>
   </properties>
   <url>https://github.com/OWASP/java-html-sanitizer</url>
   <description>
     Worked examples of building a sanitization policy.  These are meant to be
     read and copied into your own project, not depended upon, so they are built
     and tested here but deliberately not released.
-
-    The only compile dependency is the sanitizer itself, so an example that
-    reached for anything outside the library's public API would fail the build.
   </description>
 
   <dependencies>
@@ -31,12 +33,24 @@
       <artifactId>owasp-java-html-sanitizer</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <!-- The released jar shades the shim in, so a copied example needs nothing
-         extra.  Runtime scope keeps it off the compile classpath, so the
-         examples cannot accidentally reach past the public API. -->
+    <!-- The shims are optional dependencies of the sanitizer, so they do not
+         reach us transitively, and both are needed rather than merely nice to
+         have: `mvn test` resolves the sanitizer to its target/classes, which
+         carries no org/owasp/shim, so without java8-shim every test here dies
+         in HtmlPolicyBuilder's static initializer.  java10-shim is listed too
+         so these tests exercise the implementation the shaded jar selects at
+         runtime; with only java8-shim, `mvn test` would quietly run against
+         the Java 8 fallback while `mvn verify`, which puts the shaded jar
+         first, ran against ForJava10AndLater. -->
     <dependency>
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
       <artifactId>java8-shim</artifactId>
+      <version>${project.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+      <artifactId>java10-shim</artifactId>
       <version>${project.version}</version>
       <scope>runtime</scope>
     </dependency>

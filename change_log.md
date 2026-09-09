@@ -7,7 +7,7 @@ Most recent at top.
       `UrlTextExample` move to a new `examples` module that is built and
       tested with everything else but never published.  They were
       illustrations of how to build a policy, never API.
-      <p>
+
       This breaks any code that imported them, whether off the classpath or
       through the module path: the jar declares only an
       `Automatic-Module-Name`, and an automatic module exports every package
@@ -15,12 +15,10 @@ Most recent at top.
       OSGi consumers are the exception -- the bundle manifest exports only
       `org.owasp.html`, so the package was already unreachable there.  The
       classes also leave the published `-sources.jar`.  Anyone who was
-      importing one should copy it into their own source -- it is a handful of
-      builder calls, meant to be edited rather than depended on.
-      <p>
-      The module compiles against the sanitizer and nothing else, so an
-      example that reached past the library's public API would fail the build,
-      and a check now fails the build if anything reappears under
+      importing one should copy it into their own source -- it is a handful
+      of builder calls, meant to be edited rather than depended on.
+
+      A build check now fails if anything reappears under
       `target/classes/org/owasp/html/examples`.  Closes #180.
     * CSS: the cap on the length of a `url(...)` in a style attribute rises
       from 1024 to 2048 and is now a named, documented constant rather than a

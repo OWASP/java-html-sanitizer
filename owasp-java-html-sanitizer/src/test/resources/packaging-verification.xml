@@ -1,0 +1,21 @@
+<verifications xmlns="http://maven.apache.org/verifications/1.0.0"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="http://maven.apache.org/verifications/1.0.0 http://maven.apache.org/xsd/verifications-1.0.0.xsd">
+  <files>
+    <file>
+      <location>target/classes/META-INF/MANIFEST.MF</location>
+      <contains>Export-Package: org.owasp.html</contains>
+    </file>
+    <!-- The examples are demonstration code, not API, and live in their own
+         unpublished module.  This catches the way they would realistically
+         come back: someone re-adding a class under src/main/java here.  It
+         checks the compiler's output rather than the shaded jar, because the
+         verifier plugin cannot assert the absence of an entry inside an
+         archive.  Note it reads a directory maven never prunes, so a stale
+         target/ from a branch that still had them needs a clean.  See #180. -->
+    <file>
+      <location>target/classes/org/owasp/html/examples</location>
+      <exists>false</exists>
+    </file>
+  </files>
+</verifications>
