@@ -1675,6 +1675,110 @@ class HtmlPolicyBuilderTest {
   }
 
   /**
+   * The text gate was set from the last tag alone, so a dropped tag inside an
+   * element whose content is never shown reset it and let the content
+   * through.  Text now belongs to the nearest enclosing element the policy
+   * kept, and a dropped element in between suppresses it only if its content
+   * is never shown.  Regression test for #444.
+   */
+  @Test
+  void testDroppedTagInsideSuppressedContentDoesNotResetTheTextGate() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder().allowElements("h1", "div");
+    assertEquals("", apply(b, "<noscript>text</noscript>"));
+    assertEquals("", apply(b, "<noscript><b>text</b></noscript>"));
+    assertEquals("", apply(b, "<noscript><b>a</b>b</noscript>"));
+    // A dropped void element never goes on the stack, so it must not reset
+    // the gate either.
+    assertEquals("", apply(b, "<noscript><img>text</noscript>"));
+    assertEquals(
+        "<div>z</div>",
+        apply(b, "<div><object><b>x</b>y</object>z</div>"));
+    // A kept element inside is a text container in its own right.
+    assertEquals(
+        "<div>shown</div>",
+        apply(b, "<noscript><div>shown</div></noscript>"));
+  }
+
+  /**
+   * The same slip seen through {@code disallowTextIn}: a dropped {@code <p>}
+   * between the text and the kept template reset the gate.  Part of #444.
+   */
+  @Test
+  void testDisallowTextInReachesPastADroppedChild() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements("template", "h1")
+        .disallowTextIn("template");
+    assertEquals(
+        "<template></template>",
+        apply(b, "<template><p>excluded-text</p></template>"));
+    assertEquals(
+        "<template><h1>shown</h1></template>",
+        apply(b, "<template><h1>shown</h1></template>"));
+  }
+
+  /**
+   * {@code disallowTextIn(x)} applies when the policy drops {@code x} too.
+   * The builder used to discard the disallowed names when it compiled, so a
+   * policy that disallowed both the template element and text in it still
+   * emitted the template's text as bare text.  The policy and input are the
+   * ones reported in #194.
+   */
+  @Test
+  void testDisallowTextInAppliesToADroppedElement() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .disallowElements("template")
+        .disallowTextIn("template")
+        .allowElements("h1");
+    assertEquals(
+        "<h1>allowed text</h1>",
+        apply(
+            b,
+            "<html><h1>allowed text</h1><template><p>excluded-text</p>"
+            + "</template><script>script-text</script><html>"));
+    // Text after the dropped element resumes.
+    assertEquals("after", apply(b, "<template>hidden</template>after"));
+    // Text inside an allowed element nested in the dropped one belongs to
+    // that element, and is not affected.
+    assertEquals(
+        "<h1>shown</h1>",
+        apply(b, "<template><h1>shown</h1></template>"));
+
+    // An allowed element that is dropped for having no attributes is dropped
+    // all the same, so the text in it goes too.
+    HtmlPolicyBuilder noBareSpans = new HtmlPolicyBuilder()
+        .allowElements("span")
+        .allowAttributes("title").onElements("span")
+        .disallowTextIn("span");
+    assertEquals(
+        "<span title=\"t\"></span>",
+        apply(noBareSpans, "<span title=t>x</span>"));
+    assertEquals("", apply(noBareSpans, "<span>x</span>"));
+  }
+
+  /**
+   * {@code and} carries a {@code disallowTextIn} over from either factory,
+   * unless the other allows text in that element: grants union under
+   * {@code and}, as they do for elements and attributes.
+   */
+  @Test
+  void testAndCombinesDisallowedTextContainers() {
+    PolicyFactory headings = new HtmlPolicyBuilder()
+        .allowElements("h1").toFactory();
+    PolicyFactory noTemplateText = new HtmlPolicyBuilder()
+        .disallowTextIn("template").toFactory();
+    String html = "<h1>a</h1><template>hidden</template>";
+    assertEquals("<h1>a</h1>hidden", headings.sanitize(html));
+    assertEquals("<h1>a</h1>", headings.and(noTemplateText).sanitize(html));
+    assertEquals("<h1>a</h1>", noTemplateText.and(headings).sanitize(html));
+
+    PolicyFactory templates = new HtmlPolicyBuilder()
+        .allowElements("template").toFactory();
+    assertEquals(
+        "<h1>a</h1><template>hidden</template>",
+        headings.and(noTemplateText).and(templates).sanitize(html));
+  }
+
+  /**
    * A factory is typically parked in a static final for the life of the JVM,
    * so nothing it holds may point back at the throwaway builder.  The value
    * policies behind {@code matching(...)} used to be anonymous classes, and

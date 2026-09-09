@@ -2,6 +2,31 @@
 
 Most recent at top.
   * Next release
+    * Text inside a dropped element is now gated by every element enclosing
+      it, not by the last tag the policy saw.  The policy kept one flag for
+      whether text may be emitted and set it from each open tag alone, so a
+      dropped tag inside `<noscript>`, `<object>` or any other element whose
+      content is never shown reset the gate and let the content through:
+      `<noscript><b>text</b></noscript>` came out as `text`, and
+      `<div><object><b>x</b>y</object>z</div>` as `<div>xyz</div>`.  The
+      same slip defeated `disallowTextIn`: with text disallowed in
+      `<template>`, `<template><p>x</p></template>` kept `x` whenever `<p>`
+      was not allowed.  The gate is now recomputed from the open-element
+      stack, so text belongs to the nearest kept element, and a dropped
+      element in between suppresses it only when its content is never shown
+      or text in it is disallowed.  Not an XSS -- the text was escaped -- but
+      content the policy said to suppress was shown.  Closes #444.
+    * `disallowTextIn(x)` now applies when the policy drops `x` itself, not
+      only when it keeps it.  The builder discarded the disallowed names when
+      it compiled, so `disallowElements("template")` together with
+      `disallowTextIn("template")` still emitted the template's text as bare
+      text.  The names now travel through `PolicyFactory`, and `and()` keeps
+      them unless the other factory allows text in that element -- the same
+      union of grants it applies to everything else.  This also reaches an
+      allowed element dropped for having no attributes, such as a bare
+      `<span>` with `disallowTextIn("span")`.  Text inside an allowed element
+      nested in the dropped one is that element's, and still shows; this is
+      not a way to drop an element with all of its content.  Closes #194.
     * `HtmlChangeReporter` no longer reports an element that an
       `ElementPolicy` renamed as a discarded tag.  It decided whether a tag
       survived by comparing the output element name with the input one, so a

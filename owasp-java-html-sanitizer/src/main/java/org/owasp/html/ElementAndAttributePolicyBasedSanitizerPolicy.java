@@ -47,10 +47,18 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy {
   final Map<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final Set<String> allowedTextContainers;
+  /**
+   * Elements whose text is suppressed even when the element itself is dropped,
+   * from {@link HtmlPolicyBuilder#disallowTextIn}.
+   */
+  final Set<String> disallowedTextContainers;
   private final HtmlStreamEventReceiver out;
   /**
    * True to skip textual content.  Used to ignore the content of embedded CDATA
    * content that is not meant to be human-readable.
+   * <p>
+   * Always a function of {@link #openElementStack}; see
+   * {@link #recomputeSkipText}.
    */
   transient boolean skipText = true;
   /**
@@ -62,12 +70,19 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
       Map<String, ElementAndAttributePolicies> elAndAttrPolicies,
-      Set<String> allowedTextContainers) {
+      Set<String> allowedTextContainers,
+      Set<String> disallowedTextContainers) {
     this.out = out;
     this.elAndAttrPolicies = j8().mapCopyOf(elAndAttrPolicies);
     this.allowedTextContainers = j8().setCopyOf(allowedTextContainers);
+    this.disallowedTextContainers = j8().setCopyOf(disallowedTextContainers);
   }
 
+  /**
+   * Elements whose content is not meant to be read as text -- script source,
+   * stylesheets, fallback content -- so that when the policy drops one of
+   * them, it suppresses the content too rather than emitting it as text.
+   */
   static final Set<String> SKIPPABLE_ELEMENT_CONTENT
       = j8().setOf(
           "script", "style", "noscript", "nostyle", "noembed", "noframes",
@@ -330,14 +345,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         break;
       }
     }
-    skipText = false;
-    for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
-      String adjustedName = openElementStack.get(i);
-      if (adjustedName != null) {
-        skipText = !(allowedTextContainers.contains(adjustedName));
-        break;
-      }
-    }
+    recomputeSkipText();
   }
 
   void writeOpenTag(
@@ -346,7 +354,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
       openElementStack.add(policies.elementName);
       openElementStack.add(adjustedElementName);
-      skipText = !allowedTextContainers.contains(adjustedElementName);
+      recomputeSkipText();
     }
     out.openTag(adjustedElementName, attrs);
   }
@@ -355,8 +363,39 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
       openElementStack.add(elementName);
       openElementStack.add(null);
+      recomputeSkipText();
     }
-    skipText = SKIPPABLE_ELEMENT_CONTENT.contains(elementName);
+  }
+
+  /**
+   * Recomputes {@link #skipText} from {@link #openElementStack}.
+   * <p>
+   * Text belongs to the nearest enclosing element that the policy kept, and
+   * is emitted only if that element is an allowed text container.  A dropped
+   * element between the text and that container is not a container in the
+   * output, so it does not decide -- unless its content is never meant to be
+   * read as text ({@link #SKIPPABLE_ELEMENT_CONTENT}) or the policy
+   * disallowed text in it, either of which suppresses the text.
+   * <p>
+   * Deriving the gate from the whole stack rather than from the last tag seen
+   * is what keeps a dropped {@code <b>} inside a dropped {@code <noscript>}
+   * from letting the noscript's content through.
+   */
+  private void recomputeSkipText() {
+    for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
+      String adjustedName = openElementStack.get(i);
+      if (adjustedName != null) {
+        skipText = !allowedTextContainers.contains(adjustedName);
+        return;
+      }
+      String inputName = openElementStack.get(i - 1);
+      if (SKIPPABLE_ELEMENT_CONTENT.contains(inputName)
+          || disallowedTextContainers.contains(inputName)) {
+        skipText = true;
+        return;
+      }
+    }
+    skipText = false;
   }
 
   /**

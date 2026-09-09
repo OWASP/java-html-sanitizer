@@ -337,6 +337,19 @@ public class HtmlPolicyBuilder {
    * default stylesheets, or, like {@code <template>} contain text nodes that
    * are eventually for human consumption, but which are created in a separate
    * document fragment.
+   * <p>
+   * This applies whether or not the element itself is allowed.  With both
+   * {@code disallowElements("template")} and
+   * {@code disallowTextIn("template")} in effect,
+   * {@code <template>hidden</template>} contributes nothing to the output,
+   * where dropping the element alone would leave {@code hidden} behind as
+   * bare text.
+   * <p>
+   * Text belongs to the nearest enclosing element that survives the policy,
+   * so this does not reach text inside an <i>allowed</i> element nested in
+   * the named one: {@code <template><p>shown</p></template>} keeps
+   * {@code shown} if {@code <p>} is allowed.  It is not a way to drop an
+   * element together with everything inside it.
    */
   public HtmlPolicyBuilder disallowTextIn(String... elementNames) {
     invalidateCompiledState();
@@ -808,16 +821,21 @@ public class HtmlPolicyBuilder {
    */
   public PolicyFactory toFactory() {
     Set<String> textContainerSetBuilder = new HashSet<>();
+    Set<String> disallowedTextContainerSetBuilder = new HashSet<>();
     for (Map.Entry<String, Boolean> textContainer
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
         textContainerSetBuilder.add(textContainer.getKey());
+      } else {
+        disallowedTextContainerSetBuilder.add(textContainer.getKey());
       }
     }
     CompiledState compiled = compilePolicies();
 
     return new PolicyFactory(
-        compiled.compiledPolicies, Collections.unmodifiableSet(textContainerSetBuilder),
+        compiled.compiledPolicies,
+        Collections.unmodifiableSet(textContainerSetBuilder),
+        Collections.unmodifiableSet(disallowedTextContainerSetBuilder),
         j8().mapCopyOf(compiled.globalAttrPolicies),
         preprocessor, postprocessor);
   }
