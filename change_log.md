@@ -193,6 +193,12 @@ Most recent at top.
     * Build: Coveralls coverage reporting is removed.  The plugin had not run
       since the Travis scripts were deleted in 2024, and the repo token that
       was committed with it in 2019 has been revoked.
+    * Build: `dependabot.yml` now covers the root POM and every module
+      directory through a glob rather than naming two of them, so a module
+      added later is configured from the start.  The `examples` module was
+      not, and Dependabot read its `${project.version}` dependency on the
+      sanitizer as an ancient release and proposed rewriting the root POM's
+      `<version>` to `20211018.1` (PR #439, and #383 before it).
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,

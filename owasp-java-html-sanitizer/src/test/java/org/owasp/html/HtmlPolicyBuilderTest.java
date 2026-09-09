@@ -30,6 +30,7 @@ package org.owasp.html;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
@@ -642,6 +643,42 @@ class HtmlPolicyBuilderTest {
         apply(b, "<img src=\"http://other.test/a.png\">"));
     assertEquals(
         "", apply(b, "<img src=\"http://other.example/a.png\">"));
+  }
+
+  /**
+   * The {@link Predicate} overload of {@code matching} keeps the values the
+   * predicate accepts and drops the rest, just as the {@link Pattern} one
+   * does.  It takes a {@code Predicate<? super String>}, so a predicate
+   * written against a supertype fits as well.
+   */
+  @Test
+  void testMatchingPredicateKeepsOnlyAcceptedValues() {
+    Predicate<String> isPng = value -> value.endsWith(".png");
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowUrlProtocols("http", "https")
+        .allowElements("img")
+        .allowAttributes("src")
+            .matching(isPng)
+            .onElements("img");
+
+    assertEquals(
+        "<img src=\"http://example.test/a.png\" />",
+        apply(b, "<img src=\"http://example.test/a.png\">"));
+    assertEquals(
+        "", apply(b, "<img src=\"http://example.test/a.gif\">"),
+        "the img goes with its only attribute");
+
+    Predicate<CharSequence> isNotEmpty = value -> value.length() != 0;
+    HtmlPolicyBuilder overSupertype = new HtmlPolicyBuilder()
+        .allowElements("p")
+        .allowAttributes("title")
+            .matching(isNotEmpty)
+            .onElements("p");
+
+    assertEquals(
+        "<p title=\"t\">Hi</p>", apply(overSupertype, "<p title=\"t\">Hi</p>"));
+    assertEquals(
+        "<p>Hi</p>", apply(overSupertype, "<p title=\"\">Hi</p>"));
   }
 
   /**

@@ -2,21 +2,21 @@
 # exists only to stop Dependabot from treating the project's own reactor
 # modules as external dependencies. The modules reference each other via
 # ${project.version} (20000101-SNAPSHOT during development), which Dependabot
-# misreads as an ancient release and then tries to "bump" (see PR #383).
+# misreads as an ancient release and then tries to "bump" (see PRs #383, #439).
+#
+# The glob covers the root POM and every module directory, including any
+# module added later; `directories` supports globbing where `directory` does
+# not. Without it, a new module is unconfigured, and Dependabot's "fix" for
+# a ${project.version} dependency is to rewrite the root POM's <version>.
 #
 # open-pull-requests-limit: 0 keeps version-update PRs off; security
 # updates still run, and the ignore rules below apply to both.
 version: 2
 updates:
   - package-ecosystem: "maven"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 0
-    ignore:
-      - dependency-name: "com.googlecode.owasp-java-html-sanitizer:*"
-  - package-ecosystem: "maven"
-    directory: "/empiricism"
+    directories:
+      - "/"
+      - "/*"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
