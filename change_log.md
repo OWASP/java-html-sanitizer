@@ -193,6 +193,19 @@ Most recent at top.
     * Build: Coveralls coverage reporting is removed.  The plugin had not run
       since the Travis scripts were deleted in 2024, and the repo token that
       was committed with it in 2019 has been revoked.
+    * Docs: the `matching(ignoreCase, ...)` overloads say that the allowed
+      values must already be lower-case when `ignoreCase` is true.  The
+      attribute value is lower-cased before it is looked up but the allowed
+      values are used as given, so `matching(true, "Note")` matches nothing.
+      It fails closed, and a test pins it.
+    * Build: `dependabot.yml` now lists every directory holding a POM, where
+      it named two of them.  The `examples` module was not configured, so
+      Dependabot read its `${project.version}` dependency on the sanitizer as
+      an ancient release and proposed rewriting the root POM's `<version>` to
+      `20211018.1` (PR #439, and #383 before it).  A glob would cover modules
+      added later, but dependabot-core#12348 reports globbing silently
+      matching no manifests, so the directories are listed by hand and a new
+      module needs a line.
     * Docs: README examples compile again; Javadoc links point at `latest`.
     * Special thanks to (in lexicographic order):
       Alessandro Ruzzon, corebonts, Daham Chinthana, Domi, hwangjeyeon,

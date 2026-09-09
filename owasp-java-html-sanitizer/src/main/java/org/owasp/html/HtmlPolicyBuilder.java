@@ -1049,6 +1049,11 @@ public class HtmlPolicyBuilder {
      * supplied.
      * Multiple calls to {@code matching} are combined to restrict to the
      * intersection of possible matched values.
+     * <p>
+     * When {@code ignoreCase} is true the attribute value is lower-cased
+     * before it is looked up but {@code allowedValues} is used as given, so
+     * the allowed values must already be lower-case; one that is not can
+     * never match.
      */
     public AttributeBuilder matching(
         boolean ignoreCase, String... allowedValues) {
@@ -1060,6 +1065,11 @@ public class HtmlPolicyBuilder {
      * supplied.
      * Multiple calls to {@code matching} are combined to restrict to the
      * intersection of possible matched values.
+     * <p>
+     * When {@code ignoreCase} is true the attribute value is lower-cased
+     * before it is looked up but {@code allowedValues} is used as given, so
+     * the allowed values must already be lower-case; one that is not can
+     * never match.
      */
     public AttributeBuilder matching(
         final boolean ignoreCase, Set<? extends String> allowedValues) {
