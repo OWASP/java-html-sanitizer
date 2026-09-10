@@ -160,17 +160,27 @@ public final class HtmlSanitizer {
           if (htmlContent.charAt(token.start + 1) == '/') {  // A close tag.
             String elementName = HtmlLexer.canonicalElementName(
                 htmlContent.substring(token.start + 2, token.end));
-            receiver.closeTag(elementName);
-            while (lexer.hasNext()
-                   && lexer.next().type != HtmlTokenType.TAGEND) {
+            boolean ended = false;
+            while (lexer.hasNext()) {
               // skip tokens until we see a ">"
+              if (lexer.next().type == HtmlTokenType.TAGEND) {
+                ended = true;
+                break;
+              }
             }
+            if (!ended) {
+              // The input ended inside the tag.  A browser drops the tag
+              // whole, so there is nothing to close.
+              break;
+            }
+            receiver.closeTag(elementName);
             foreignContent.processEndTag(elementName);
           } else {
             attrs.clear();
 
             boolean attrsReadyForName = true;
             boolean selfClosing = false;
+            boolean ended = false;
             tagBody:
             while (lexer.hasNext()) {
               HtmlToken tagBodyToken = lexer.next();
@@ -196,10 +206,16 @@ public final class HtmlSanitizer {
                   // greater-than sign when the tokenizer is in a state where
                   // the solidus sets the self-closing flag.
                   selfClosing = htmlContent.charAt(tagBodyToken.start) == '/';
+                  ended = true;
                   break tagBody;
                 default:
                   // Just drop anything not recognized
               }
+            }
+            if (!ended) {
+              // The input ended inside the tag.  A browser drops the tag
+              // whole, attributes and all; the text before it stands.
+              break;
             }
             if (!attrsReadyForName) {
               attrs.add(attrs.getLast());
