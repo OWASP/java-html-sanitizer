@@ -229,6 +229,42 @@ final class PolicyFactoryTest {
     assertEquals(expected, webThenRelative.sanitize(links));
   }
 
+  /**
+   * Browsers resolving against an HTTP(S) page treat a backslash as a slash,
+   * so each pair below introduces an authority.  The relative-only and
+   * default empty guards reject every spelling, including after entity
+   * decoding, while a policy that allows both web protocols may keep them.
+   */
+  @Test
+  void testRelativeOnlyRejectsBrowserAuthoritySpellings() {
+    String[][] authoritySpellings = {
+        { "//evil.example/path", "//evil.example/path" },
+        { "/\\evil.example/path", "/\\evil.example/path" },
+        { "\\/evil.example/path", "\\/evil.example/path" },
+        { "\\\\evil.example/path", "\\\\evil.example/path" },
+        { "&#47;&#47;evil.example/path", "//evil.example/path" },
+        { "&#47;&#92;evil.example/path", "/\\evil.example/path" },
+        { "&#92;&#47;evil.example/path", "\\/evil.example/path" },
+        { "&#92;&#92;evil.example/path", "\\\\evil.example/path" },
+    };
+    PolicyFactory defaultGuard = links();
+    PolicyFactory relativeOnly = relativeOnlyLinks();
+    PolicyFactory web = links("http", "https");
+    PolicyFactory relativeAndWeb = relativeOnly.and(web);
+    PolicyFactory webAndRelative = web.and(relativeOnly);
+
+    for (String[] spelling : authoritySpellings) {
+      String html = "<a href='" + spelling[0] + "'>external</a>";
+      String webAllowed =
+          "<a href=\"" + spelling[1] + "\">external</a>";
+      assertEquals("external", defaultGuard.sanitize(html), spelling[0]);
+      assertEquals("external", relativeOnly.sanitize(html), spelling[0]);
+      assertEquals("external", relativeAndWeb.sanitize(html), spelling[0]);
+      assertEquals("external", webAndRelative.sanitize(html), spelling[0]);
+      assertEquals(webAllowed, web.sanitize(html), spelling[0]);
+    }
+  }
+
   /** Two factories that allowed no protocol still allow none together. */
   @Test
   void testAndOfTwoDefaultUrlProtocolGuardsAllowsNoProtocol() {
@@ -415,7 +451,9 @@ final class PolicyFactoryTest {
     PolicyFactory relativeOnly = relativeOnlyImages();
     String img = "<img src='http://example.com/a.png'"
         + " srcset='http://example.com/a.png 1x, javascript:alert(1) 2x,"
-        + " /b.png 3x'>";
+        + " /b.png 3x, //example.com/c.png 4x,"
+        + " /\\example.com/d.png 5x, \\/example.com/e.png 6x,"
+        + " \\\\example.com/f.png 7x'>";
     String httpKept = "<img src=\"http://example.com/a.png\""
         + " srcset=\"http://example.com/a.png 1x , /b.png 3x\" />";
     String relativeKept = "<img srcset=\"/b.png 3x\" />";
@@ -459,6 +497,19 @@ final class PolicyFactoryTest {
         expected, noProtocols.and(relativeOnly).and(web).sanitize(divs));
     assertEquals(
         expected, noProtocols.and(relativeOnly.and(web)).sanitize(divs));
+
+    PolicyFactory rewritesToAuthority = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(images)
+        .allowUrlsInStyles((elementName, attributeName, url) ->
+            "\\\\evil.example/i.png")
+        .allowOnlyRelativeUrls()
+        .toFactory();
+    assertEquals(
+        "<div>x</div>",
+        rewritesToAuthority.sanitize(
+            "<div style=\"background-image:url(/local.png)\">x</div>"));
   }
 
   /**

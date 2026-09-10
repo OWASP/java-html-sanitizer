@@ -5,10 +5,12 @@ Most recent at top.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such
-      as `//example.org/`.  Unlike the default guard on a builder that never
-      called `allowUrlProtocols`, this restriction intersects with every
-      protocol allowlist and remains relative-only through
-      `PolicyFactory.and`, including for `srcset` and `url()` in styles.
+      as `//example.org/`, including equivalent slash and backslash spellings
+      that browsers resolve to an authority.  Unlike the default guard on a
+      builder that never called `allowUrlProtocols`, this restriction
+      intersects with every protocol allowlist and remains relative-only
+      through `PolicyFactory.and`, including for `srcset` and `url()` in
+      styles.
       Existing `and()` compositions that deliberately relied on a
       protocol-less factory to strip absolute URLs allowed by another factory
       should call `allowOnlyRelativeUrls()` on the restrictive builder before

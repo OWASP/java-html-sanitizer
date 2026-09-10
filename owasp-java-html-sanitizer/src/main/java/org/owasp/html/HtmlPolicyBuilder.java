@@ -591,7 +591,9 @@ public class HtmlPolicyBuilder {
    * A relative URL here has neither a protocol nor an authority, so values
    * such as {@code path}, {@code /path}, {@code ?query}, and {@code #fragment}
    * are allowed, while {@code https://example.org/} and the protocol-relative
-   * {@code //example.org/} are rejected.
+   * {@code //example.org/} are rejected.  Browsers treat backslashes as
+   * slashes when resolving against an HTTP(S) page, so equivalent authority
+   * spellings such as {@code \\example.org/} are rejected too.
    * <p>
    * Unlike the default guard used when {@link #allowUrlProtocols} was never
    * called, this is an explicit restriction.  It continues to reject every
@@ -612,10 +614,9 @@ public class HtmlPolicyBuilder {
 
   /**
    * Reverses a decision made by {@link #allowUrlProtocols}.
-   * If this removes every allowed protocol, the builder again uses the
-   * default guard that yields to another factory's allowlist during
-   * {@link PolicyFactory#and}.  To keep allowing only relative URLs through
-   * composition, use {@link #allowOnlyRelativeUrls()}.
+   * Unless {@link #allowOnlyRelativeUrls()} was called, removing every
+   * allowed protocol makes the builder use the default guard that yields to
+   * another factory's allowlist during {@link PolicyFactory#and}.
    */
   public HtmlPolicyBuilder disallowUrlProtocols(String... protocols) {
     invalidateCompiledState();
