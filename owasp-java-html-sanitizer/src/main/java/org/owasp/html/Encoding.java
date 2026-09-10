@@ -255,7 +255,8 @@ public final class Encoding {
    *     would leave an HTML parser in the Data state if it were to encounter a space
    *     character as the next character.  In practice this means that the buffer
    *     does not contain partial tags or comments, and the most recently opened
-   *     element is `<textarea>` or `<title>` and that element is still open.
+   *     element is {@code <textarea>} or {@code <title>} and that element is
+   *     still open.
    */
   public static void encodeRcdataOnto(String plainText, Appendable output)
       throws IOException {
