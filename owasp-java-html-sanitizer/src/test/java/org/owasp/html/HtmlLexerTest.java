@@ -96,6 +96,28 @@ class HtmlLexerTest {
   }
 
   @Test
+  void testSlashStartsAnUnquotedValueAfterEquals() {
+    assertTokens(
+        "<path d=/>x</path>",
+        "TAGBEGIN: <path",
+        "ATTRNAME: d",
+        "ATTRVALUE: /",
+        "TAGEND: >",
+        "TEXT: x",
+        "TAGBEGIN: </path",
+        "TAGEND: >");
+    assertTokens(
+        "<path d = />x</path>",
+        "TAGBEGIN: <path",
+        "ATTRNAME: d",
+        "ATTRVALUE: /",
+        "TAGEND: >",
+        "TEXT: x",
+        "TAGBEGIN: </path",
+        "TAGEND: >");
+  }
+
+  @Test
   void testShortTags() {
     // See comments in html-sanitizer-test.js as to why we don't bother with
     // short tags.  In short, they are not in HTML5 and not implemented properly

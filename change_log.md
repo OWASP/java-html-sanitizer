@@ -2,6 +2,13 @@
 
 Most recent at top.
   * Next release
+    * Self-closing SVG and MathML handling now follows the browser's current
+      tree-construction context through HTML integration points, foreign
+      content breakout tags, and mismatched foreign end tags.  A slash after
+      an equals sign remains part of an unquoted attribute value, and a
+      self-closing foreign element named `<title>`, `<style>`, `<textarea>`,
+      or another HTML literal-content element closes without consuming the
+      markup that follows it.  Issue #457.
     * Self-closing tags inside `<svg>` and `<math>` now close.  Browsers
       honor the self-closing flag on a start tag in foreign content, so
       `<path d="..."/>` is a complete, empty element there, and on `<svg/>`
@@ -15,9 +22,7 @@ Most recent at top.
       tag.  Nothing changes in HTML content, where the flag means nothing on
       a non-void element, nor for the tags that break out of foreign
       content, such as `<div/>` or `<p/>` inside `<svg>`, which browsers
-      process as HTML.  Elements whose content the lexer reads as text, such
-      as `<style>` and `<title>`, keep that content up to their end tag as
-      before.  Issue #122.
+      process as HTML.  Issue #122.
     * `PolicyFactory.and` no longer lets a factory that allowed no URL
       protocol veto the protocols the other factory allowed.  A builder that
       never called `allowUrlProtocols` guards its URL attributes with a

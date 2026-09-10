@@ -226,8 +226,8 @@ ATTRVALUE  []  :  1940-1940
 TAGEND     [>]  :  1940-1941
 TAGBEGIN   [<a]  :  1941-1943
 ATTRNAME   [href]  :  1944-1948
-ATTRVALUE  []  :  1949-1949
-TAGEND     [/>]  :  1949-1951
+ATTRVALUE  [/]  :  1949-1950
+TAGEND     [>]  :  1950-1951
 TEXT       [\n\n]  :  1951-1953
 TAGBEGIN   [<span]  :  1953-1958
 ATTRNAME   [title]  :  1959-1964
