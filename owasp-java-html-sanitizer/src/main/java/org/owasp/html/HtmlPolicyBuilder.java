@@ -50,7 +50,7 @@ import static org.owasp.shim.Java8Shim.j8;
 /**
  * Conveniences for configuring policies for the {@link HtmlSanitizer}.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <p>
  * To create a policy, first construct an instance of this class; then call
  * <code>allow&hellip;</code> methods to turn on tags, attributes, and other

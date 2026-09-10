@@ -598,4 +598,74 @@ class TagBalancingHtmlStreamRendererTest {
         "<div><menu><menuitem></menuitem><menuitem></menuitem></menu></div>",
         htmlOutputBuffer.toString());
   }
+
+  /**
+   * A browser clears its list of active formatting elements to a marker on
+   * entering a table cell, so an {@code a} opened inside the cell does not
+   * end an {@code a} open outside the table (#333).  The balancer used to
+   * close back to any open {@code a}, taking the cell, row and table with
+   * it.
+   */
+  @Test
+  void testLinkInsideCellInsideLinkStaysNested() {
+    balancer.openDocument();
+    balancer.openTag("a", j8().listOf("href", "u"));
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("tr", j8().listOf());
+    balancer.openTag("td", j8().listOf());
+    balancer.openTag("a", j8().listOf("href", "v"));
+    balancer.text("1");
+    balancer.closeTag("a");
+    balancer.closeTag("td");
+    balancer.closeTag("tr");
+    balancer.closeTag("table");
+    balancer.closeTag("a");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<a href=\"u\"><table><tbody><tr><td><a href=\"v\">1</a></td></tr>"
+        + "</tbody></table></a>",
+        htmlOutputBuffer.toString());
+  }
+
+  /** The other elements a browser puts a marker on entering do the same. */
+  @Test
+  void testLinkInsideFormattingMarkerInsideLinkStaysNested() {
+    for (String marker
+         : new String[] { "applet", "marquee", "object", "template" }) {
+      createBalancer();
+      balancer.openDocument();
+      balancer.openTag("a", j8().listOf("href", "u"));
+      balancer.openTag(marker, j8().listOf());
+      balancer.openTag("a", j8().listOf("href", "v"));
+      balancer.text("x");
+      balancer.closeTag("a");
+      balancer.closeTag(marker);
+      balancer.closeTag("a");
+      balancer.closeDocument();
+
+      assertEquals(
+          "<a href=\"u\"><" + marker + "><a href=\"v\">x</a></" + marker
+          + "></a>",
+          htmlOutputBuffer.toString(), marker);
+    }
+  }
+
+  /** With no marker between them, a second {@code a} still ends the first. */
+  @Test
+  void testLinkInsideLinkStillEndsIt() {
+    balancer.openDocument();
+    balancer.openTag("a", j8().listOf("href", "u"));
+    balancer.text("x");
+    balancer.openTag("a", j8().listOf("href", "v"));
+    balancer.text("y");
+    balancer.closeTag("a");
+    balancer.text("z");
+    balancer.closeTag("a");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<a href=\"u\">x</a><a href=\"v\">y</a>z",
+        htmlOutputBuffer.toString());
+  }
 }

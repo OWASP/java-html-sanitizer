@@ -34,6 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.Nullable;
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -55,11 +56,16 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final Appendable output;
   private final Handler<? super IOException> ioExHandler;
   private final Handler<? super String> badHtmlHandler;
+  /** Told about dropped literal content; null while nobody is listening. */
+  private @Nullable DroppedTextListener droppedTextListener;
   private String lastTagOpened;
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
-  /** The count of {@link #foreignContentRootElementNames} opened and not subsequently closed. */
+  /**
+   * The count of {@link #foreignContentRootElementNames} opened and not
+   * subsequently closed.
+   */
   private int foreignContentDepth = 0;
   /**
    * True when the current element is one whose content the HTML lexer treats
@@ -130,9 +136,36 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
   }
 
+  /**
+   * Told when the content of a literal-content element such as
+   * {@code script} or {@code style} is dropped because it cannot be emitted
+   * without a browser reading it differently.  The bad HTML handler hears
+   * of it too, as a message; this carries the content itself, so that
+   * {@link HtmlChangeReporter} can report the loss to its listener.
+   */
+  interface DroppedTextListener {
+    /**
+     * @param elementName the element whose content was dropped.
+     * @param text the content that was dropped.
+     */
+    void droppedText(String elementName, String text);
+  }
+
+  /**
+   * Sends dropped literal content to {@code listener}, or to nobody, until
+   * the next {@link #openDocument}, which starts a document with nobody
+   * listening.
+   */
+  final void reportDroppedTextTo(@Nullable DroppedTextListener listener) {
+    this.droppedTextListener = listener;
+  }
+
   public final void openDocument() throws IllegalStateException {
     if (open) { throw new IllegalStateException(); }
     open = true;
+    // A listener is for one document; whoever wants this one's drops
+    // registers after this, so an earlier document's cannot linger.
+    droppedTextListener = null;
   }
 
   public final void closeDocument() throws IllegalStateException {
@@ -184,7 +217,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       foreignContentDepth += 1;
     }
 
-    HtmlTextEscapingMode tentativeEscapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    HtmlTextEscapingMode tentativeEscapingMode =
+        HtmlTextEscapingMode.getModeForTag(elementName);
     decodeTextBeforeEscaping = false;
     if (foreignContentDepth == 0) {
       escapingMode = tentativeEscapingMode;
@@ -280,7 +314,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return;
     }
 
-    if (foreignContentDepth != 0 && foreignContentRootElementNames.contains(elementName)) {
+    if (foreignContentDepth != 0
+        && foreignContentRootElementNames.contains(elementName)) {
       foreignContentDepth -= 1;
     }
     decodeTextBeforeEscaping = false;
@@ -304,6 +339,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             cdataContent.subSequence(
                 problemIndex,
                 Math.min(problemIndex + 10, cdataContent.length())));
+        if (droppedTextListener != null) {
+          droppedTextListener.droppedText(
+              elementName, cdataContent.toString());
+        }
         // Still output the close tag.
       }
       if ("plaintext".equals(elementName)) { return; }
@@ -339,13 +378,16 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     // www.w3.org/TR/html51/semantics-scripting.html#restrictions-for-contents-of-script-elements
     // www.w3.org/TR/html5/scripting-1.html#restrictions-for-contents-of-script-elements
     // 4.12.1.3. Restrictions for contents of script elements
-    // The textContent of a script element must match the script production in the following ABNF, the character set for which is Unicode. [ABNF]
+    // The textContent of a script element must match the script production
+    // in the following ABNF, the character set for which is Unicode. [ABNF]
     //
     // script = outer *( comment-open inner comment-close outer )
     //
-    // outer = < any string that doesn’t contain a substring that matches not-in-outer >
+    // outer = < any string that doesn’t contain a substring that matches
+    //           not-in-outer >
     // not-in-outer = comment-open
-    // inner = < any string that doesn’t contain a substring that matches not-in-inner >
+    // inner = < any string that doesn’t contain a substring that matches
+    //           not-in-inner >
     // not-in-inner = comment-close / script-open
     //
     // comment-open = "<!--"
@@ -371,8 +413,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             } else if (innerStart < 0) {
               break;
             }
-            // We don't need to do any suffix checks to preserve concatenation safety
-            // since we buffer pending unescaped above.
+            // We don't need to do any suffix checks to preserve concatenation
+            // safety since we buffer pending unescaped above.
             int end = start + localName.length();
             if (end <= n
                 && Strings.regionMatchesIgnoreCase(
@@ -504,5 +546,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
 
-  private static final Set<String> foreignContentRootElementNames = j8().setOf("svg", "math");
+  private static final Set<String> foreignContentRootElementNames =
+      j8().setOf("svg", "math");
 }

@@ -33,7 +33,13 @@ import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
 
+import java.io.StringReader;
+
+import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.xml.sax.InputSource;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -797,6 +803,87 @@ class HtmlSanitizerTest {
     assertEquals("<p x=\"x\">y</p>", p.sanitize("<p x></\"<p>y</p>"));
     assertEquals("<b>xy</b>", p.sanitize("<b>x</ b>y"));
     assertEquals("a&lt;/", p.sanitize("a</"));
+  }
+
+  /**
+   * A link inside a table cell inside a link stays where it is: a browser
+   * clears its active formatting elements to a marker on entering the cell,
+   * so the inner {@code a} does not end the outer one.  The balancer used to
+   * close back to the outer {@code a}, taking the inner table's cell, row
+   * and table with it, so that table's second row landed in the outer table
+   * (#333).  The parser check reads both the input and the output the way a
+   * browser does and compares the trees.
+   */
+  @Test
+  void testLinkInsideCellInsideLinkKeepsTheTableTogether() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("a", "table", "tbody", "tr", "td", "th", "caption")
+        .allowAttributes("href").onElements("a")
+        .allowUrlProtocols("http")
+        .toFactory();
+    String input = "<table><tr><td><a href=\"http://b.example\">"
+        + "<table><tbody>"
+        + "<tr><td><a href=\"http://b.example\">11111</a></td></tr>"
+        + "<tr><td><a href=\"http://b.example\">22222</a></td></tr>"
+        + "</tbody></table></a></td></tr></table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table><tbody><tr><td><a href=\"http://b.example\">"
+        + "<table><tbody>"
+        + "<tr><td><a href=\"http://b.example\">11111</a></td></tr>"
+        + "<tr><td><a href=\"http://b.example\">22222</a></td></tr>"
+        + "</tbody></table></a></td></tr></tbody></table>",
+        out);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+
+    // caption and th are markers too; a link straight inside a link is not,
+    // and the second still ends the first, as in a browser.
+    for (String html : new String[] {
+            "<a href=\"http://u\"><table><caption><a href=\"http://v\">c"
+            + "</a></caption></table></a>",
+            "<a href=\"http://u\"><table><tr><th><a href=\"http://v\">h"
+            + "</a></th></tr></table></a>",
+            "<a href=\"http://u\">x<a href=\"http://v\">y</a>z</a>",
+         }) {
+      assertEquals(
+          parseAsBrowser(html), parseAsBrowser(p.sanitize(html)), html);
+    }
+  }
+
+  /** The tree a browser builds from html, one node per line. */
+  private static String parseAsBrowser(String html) throws Exception {
+    Node fragment = new HtmlDocumentBuilder().parseFragment(
+        new InputSource(new StringReader(html)), "body");
+    StringBuilder sb = new StringBuilder();
+    appendTree(fragment, "", sb);
+    return sb.toString();
+  }
+
+  private static void appendTree(Node node, String indent, StringBuilder sb) {
+    switch (node.getNodeType()) {
+      case Node.ELEMENT_NODE:
+        sb.append(indent).append('<').append(node.getNodeName());
+        NamedNodeMap attrs = node.getAttributes();
+        for (int i = 0, n = attrs.getLength(); i < n; ++i) {
+          Node attr = attrs.item(i);
+          sb.append(' ').append(attr.getNodeName())
+              .append('=').append(attr.getNodeValue());
+        }
+        sb.append(">\n");
+        indent += "  ";
+        break;
+      case Node.TEXT_NODE:
+        sb.append(indent).append('"').append(node.getNodeValue())
+            .append("\"\n");
+        break;
+      default:
+        break;
+    }
+    for (Node child = node.getFirstChild(); child != null;
+         child = child.getNextSibling()) {
+      appendTree(child, indent, sb);
+    }
   }
 
   @Test
