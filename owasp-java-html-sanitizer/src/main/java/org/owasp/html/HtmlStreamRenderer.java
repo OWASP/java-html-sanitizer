@@ -151,7 +151,11 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     void droppedText(String elementName, String text);
   }
 
-  /** Sends dropped literal content to {@code listener}, or to nobody. */
+  /**
+   * Sends dropped literal content to {@code listener}, or to nobody, until
+   * the next {@link #openDocument}, which starts a document with nobody
+   * listening.
+   */
   final void reportDroppedTextTo(@Nullable DroppedTextListener listener) {
     this.droppedTextListener = listener;
   }
@@ -159,6 +163,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   public final void openDocument() throws IllegalStateException {
     if (open) { throw new IllegalStateException(); }
     open = true;
+    // A listener is for one document; whoever wants this one's drops
+    // registers after this, so an earlier document's cannot linger.
+    droppedTextListener = null;
   }
 
   public final void closeDocument() throws IllegalStateException {

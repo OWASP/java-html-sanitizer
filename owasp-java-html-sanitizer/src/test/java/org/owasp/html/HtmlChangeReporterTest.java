@@ -336,14 +336,94 @@ class HtmlChangeReporterTest {
 
   /**
    * The convenience method renders with HtmlStreamRenderer, so dropped
-   * content reaches the listener.  A sanitizer built on another receiver
+   * content reaches the listener, as it does through the library's own
+   * receiver wrapper around one.  A sanitizer built on some other receiver
    * has no renderer to hear from and reports tags and attributes only.
    */
   @Test
   void testDroppedTextReachesTheListenerOnlyThroughTheRenderer() {
     final List<String> dropped = new ArrayList<>();
     final List<String> tags = new ArrayList<>();
-    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+    HtmlChangeListener<Object> listener =
+        textAndTagCollector(dropped, tags);
+    PolicyFactory p = scriptAndStyleWithText();
+    String html = "<script>x --> y</script><b>z</b>";
+
+    assertEquals("<script></script>z", p.sanitize(html, listener, null));
+    assertEquals(Arrays.asList("script:x --> y"), dropped);
+    assertEquals(Arrays.asList("b"), tags);
+
+    // Through the library's wrapper, which a postprocessor would extend.
+    dropped.clear();
+    tags.clear();
+    StringBuilder out = new StringBuilder();
+    HtmlStreamEventReceiver wrapped = new HtmlStreamEventReceiverWrapper(
+        HtmlStreamRenderer.create(out, Handler.DO_NOTHING)) {
+      // Forwards everything; only its type differs from the renderer's.
+    };
+    HtmlSanitizer.sanitize(html, p.apply(wrapped, listener, null));
+
+    assertEquals("<script></script>z", out.toString());
+    assertEquals(Arrays.asList("script:x --> y"), dropped);
+    assertEquals(Arrays.asList("b"), tags);
+
+    // Through a receiver of some other kind, which cannot be seen through.
+    dropped.clear();
+    tags.clear();
+    final StringBuilder out2 = new StringBuilder();
+    final HtmlStreamRenderer renderer =
+        HtmlStreamRenderer.create(out2, Handler.DO_NOTHING);
+    HtmlStreamEventReceiver foreign = new HtmlStreamEventReceiver() {
+      public void openDocument() { renderer.openDocument(); }
+
+      public void closeDocument() { renderer.closeDocument(); }
+
+      public void openTag(String elementName, List<String> attrs) {
+        renderer.openTag(elementName, attrs);
+      }
+
+      public void closeTag(String elementName) {
+        renderer.closeTag(elementName);
+      }
+
+      public void text(String text) { renderer.text(text); }
+    };
+    HtmlSanitizer.sanitize(html, p.apply(foreign, listener, null));
+
+    assertEquals("<script></script>z", out2.toString());
+    assertEquals(Arrays.asList(), dropped);
+    assertEquals(Arrays.asList("b"), tags);
+  }
+
+  /**
+   * A reporter listens to the renderer for one document.  The renderer,
+   * reused for another document without that reporter, must not go on
+   * reporting to it under the old context.
+   */
+  @Test
+  void testARenderersNextDocumentDoesNotReportToTheLastReporter() {
+    final List<String> dropped = new ArrayList<>();
+    HtmlChangeListener<Object> listener =
+        textAndTagCollector(dropped, new ArrayList<String>());
+    PolicyFactory p = scriptAndStyleWithText();
+    StringBuilder out = new StringBuilder();
+    HtmlStreamRenderer renderer =
+        HtmlStreamRenderer.create(out, Handler.DO_NOTHING);
+    String html = "<script>x --> y</script>";
+
+    HtmlSanitizer.sanitize(html, p.apply(renderer, listener, null));
+    assertEquals(Arrays.asList("script:x --> y"), dropped);
+
+    dropped.clear();
+    HtmlSanitizer.sanitize(html, p.apply(renderer));
+    assertEquals("<script></script><script></script>", out.toString());
+    assertEquals(Arrays.asList(), dropped);
+  }
+
+  /** Collects dropped text as {@code element:text} and discarded tags. */
+  private static HtmlChangeListener<Object> textAndTagCollector(
+      final List<String> dropped, final List<String> tags) {
+    return new HtmlChangeListener<Object>() {
       public void discardedTag(Object context, String elementName) {
         tags.add(elementName);
       }
@@ -359,25 +439,6 @@ class HtmlChangeReporterTest {
         dropped.add(elementName + ":" + text);
       }
     };
-    PolicyFactory p = scriptAndStyleWithText();
-    String html = "<script>x --> y</script><b>z</b>";
-
-    assertEquals("<script></script>z", p.sanitize(html, listener, null));
-    assertEquals(Arrays.asList("script:x --> y"), dropped);
-    assertEquals(Arrays.asList("b"), tags);
-
-    dropped.clear();
-    tags.clear();
-    StringBuilder out = new StringBuilder();
-    HtmlStreamEventReceiver wrapped = new HtmlStreamEventReceiverWrapper(
-        HtmlStreamRenderer.create(out, Handler.DO_NOTHING)) {
-      // Forwards everything; only its type differs from the renderer's.
-    };
-    HtmlSanitizer.sanitize(html, p.apply(wrapped, listener, null));
-
-    assertEquals("<script></script>z", out.toString());
-    assertEquals(Arrays.asList(), dropped);
-    assertEquals(Arrays.asList("b"), tags);
   }
 
   /** Keeps script and style with their content, as a template host might. */

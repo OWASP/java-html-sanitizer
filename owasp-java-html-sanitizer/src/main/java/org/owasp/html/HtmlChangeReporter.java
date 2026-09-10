@@ -147,12 +147,13 @@ public final class HtmlChangeReporter<T> {
     }
 
     public void openDocument() {
+      policy.openDocument();
       // The renderer decides on its own to drop literal content it cannot
       // emit, so it has to tell us; any other receiver keeps that to itself.
-      // Bound for this document only, so that a renderer reused without this
-      // reporter does not go on reporting to it.
+      // Bound once the renderer has opened the document, which forgets any
+      // earlier listener, and for this document only, so that a renderer
+      // reused without this reporter does not go on reporting to it.
       output.listenForDroppedText(this);
-      policy.openDocument();
     }
 
     public void closeDocument() {
@@ -250,12 +251,18 @@ public final class HtmlChangeReporter<T> {
 
     /**
      * Has the renderer report dropped literal content to {@code listener},
-     * or to nobody when null, if it is one that can.
+     * or to nobody when null, if it is one that can.  The library's own
+     * decorator, which a postprocessor or a logging wrapper is likely to
+     * extend, is seen through.
      */
     void listenForDroppedText(
         @Nullable HtmlStreamRenderer.DroppedTextListener listener) {
-      if (renderer instanceof HtmlStreamRenderer) {
-        ((HtmlStreamRenderer) renderer).reportDroppedTextTo(listener);
+      HtmlStreamEventReceiver r = renderer;
+      while (r instanceof HtmlStreamEventReceiverWrapper) {
+        r = ((HtmlStreamEventReceiverWrapper) r).underlying;
+      }
+      if (r instanceof HtmlStreamRenderer) {
+        ((HtmlStreamRenderer) r).reportDroppedTextTo(listener);
       }
     }
 

@@ -52,9 +52,11 @@ public interface HtmlChangeListener<T> {
    * Called when attributes are discarded from a tag that the policy allowed.
    * <p>
    * Usually the tag itself survives without them.  When every attribute is
-   * rejected and the element is one the policy skips when it has none, as
-   * {@code a}, {@code font}, {@code img}, {@code input} and {@code span} are
-   * by default, the tag is discarded as a consequence: {@link #discardedTag}
+   * rejected and the element is one the policy skips when it has none, the
+   * {@link HtmlPolicyBuilder#DEFAULT_SKIP_IF_EMPTY default set} unless
+   * {@link HtmlPolicyBuilder#allowWithoutAttributes} or
+   * {@link HtmlPolicyBuilder#disallowWithoutAttributes} said otherwise, the
+   * tag is discarded as a consequence: {@link #discardedTag}
    * reports the tag, and this method still reports the attributes, since
    * rejecting them is what the policy did.  Attributes on a tag that the
    * policy did not allow are not reported; {@code discardedTag} covers the
@@ -92,7 +94,8 @@ public interface HtmlChangeListener<T> {
    * {@link #discardedTag} report covers it.  These reports come from
    * {@link HtmlStreamRenderer}, which
    * {@link PolicyFactory#sanitize(String, HtmlChangeListener, Object)}
-   * always uses; a sanitizer built on another receiver does not send them.
+   * always uses, seen through any {@link HtmlStreamEventReceiverWrapper}
+   * around it; a sanitizer built on some other receiver does not send them.
    * <p>
    * The default implementation does nothing.
    *

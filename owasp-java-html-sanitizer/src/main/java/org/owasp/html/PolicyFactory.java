@@ -98,9 +98,10 @@ public final class PolicyFactory
    * Content that {@code out} cannot render, such as a {@code -->} inside a
    * kept {@code script} element, is reported through
    * {@link HtmlChangeListener#discardedText} only when {@code out} is an
-   * {@link HtmlStreamRenderer}, since that is where the decision to drop it
-   * is made; {@link #sanitize(String, HtmlChangeListener, Object)} always
-   * uses one.
+   * {@link HtmlStreamRenderer}, possibly behind
+   * {@link HtmlStreamEventReceiverWrapper} decorators, since that is where
+   * the decision to drop it is made;
+   * {@link #sanitize(String, HtmlChangeListener, Object)} always uses one.
    * @param out a renderer that receives approved tokens only.
    * @param listener if non-null, receives notifications of tags and attributes
    *     that were rejected by the policy.  This may tie into intrusion
