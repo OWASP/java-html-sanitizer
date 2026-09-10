@@ -53,6 +53,16 @@ final class HtmlLexer extends AbstractTokenStream {
   }
 
   /**
+   * Cancels the literal-content mode tentatively selected from a start tag's
+   * name.  The tree-construction context can show that an HTML raw-text or
+   * RCDATA name actually denotes a foreign element, where those tokenizer
+   * modes do not apply.
+   */
+  void cancelPendingLiteralContent() {
+    splitter.cancelPendingLiteralContent();
+  }
+
+  /**
    * Normalize case of names that are not name-spaced.  This lower-cases HTML
    * element names, but not ones for embedded SVG or MathML.
    */
@@ -503,7 +513,6 @@ final class HtmlInputSplitter extends AbstractTokenStream {
   }
 
   private TagBodyState tagBodyState = TagBodyState.BEFORE_NAME;
-  private HtmlToken lastNonIgnorable = null;
   /**
    * Breaks the character stream into tokens.
    * This method returns a stream of tokens such that each token starts where
@@ -528,7 +537,9 @@ final class HtmlInputSplitter extends AbstractTokenStream {
         type = HtmlTokenType.TAGEND;
         inTag = false;
       } else if ('/' == ch) {
-        if (end != limit && '>' == input.charAt(end)) {
+        if (end != limit && '>' == input.charAt(end)
+            && tagBodyState != TagBodyState.BEFORE_VALUE
+            && tagBodyState != TagBodyState.IN_UNQUOTED_VALUE) {
           type = HtmlTokenType.TAGEND;
           inTag = false;
           ++end;
@@ -557,8 +568,8 @@ final class HtmlInputSplitter extends AbstractTokenStream {
         for (; end < limit; ++end) {
           ch = input.charAt(end);
           // End a text chunk before />
-          if ((lastNonIgnorable == null
-               || !lastNonIgnorable.tokenInContextMatches(input, "="))
+          if (tagBodyState != TagBodyState.BEFORE_VALUE
+              && tagBodyState != TagBodyState.IN_UNQUOTED_VALUE
               && '/' == ch && end + 1 < limit
               && '>' == input.charAt(end + 1)) {
             break;
@@ -811,10 +822,16 @@ final class HtmlInputSplitter extends AbstractTokenStream {
 
     offset = end;
     HtmlToken result = HtmlToken.instance(start, end, type);
-    if (type != HtmlTokenType.IGNORABLE) { lastNonIgnorable = result; }
     tagBodyState = inTag
         ? tagBodyStateAfter(result) : TagBodyState.BEFORE_NAME;
     return result;
+  }
+
+  /** Stops treating content after the current start tag as literal text. */
+  void cancelPendingLiteralContent() {
+    inEscapeExemptBlock = false;
+    escapeExemptTagName = null;
+    textEscapingMode = null;
   }
 
   /** The tag body state after {@code t}, a token lexed inside a tag. */

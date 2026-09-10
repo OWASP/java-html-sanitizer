@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -143,12 +144,7 @@ public final class HtmlSanitizer {
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
     // way.
     LinkedList<String> attrs = new LinkedList<>();
-    // The number of <svg> and <math> start tags seen without a matching end
-    // tag.  Browsers parse the content of those elements as foreign content,
-    // where a start tag's self-closing flag is honored: <path/> is a whole,
-    // empty element.  In HTML content the flag means nothing, and <path/>
-    // opens an element that only an end tag closes.  Issue #122.
-    int foreignContentDepth = 0;
+    ForeignContentContext foreignContent = new ForeignContentContext();
     while (lexer.hasNext()) {
       HtmlToken token = lexer.next();
       switch (token.type) {
@@ -169,10 +165,7 @@ public final class HtmlSanitizer {
                    && lexer.next().type != HtmlTokenType.TAGEND) {
               // skip tokens until we see a ">"
             }
-            if (foreignContentDepth != 0
-                && isForeignContentRoot(elementName)) {
-              --foreignContentDepth;
-            }
+            foreignContent.processEndTag(elementName);
           } else {
             attrs.clear();
 
@@ -199,9 +192,9 @@ public final class HtmlSanitizer {
                   attrsReadyForName = true;
                   break;
                 case TAGEND:
-                  // The lexer ends a start tag with a "/>" token only when
-                  // the solidus immediately precedes the ">", which is when
-                  // the WHATWG tokenizer sets the self-closing flag.
+                  // HtmlInputSplitter only combines the solidus with the
+                  // greater-than sign when the tokenizer is in a state where
+                  // the solidus sets the self-closing flag.
                   selfClosing = htmlContent.charAt(tagBodyToken.start) == '/';
                   break tagBody;
                 default:
@@ -213,18 +206,21 @@ public final class HtmlSanitizer {
             }
             String elementName = HtmlLexer.canonicalElementName(
                 htmlContent.substring(token.start + 1, token.end));
-            boolean foreignContentRoot = isForeignContentRoot(elementName);
             // Decided before the policy sees the attributes, since it may
             // edit them.
-            boolean closesItself = selfClosing
-                && (foreignContentRoot
-                    || (foreignContentDepth != 0
-                        && closesItselfInForeignContent(elementName, attrs)));
+            boolean closesItself = foreignContent.processStartTag(
+                elementName, attrs, selfClosing);
+            if (closesItself
+                && HtmlTextEscapingMode.isTagFollowedByLiteralContent(
+                    elementName)) {
+              // The splitter tentatively chose an HTML raw-text or RCDATA
+              // mode from the name alone.  Foreign elements stay in the data
+              // state, and this one has already closed.
+              lexer.cancelPendingLiteralContent();
+            }
             receiver.openTag(elementName, attrs);
             if (closesItself) {
               receiver.closeTag(elementName);
-            } else if (foreignContentRoot) {
-              ++foreignContentDepth;
             }
           }
           break;
@@ -238,51 +234,260 @@ public final class HtmlSanitizer {
     receiver.closeDocument();
   }
 
-  /**
-   * True for the elements whose content browsers parse as foreign content
-   * rather than as HTML.
-   */
+  /** Tracks the tree-construction context needed for self-closing flags. */
+  private static final class ForeignContentContext {
+    /** Match the sanitizer's output nesting limit without growing unchecked. */
+    private static final int MAX_DEPTH = 256;
+
+    /** Elements from the first open foreign root through the current node. */
+    private final List<OpenElement> openElements = new ArrayList<>();
+
+    /**
+     * True once the bounded stack is exhausted.  The legacy HTML behavior is
+     * the conservative fallback for ordinary tags from that point onward.
+     */
+    private boolean unknown;
+
+    /**
+     * Updates the context for a start tag and returns whether its self-closing
+     * flag is honored by tree construction.
+     */
+    boolean processStartTag(
+        String elementName, List<String> attrs, boolean selfClosing) {
+      if (unknown) {
+        return selfClosing && isForeignContentRoot(elementName);
+      }
+
+      OpenElement current = currentElement();
+      boolean usesHtmlRules = usesHtmlRulesForStartTag(current, elementName);
+      if (!usesHtmlRules
+          && breaksOutOfForeignContent(elementName, attrs)) {
+        popToHtmlOrIntegrationPoint();
+        usesHtmlRules = true;
+      }
+
+      if (usesHtmlRules) {
+        return processHtmlStartTag(elementName, attrs, selfClosing);
+      }
+
+      // Any other start tag in foreign content inherits the current
+      // namespace, even one named "svg" or "math".
+      if (!selfClosing) {
+        push(new OpenElement(elementName, current.namespace, attrs));
+      }
+      return selfClosing;
+    }
+
+    /** Updates the context using the foreign-content or HTML end-tag rules. */
+    void processEndTag(String elementName) {
+      if (unknown || openElements.isEmpty()) { return; }
+
+      OpenElement current = currentElement();
+      if (current.namespace == Namespace.HTML) {
+        processHtmlEndTag(elementName);
+        return;
+      }
+
+      if ("br".equals(elementName) || "p".equals(elementName)) {
+        popToHtmlOrIntegrationPoint();
+        processHtmlEndTag(elementName);
+        return;
+      }
+
+      // The foreign-content end-tag algorithm walks down from the current
+      // node.  A foreign node with the tag name closes, along with every
+      // node above it.  At the first HTML node the browser reprocesses the
+      // token under the HTML rules instead, where an HTML node with the tag
+      // name closes the same way, but a node in the special category, which
+      // among foreign elements means an integration point, ends the search
+      // and the token is ignored.
+      boolean htmlRules = false;
+      boolean sawIntegrationPoint = false;
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        boolean isHtml = open.namespace == Namespace.HTML;
+        boolean isIntegrationPoint
+            = open.mathTextIntegrationPoint || open.htmlIntegrationPoint;
+        if (isHtml) {
+          htmlRules = true;
+        } else if (htmlRules && isIntegrationPoint) {
+          return;
+        }
+        if (isHtml == htmlRules
+            && asciiEqualsIgnoreCase(open.elementName, elementName)) {
+          openElements.subList(i, openElements.size()).clear();
+          return;
+        }
+        sawIntegrationPoint |= isIntegrationPoint;
+      }
+      // Nothing tracked matched, so the token now applies to the HTML
+      // elements below the first foreign root, which are not tracked.  No
+      // HTML element is named svg or math, and an integration point in
+      // between is special and stops the search, so the browser ignores the
+      // token in those cases.  Otherwise the named element may well be
+      // open below, in which case the browser closes it and every foreign
+      // element above it.  Assume that it is: the cost of guessing wrong is
+      // only that self-closing flags stop being honored in the rest of an
+      // svg or math element whose author wrote a stray end tag, which is
+      // how those tags were always processed before the flag was honored.
+      if (isForeignContentRoot(elementName) || sawIntegrationPoint) {
+        return;
+      }
+      openElements.clear();
+    }
+
+    private boolean processHtmlStartTag(
+        String elementName, List<String> attrs, boolean selfClosing) {
+      Namespace namespace;
+      if ("svg".equals(elementName)) {
+        namespace = Namespace.SVG;
+      } else if ("math".equals(elementName)) {
+        namespace = Namespace.MATHML;
+      } else {
+        if (!openElements.isEmpty()
+            && !HtmlTextEscapingMode.isVoidElement(elementName)) {
+          push(new OpenElement(elementName, Namespace.HTML, attrs));
+        }
+        // HTML ignores the self-closing flag on ordinary non-void elements.
+        // Void elements are already empty and need no synthetic close event.
+        return false;
+      }
+
+      if (!selfClosing) {
+        push(new OpenElement(elementName, namespace, attrs));
+      }
+      return selfClosing;
+    }
+
+    private void processHtmlEndTag(String elementName) {
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        if (open.namespace != Namespace.HTML) { return; }
+        if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
+          openElements.subList(i, openElements.size()).clear();
+          return;
+        }
+      }
+    }
+
+    private void popToHtmlOrIntegrationPoint() {
+      while (!openElements.isEmpty()) {
+        OpenElement current = currentElement();
+        if (current.namespace == Namespace.HTML
+            || current.mathTextIntegrationPoint
+            || current.htmlIntegrationPoint) {
+          return;
+        }
+        openElements.remove(openElements.size() - 1);
+      }
+    }
+
+    private void push(OpenElement element) {
+      if (openElements.size() == MAX_DEPTH) {
+        openElements.clear();
+        unknown = true;
+      } else {
+        openElements.add(element);
+      }
+    }
+
+    private OpenElement currentElement() {
+      int size = openElements.size();
+      return size != 0 ? openElements.get(size - 1) : null;
+    }
+
+    private static boolean usesHtmlRulesForStartTag(
+        @Nullable OpenElement current, String elementName) {
+      if (current == null || current.namespace == Namespace.HTML) {
+        return true;
+      }
+      if (current.mathTextIntegrationPoint
+          && !"mglyph".equals(elementName)
+          && !"malignmark".equals(elementName)) {
+        return true;
+      }
+      return current.htmlIntegrationPoint
+          || (current.namespace == Namespace.MATHML
+              && "annotation-xml".equals(current.elementName)
+              && "svg".equals(elementName));
+    }
+  }
+
+  private enum Namespace {
+    HTML,
+    SVG,
+    MATHML,
+  }
+
+  /** One element relevant to the foreign-content tree-construction state. */
+  private static final class OpenElement {
+    final String elementName;
+    final Namespace namespace;
+    final boolean mathTextIntegrationPoint;
+    final boolean htmlIntegrationPoint;
+
+    OpenElement(
+        String elementName, Namespace namespace, List<String> attrs) {
+      this.elementName = elementName;
+      this.namespace = namespace;
+      this.mathTextIntegrationPoint = namespace == Namespace.MATHML
+          && MATHML_TEXT_INTEGRATION_POINT_NAMES.contains(elementName);
+      this.htmlIntegrationPoint = isHtmlIntegrationPoint(
+          elementName, namespace, attrs);
+    }
+  }
+
   private static boolean isForeignContentRoot(String canonElementName) {
     return "svg".equals(canonElementName) || "math".equals(canonElementName);
   }
 
-  /**
-   * True if a self-closing start tag for the named element, seen inside
-   * {@code <svg>} or {@code <math>}, opens an element that closes at once.
-   *
-   * <p>That is what browsers do with a start tag processed under the rules
-   * for foreign content.  The exceptions are the tags that break out of
-   * foreign content, which browsers process as HTML, where the flag on a
-   * non-void element is ignored, and the elements whose content the lexer
-   * has already committed to treating as text.
-   *
-   * @param attrs alternating attribute names and values as the author wrote
-   *     them, before any policy has edited them.
-   */
-  private static boolean closesItselfInForeignContent(
-      String canonElementName, List<String> attrs) {
-    if (HtmlTextEscapingMode.getModeForTag(canonElementName)
-        != HtmlTextEscapingMode.PCDATA) {
-      // A void element is empty already.  The lexer treats the content of
-      // <style>, <title> and the other elements with literal content as text
-      // up to the matching end tag, so the element stays open to hold it.
+  private static boolean isHtmlIntegrationPoint(
+      String elementName, Namespace namespace, List<String> attrs) {
+    if (namespace == Namespace.SVG) {
+      return "desc".equals(elementName) || "title".equals(elementName)
+          || asciiEqualsIgnoreCase("foreignObject", elementName);
+    }
+    if (namespace != Namespace.MATHML
+        || !"annotation-xml".equals(elementName)) {
       return false;
     }
+    for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
+      String name = it.next();
+      String value = it.hasNext() ? it.next() : "";
+      if ("encoding".equals(name)) {
+        return asciiEqualsIgnoreCase("text/html", value)
+            || asciiEqualsIgnoreCase("application/xhtml+xml", value);
+      }
+    }
+    return false;
+  }
+
+  private static boolean asciiEqualsIgnoreCase(String a, String b) {
+    int length = a.length();
+    return b.length() == length
+        && Strings.regionMatchesIgnoreCase(a, 0, b, 0, length);
+  }
+
+  private static boolean breaksOutOfForeignContent(
+      String canonElementName, List<String> attrs) {
     if (FOREIGN_CONTENT_BREAKOUT_ELEMENT_NAMES.contains(canonElementName)) {
-      return false;
+      return true;
     }
     if ("font".equals(canonElementName)) {
       for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
         String name = it.next();
-        if (it.hasNext()) { it.next(); }  // The value.
+        if (it.hasNext()) { it.next(); }
         if ("color".equals(name) || "face".equals(name)
             || "size".equals(name)) {
-          return false;
+          return true;
         }
       }
     }
-    return true;
+    return false;
   }
+
+  private static final Set<String> MATHML_TEXT_INTEGRATION_POINT_NAMES
+      = j8().setOf("mi", "mo", "mn", "ms", "mtext");
 
   /**
    * The start tags that end foreign content: inside {@code <svg>} or

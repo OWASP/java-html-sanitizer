@@ -849,6 +849,9 @@ class HtmlSanitizerTest {
         "<svg><path d=\"M0/\">x</path></svg>",
         p.sanitize("<svg><path d=M0/>x</svg>"));
     assertEquals(
+        "<svg><path d=\"/\">x</path></svg>",
+        p.sanitize("<svg><path d=/>x</svg>"));
+    assertEquals(
         "<svg><path>x</path></svg>", p.sanitize("<svg><path / >x</svg>"));
   }
 
@@ -876,8 +879,7 @@ class HtmlSanitizerTest {
   /**
    * Issue #122.  Browsers process the start tags that break out of foreign
    * content as HTML, where the flag is ignored again; a void element is
-   * empty with or without it; and the elements whose content the lexer
-   * reads as text keep that content up to their end tag.
+   * empty with or without it.
    */
   @Test
   void testSelfClosingTagsThatBreakOutOfForeignContent() {
@@ -891,9 +893,167 @@ class HtmlSanitizerTest {
     assertEquals(
         "<svg><font></font>x</svg>", p.sanitize("<svg><font/>x</svg>"));
     assertEquals("<svg><br />x</svg>", p.sanitize("<svg><br/>x</svg>"));
+  }
+
+  /** Issue #457.  Start tags at integration points use the HTML rules. */
+  @Test
+  void testSelfClosingTagsAtHtmlIntegrationPoints() {
+    PolicyFactory p = foreignContentPolicy();
     assertEquals(
-        "<svg><textarea>x</textarea></svg>",
+        "<svg><foreignObject><path>x</path></foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><path/>x</foreignObject></svg>"));
+    assertEquals(
+        "<svg><desc><path>x</path></desc></svg>",
+        p.sanitize("<svg><desc><path/>x</desc></svg>"));
+    assertEquals(
+        "<math><mi><path>x</path></mi></math>",
+        p.sanitize("<math><mi><path/>x</mi></math>"));
+    assertEquals(
+        "<math><annotation-xml encoding=\"text/html\"><path>x</path>"
+        + "</annotation-xml></math>",
+        p.sanitize(
+            "<math><annotation-xml encoding=text/html><path/>x"
+            + "</annotation-xml></math>"));
+    assertEquals(
+        "<math><mi><mglyph></mglyph>x</mi></math>",
+        p.sanitize("<math><mi><mglyph/>x</mi></math>"));
+    // A dropped object remains open under HTML rules, so its fallback text
+    // stays suppressed.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><object/>hidden</foreignObject></svg>"));
+  }
+
+  /** Issue #457.  A breakout token ends the surrounding foreign context. */
+  @Test
+  void testForeignContentBreakoutUpdatesFollowingContext() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><p><path>x</path></p></svg>",
+        p.sanitize("<svg><p/><path/>x</svg>"));
+    assertEquals(
+        "<svg><p>x</p></svg>",
+        p.sanitize("<svg><p/>x<object/>hidden</svg>"));
+    assertEquals(
+        "<svg><font color=\"red\"><path>x</path></font></svg>",
+        p.sanitize("<svg><font color=red /><path/>x</svg>"));
+    assertEquals(
+        "<svg><path>x</path></svg>",
+        p.sanitize("<svg></p><path/>x</svg>"));
+  }
+
+  /** Issue #457.  Foreign end tags match against the open-element stack. */
+  @Test
+  void testForeignContentEndTagsUpdateTheMatchingContext() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<math><mi></mi>x</math>",
+        p.sanitize("<math></svg><mi/>x</math>"));
+    assertEquals(
+        "<svg><math></math></svg><path>x</path>",
+        p.sanitize("<svg><math></svg><path/>x"));
+    assertEquals(
+        "<math><svg></svg></math><path>x</path>",
+        p.sanitize("<math><svg></math><path/>x"));
+    assertEquals(
+        "<svg><math></math><path></path>x</svg>",
+        p.sanitize("<svg><math></math><path/>x</svg>"));
+    assertEquals(
+        "<svg><math></math></svg>",
+        p.sanitize("<svg><math></svg><object/>hidden"));
+    // The end tag of an HTML element that is open below a foreign element
+    // closes both, and puts the parser back under the HTML rules.
+    assertEquals(
+        "<math><mi><div><svg></svg></div><path>x</path></mi></math>",
+        p.sanitize(
+            "<math><mi><div><svg></div><path/>x</svg></div></mi></math>"));
+  }
+
+  /**
+   * Issue #457.  An end tag that names none of the open foreign elements
+   * may close an HTML ancestor of the foreign root, which is not tracked,
+   * so the parser is assumed to be back in HTML content unless the browser
+   * would ignore the tag.
+   */
+  @Test
+  void testEndTagsOfHtmlAncestorsEndForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<div><svg></svg></div>",
+        p.sanitize("<div><svg></div><object/>hidden"));
+    assertEquals(
+        "<div><svg><path></path></svg></div>",
+        p.sanitize("<div><svg><path></div><object/>hidden"));
+    assertEquals(
+        "<p><svg></svg></p>",
+        p.sanitize("<p><svg></p><object/>hidden"));
+    assertEquals(
+        "<div><svg><path></path></svg></div><path>x</path>",
+        p.sanitize("<div><svg><path></div><path/>x"));
+    // An integration point is in the special category and stops the search
+    // for the named element, so the tag is ignored and the content of the
+    // integration point stays under the HTML rules.
+    assertEquals(
+        "<div><svg><foreignObject></foreignObject></svg></div>",
+        p.sanitize("<div><svg><foreignObject></div><object/>hidden"));
+    assertEquals(
+        "<div><math><mi></mi></math></div>",
+        p.sanitize("<div><math><mi></div><object/>hidden"));
+    // The path is still empty and closes at once.  Where the tag balancer
+    // then puts it is its own concern.
+    assertEquals(
+        "<div><svg><foreignObject><div><svg></svg></div></foreignObject>"
+        + "<path></path>x</svg></div>",
+        p.sanitize(
+            "<div><svg><foreignObject><div><svg></foreignObject>"
+            + "<path/>x"));
+    // No HTML element is named svg or math, so a stray foreign end tag is
+    // ignored rather than taken as closing an ancestor.
+    assertEquals(
+        "<div><math><mi></mi>x</math></div>",
+        p.sanitize("<div><math></svg><mi/>x</math></div>"));
+    // A stray end tag that names nothing open is ignored by browsers, and
+    // the self-closing flag is still honored after it.  The sanitizer does
+    // not know that nothing below the svg matched, so it errs toward the
+    // HTML rules, where the flag is ignored and the path holds the text.
+    assertEquals(
+        "<svg><path>x</path></svg>",
+        p.sanitize("<svg></foo><path/>x</svg>"));
+  }
+
+  /**
+   * Issue #457.  HTML raw-text and RCDATA modes do not apply to self-closing
+   * foreign elements that happen to have the same names.
+   */
+  @Test
+  void testSelfClosingForeignLiteralContentNames() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><title></title>x</svg><p>after</p>",
+        p.sanitize("<svg><title/>x</svg><p>after</p>"));
+    assertEquals(
+        "<svg><style></style>x</svg><p>after</p>",
+        p.sanitize("<svg><style/>x</svg><p>after</p>"));
+    assertEquals(
+        "<svg><textarea></textarea>x</svg>",
         p.sanitize("<svg><textarea/>x</textarea></svg>"));
+    assertEquals(
+        "<math><textarea></textarea>x</math><p>after</p>",
+        p.sanitize("<math><textarea/>x</math><p>after</p>"));
+    // The dropped script closes before ordinary text, so that text survives.
+    assertEquals(
+        "<svg>visible</svg><p>after</p>",
+        p.sanitize("<svg><script/>visible</svg><p>after</p>"));
+    assertEquals(
+        "<svg>visible</svg><p>after</p>",
+        p.sanitize("<svg><plaintext/>visible</svg><p>after</p>"));
+    // At an HTML integration point, the same name really is RCDATA and a
+    // solidus does not close it.
+    assertEquals(
+        "<svg><foreignObject><title>x</title></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><title/>x</title></foreignObject></svg>"));
   }
 
   /**
@@ -923,9 +1083,9 @@ class HtmlSanitizerTest {
     assertEquals(
         "<svg><foreignObject></foreignObject><div>x</div></svg>",
         p.sanitize("<svg><foreignObject/><div>x</div></svg>"));
-    // Raw text content is read up to the end tag and escaped, as before.
+    // A self-closing foreign RCDATA element closes before the next tag.
     assertEquals(
-        "<svg><title>&lt;img src&#61;x onerror&#61;alert(1)&gt;</title></svg>",
+        "<svg><title></title></svg>",
         p.sanitize("<svg><title/><img src=x onerror=alert(1)></title></svg>"));
     assertEquals(
         "<svg><style></style></svg>",
@@ -974,16 +1134,28 @@ class HtmlSanitizerTest {
         events);
   }
 
+  /** The bounded context tracker falls back to suppressing dropped content. */
+  @Test
+  void testDeepForeignContentContextFailsClosed() {
+    PolicyFactory p = foreignContentPolicy();
+    StringBuilder html = new StringBuilder("<svg>");
+    for (int i = 0; i < 300; ++i) { html.append("<g>"); }
+    html.append("<object/>hidden");
+    String out = p.sanitize(html.toString());
+    assertFalse(out.contains("hidden"), out);
+  }
+
   private static PolicyFactory foreignContentPolicy() {
     return new HtmlPolicyBuilder()
         .allowElements(
             "svg", "math", "path", "g", "rect", "clipPath", "foreignObject",
-            "textArea", "textarea", "mi", "mrow", "a", "div", "p", "font",
-            "br", "style", "title")
+            "desc", "annotation-xml", "textArea", "textarea", "mi", "mrow",
+            "mglyph", "a", "div", "p", "font", "br", "style", "title")
         .allowAttributes("width", "height", "viewBox").onElements("svg")
         .allowAttributes("id", "opacity", "d").onElements("path")
         .allowAttributes("href").onElements("a")
         .allowAttributes("color").onElements("font")
+        .allowAttributes("encoding").onElements("annotation-xml")
         .allowWithoutAttributes("font")
         .allowStandardUrlProtocols()
         .toFactory();
