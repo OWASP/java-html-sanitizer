@@ -557,6 +557,13 @@ public class HtmlPolicyBuilder {
    * protocols the other factory allowed.  Two factories that each allowed
    * some protocols together allow only those both allowed.
    * <p>
+   * The guard runs after any policies attached to the attribute with
+   * {@link AttributeBuilder#matching(AttributePolicy) matching}, and after
+   * the policy given to {@link #allowUrlsInStyles}, so it vets the value
+   * they produce.  They in turn see the value before the guard has vetted
+   * or normalized it, so a policy that rewrites URLs must vet the protocol
+   * itself; see {@code matching} for the details and an example.
+   * <p>
    * Do not allow any <code>*script</code> such as <code>javascript</code>
    * protocols if you might use this policy with untrusted code.
    */
@@ -681,23 +688,30 @@ public class HtmlPolicyBuilder {
    * URLs in CSS are typically loaded without user-interaction, the way links
    * are, so a greater degree of scrutiny is warranted.
    * <p>
-   * <b>This method only narrows what is allowed; it cannot widen it.</b>  The
-   * policy given here runs <i>after</i> the protocol filter built from
-   * {@link #allowUrlProtocols(String...)}, so a URL has to clear both.  If
-   * {@code allowUrlProtocols} was never called, that filter rejects every
-   * URL and this policy is never consulted -- calling
-   * {@code allowUrlsInStyles} on its own looks like a no-op.  Pair it with an
-   * {@code allowUrlProtocols} call:
+   * <b>This method only narrows what is allowed; it cannot widen it.</b>  A
+   * URL has to clear both the policy given here and the protocol guard built
+   * from {@link #allowUrlProtocols(String...)}, in that order.  The policy
+   * runs first, so it sees each URL before the guard has vetted or
+   * normalized it and can be handed a {@code javascript:} URL the builder
+   * never allowed.  That is harmless for a policy that only accepts or
+   * rejects, since the guard still rejects the URL afterwards, but a policy
+   * that rewrites URLs must vet the protocol itself, as
+   * {@link AttributeBuilder#matching(AttributePolicy) matching} describes.
+   * <p>
+   * If {@code allowUrlProtocols} was never called, the guard rejects every
+   * URL that names a protocol whatever this policy said about it, so
+   * {@code allowUrlsInStyles} on its own admits only relative URLs.  Pair it
+   * with an {@code allowUrlProtocols} call:
    *
    * <pre>{@code
    * new HtmlPolicyBuilder()
    *     .allowStyling()
-   *     .allowUrlProtocols("https")          // without this, the next line
-   *     .allowUrlsInStyles(myUrlPolicy)      // never sees a URL
+   *     .allowUrlProtocols("https")          // without this, the guard drops
+   *     .allowUrlsInStyles(myUrlPolicy)      // every absolute URL this keeps
    * }</pre>
    *
-   * @param newStyleUrlPolicy receives URLs from the CSS that pass the allowed
-   *     protocol policies, and may return null to veto the URL or the URL
+   * @param newStyleUrlPolicy receives each URL from the CSS before the
+   *     protocol guard does, and may return null to veto the URL or the URL
    *     to use.  URLs will be reported as content in {@code <img src=...>}.
    */
   public HtmlPolicyBuilder allowUrlsInStyles(
@@ -1018,6 +1032,38 @@ public class HtmlPolicyBuilder {
      * Multiple calls to {@code matching} are combined so that the policies
      * receive the value in order, each seeing the value after any
      * transformation by a previous policy.
+     * <p>
+     * On a URL attribute such as {@code href} or {@code src}, the protocol
+     * guard built from {@link HtmlPolicyBuilder#allowUrlProtocols} runs after
+     * the policies given here and vets what they produce.  The first policy
+     * therefore sees the value as written, after entity decoding but before
+     * the guard trims surrounding whitespace and percent-encodes parentheses
+     * and control characters, so a pattern should match the value as
+     * written; one that expects the normalized form rejects the raw one,
+     * which fails closed.  The policies also run before the guard has
+     * rejected anything, so a policy can be handed
+     * {@code javascript:alert(1)} even though the builder allowed no such
+     * protocol.  That is harmless for a policy that only accepts or rejects,
+     * since the guard still rejects the value afterwards, but a policy that
+     * rewrites one URL into another, such as a redirector or proxy that
+     * returns {@code "https://example.com/go?u=" + value}, would hand the
+     * guard an {@code https:} URL that carries the unvetted one to the
+     * redirector.  Such a policy should vet the protocol itself first, for
+     * example by putting a {@link FilterUrlByProtocolAttributePolicy} ahead
+     * of it:
+     *
+     * <pre>{@code
+     * AttributePolicy vetProtocol = new FilterUrlByProtocolAttributePolicy(
+     *     Arrays.asList("http", "https"));
+     * new HtmlPolicyBuilder()
+     *     .allowElements("a")
+     *     .allowAttributes("href")
+     *         .matching(vetProtocol)
+     *         .matching((element, attribute, url) ->
+     *             "https://example.com/go?u=" + url)
+     *         .onElements("a")
+     *     .allowUrlProtocols("https");
+     * }</pre>
      * <p>
      * Since the combination fails as soon as one policy rejects, this has no
      * effect on a builder from {@link HtmlPolicyBuilder#disallowAttributes},

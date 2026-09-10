@@ -666,6 +666,130 @@ class HtmlPolicyBuilderTest {
             "<a href='/x'>x</a>"));
   }
 
+  /**
+   * Issue #454.  A matching policy on a URL attribute runs before the
+   * protocol guard, so it sees the value as written, after entity decoding
+   * but before the guard trims whitespace and percent-encodes parentheses,
+   * and before the guard has rejected anything.  A pattern that expects the
+   * normalized form rejects the raw one, which fails closed.
+   */
+  @Test
+  void testMatchingPoliciesSeeTheUrlAsWrittenBeforeTheProtocolGuard() {
+    List<String> seen = new ArrayList<>();
+    AttributePolicy record = (elementName, attributeName, value) -> {
+      seen.add(value);
+      return value;
+    };
+    String links =
+        "<a href=\" http://example.com/a&#40;b) \">x</a>"
+        + "<a href=\"javascript:alert(1)\">y</a>";
+
+    assertEquals(
+        "<a href=\"http://example.com/a%28b%29\">x</a>y",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href").matching(record).onElements("a")
+            .allowUrlProtocols("http"),
+            links));
+    assertEquals(
+        Arrays.asList(" http://example.com/a(b) ", "javascript:alert(1)"),
+        seen);
+
+    Pattern normalized = Pattern.compile("http://example\\.com/a%28b%29");
+    Pattern asWritten = Pattern.compile(" http://example\\.com/a\\(b\\) ");
+    assertEquals(
+        "xy",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href").matching(normalized).onElements("a")
+            .allowUrlProtocols("http"),
+            links));
+    assertEquals(
+        "<a href=\"http://example.com/a%28b%29\">x</a>y",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href").matching(asWritten).onElements("a")
+            .allowUrlProtocols("http"),
+            links));
+  }
+
+  /**
+   * Issue #454.  A policy that rewrites one URL into another is handed the
+   * unvetted value, so a redirector that wraps it produces an allowed URL
+   * that carries a protocol the builder never allowed.  The guard passes
+   * that, as it should, so the rewriter has to vet the protocol itself,
+   * which putting a FilterUrlByProtocolAttributePolicy ahead of it does.
+   */
+  @Test
+  void testARewritingPolicyMustVetTheProtocolItself() {
+    AttributePolicy redirector = (elementName, attributeName, url) ->
+        "https://example.com/go?u=" + url;
+    String links =
+        "<a href=\"javascript:alert(1)\">x</a>"
+        + "<a href=\"https://other.example/p\">y</a>";
+
+    assertEquals(
+        "<a href=\"https://example.com/go?u&#61;javascript:alert%281%29\">x</a>"
+        + "<a href=\"https://example.com/go?u&#61;https://other.example/p\">"
+        + "y</a>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href").matching(redirector).onElements("a")
+            .allowUrlProtocols("https"),
+            links));
+
+    assertEquals(
+        "x"
+        + "<a href=\"https://example.com/go?u&#61;https://other.example/p\">"
+        + "y</a>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href")
+                .matching(new FilterUrlByProtocolAttributePolicy(
+                    Arrays.asList("https")))
+                .matching(redirector)
+                .onElements("a")
+            .allowUrlProtocols("https"),
+            links));
+  }
+
+  /**
+   * Issue #454.  The policy given to allowUrlsInStyles runs before the
+   * protocol guard too, so it is consulted even when no protocol was
+   * allowed, sees a javascript: URL the guard goes on to drop, and on its
+   * own admits only relative URLs.
+   */
+  @Test
+  void testStyleUrlPolicyRunsBeforeTheProtocolGuard() {
+    List<String> seen = new ArrayList<>();
+    AttributePolicy record = (elementName, attributeName, value) -> {
+      seen.add(value);
+      return value;
+    };
+    CssSchema images =
+        CssSchema.withProperties(Arrays.asList("background-image"));
+
+    assertEquals(
+        "<div>x</div>"
+        + "<div style=\"background-image:url(&#39;/i.png&#39;)\">y</div>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("div")
+            .allowAttributes("style").onElements("div")
+            .allowStyling(images)
+            .allowUrlsInStyles(record),
+            "<div style=\"background-image: url(javascript:alert%281%29)\">"
+            + "x</div>"
+            + "<div style=\"background-image: url(/i.png)\">y</div>"));
+    assertEquals(
+        Arrays.asList("javascript:alert%281%29", "/i.png"), seen);
+  }
+
   /** Rejecting only some values means allowing the rest. */
   @Test
   void testAnInvertedAllowRejectsOnlyTheMatchingValues() {
