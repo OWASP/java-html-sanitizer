@@ -157,10 +157,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public void text(String textChunk) {
     if (!skipText) {
-      // Note: Only style and script are CDATA elements; noscript/noembed/noframes are PCDATA
-      // If inside a CDATA element (style/script) with allowTextIn, we need to filter out 
-      // HTML tags that aren't allowed because tags inside these blocks are reclassified 
-      // as UNESCAPED text by the lexer
+      // Note: Only style and script are CDATA elements; noscript, noembed
+      // and noframes are PCDATA.
+      // If inside a CDATA element (style/script) with allowTextIn, we need
+      // to filter out HTML tags that aren't allowed because tags inside
+      // these blocks are reclassified as UNESCAPED text by the lexer
       if (inKeptCdataElement
           && textChunk != null && textChunk.indexOf('<') >= 0) {
         // Strip out HTML tags that aren't in the allowed elements list
@@ -173,9 +174,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
   
   /**
-   * Strips out HTML tags that aren't in the allowed elements list from text content.
-   * This is used when tags appear inside text containers (like style blocks) where
-   * they're treated as text but should still be validated.
+   * Strips out HTML tags that aren't in the allowed elements list from text
+   * content.  This is used when tags appear inside text containers (like
+   * style blocks) where they're treated as text but should still be
+   * validated.
    */
   private String stripDisallowedTags(String text) {
     if (text == null) {
@@ -280,7 +282,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
               i = len;
               break;
             }
-            String nextTagContent = text.substring(nextTagStart + 1, nextTagEnd);
+            String nextTagContent =
+                text.substring(nextTagStart + 1, nextTagEnd);
             String trimmedNextTagContent = nextTagContent.trim();
             String nextTagName = trimmedNextTagContent.split("\\s")[0];
             if (trimmedNextTagContent.startsWith("/")) {
@@ -366,7 +369,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
       adjustedElementName = policies.elPolicy.apply(elementName, attrs);
       if (adjustedElementName != null) {
-        adjustedElementName = HtmlLexer.canonicalElementName(adjustedElementName);
+        adjustedElementName =
+            HtmlLexer.canonicalElementName(adjustedElementName);
       }
     } else {
       adjustedElementName = null;

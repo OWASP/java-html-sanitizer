@@ -62,7 +62,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
-  /** The count of {@link #foreignContentRootElementNames} opened and not subsequently closed. */
+  /**
+   * The count of {@link #foreignContentRootElementNames} opened and not
+   * subsequently closed.
+   */
   private int foreignContentDepth = 0;
   /**
    * True when the current element is one whose content the HTML lexer treats
@@ -207,7 +210,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       foreignContentDepth += 1;
     }
 
-    HtmlTextEscapingMode tentativeEscapingMode = HtmlTextEscapingMode.getModeForTag(elementName);
+    HtmlTextEscapingMode tentativeEscapingMode =
+        HtmlTextEscapingMode.getModeForTag(elementName);
     decodeTextBeforeEscaping = false;
     if (foreignContentDepth == 0) {
       escapingMode = tentativeEscapingMode;
@@ -303,7 +307,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return;
     }
 
-    if (foreignContentDepth != 0 && foreignContentRootElementNames.contains(elementName)) {
+    if (foreignContentDepth != 0
+        && foreignContentRootElementNames.contains(elementName)) {
       foreignContentDepth -= 1;
     }
     decodeTextBeforeEscaping = false;
@@ -366,13 +371,16 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     // www.w3.org/TR/html51/semantics-scripting.html#restrictions-for-contents-of-script-elements
     // www.w3.org/TR/html5/scripting-1.html#restrictions-for-contents-of-script-elements
     // 4.12.1.3. Restrictions for contents of script elements
-    // The textContent of a script element must match the script production in the following ABNF, the character set for which is Unicode. [ABNF]
+    // The textContent of a script element must match the script production
+    // in the following ABNF, the character set for which is Unicode. [ABNF]
     //
     // script = outer *( comment-open inner comment-close outer )
     //
-    // outer = < any string that doesn’t contain a substring that matches not-in-outer >
+    // outer = < any string that doesn’t contain a substring that matches
+    //           not-in-outer >
     // not-in-outer = comment-open
-    // inner = < any string that doesn’t contain a substring that matches not-in-inner >
+    // inner = < any string that doesn’t contain a substring that matches
+    //           not-in-inner >
     // not-in-inner = comment-close / script-open
     //
     // comment-open = "<!--"
@@ -398,8 +406,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             } else if (innerStart < 0) {
               break;
             }
-            // We don't need to do any suffix checks to preserve concatenation safety
-            // since we buffer pending unescaped above.
+            // We don't need to do any suffix checks to preserve concatenation
+            // safety since we buffer pending unescaped above.
             int end = start + localName.length();
             if (end <= n
                 && Strings.regionMatchesIgnoreCase(
@@ -531,5 +539,6 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
 
-  private static final Set<String> foreignContentRootElementNames = j8().setOf("svg", "math");
+  private static final Set<String> foreignContentRootElementNames =
+      j8().setOf("svg", "math");
 }
