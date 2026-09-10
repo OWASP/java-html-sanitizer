@@ -21,6 +21,11 @@ Most recent at top.
       mismatched cell or section end tag is ignored as browsers ignore it.
       Well-formed nested tables and captions no longer make later SVG use
       the fallback.  Issue #461.
+    * The same tracker now also fails closed when a walk reaches an open
+      `dialog`, which the specification and Chrome categorize differently in
+      the special category, exactly as it already did for `search`.  Without
+      this a later self-closing `<object/>` was honored, exposing text a
+      spec-compliant parser keeps inside the HTML `object`.  Issue #461.
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
       content breakout tags, mismatched foreign end tags, and the end tags

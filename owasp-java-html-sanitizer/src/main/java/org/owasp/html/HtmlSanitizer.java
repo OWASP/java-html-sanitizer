@@ -1029,9 +1029,10 @@ public final class HtmlSanitizer {
       = j8().setOf(
           "address", "applet", "area", "article", "aside", "base",
           "basefont", "bgsound", "blockquote", "body", "br", "button",
-          "caption", "center", "col", "colgroup", "dd", "details", "dir",
-          "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure",
-          "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4",
+          "caption", "center", "col", "colgroup", "dd", "details",
+          "dialog", "dir", "div", "dl", "dt", "embed", "fieldset",
+          "figcaption", "figure", "footer", "form", "frame", "frameset",
+          "h1", "h2", "h3", "h4",
           "h5", "h6", "head", "header", "hgroup", "hr", "html", "iframe",
           "img", "input", "keygen", "li", "link", "listing", "main",
           "marquee", "menu", "meta", "nav", "noembed", "noframes",
@@ -1044,9 +1045,11 @@ public final class HtmlSanitizer {
   /**
    * Elements the specification puts in the special category but current
    * Chrome does not, so a walk that reaches one has an uncertain outcome.
+   * {@code dialog} and {@code search} are both special in the WHATWG parsing
+   * algorithm but absent from Chrome's special-node set.
    */
   private static final Set<String> AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES
-      = j8().setOf("search");
+      = j8().setOf("dialog", "search");
 
   /** Start tags whose HTML stack effect this bounded tracker cannot derive. */
   private static final Set<String> UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES

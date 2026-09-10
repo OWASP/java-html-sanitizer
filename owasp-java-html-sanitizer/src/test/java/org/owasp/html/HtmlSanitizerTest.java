@@ -1449,6 +1449,37 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Issue #461.  Like {@code search}, {@code dialog} is in the special
+   * category of the WHATWG parsing algorithm but not in Chrome's special-node
+   * set, so a walk that reaches an open {@code dialog} has no single right
+   * answer across browsers and the context must fail closed.  Without this a
+   * following {@code <object/>} was honored as self-closing, exposing text
+   * that a spec-compliant parser keeps inside the HTML {@code object}.
+   */
+  @Test
+  void testDialogElementCategoryIsNotReliedOn() {
+    PolicyFactory p = foreignContentPolicy();
+    // "Any other end tag" (</cite>) walks past the open dialog.
+    assertEquals(
+        "<svg><foreignObject><cite></cite></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><dialog></cite></foreignObject>"
+            + "<object/>hidden"));
+    // A list-item start (<li>) walks past the open dialog.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><li><dialog><li></li></foreignObject>"
+            + "<object/>hidden"));
+    // The adoption agency's furthest-block search (</b>) reaches the dialog.
+    assertEquals(
+        "<svg><foreignObject><b><svg></svg></b></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><b><dialog><svg></b></foreignObject>"
+            + "<object/>hidden"));
+  }
+
+  /**
    * Issue #461.  The insertion mode inherited from an untracked table
    * depends on which cell, caption or section is open, and browsers ignore
    * the end tags that name something else.
