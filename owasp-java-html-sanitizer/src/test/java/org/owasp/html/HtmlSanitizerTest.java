@@ -1136,9 +1136,8 @@ class HtmlSanitizerTest {
 
   /**
    * Issue #461.  Browsers process the end tags of table structure with
-   * table scope, which no integration point bounds, so they close the
-   * foreign content around a cell along with the cell.  The tracker cannot
-   * see the table, so it fails closed for the rest of the input.
+   * table scope, which no integration point bounds, so they can close the
+   * foreign content around a cell along with the cell.
    */
   @Test
   void testTableScopeEndTagsEndForeignContent() {
@@ -1169,22 +1168,22 @@ class HtmlSanitizerTest {
         p.sanitize(
             "<table><tr><td><math><annotation-xml encoding=text/html><svg>"
             + "</table><object/>hidden"));
-    // The context stays unknown, so a later self-closing tag is not honored
-    // either.
+    // This table began below the tracked foreign root, so the context stays
+    // unknown after the end tag.
     assertEquals(
         "<svg><foreignObject><svg></svg></foreignObject></svg>"
         + "<svg><path>x</path></svg>",
         p.sanitize(
             "<table><tr><td><svg><foreignObject><svg></table><svg><path/>x"));
-    // Table structure inside an integration point implies elements the
-    // tracker does not see, so it fails closed at the start tag.
+    // Table structure inside an integration point follows the inherited
+    // table insertion mode, including implied elements and cell closing.
     assertEquals(
         "<svg><foreignObject><svg></svg></foreignObject></svg>",
         p.sanitize(
             "<svg><foreignObject><table><tr><td><svg></tbody>"
             + "<object/>hidden"));
     assertEquals(
-        "<svg><foreignObject><svg></svg></foreignObject></svg>",
+        "<svg><foreignObject><svg>hidden</svg></foreignObject></svg>",
         p.sanitize("<svg><foreignObject><select><svg><object/>hidden"));
     // An end tag searched in the default or list-item scope stops at the
     // integration point, so a browser ignores it and the dropped element
@@ -1193,6 +1192,107 @@ class HtmlSanitizerTest {
         "<svg><foreignObject><svg></svg></foreignObject></svg>shown",
         p.sanitize(
             "<ul><li><svg><foreignObject><svg></li><object/>shown"));
+  }
+
+  /** Issue #461.  HTML start-tag rules can remove tracked stack entries. */
+  @Test
+  void testHtmlStartTagsUpdateForeignContentContext() {
+    PolicyFactory p = foreignContentPolicy();
+    String[] inputs = {
+        // image is rewritten to the void img element.
+        "<svg><foreignObject><image><math></svg><object/>hidden",
+        // command and isindex are ordinary elements in the current parser,
+        // despite legacy serialization tables classifying them as void.
+        "<svg><foreignObject><command><math></math></foreignObject>"
+        + "<object/>hidden",
+        "<svg><foreignObject><isindex><math></math></foreignObject>"
+        + "<object/>hidden",
+        // A block start closes p in button scope.
+        "<svg><foreignObject><p><div></div><math></svg><object/>hidden",
+        "<svg><foreignObject><p><hr><math></svg><object/>hidden",
+        // A heading start pops a heading current node.
+        "<svg><foreignObject><h2><h1></h1><math></svg><object/>hidden",
+        // A second button pops the first button and everything above it.
+        "<svg><foreignObject><button><div><button></button></div>"
+        + "<math></svg><object/>hidden",
+        // Duplicate formatting elements invoke the adoption agency rules.
+        "<svg><foreignObject><a><div><a></a></div><math></svg>"
+        + "<object/>hidden",
+        "<svg><foreignObject><nobr><div><nobr></nobr></div><math></svg>"
+        + "<object/>hidden",
+        // A non-formatting end tag can strand b in the active formatting
+        // list, from which a later start tag reconstructs it.
+        "<svg><foreignObject><div><b></div><math></math>"
+        + "</foreignObject><object/>hidden",
+        // An adoption-agency end tag removes only its own formatting entry;
+        // other formatting elements it pops can still be reconstructed.
+        "<svg><foreignObject><b><i></b><math></math></foreignObject>"
+        + "<object/>hidden",
+        // A duplicate form is ignored while the form pointer is non-null.
+        "<svg><foreignObject><form><div><form></form></div><math></svg>"
+        + "<object/>hidden",
+        // A form start closes p before inserting the form.
+        "<svg><foreignObject><p><form></form><math></svg><object/>hidden",
+        // A form end generates implied end tags before removing the form.
+        "<svg><foreignObject><form><option></form><image><math></svg>"
+        + "<object/>hidden",
+        // New list and description items close an earlier item.
+        "<svg><foreignObject><li><div><li></li></div><math></svg>"
+        + "<object/>hidden",
+        "<svg><foreignObject><dd><div><dt></dt></div><math></svg>"
+        + "<object/>hidden",
+        // A second option closes the current option even without a select.
+        "<svg><foreignObject><option><option></option><math></svg>"
+        + "<object/>hidden",
+        // input pops a select that is in scope under the current rules.
+        "<svg><foreignObject><select><input><math></svg><object/>hidden",
+        // In table mode a form is inserted and immediately popped.
+        "<table><svg><foreignObject><form><math></svg><object/>hidden",
+    };
+    for (String input : inputs) {
+      String output = p.sanitize(input);
+      assertFalse(output.contains("hidden"), input + " -> " + output);
+    }
+    // bgsound is still inserted and immediately popped by the tree builder,
+    // even though it is absent from the sanitizer's legacy void table.
+    assertEquals(
+        "<svg><foreignObject><math></math></foreignObject>hidden</svg>",
+        p.sanitize(
+            "<svg><foreignObject><bgsound><math></math></foreignObject>"
+            + "<object/>hidden"));
+  }
+
+  /** Issue #461.  {@code </form>} has a different effect in a template. */
+  @Test
+  void testFormEndTagInTemplatePopsThroughForm() {
+    assertEquals(
+        "<form><svg></svg></form>",
+        foreignContentPolicy().sanitize(
+            "<body><template><form><svg></form><object/>hidden"));
+  }
+
+  /** Well-formed HTML islands do not poison later foreign-content tracking. */
+  @Test
+  void testForeignContentContextRecoversAfterHtmlIsland() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><path></path><rect></rect></svg>"
+        + "<svg><path></path></svg>",
+        p.sanitize(
+            "<table><tr><td><svg><path/><rect/></svg></td></tr></table>"
+            + "<svg><path/></svg>"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>"
+        + "<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<svg><foreignObject><table></table></foreignObject></svg>"
+            + "<svg><path/><rect/></svg>"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>"
+        + "<svg><title></title><path></path></svg><p>after</p>",
+        p.sanitize(
+            "<svg><foreignObject><select></select></foreignObject></svg>"
+            + "<svg><title/><path/></svg><p>after</p>"));
   }
 
   /**

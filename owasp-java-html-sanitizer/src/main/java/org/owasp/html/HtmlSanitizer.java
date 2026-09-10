@@ -242,6 +242,25 @@ public final class HtmlSanitizer {
     /** Elements from the first open foreign root through the current node. */
     private final List<OpenElement> openElements = new ArrayList<>();
 
+    /** The form pointer is not bounded by an integration point. */
+    private boolean formElementPointerSet;
+
+    /** The form pointer's target, when that element is in the tracked region. */
+    private @Nullable OpenElement trackedFormElement;
+
+    /** A table inserted in known in-body mode, before any child tag. */
+    private @Nullable OpenElement simpleTable;
+
+    /** The mode to restore when {@link #simpleTable} closes. */
+    private HtmlInsertionMode simpleTableReturnMode
+        = HtmlInsertionMode.IN_BODY;
+
+    /** The HTML mode that remains in force while foreign rules run. */
+    private HtmlInsertionMode htmlInsertionMode = HtmlInsertionMode.IN_BODY;
+
+    /** Whether an untracked table is known to be in table scope. */
+    private boolean untrackedTableInScope;
+
     /**
      * True once the browser's context can no longer be derived from the
      * tracked elements: the bounded stack was exhausted, or a tag's effect
@@ -283,7 +302,15 @@ public final class HtmlSanitizer {
 
     /** Updates the context using the foreign-content or HTML end-tag rules. */
     void processEndTag(String elementName) {
-      if (unknown || openElements.isEmpty()) { return; }
+      if (unknown) { return; }
+      if (openElements.isEmpty()) {
+        if ("form".equals(elementName)) {
+          formElementPointerSet = false;
+          trackedFormElement = null;
+        }
+        trackUntrackedHtmlEndTag(elementName);
+        return;
+      }
 
       if (currentElement().namespace == Namespace.HTML) {
         processEndTagUnderHtmlRules(elementName);
@@ -320,6 +347,17 @@ public final class HtmlSanitizer {
      * which fails closed: self-closing flags are no longer honored.
      */
     private void processEndTagUnderHtmlRules(String elementName) {
+      if (simpleTable != null) {
+        if ("table".equals(elementName)
+            && currentElement() == simpleTable) {
+          openElements.remove(openElements.size() - 1);
+          simpleTable = null;
+          htmlInsertionMode = simpleTableReturnMode;
+        } else {
+          becomeUnknown();
+        }
+        return;
+      }
       if (TABLE_SCOPED_ELEMENT_NAMES.contains(elementName)
           || "template".equals(elementName)) {
         // Table scope is bounded only by html, table and template, so these
@@ -329,6 +367,21 @@ public final class HtmlSanitizer {
         return;
       }
       if (IGNORED_HTML_END_TAG_NAMES.contains(elementName)) {
+        return;
+      }
+      if ("form".equals(elementName)) {
+        OpenElement form = trackedFormElement;
+        formElementPointerSet = false;
+        trackedFormElement = null;
+        if (form != null) {
+          int formIndex = openElements.indexOf(form);
+          if (formIndex >= 0 && isInDefaultScope(formIndex)) {
+            // Outside template contents, </form> removes the form without
+            // popping the elements above it.
+            generateImpliedEndTags(null);
+            openElements.remove(formIndex);
+          }
+        }
         return;
       }
       boolean anyOther = !SPECIFIC_END_TAG_RULE_NAMES.contains(elementName);
@@ -346,12 +399,11 @@ public final class HtmlSanitizer {
         String openName = open.elementName;
         if (asciiEqualsIgnoreCase(openName, elementName)
             || (heading && isHeadingName(openName))) {
-          if ("form".equals(elementName)) {
-            // </form> removes the form element without popping the
-            // elements above it.
-            openElements.remove(i);
-          } else {
-            openElements.subList(i, openElements.size()).clear();
+          if (!popTrackedElementsFrom(
+              i,
+              ACTIVE_FORMATTING_MARKER_ELEMENT_NAMES.contains(elementName),
+              formatting ? open : null)) {
+            return;
           }
           return;
         }
@@ -376,7 +428,7 @@ public final class HtmlSanitizer {
           return;
         }
       }
-      if (openElements.isEmpty() || "form".equals(elementName)) {
+      if (openElements.isEmpty()) {
         return;
       }
       // Nothing tracked bounded the search, so whether the token closes the
@@ -386,21 +438,154 @@ public final class HtmlSanitizer {
 
     private boolean processHtmlStartTag(
         String elementName, List<String> attrs, boolean selfClosing) {
+      if (simpleTable != null) {
+        // A child start tag is where the in-table modes start implying or
+        // foster-parenting elements.  Keep the empty-table case exact and
+        // fail closed for the rest.
+        becomeUnknown();
+        return false;
+      }
+
       Namespace namespace;
       if ("svg".equals(elementName)) {
         namespace = Namespace.SVG;
       } else if ("math".equals(elementName)) {
         namespace = Namespace.MATHML;
       } else {
-        if (!openElements.isEmpty()) {
-          if (CONTEXT_CHANGING_START_TAG_NAMES.contains(elementName)) {
-            // Table structure, templates and selects change the insertion
-            // mode or pop the stack in ways that depend on untracked state.
-            becomeUnknown();
-          } else if (!HtmlTextEscapingMode.isVoidElement(elementName)
-                     && !IGNORED_HTML_START_TAG_NAMES.contains(elementName)) {
-            push(new OpenElement(elementName, Namespace.HTML, attrs));
+        if (openElements.isEmpty()) {
+          trackUntrackedHtmlStartTag(elementName);
+        }
+        if (htmlInsertionMode == HtmlInsertionMode.UNKNOWN) {
+          becomeUnknown();
+          return false;
+        }
+        if (UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES.contains(elementName)) {
+          becomeUnknown();
+          return false;
+        }
+        if ("form".equals(elementName)) {
+          if (htmlInsertionMode == HtmlInsertionMode.IN_TABLE) {
+            // "In table" inserts a new form and immediately pops it.
+            if (!formElementPointerSet) {
+              formElementPointerSet = true;
+              trackedFormElement = null;
+            }
+            return false;
           }
+          processFormStartTag(attrs);
+          return false;
+        }
+        if (openElements.isEmpty()) {
+          return false;
+        }
+        if (TABLE_STRUCTURE_START_TAG_NAMES.contains(elementName)) {
+          if (htmlInsertionMode != HtmlInsertionMode.IN_BODY) {
+            becomeUnknown();
+          }
+          return false;
+        }
+        if (P_CLOSING_START_TAG_NAMES.contains(elementName)
+            || "pre".equals(elementName)
+            || "listing".equals(elementName)
+            || "plaintext".equals(elementName)) {
+          if (!closePIfInButtonScope()) { return false; }
+        } else if (isHeadingName(elementName)) {
+          if (!closePIfInButtonScope()) { return false; }
+          OpenElement current = currentElement();
+          if (current.namespace == Namespace.HTML
+              && isHeadingName(current.elementName)) {
+            openElements.remove(openElements.size() - 1);
+          }
+        } else if ("li".equals(elementName)) {
+          if (!closeListOrDescriptionItemForStart(true)
+              || !closePIfInButtonScope()) {
+            return false;
+          }
+        } else if ("dd".equals(elementName) || "dt".equals(elementName)) {
+          if (!closeListOrDescriptionItemForStart(false)
+              || !closePIfInButtonScope()) {
+            return false;
+          }
+        } else if ("button".equals(elementName)) {
+          int buttonIndex = findHtmlElementInDefaultScope("button", true);
+          if (buttonIndex >= 0) {
+            if (!popTrackedElementsFrom(buttonIndex, false, null)) {
+              return false;
+            }
+          }
+        } else if ("a".equals(elementName)) {
+          if (findOpenHtmlElement("a") >= 0) {
+            becomeUnknown();
+            return false;
+          }
+        } else if ("nobr".equals(elementName)) {
+          if (findHtmlElementInDefaultScope("nobr", false) >= 0) {
+            becomeUnknown();
+            return false;
+          }
+        } else if ("select".equals(elementName)) {
+          int selectIndex = findHtmlElementInDefaultScope("select", false);
+          if (selectIndex >= 0) {
+            // A nested select start tag is ignored after popping the first.
+            if (!popTrackedElementsFrom(selectIndex, false, null)) {
+              return false;
+            }
+            return false;
+          }
+        } else if ("option".equals(elementName)) {
+          if (findHtmlElementInDefaultScope("select", false) >= 0) {
+            generateImpliedEndTags("optgroup");
+          } else if (isCurrentHtmlElement("option")) {
+            openElements.remove(openElements.size() - 1);
+          }
+        } else if ("optgroup".equals(elementName)) {
+          if (findHtmlElementInDefaultScope("select", false) >= 0) {
+            generateImpliedEndTags(null);
+          } else if (isCurrentHtmlElement("option")) {
+            openElements.remove(openElements.size() - 1);
+          }
+        } else if ("input".equals(elementName)) {
+          if (htmlInsertionMode == HtmlInsertionMode.IN_TABLE
+              && hasHiddenInputType(attrs)) {
+            return false;
+          }
+          int selectIndex = findHtmlElementInDefaultScope("select", false);
+          if (selectIndex >= 0) {
+            if (!popTrackedElementsFrom(selectIndex, false, null)) {
+              return false;
+            }
+          }
+        } else if ("hr".equals(elementName)) {
+          if (!closePIfInButtonScope()) { return false; }
+          if (findHtmlElementInDefaultScope("select", false) >= 0) {
+            generateImpliedEndTags(null);
+          }
+        } else if (UNMODELED_HTML_START_TAG_NAMES.contains(elementName)) {
+          becomeUnknown();
+          return false;
+        } else if ("image".equals(elementName)) {
+          // The in-body rules rewrite image to the void img element.
+          return false;
+        } else if ("table".equals(elementName)) {
+          if (htmlInsertionMode == HtmlInsertionMode.IN_TABLE) {
+            becomeUnknown();
+            return false;
+          }
+          if (!closePIfInButtonScope()) { return false; }
+          OpenElement table = new OpenElement(
+              elementName, Namespace.HTML, attrs);
+          push(table);
+          if (!unknown) {
+            simpleTable = table;
+            simpleTableReturnMode = htmlInsertionMode;
+            htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
+          }
+          return false;
+        }
+
+        if (!HTML_TREE_BUILDER_VOID_ELEMENT_NAMES.contains(elementName)
+            && !IGNORED_HTML_START_TAG_NAMES.contains(elementName)) {
+          push(new OpenElement(elementName, Namespace.HTML, attrs));
         }
         // HTML ignores the self-closing flag on ordinary non-void elements.
         // Void elements are already empty and need no synthetic close event.
@@ -413,8 +598,182 @@ public final class HtmlSanitizer {
       return selfClosing;
     }
 
+    private void trackUntrackedHtmlStartTag(String elementName) {
+      if ("table".equals(elementName)) {
+        if (!untrackedTableInScope) {
+          untrackedTableInScope = true;
+          htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
+        } else if (htmlInsertionMode == HtmlInsertionMode.IN_CELL) {
+          // This is a nested table; its eventual end tag needs a mode stack.
+          htmlInsertionMode = HtmlInsertionMode.UNKNOWN;
+        }
+        return;
+      }
+      if (!untrackedTableInScope) { return; }
+      if ("td".equals(elementName) || "th".equals(elementName)) {
+        htmlInsertionMode = HtmlInsertionMode.IN_CELL;
+      } else if ("caption".equals(elementName)) {
+        // Caption uses body rules for most tokens, but not for table-family
+        // starts, so keep the distinction conservative.
+        htmlInsertionMode = HtmlInsertionMode.UNKNOWN;
+      } else if (TABLE_STRUCTURE_START_TAG_NAMES.contains(elementName)) {
+        htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
+      }
+    }
+
+    private void trackUntrackedHtmlEndTag(String elementName) {
+      if (!untrackedTableInScope) { return; }
+      if ("table".equals(elementName)) {
+        if (htmlInsertionMode != HtmlInsertionMode.UNKNOWN) {
+          untrackedTableInScope = false;
+          htmlInsertionMode = HtmlInsertionMode.IN_BODY;
+        }
+      } else if (TABLE_SCOPED_ELEMENT_NAMES.contains(elementName)) {
+        htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
+      }
+    }
+
+    private void processFormStartTag(List<String> attrs) {
+      if (formElementPointerSet) { return; }
+      formElementPointerSet = true;
+      if (openElements.isEmpty()) { return; }
+      if (!closePIfInButtonScope()) { return; }
+      OpenElement form = new OpenElement("form", Namespace.HTML, attrs);
+      push(form);
+      if (!unknown) { trackedFormElement = form; }
+    }
+
+    private boolean closePIfInButtonScope() {
+      int pIndex = findHtmlElementInDefaultScope("p", true);
+      if (pIndex >= 0) {
+        return popTrackedElementsFrom(pIndex, false, null);
+      }
+      return true;
+    }
+
+    private boolean closeListOrDescriptionItemForStart(boolean listItem) {
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        if (open.namespace == Namespace.HTML
+            && (listItem
+                ? "li".equals(open.elementName)
+                : "dd".equals(open.elementName)
+                    || "dt".equals(open.elementName))) {
+          return popTrackedElementsFrom(i, false, null);
+        }
+        if (isSpecial(open)
+            && !isHtmlElement(open, "address")
+            && !isHtmlElement(open, "div")
+            && !isHtmlElement(open, "p")) {
+          return true;
+        }
+      }
+      return true;
+    }
+
+    /**
+     * Pops a known suffix, or fails closed if doing so leaves formatting
+     * elements only in the active formatting list.  A later start tag could
+     * reconstruct those elements and put Chrome back in HTML content while
+     * this bounded tracker believed that the current node was foreign.
+     */
+    private boolean popTrackedElementsFrom(
+        int fromIndex,
+        boolean allFormattingEntriesAreCleared,
+        @Nullable OpenElement oneFormattingEntryRemoved) {
+      if (!allFormattingEntriesAreCleared) {
+        for (int i = openElements.size(); --i >= fromIndex;) {
+          OpenElement open = openElements.get(i);
+          if (open.namespace == Namespace.HTML
+              && FORMATTING_ELEMENT_NAMES.contains(open.elementName)
+              && open != oneFormattingEntryRemoved) {
+            becomeUnknown();
+            return false;
+          }
+        }
+      }
+      openElements.subList(fromIndex, openElements.size()).clear();
+      return true;
+    }
+
+    private void generateImpliedEndTags(@Nullable String except) {
+      while (!openElements.isEmpty()) {
+        OpenElement current = currentElement();
+        if (current.namespace != Namespace.HTML
+            || !IMPLIED_END_TAG_NAMES.contains(current.elementName)
+            || current.elementName.equals(except)) {
+          return;
+        }
+        openElements.remove(openElements.size() - 1);
+      }
+    }
+
+    private int findHtmlElementInDefaultScope(
+        String elementName, boolean buttonScope) {
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        if (isHtmlElement(open, elementName)) { return i; }
+        if (open.namespace != Namespace.HTML) {
+          if (open.special) { return -1; }
+        } else if (DEFAULT_SCOPE_BOUNDARY_NAMES.contains(open.elementName)
+                   || (buttonScope && "button".equals(open.elementName))) {
+          return -1;
+        }
+      }
+      return -1;
+    }
+
+    private boolean isInDefaultScope(int targetIndex) {
+      for (int i = openElements.size(); --i > targetIndex;) {
+        OpenElement open = openElements.get(i);
+        if (open.namespace != Namespace.HTML) {
+          if (open.special) { return false; }
+        } else if (DEFAULT_SCOPE_BOUNDARY_NAMES.contains(open.elementName)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private int findOpenHtmlElement(String elementName) {
+      for (int i = openElements.size(); --i >= 0;) {
+        if (isHtmlElement(openElements.get(i), elementName)) { return i; }
+      }
+      return -1;
+    }
+
+    private boolean isCurrentHtmlElement(String elementName) {
+      return isHtmlElement(currentElement(), elementName);
+    }
+
+    private static boolean isHtmlElement(
+        OpenElement open, String elementName) {
+      return open.namespace == Namespace.HTML
+          && elementName.equals(open.elementName);
+    }
+
+    private static boolean isSpecial(OpenElement open) {
+      return open.namespace == Namespace.HTML
+          ? SPECIAL_HTML_ELEMENT_NAMES.contains(open.elementName)
+          : open.special;
+    }
+
+    private static boolean hasHiddenInputType(List<String> attrs) {
+      for (int i = 0; i + 1 < attrs.size(); i += 2) {
+        if ("type".equals(attrs.get(i))
+            && asciiEqualsIgnoreCase("hidden", attrs.get(i + 1))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     private void becomeUnknown() {
       openElements.clear();
+      formElementPointerSet = false;
+      trackedFormElement = null;
+      simpleTable = null;
+      untrackedTableInScope = false;
       unknown = true;
     }
 
@@ -458,6 +817,13 @@ public final class HtmlSanitizer {
               && "annotation-xml".equals(current.elementName)
               && "svg".equals(elementName));
     }
+  }
+
+  private enum HtmlInsertionMode {
+    IN_BODY,
+    IN_TABLE,
+    IN_CELL,
+    UNKNOWN,
   }
 
   private enum Namespace {
@@ -568,8 +934,9 @@ public final class HtmlSanitizer {
           "address", "article", "aside", "blockquote", "button", "center",
           "details", "dialog", "dir", "div", "dl", "fieldset", "figcaption",
           "figure", "footer", "header", "hgroup", "listing", "main", "menu",
-          "nav", "ol", "pre", "search", "section", "summary", "ul", "form",
-          "p", "li", "dd", "dt", "h1", "h2", "h3", "h4", "h5", "h6",
+          "nav", "ol", "pre", "search", "section", "select", "summary",
+          "ul", "form", "p", "li", "dd", "dt", "h1", "h2", "h3", "h4",
+          "h5", "h6",
           "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small",
           "strike", "strong", "tt", "u", "applet", "marquee", "object");
 
@@ -577,6 +944,10 @@ public final class HtmlSanitizer {
       = j8().setOf(
           "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small",
           "strike", "strong", "tt", "u");
+
+  /** Elements whose end tags clear the active formatting list to a marker. */
+  private static final Set<String> ACTIVE_FORMATTING_MARKER_ELEMENT_NAMES
+      = j8().setOf("applet", "marquee", "object");
 
   /** The HTML elements that bound the default scope. */
   private static final Set<String> DEFAULT_SCOPE_BOUNDARY_NAMES
@@ -601,15 +972,44 @@ public final class HtmlSanitizer {
           "tfoot", "th", "thead", "title", "tr", "track", "ul", "wbr",
           "xmp");
 
-  /** Start tags inside foreign content whose effect depends on the mode. */
-  private static final Set<String> CONTEXT_CHANGING_START_TAG_NAMES
+  /** Start tags whose HTML stack effect this bounded tracker cannot derive. */
+  private static final Set<String> UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES
+      = j8().setOf("template", "frameset");
+
+  /** Ruby starts generate implied end tags using state outside this tracker. */
+  private static final Set<String> UNMODELED_HTML_START_TAG_NAMES
+      = j8().setOf("rb", "rtc", "rp", "rt");
+
+  /** Start tags that close a p element in button scope before insertion. */
+  private static final Set<String> P_CLOSING_START_TAG_NAMES
       = j8().setOf(
-          "table", "caption", "col", "colgroup", "tbody", "thead", "tfoot",
-          "tr", "td", "th", "template", "select", "frameset");
+          "address", "article", "aside", "blockquote", "center", "details",
+          "dialog", "dir", "div", "dl", "fieldset", "figcaption", "figure",
+          "footer", "header", "hgroup", "main", "menu", "nav", "ol", "p",
+          "search", "section", "summary", "ul");
+
+  private static final Set<String> IMPLIED_END_TAG_NAMES
+      = j8().setOf(
+          "dd", "dt", "li", "optgroup", "option", "p", "rb", "rp", "rt",
+          "rtc");
+
+  private static final Set<String> TABLE_STRUCTURE_START_TAG_NAMES
+      = j8().setOf(
+          "caption", "col", "colgroup", "tbody", "thead", "tfoot", "tr",
+          "td", "th");
+
+  /** Start tags the current HTML tree builder inserts and immediately pops. */
+  private static final Set<String> HTML_TREE_BUILDER_VOID_ELEMENT_NAMES
+      = j8().setOf(
+          "area", "base", "basefont", "bgsound", "br", "embed", "hr",
+          "img", "input", "keygen", "link", "meta", "param", "source",
+          "track", "wbr");
 
   /** Start tags that "in body" ignores or merges rather than inserting. */
   private static final Set<String> IGNORED_HTML_START_TAG_NAMES
-      = j8().setOf("html", "body", "head", "frame");
+      = j8().setOf(
+          "html", "body", "head", "frame", "caption", "col", "colgroup",
+          "tbody", "thead", "tfoot", "tr", "td", "th");
 
   private static final Set<String> MATHML_TEXT_INTEGRATION_POINT_NAMES
       = j8().setOf("mi", "mo", "mn", "ms", "mtext");
