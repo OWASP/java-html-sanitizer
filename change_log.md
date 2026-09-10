@@ -214,6 +214,21 @@ Most recent at top.
       resolving the JPMS split-package error on the module path. The shim
       artifacts are no longer published separately. If you added an explicit
       dependency on `java8-shim` or `java10-shim` as a workaround, remove it.
+    * The jar is now an explicit JPMS module, `owasp.java.html.sanitizer`,
+      rather than an automatic one.  A module descriptor compiled for Java 9
+      ships at `META-INF/versions/9/module-info.class` and the manifest is
+      marked `Multi-Release: true`, so Java 9 and later read it while Java 8,
+      which never looks there, is unaffected.  The module name is the one
+      the jar already had, so `requires owasp.java.html.sanitizer` keeps
+      working; what changes is what it reaches.  The module exports
+      `org.owasp.html` and nothing else, so the bundled `org.owasp.shim`
+      package, which an automatic module exported along with everything
+      else, is now encapsulated.  The JSR 305 annotations on the API are a
+      `requires static jsr305`, so nothing new is needed on the module
+      path.  The build compiles and runs a small consumer module against
+      the packaged jar on every JDK in the CI matrix and fails if the jar
+      resolves as an automatic module, exports more than `org.owasp.html`,
+      or lets another module reach the shim.  Closes #389.
     * HTML: Follow the WHATWG tokenizer for degenerate comments. `<!>`,
       `<!-->`, `<!--->` and `<!->` are complete empty comments, and `--!>`
       closes a comment even when only dashes precede it (`<!----!>`),

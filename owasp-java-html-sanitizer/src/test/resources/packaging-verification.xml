@@ -6,6 +6,21 @@
       <location>target/classes/META-INF/MANIFEST.MF</location>
       <contains>Export-Package: org.owasp.html</contains>
     </file>
+    <!-- The JPMS module descriptor is compiled for Java 9 into the
+         versioned directory of the multi-release jar, and Java 9 and later
+         look there only when the manifest says Multi-Release.  Without
+         either half, `requires owasp.java.html.sanitizer` silently gets
+         the automatic module derived from the manifest, which exports
+         every package.  This checks the compiler's output and the
+         manifest bnd wrote; the modular consumer under src/it/jpms-consumer
+         checks the packaged jar itself.  See #389. -->
+    <file>
+      <location>target/classes/META-INF/MANIFEST.MF</location>
+      <contains>Multi-Release: true</contains>
+    </file>
+    <file>
+      <location>target/classes/META-INF/versions/9/module-info.class</location>
+    </file>
     <!-- The examples are demonstration code, not API, and live in their own
          unpublished module.  This catches the way they would realistically
          come back: someone re-adding a class under src/main/java here.  It
