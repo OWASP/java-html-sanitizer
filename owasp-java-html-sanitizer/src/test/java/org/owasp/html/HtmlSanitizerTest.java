@@ -787,6 +787,208 @@ class HtmlSanitizerTest {
         sanitize("<p>foo</p> <p class=\"test\" \"=\">bar</p> <p>baz</p>"));
   }
 
+  /**
+   * Issue #122.  Browsers honor the self-closing flag on {@code <svg/>} and
+   * {@code <math/>}, and on most start tags inside them, where
+   * {@code <path/>} is a complete, empty element.  The sanitizer discarded
+   * the flag, so each self-closing path nested inside the one before it and
+   * the end of the SVG closed them all at once.
+   */
+  @Test
+  void testSelfClosingTagsInForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    // The markup from the issue.
+    assertEquals(
+        "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\">\n"
+        + "    <path id=\"bounds\" opacity=\"0\" d=\"M0 0h24v24H0z\"></path>\n"
+        + "    <path d=\"M2 2\"></path>\n"
+        + "    <path d=\"M3 3\"></path>\n"
+        + "</svg>",
+        p.sanitize(
+            "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\">\n"
+            + "    <path id=\"bounds\" opacity=\"0\" d=\"M0 0h24v24H0z\"/>\n"
+            + "    <path d=\"M2 2\"/>\n"
+            + "    <path d=\"M3 3\"/>\n"
+            + "</svg>"));
+    // What follows a self-closing tag is a sibling, not content.
+    assertEquals(
+        "<svg><path d=\"M0 0\"></path>text<path d=\"M1 1\"></path></svg>",
+        p.sanitize("<svg><path d=\"M0 0\"/>text<path d=\"M1 1\"/></svg>"));
+    assertEquals(
+        "<svg><g><path d=\"M0 0\"></path><rect></rect></g>"
+        + "<path d=\"M1 1\"></path></svg>",
+        p.sanitize(
+            "<svg><g><path d=\"M0 0\"/><rect/></g><path d=\"M1 1\"/></svg>"));
+    // Names that keep their case are foreign content too, and SVG's
+    // textArea is not HTML's textarea.
+    assertEquals(
+        "<svg><clipPath></clipPath><g></g>x</svg>",
+        p.sanitize("<svg><clipPath/><g/>x</svg>"));
+    assertEquals(
+        "<svg><textArea></textArea>x</svg>",
+        p.sanitize("<svg><textArea/>x</svg>"));
+    assertEquals(
+        "<math><mi></mi>x<mrow></mrow>y</math>",
+        p.sanitize("<math><mi/>x<mrow/>y</math>"));
+    // The flag is honored on <svg/> and <math/> themselves, anywhere.
+    assertEquals("<svg></svg>x", p.sanitize("<svg/>x"));
+    assertEquals("<svg></svg>x", p.sanitize("<SVG/>x"));
+    assertEquals("<math></math>x", p.sanitize("<math/>x"));
+    assertEquals(
+        "<svg><svg></svg><path d=\"M0 0\"></path></svg>",
+        p.sanitize("<svg><svg/><path d=\"M0 0\"/></svg>"));
+    // Only a solidus right before the '>' sets the flag.
+    assertEquals(
+        "<svg><path d=\"M0\"></path>x</svg>",
+        p.sanitize("<svg><path d=M0 />x</svg>"));
+    assertEquals(
+        "<svg><path d=\"M0/&gt;\"></path>x</svg>",
+        p.sanitize("<svg><path d=\"M0/>\"/>x</svg>"));
+    // In an unquoted value the solidus is part of the value.
+    assertEquals(
+        "<svg><path d=\"M0/\">x</path></svg>",
+        p.sanitize("<svg><path d=M0/>x</svg>"));
+    assertEquals(
+        "<svg><path>x</path></svg>", p.sanitize("<svg><path / >x</svg>"));
+  }
+
+  /**
+   * Issue #122.  In HTML content the self-closing flag means nothing on a
+   * non-void element, so outside {@code <svg>} and {@code <math>} nothing
+   * changes: {@code <path/>} still opens an element that only an end tag
+   * closes.
+   */
+  @Test
+  void testSelfClosingTagsOutsideForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<path d=\"M0 0\">x</path>", p.sanitize("<path d=\"M0 0\"/>x"));
+    assertEquals("<p>x</p>", p.sanitize("<p/>x"));
+    // Foreign content ends with the element that started it.
+    assertEquals(
+        "<svg></svg><path d=\"M0 0\">x</path>",
+        p.sanitize("<svg></svg><path d=\"M0 0\"/>x"));
+    assertEquals(
+        "<svg><path></path></svg><path d=\"M0 0\">x</path>",
+        p.sanitize("<svg><path/></svg><path d=\"M0 0\"/>x"));
+  }
+
+  /**
+   * Issue #122.  Browsers process the start tags that break out of foreign
+   * content as HTML, where the flag is ignored again; a void element is
+   * empty with or without it; and the elements whose content the lexer
+   * reads as text keep that content up to their end tag.
+   */
+  @Test
+  void testSelfClosingTagsThatBreakOutOfForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals("<svg><div>x</div></svg>", p.sanitize("<svg><div/>x</svg>"));
+    assertEquals("<svg><p>x</p></svg>", p.sanitize("<svg><p/>x</svg>"));
+    // <font> breaks out only with a color, face or size attribute.
+    assertEquals(
+        "<svg><font color=\"red\">x</font></svg>",
+        p.sanitize("<svg><font color=\"red\"/>x</svg>"));
+    assertEquals(
+        "<svg><font></font>x</svg>", p.sanitize("<svg><font/>x</svg>"));
+    assertEquals("<svg><br />x</svg>", p.sanitize("<svg><br/>x</svg>"));
+    assertEquals(
+        "<svg><textarea>x</textarea></svg>",
+        p.sanitize("<svg><textarea/>x</textarea></svg>"));
+  }
+
+  /**
+   * Issue #122.  A self-closing tag is still subject to the policy, and what
+   * follows one is still text or markup that the policy sees, so the flag
+   * cannot smuggle anything past either.
+   */
+  @Test
+  void testSelfClosingTagsInForeignContentAreStillSanitized() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><path></path>x</svg>",
+        p.sanitize("<svg><path onload=\"alert(1)\"/>x</svg>"));
+    // The solidus does not end this tag, so what follows it is an attribute.
+    assertEquals(
+        "<svg><path>x</path></svg>",
+        p.sanitize("<svg><path/onload=alert(1)>x</svg>"));
+    assertEquals(
+        "<svg>x</svg>",
+        p.sanitize("<svg><a href=\"javascript:alert(1)\"/>x</svg>"));
+    assertEquals(
+        "<svg><a href=\"http://example.com/\"></a>x</svg>",
+        p.sanitize("<svg><a href=\"http://example.com/\"/>x</svg>"));
+    assertEquals(
+        "<svg><g></g></svg>",
+        p.sanitize("<svg><g/><img src=x onerror=alert(1)></svg>"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject><div>x</div></svg>",
+        p.sanitize("<svg><foreignObject/><div>x</div></svg>"));
+    // Raw text content is read up to the end tag and escaped, as before.
+    assertEquals(
+        "<svg><title>&lt;img src&#61;x onerror&#61;alert(1)&gt;</title></svg>",
+        p.sanitize("<svg><title/><img src=x onerror=alert(1)></title></svg>"));
+    assertEquals(
+        "<svg><style></style></svg>",
+        p.sanitize("<svg><style/><script>alert(1)</script></style></svg>"));
+    // Text after a dropped element that closed itself is shown, as in a
+    // browser, where that element is empty.
+    assertEquals("<svg>x</svg>", p.sanitize("<svg><noscript/>x</svg>"));
+    // Self-closing elements are siblings, so they never reach the nesting
+    // limit.
+    StringBuilder sb = new StringBuilder("<svg>");
+    for (int i = 0; i < 300; ++i) { sb.append("<g/>"); }
+    sb.append("x</svg>");
+    String out = p.sanitize(sb.toString());
+    assertEquals(300, out.split("<g></g>", -1).length - 1);
+    assertTrue(out.endsWith("x</svg>"));
+  }
+
+  /** Issue #122.  The events a policy sees for a self-closing tag. */
+  @Test
+  void testSelfClosingTagEvents() {
+    final List<String> events = new ArrayList<>();
+    HtmlSanitizer.Policy recorder = new HtmlSanitizer.Policy() {
+      public void openDocument() { events.add("openDocument"); }
+      public void closeDocument() { events.add("closeDocument"); }
+      public void openTag(String elementName, List<String> attrs) {
+        events.add("openTag " + elementName + " " + attrs);
+      }
+      public void closeTag(String elementName) {
+        events.add("closeTag " + elementName);
+      }
+      public void text(String text) { events.add("text " + text); }
+    };
+    HtmlSanitizer.sanitize(
+        "<svg><path d=\"M0 0\"/>x</svg><path/>y", recorder);
+    assertEquals(
+        Arrays.asList(
+            "openDocument",
+            "openTag svg []",
+            "openTag path [d, M0 0]",
+            "closeTag path",
+            "text x",
+            "closeTag svg",
+            "openTag path []",
+            "text y",
+            "closeDocument"),
+        events);
+  }
+
+  private static PolicyFactory foreignContentPolicy() {
+    return new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "math", "path", "g", "rect", "clipPath", "foreignObject",
+            "textArea", "textarea", "mi", "mrow", "a", "div", "p", "font",
+            "br", "style", "title")
+        .allowAttributes("width", "height", "viewBox").onElements("svg")
+        .allowAttributes("id", "opacity", "d").onElements("path")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("color").onElements("font")
+        .allowWithoutAttributes("font")
+        .allowStandardUrlProtocols()
+        .toFactory();
+  }
+
   private static String sanitize(@Nullable String html) {
     StringBuilder sb = new StringBuilder();
     HtmlStreamRenderer renderer = HtmlStreamRenderer.create(

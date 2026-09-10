@@ -2,6 +2,22 @@
 
 Most recent at top.
   * Next release
+    * Self-closing tags inside `<svg>` and `<math>` now close.  Browsers
+      honor the self-closing flag on a start tag in foreign content, so
+      `<path d="..."/>` is a complete, empty element there, and on `<svg/>`
+      and `<math/>` themselves.  The sanitizer discarded the flag, so each
+      self-closing `<path/>` nested inside the one before it and the end of
+      the SVG closed them all at once:
+      `<svg><path d="M0 0"/><path d="M1 1"/></svg>` came out as
+      `<svg><path d="M0 0"><path d="M1 1"></path></path></svg>`, and now
+      comes out as `<svg><path d="M0 0"></path><path d="M1 1"></path></svg>`.
+      A policy sees such a tag as an open tag followed at once by its close
+      tag.  Nothing changes in HTML content, where the flag means nothing on
+      a non-void element, nor for the tags that break out of foreign
+      content, such as `<div/>` or `<p/>` inside `<svg>`, which browsers
+      process as HTML.  Elements whose content the lexer reads as text, such
+      as `<style>` and `<title>`, keep that content up to their end tag as
+      before.  Issue #122.
     * `PolicyFactory.and` no longer lets a factory that allowed no URL
       protocol veto the protocols the other factory allowed.  A builder that
       never called `allowUrlProtocols` guards its URL attributes with a

@@ -27,9 +27,13 @@
 
 package org.owasp.html;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
+
+import static org.owasp.shim.Java8Shim.j8;
 
 /**
  * Consumes an HTML stream, and dispatches events to a policy object which
@@ -64,7 +68,10 @@ public final class HtmlSanitizer {
     void openTag(String elementName, List<String> attrs);
 
     /**
-     * Called when an HTML tag like {@code </foo>} is seen in the input.
+     * Called when an HTML tag like {@code </foo>} is seen in the input, and
+     * right after {@link #openTag} for a self-closing tag like
+     * {@code <path/>} where browsers honor the self-closing flag: on
+     * {@code <svg/>} and {@code <math/>}, and on most tags inside them.
      *
      * @param elementName a normalized (lower-case for non-namespaced names)
      *     element name.
@@ -136,6 +143,12 @@ public final class HtmlSanitizer {
     // Use a linked list so that policies can use Iterator.remove() in an O(1)
     // way.
     LinkedList<String> attrs = new LinkedList<>();
+    // The number of <svg> and <math> start tags seen without a matching end
+    // tag.  Browsers parse the content of those elements as foreign content,
+    // where a start tag's self-closing flag is honored: <path/> is a whole,
+    // empty element.  In HTML content the flag means nothing, and <path/>
+    // opens an element that only an end tag closes.  Issue #122.
+    int foreignContentDepth = 0;
     while (lexer.hasNext()) {
       HtmlToken token = lexer.next();
       switch (token.type) {
@@ -149,16 +162,22 @@ public final class HtmlSanitizer {
           break;
         case TAGBEGIN:
           if (htmlContent.charAt(token.start + 1) == '/') {  // A close tag.
-            receiver.closeTag(HtmlLexer.canonicalElementName(
-                htmlContent.substring(token.start + 2, token.end)));
+            String elementName = HtmlLexer.canonicalElementName(
+                htmlContent.substring(token.start + 2, token.end));
+            receiver.closeTag(elementName);
             while (lexer.hasNext()
                    && lexer.next().type != HtmlTokenType.TAGEND) {
               // skip tokens until we see a ">"
+            }
+            if (foreignContentDepth != 0
+                && isForeignContentRoot(elementName)) {
+              --foreignContentDepth;
             }
           } else {
             attrs.clear();
 
             boolean attrsReadyForName = true;
+            boolean selfClosing = false;
             tagBody:
             while (lexer.hasNext()) {
               HtmlToken tagBodyToken = lexer.next();
@@ -180,6 +199,10 @@ public final class HtmlSanitizer {
                   attrsReadyForName = true;
                   break;
                 case TAGEND:
+                  // The lexer ends a start tag with a "/>" token only when
+                  // the solidus immediately precedes the ">", which is when
+                  // the WHATWG tokenizer sets the self-closing flag.
+                  selfClosing = htmlContent.charAt(tagBodyToken.start) == '/';
                   break tagBody;
                 default:
                   // Just drop anything not recognized
@@ -188,10 +211,21 @@ public final class HtmlSanitizer {
             if (!attrsReadyForName) {
               attrs.add(attrs.getLast());
             }
-            receiver.openTag(
-                HtmlLexer.canonicalElementName(
-                    htmlContent.substring(token.start + 1, token.end)),
-                attrs);
+            String elementName = HtmlLexer.canonicalElementName(
+                htmlContent.substring(token.start + 1, token.end));
+            boolean foreignContentRoot = isForeignContentRoot(elementName);
+            // Decided before the policy sees the attributes, since it may
+            // edit them.
+            boolean closesItself = selfClosing
+                && (foreignContentRoot
+                    || (foreignContentDepth != 0
+                        && closesItselfInForeignContent(elementName, attrs)));
+            receiver.openTag(elementName, attrs);
+            if (closesItself) {
+              receiver.closeTag(elementName);
+            } else if (foreignContentRoot) {
+              ++foreignContentDepth;
+            }
           }
           break;
         default:
@@ -203,6 +237,69 @@ public final class HtmlSanitizer {
 
     receiver.closeDocument();
   }
+
+  /**
+   * True for the elements whose content browsers parse as foreign content
+   * rather than as HTML.
+   */
+  private static boolean isForeignContentRoot(String canonElementName) {
+    return "svg".equals(canonElementName) || "math".equals(canonElementName);
+  }
+
+  /**
+   * True if a self-closing start tag for the named element, seen inside
+   * {@code <svg>} or {@code <math>}, opens an element that closes at once.
+   *
+   * <p>That is what browsers do with a start tag processed under the rules
+   * for foreign content.  The exceptions are the tags that break out of
+   * foreign content, which browsers process as HTML, where the flag on a
+   * non-void element is ignored, and the elements whose content the lexer
+   * has already committed to treating as text.
+   *
+   * @param attrs alternating attribute names and values as the author wrote
+   *     them, before any policy has edited them.
+   */
+  private static boolean closesItselfInForeignContent(
+      String canonElementName, List<String> attrs) {
+    if (HtmlTextEscapingMode.getModeForTag(canonElementName)
+        != HtmlTextEscapingMode.PCDATA) {
+      // A void element is empty already.  The lexer treats the content of
+      // <style>, <title> and the other elements with literal content as text
+      // up to the matching end tag, so the element stays open to hold it.
+      return false;
+    }
+    if (FOREIGN_CONTENT_BREAKOUT_ELEMENT_NAMES.contains(canonElementName)) {
+      return false;
+    }
+    if ("font".equals(canonElementName)) {
+      for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
+        String name = it.next();
+        if (it.hasNext()) { it.next(); }  // The value.
+        if ("color".equals(name) || "face".equals(name)
+            || "size".equals(name)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * The start tags that end foreign content: inside {@code <svg>} or
+   * {@code <math>}, a browser pops back out to HTML content and processes one
+   * of these as HTML.  A {@code <font>} tag with a color, face or size
+   * attribute does the same.
+   *
+   * @see <a href="https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inforeign"
+   *     >The rules for parsing tokens in foreign content</a>
+   */
+  private static final Set<String> FOREIGN_CONTENT_BREAKOUT_ELEMENT_NAMES
+      = j8().setOf(
+          "b", "big", "blockquote", "body", "br", "center", "code", "dd",
+          "div", "dl", "dt", "em", "embed", "h1", "h2", "h3", "h4", "h5",
+          "h6", "head", "hr", "i", "img", "li", "listing", "menu", "meta",
+          "nobr", "ol", "p", "pre", "ruby", "s", "small", "span", "strong",
+          "strike", "sub", "sup", "table", "tt", "u", "ul", "var");
 
   private static String stripQuotes(String encodedAttributeValue) {
     int n = encodedAttributeValue.length();
