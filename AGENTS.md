@@ -16,11 +16,18 @@ This is a multi-module Maven build:
 - `owasp-java-html-sanitizer/` - the library. Core code:
   `owasp-java-html-sanitizer/src/main/java/org/owasp/html/`. Tests:
   `owasp-java-html-sanitizer/src/test/java/org/owasp/html/`.
+  `src/main/java9/module-info.java` is the JPMS module descriptor. A second
+  compiler execution compiles it for Java 9 into `META-INF/versions/9/` of
+  the multi-release JAR, which is how a Java 8 JAR carries one; it exports
+  `org.owasp.html` only. `src/it/jpms-consumer/` is a small module that
+  `./mvnw verify` compiles and runs against the packaged JAR to check that
+  the descriptor is read and the shim stays encapsulated. Those two are the
+  only Java 9 sources in the library module.
 - `java8-shim/`, `java10-shim/` - in-repo shims that let the Java 8 library
   use newer JDK collection APIs when running on Java 10+. Both are inlined
   into the library JAR by the shade plugin and do not appear in the published
   POM. `java10-shim` is the only module that may use Java 9 and 10 APIs
-  (`maven.compiler.release` 10). No module uses anything newer.
+  (`maven.compiler.release` 10). Nothing uses anything newer.
 - `empiricism/` - in-browser experiments that record how real browsers nest
   and balance tags. They generate `HtmlElementTablesCanned.java` in the
   library's core package. Never hand-edit that file: change the probe or
@@ -45,7 +52,9 @@ browser parser quirks.
   version that satisfies the enforcer.
 - The library targets Java 8 source and bytecode (`maven.compiler.release` 8)
   regardless of the JDK used to build, and test code is compiled at the same
-  level. Do not use newer language features or APIs in either.
+  level. Do not use newer language features or APIs in either. The module
+  descriptor and the modular consumer check are the exceptions, compiled
+  for Java 9 and nothing newer.
 - Tests use JUnit 5 (Jupiter). Do not add JUnit 4 style tests.
 - Fuzzer tests (`*FuzzerTest.java`) and the AntiSamy test suite are part of
   the normal test run. The fuzzers seed from the clock and report the seed

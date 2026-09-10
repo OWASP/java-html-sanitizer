@@ -22,6 +22,45 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <executions>
+          <!-- The library is compiled for Java 8 by the default execution,
+               so the module descriptor cannot sit beside the sources.  This
+               second execution compiles src/main/java9/module-info.java
+               for Java 9 into target/classes/META-INF/versions/9, where a
+               multi-release jar keeps the classes for that release.  The
+               plugin patches the Java 8 classes already in target/classes
+               into the module for this compile, so javac checks that every
+               exported package exists.  See issue #389.
+
+               The plugin prints a boxed warning that jsr305 is a
+               filename-based automatic module and the project should not
+               be published.  That is expected and safe here: the JSR 305
+               jar has no Automatic-Module-Name and, with no release since
+               3.0.2 in 2017, never will, so the derived name is stable;
+               the descriptor requires it static, so nothing is asked of a
+               consumer at run time; and module resolution does not follow
+               a static dependence, so consumers compile against this
+               module without jsr305 on their module path.  The consumer
+               check below runs without it. -->
+          <execution>
+            <id>compile-module-info</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <release>9</release>
+              <compileSourceRoots>
+                <compileSourceRoot>${project.basedir}/src/main/java9</compileSourceRoot>
+              </compileSourceRoots>
+              <multiReleaseOutput>true</multiReleaseOutput>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <!-- http://www.javaworld.com/article/2074515/core-java/
            unit-test-code-coverage-with-maven-and-jacoco.html -->
       <plugin>
@@ -76,9 +115,22 @@
                  package unless we name it, and naming it advertises a
                  dependency the bundle does not have. -->
             <Import-Package>!org.owasp.shim,javax.annotation;resolution:=optional,*</Import-Package>
-            <!-- Explicit JPMS automatic module name so consumers using the
-                 module path can require this module by a stable name that
-                 is independent of the JAR filename. -->
+            <!-- bnd 3.5 predates multi-release jars and warns that
+                 META-INF/versions/9/module-info.class is a class in the
+                 wrong directory.  It is exactly where the JDK expects it,
+                 so drop that one warning and no other. -->
+            <_fixupmessages>Classes found in the wrong directory*module-info*;is:=ignore</_fixupmessages>
+            <!-- The jar is a multi-release jar for one reason: to carry the
+                 JPMS module descriptor compiled from src/main/java9 at
+                 META-INF/versions/9/module-info.class, which Java 9 and
+                 later read only when this header is present and Java 8
+                 never looks at.  There are no versioned copies of any
+                 class.  See issue #389. -->
+            <Multi-Release>true</Multi-Release>
+            <!-- Java 9 and later take the module name from the descriptor
+                 and ignore this header.  It is kept so that tools which
+                 read only the manifest, and any that predate multi-release
+                 descriptors, see the same stable name. -->
             <Automatic-Module-Name>owasp.java.html.sanitizer</Automatic-Module-Name>
           </instructions>
         </configuration>
@@ -133,6 +185,66 @@
               <!-- Generate a reduced POM that omits the now-inlined shim
                    dependencies, keeping the published POM accurate -->
               <createDependencyReducedPom>true</createDependencyReducedPom>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Compile and run src/it/jpms-consumer, a named module that
+           declares `requires owasp.java.html.sanitizer`, against the
+           packaged jar with plain javac and java from the JDK running the
+           build.  That is the check issue #389 asked for: the jar must be
+           read as an explicit module by every JDK in the CI matrix, and
+           JpmsConsumerCheck then verifies what it exports, what it
+           requires, and that the bundled shim stays encapsulated.  It runs
+           at integration-test, after the shaded jar exists, so `mvn test`
+           is unaffected; nothing here is a surefire test because the
+           test sources are compiled for Java 8, which has no modules. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>compile-jpms-consumer</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/javac</executable>
+              <!-- By default the plugin rewrites a module path option into
+                   an @argfile and, for java, loses the path.  Pass the
+                   arguments as written. -->
+              <longModulepath>false</longModulepath>
+              <arguments>
+                <!-- Java 9 is the release the descriptor targets, and
+                     pinning it keeps the check from drifting onto APIs
+                     newer than the JDKs it has to run on. -->
+                <argument>--release</argument>
+                <argument>9</argument>
+                <argument>-d</argument>
+                <argument>${project.build.directory}/jpms-consumer</argument>
+                <argument>--module-path</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                <argument>${project.basedir}/src/it/jpms-consumer/module-info.java</argument>
+                <argument>${project.basedir}/src/it/jpms-consumer/org/owasp/html/jpmscheck/JpmsConsumerCheck.java</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-jpms-consumer</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/java</executable>
+              <longModulepath>false</longModulepath>
+              <arguments>
+                <argument>--module-path</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar${path.separator}${project.build.directory}/jpms-consumer</argument>
+                <argument>--module</argument>
+                <argument>org.owasp.html.jpmscheck/org.owasp.html.jpmscheck.JpmsConsumerCheck</argument>
+              </arguments>
             </configuration>
           </execution>
         </executions>
