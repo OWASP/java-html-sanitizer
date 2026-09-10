@@ -270,7 +270,12 @@ public class HtmlPolicyBuilder {
       // that to infect later allowElement calls for this particular element
       // name.  rejects should have higher priority than allows.
       elPolicies.put(elementName, newPolicy);
-      if (!textContainers.containsKey(elementName)) {
+      // An allowed element that can hold text is a text container unless
+      // told otherwise.  A rejected element grants nothing, so it is not
+      // recorded as one: under PolicyFactory.and, that record would cancel a
+      // disallowTextIn for the same element in the other factory.
+      if (!ElementPolicy.REJECT_ALL_ELEMENT_POLICY.equals(newPolicy)
+          && !textContainers.containsKey(elementName)) {
         if (METADATA.canContainPlainText(METADATA.indexForName(elementName))) {
           textContainers.put(elementName, true);
         }
@@ -338,7 +343,8 @@ public class HtmlPolicyBuilder {
    * are eventually for human consumption, but which are created in a separate
    * document fragment.
    * <p>
-   * This applies whether or not the element itself is allowed.  With both
+   * This applies to the element as the author wrote it, whether the policy
+   * keeps it, renames it or drops it.  With both
    * {@code disallowElements("template")} and
    * {@code disallowTextIn("template")} in effect,
    * {@code <template>hidden</template>} contributes nothing to the output,
@@ -346,10 +352,10 @@ public class HtmlPolicyBuilder {
    * bare text.
    * <p>
    * Text belongs to the nearest enclosing element that survives the policy,
-   * so this does not reach text inside an <i>allowed</i> element nested in
-   * the named one: {@code <template><p>shown</p></template>} keeps
-   * {@code shown} if {@code <p>} is allowed.  It is not a way to drop an
-   * element together with everything inside it.
+   * so this does not reach text inside a nested element that survives:
+   * {@code <template><p>shown</p></template>} keeps {@code shown} if
+   * {@code <p>} is allowed and kept.  It is not a way to drop an element
+   * together with everything inside it.
    */
   public HtmlPolicyBuilder disallowTextIn(String... elementNames) {
     invalidateCompiledState();

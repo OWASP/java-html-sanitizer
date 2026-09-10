@@ -72,9 +72,30 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
+   * Implemented by a policy that suppresses the text inside dropped elements
+   * beyond the fixed {@link
+   * ElementAndAttributePolicyBasedSanitizerPolicy#SKIPPABLE_ELEMENT_CONTENT}
+   * list, such as one built with {@code disallowTextIn}.
+   *
+   * <p>This receiver drops a start tag that would exceed the nesting limit
+   * before the policy sees it, and keeps the content of such an element
+   * suppressed on the policy's behalf (see {@link #droppedSkippableDepth}).
+   * It knows the fixed list itself; for anything else it has to ask.
+   */
+  interface TextSuppressionPolicy {
+    /**
+     * @param canonElementName a canonical element name.
+     * @return true if text directly inside a dropped {@code canonElementName}
+     *     is suppressed rather than emitted where the element was.
+     */
+    boolean suppressesTextWhenDropped(String canonElementName);
+  }
+
+  /**
    * How many elements whose content the policy would suppress -- {@code
-   * <script>}, {@code <style>}, {@code <iframe>} and friends -- have been
-   * dropped for exceeding the nesting limit and not yet closed.
+   * <script>}, {@code <style>}, {@code <iframe>} and friends, plus any the
+   * policy names through {@link TextSuppressionPolicy} -- have been dropped
+   * for exceeding the nesting limit and not yet closed.
    *
    * <p>The policy decides to skip such an element's text when it sees the
    * element's start tag.  A tag this receiver drops never reaches the policy,
@@ -83,9 +104,14 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private int droppedSkippableDepth;
 
-  private static boolean contentIsSkippable(String canonElementName) {
-    return ElementAndAttributePolicyBasedSanitizerPolicy
-        .SKIPPABLE_ELEMENT_CONTENT.contains(canonElementName);
+  private boolean contentIsSkippable(String canonElementName) {
+    if (ElementAndAttributePolicyBasedSanitizerPolicy
+        .SKIPPABLE_ELEMENT_CONTENT.contains(canonElementName)) {
+      return true;
+    }
+    return underlying instanceof TextSuppressionPolicy
+        && ((TextSuppressionPolicy) underlying)
+            .suppressesTextWhenDropped(canonElementName);
   }
 
   private void reportDroppedByNestingLimit(String elementName) {

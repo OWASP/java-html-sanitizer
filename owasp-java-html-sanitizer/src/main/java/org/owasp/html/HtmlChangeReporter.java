@@ -32,6 +32,8 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
+
 /**
  * Sits between the HTML parser, the policy, and the renderer so that it
  * can report dropped elements and attributes to an {@link HtmlChangeListener}.
@@ -83,7 +85,8 @@ public final class HtmlChangeReporter<T> {
 
   private static final class InputChannel<T>
       implements HtmlSanitizer.Policy,
-                 TagBalancingHtmlStreamEventReceiver.NestingLimitListener {
+                 TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
+                 TextSuppressionPolicy {
     HtmlStreamEventReceiver policy;
     final OutputChannel output;
     final T context;
@@ -104,6 +107,17 @@ public final class HtmlChangeReporter<T> {
      */
     public void nestingLimitReached(String elementName) {
       listener.discardedTag(context, elementName);
+    }
+
+    /**
+     * For the same reason: before dropping a start tag at the limit, the
+     * balancer asks whether the element's text is suppressed, and the policy
+     * that knows sits behind this channel.
+     */
+    public boolean suppressesTextWhenDropped(String canonElementName) {
+      return policy instanceof TextSuppressionPolicy
+          && ((TextSuppressionPolicy) policy)
+              .suppressesTextWhenDropped(canonElementName);
     }
 
     public void openDocument() {

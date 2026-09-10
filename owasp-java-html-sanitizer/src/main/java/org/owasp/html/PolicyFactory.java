@@ -57,9 +57,9 @@ public final class PolicyFactory
   private final Map<String, AttributePolicy> globalAttrPolicies;
   private final Set<String> textContainers;
   /**
-   * Elements whose text is suppressed even when the element itself is dropped,
-   * from {@link HtmlPolicyBuilder#disallowTextIn}.  Disjoint from
-   * {@link #textContainers}.
+   * Elements in which text is disallowed, from
+   * {@link HtmlPolicyBuilder#disallowTextIn}, whether the element is kept,
+   * renamed or dropped.  Disjoint from {@link #textContainers}.
    */
   private final Set<String> disallowedTextContainers;
   private final HtmlStreamEventProcessor preprocessor;
@@ -192,19 +192,14 @@ public final class PolicyFactory
       allTextContainers = Collections.unmodifiableSet(containerBuilder);
     }
     // A disallowTextIn from either factory carries over, unless the other
-    // allows text in that element: grants union here as they do above.
-    Set<String> allDisallowedTextContainers;
-    if (this.disallowedTextContainers.isEmpty()
-        && f.disallowedTextContainers.isEmpty()) {
-      allDisallowedTextContainers = this.disallowedTextContainers;
-    } else {
-      Set<String> disallowedBuilder = new HashSet<>();
-      disallowedBuilder.addAll(this.disallowedTextContainers);
-      disallowedBuilder.addAll(f.disallowedTextContainers);
-      disallowedBuilder.removeAll(allTextContainers);
-      allDisallowedTextContainers
-          = Collections.unmodifiableSet(disallowedBuilder);
-    }
+    // allows text in that element: grants union here as they do above, and
+    // the two sets stay disjoint as they are in a single builder.
+    Set<String> disallowedBuilder
+        = new HashSet<>(this.disallowedTextContainers);
+    disallowedBuilder.addAll(f.disallowedTextContainers);
+    disallowedBuilder.removeAll(allTextContainers);
+    Set<String> allDisallowedTextContainers
+        = Collections.unmodifiableSet(disallowedBuilder);
     Map<String, AttributePolicy> allGlobalAttrPolicies;
     if (f.globalAttrPolicies.isEmpty()) {
       allGlobalAttrPolicies = this.globalAttrPolicies;

@@ -1776,6 +1776,72 @@ class HtmlPolicyBuilderTest {
     assertEquals(
         "<h1>a</h1><template>hidden</template>",
         headings.and(noTemplateText).and(templates).sanitize(html));
+
+    // Disallowing the element in one factory grants nothing, so it does not
+    // cancel the other factory's disallowTextIn.
+    PolicyFactory noDivs = new HtmlPolicyBuilder()
+        .disallowElements("div").toFactory();
+    PolicyFactory noDivText = new HtmlPolicyBuilder()
+        .disallowTextIn("div").toFactory();
+    assertEquals("", noDivText.and(noDivs).sanitize("<div>hidden</div>"));
+    assertEquals("", noDivs.and(noDivText).sanitize("<div>hidden</div>"));
+  }
+
+  /**
+   * A kept element is judged by the name it was kept under, so a policy that
+   * renames {@code span} to {@code div} would otherwise honour
+   * {@code disallowTextIn("span")} only when the span happened to be dropped.
+   * The rule follows the name the author wrote.
+   */
+  @Test
+  void testDisallowTextInFollowsARenamedElement() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "div", "span")
+        .allowElements("div")
+        .allowAttributes("title").onElements("span")
+        .disallowTextIn("span");
+    assertEquals(
+        "<div title=\"t\"></div>", apply(b, "<span title=t>hi</span>"));
+    assertEquals("", apply(b, "<span>hi</span>"));
+    assertEquals("<div>hi</div>", apply(b, "<div>hi</div>"));
+  }
+
+  /**
+   * Once a kept child closes, the text that follows it is still inside the
+   * dropped element, and stays suppressed.  The old gate reset to the nearest
+   * kept ancestor at every close tag, so that text leaked.
+   */
+  @Test
+  void testSuppressionResumesAfterAKeptChildCloses() {
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder().allowElements("p");
+    assertEquals("<p>b</p>", apply(b, "<noscript>a<p>b</p>c</noscript>"));
+    // Text after the dropped element itself is unaffected.
+    assertEquals("<p>b</p>d", apply(b, "<noscript>a<p>b</p>c</noscript>d"));
+    assertEquals(
+        "<p>b</p>",
+        apply(
+            b.disallowTextIn("template"), "<template>a<p>b</p>c</template>"));
+  }
+
+  /**
+   * The other side of the gate following the nearest kept element: text inside
+   * a dropped child of a kept element that cannot hold text itself is dropped
+   * too, where it used to be written straight into that element.  A browser
+   * would not keep text directly inside a {@code <tr>} either.  Policies that
+   * allow the cells are unaffected.
+   */
+  @Test
+  void testTextInADroppedCellOfAKeptRowIsDropped() {
+    String table = "<table><tr><td>cell</td></tr></table>";
+    assertEquals(
+        "<table><tbody><tr></tr></tbody></table>",
+        apply(new HtmlPolicyBuilder().allowElements("table", "tbody", "tr"),
+              table));
+    assertEquals(
+        "<table><tbody><tr><td>cell</td></tr></tbody></table>",
+        apply(
+            new HtmlPolicyBuilder().allowElements("table", "tbody", "tr", "td"),
+            table));
   }
 
   /**

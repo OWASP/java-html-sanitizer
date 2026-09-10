@@ -28,6 +28,7 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -44,12 +45,15 @@ import static org.owasp.shim.Java8Shim.j8;
 @TCB
 @NotThreadSafe
 class ElementAndAttributePolicyBasedSanitizerPolicy
-    implements HtmlSanitizer.Policy {
+    implements HtmlSanitizer.Policy,
+               TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy {
   final Map<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final Set<String> allowedTextContainers;
   /**
-   * Elements whose text is suppressed even when the element itself is dropped,
-   * from {@link HtmlPolicyBuilder#disallowTextIn}.
+   * Elements in which text is disallowed, from
+   * {@link HtmlPolicyBuilder#disallowTextIn}, by the name the author wrote:
+   * the rule holds whether the policy keeps, renames or drops the element.
+   * Disjoint from {@link #allowedTextContainers}.
    */
   final Set<String> disallowedTextContainers;
   private final HtmlStreamEventReceiver out;
@@ -57,15 +61,42 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * True to skip textual content.  Used to ignore the content of embedded CDATA
    * content that is not meant to be human-readable.
    * <p>
-   * Always a function of {@link #openElementStack}; see
-   * {@link #recomputeSkipText}.
+   * While a document is open, this is the gate {@link #openElementStack}
+   * implies.  Text belongs to the nearest enclosing element the policy kept,
+   * and is emitted only if that element is an allowed text container whose
+   * input name is not one text was disallowed in.  A dropped element between
+   * the text and that container is not a container in the output, so it does
+   * not decide -- unless its content is never meant to be read as text
+   * ({@link #SKIPPABLE_ELEMENT_CONTENT}) or text in it was disallowed, either
+   * of which suppresses the text.  Outside a document it is true, so stray
+   * text is dropped.
+   * <p>
+   * The gate costs constant time per tag: each push derives the new value from
+   * the old one, and {@link #skipTextBeforeOpen} remembers the old one so a
+   * pop can restore it.  Re-deriving it by walking the stack would be
+   * quadratic on a long run of unknown tags, which the balancer forwards
+   * without counting them toward its nesting limit.
    */
   transient boolean skipText = true;
+  /**
+   * True while a kept {@code <style>} or {@code <script>} that is an allowed
+   * text container is open, so {@link #text} knows to vet its content for the
+   * tags the lexer hands over as text.  Maintained like {@link #skipText}.
+   */
+  private boolean inKeptCdataElement;
   /**
    * Alternating input names and adjusted names of elements opened by the
    * caller.
    */
   private final List<String> openElementStack = new ArrayList<>();
+  /**
+   * Bit {@code k} is the value {@link #skipText} had before the {@code k}-th
+   * element on {@link #openElementStack} was pushed, so that popping back to
+   * {@code k} elements restores it.
+   */
+  private final BitSet skipTextBeforeOpen = new BitSet();
+  /** The same for {@link #inKeptCdataElement}. */
+  private final BitSet inKeptCdataBeforeOpen = new BitSet();
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
@@ -79,9 +110,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   /**
-   * Elements whose content is not meant to be read as text -- script source,
-   * stylesheets, fallback content -- so that when the policy drops one of
-   * them, it suppresses the content too rather than emitting it as text.
+   * Elements whose own text the policy does not surface when it drops them:
+   * script and style source, and fallback or metadata content that a browser
+   * would hide in place.  Children the policy keeps still render.  The tag
+   * balancer consults this list too, for start tags it drops at the nesting
+   * limit before the policy sees them.
    */
   static final Set<String> SKIPPABLE_ELEMENT_CONTENT
       = j8().setOf(
@@ -90,7 +123,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public void openDocument() {
     skipText = false;
+    inKeptCdataElement = false;
     openElementStack.clear();
+    skipTextBeforeOpen.clear();
+    inKeptCdataBeforeOpen.clear();
     out.openDocument();
   }
 
@@ -102,30 +138,21 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       }
     }
     openElementStack.clear();
+    skipTextBeforeOpen.clear();
+    inKeptCdataBeforeOpen.clear();
     skipText = true;
+    inKeptCdataElement = false;
     out.closeDocument();
   }
 
   public void text(String textChunk) {
     if (!skipText) {
-      // Check if we're inside a CDATA element (style/script) with allowTextIn
-      // where tags are reclassified as UNESCAPED text and need to be validated
       // Note: Only style and script are CDATA elements; noscript/noembed/noframes are PCDATA
-      boolean insideCdataElement = false;
-      for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
-        String adjustedName = openElementStack.get(i);
-        if (adjustedName != null 
-            && allowedTextContainers.contains(adjustedName)
-            && ("style".equals(adjustedName) || "script".equals(adjustedName))) {
-          insideCdataElement = true;
-          break;
-        }
-      }
-      
       // If inside a CDATA element (style/script) with allowTextIn, we need to filter out 
       // HTML tags that aren't allowed because tags inside these blocks are reclassified 
       // as UNESCAPED text by the lexer
-      if (insideCdataElement && textChunk != null && textChunk.indexOf('<') >= 0) {
+      if (inKeptCdataElement
+          && textChunk != null && textChunk.indexOf('<') >= 0) {
         // Strip out HTML tags that aren't in the allowed elements list
         String filtered = stripDisallowedTags(textChunk);
         out.text(filtered);
@@ -342,60 +369,60 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           }
         }
         openElementStack.subList(i, n).clear();
+        skipText = skipTextBeforeOpen.get(i / 2);
+        inKeptCdataElement = inKeptCdataBeforeOpen.get(i / 2);
         break;
       }
     }
-    recomputeSkipText();
   }
 
   void writeOpenTag(
       ElementAndAttributePolicies policies, String adjustedElementName,
       List<String> attrs) {
     if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
-      openElementStack.add(policies.elementName);
-      openElementStack.add(adjustedElementName);
-      recomputeSkipText();
+      push(policies.elementName, adjustedElementName);
+      // A kept element is the container for the text inside it.  It is judged
+      // by the name it was kept under, and by the name the author wrote when
+      // text was disallowed in that.
+      skipText = !allowedTextContainers.contains(adjustedElementName)
+          || disallowedTextContainers.contains(policies.elementName);
+      inKeptCdataElement = inKeptCdataElement
+          || (("style".equals(adjustedElementName)
+               || "script".equals(adjustedElementName))
+              && allowedTextContainers.contains(adjustedElementName));
     }
     out.openTag(adjustedElementName, attrs);
   }
 
   void deferOpenTag(String elementName) {
     if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
-      openElementStack.add(elementName);
-      openElementStack.add(null);
-      recomputeSkipText();
+      push(elementName, null);
+      // A dropped element is not a container in the output, so the gate stays
+      // as it was -- unless the element's content must not surface as text.
+      skipText = skipText || suppressesTextWhenDropped(elementName);
     }
   }
 
   /**
-   * Recomputes {@link #skipText} from {@link #openElementStack}.
-   * <p>
-   * Text belongs to the nearest enclosing element that the policy kept, and
-   * is emitted only if that element is an allowed text container.  A dropped
-   * element between the text and that container is not a container in the
-   * output, so it does not decide -- unless its content is never meant to be
-   * read as text ({@link #SKIPPABLE_ELEMENT_CONTENT}) or the policy
-   * disallowed text in it, either of which suppresses the text.
-   * <p>
-   * Deriving the gate from the whole stack rather than from the last tag seen
-   * is what keeps a dropped {@code <b>} inside a dropped {@code <noscript>}
-   * from letting the noscript's content through.
+   * Pushes an element onto {@link #openElementStack}, remembering the gates in
+   * effect before it so that {@link #closeTag} can restore them.
    */
-  private void recomputeSkipText() {
-    for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
-      String adjustedName = openElementStack.get(i);
-      if (adjustedName != null) {
-        skipText = !allowedTextContainers.contains(adjustedName);
-        return;
-      }
-      String inputName = openElementStack.get(i - 1);
-      if (SKIPPABLE_ELEMENT_CONTENT.contains(inputName)
-          || disallowedTextContainers.contains(inputName)) {
-        skipText = true;
-        return;
-      }
-    }
-    skipText = false;
+  private void push(String elementName, @Nullable String adjustedElementName) {
+    int depth = openElementStack.size() / 2;
+    skipTextBeforeOpen.set(depth, skipText);
+    inKeptCdataBeforeOpen.set(depth, inKeptCdataElement);
+    openElementStack.add(elementName);
+    openElementStack.add(adjustedElementName);
+  }
+
+  /**
+   * True if text directly inside a dropped {@code elementName} is suppressed
+   * rather than emitted where the element was: its content is never meant to
+   * be read as text, or the policy disallowed text in it.
+   */
+  public boolean suppressesTextWhenDropped(String elementName) {
+    return SKIPPABLE_ELEMENT_CONTENT.contains(elementName)
+        || disallowedTextContainers.contains(elementName);
   }
 
   /**
