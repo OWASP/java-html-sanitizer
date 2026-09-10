@@ -194,11 +194,20 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * when this chunk has one, so that {@code <script>alert(1)</script>}
    * inside a style block goes entirely; a start tag with no matching end
    * tag goes alone and the text after it stays.  A {@code <} that opens no
-   * tag, because no {@code >} follows it in the chunk, is text and stays,
-   * except where a later chunk could complete it into an end tag: an end tag
-   * needs its {@code </} to start here, so a {@code <} that ends the chunk
-   * or is followed by {@code /} goes.  Text arrives in chunks whose
-   * boundaries fall anywhere, so each chunk has to be safe on its own.
+   * tag is text and stays, and the scan resumes right after it rather than
+   * at the next {@code >}, which may belong to a tag inside the span, as in
+   * {@code < </noscript>}.  A {@code <} left at the end of the output when
+   * a tag is dropped goes with the tag, since it would otherwise meet
+   * whatever follows the tag, as {@code <<b>/noscript>} would otherwise
+   * yield {@code </noscript>}.
+   * <p>
+   * Text arrives in chunks whose boundaries fall anywhere, so each chunk has
+   * to be safe on its own.  A {@code <} with no {@code >} after it in the
+   * chunk therefore goes, unless HTML whitespace follows it: a later chunk
+   * could otherwise complete it into an end tag, or into a start tag that
+   * the element's own end tag then closes for a browser already reading
+   * markup, whereas no browser state starts a tag at {@code <} followed by
+   * whitespace.
    */
   private static String stripTags(String text) {
     int len = text.length();
@@ -216,7 +225,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       String trimmed = text.substring(tagStart + 1, tagEnd).trim();
       boolean isEndTag = trimmed.startsWith("/");
       String tagName = tagNameOf(trimmed, isEndTag);
-      int kind = tagName == null ? NOT_A_TAG : isEndTag ? END_TAG : START_TAG;
+      if (tagName == null) {
+        // Not a tag: "<!-- -->", "</>", "<3" and the like.  The '<' is text,
+        // and the scan resumes right after it: the '>' found above may end
+        // a tag that starts inside the span, as in "< </noscript>".
+        i = tagStart + 1;
+        continue;
+      }
+      int kind = isEndTag ? END_TAG : START_TAG;
       int[] tag = { tagStart, tagEnd + 1, -1, kind };
       if (kind == START_TAG) {
         Deque<Integer> starts = unmatchedStarts.get(tagName);
@@ -240,25 +256,24 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     for (int[] tag : tags) {
       if (tag[TAG_START] < pos) { continue; }  // Inside dropped content.
       result.append(text, pos, tag[TAG_START]);
-      switch (tag[KIND]) {
-        case NOT_A_TAG:
-          // "<!-- -->", "</>", "<3" and the like are text.
-          result.append(text, tag[TAG_START], tag[TAG_END]);
-          pos = tag[TAG_END];
-          break;
-        case END_TAG:
-          pos = tag[TAG_END];
-          break;
-        default:
-          pos = tag[MATCH_END] >= 0 ? tag[MATCH_END] : tag[TAG_END];
-          break;
+      pos = tag[KIND] == END_TAG || tag[MATCH_END] < 0
+          ? tag[TAG_END] : tag[MATCH_END];
+      // A '<' that the dropped tag followed would meet what follows the tag.
+      int last = result.length() - 1;
+      if (last >= 0 && result.charAt(last) == '<') {
+        result.setLength(last);
       }
     }
-    // The rest holds no tag.  Each '<' in it is text, unless a later chunk
-    // could complete it into an end tag.
+    // The rest holds no tag.  A '<' in it stays if a '>' follows it in this
+    // chunk, since it opened no tag and nothing after it can change that,
+    // or if HTML whitespace follows it, which starts no tag in any browser
+    // state.  Otherwise it is left dangling, and a later chunk could
+    // complete it, so it goes.
+    int lastGt = text.lastIndexOf('>');
     for (int c = pos; c < len; ++c) {
       char ch = text.charAt(c);
-      if (ch != '<' || (c + 1 < len && text.charAt(c + 1) != '/')) {
+      if (ch != '<' || c < lastGt
+          || (c + 1 < len && Strings.isHtmlSpace(text.charAt(c + 1)))) {
         result.append(ch);
       }
     }
@@ -268,7 +283,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /** Indices into the records {@link #stripTags} keeps for each tag. */
   private static final int TAG_START = 0, TAG_END = 1, MATCH_END = 2, KIND = 3;
   /** The kinds of record. */
-  private static final int NOT_A_TAG = 0, START_TAG = 1, END_TAG = 2;
+  private static final int START_TAG = 0, END_TAG = 1;
 
   /**
    * The canonical name of the tag whose trimmed content between the angle
@@ -304,9 +319,6 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void openTag(String elementName, List<String> attrs) {
-    // StylingPolicy repeats some of this code because it is more complicated
-    // to refactor it into multiple method bodies, so if you change this,
-    // check the override of it in that class.
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     skippedLastTagAsAttributeless = false;

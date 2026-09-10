@@ -2,6 +2,17 @@
 
 Most recent at top.
   * Next release
+    * Two more ways past the filter on kept `style`, `script` and `iframe`
+      text are closed.  A `<` that opened no tag carried everything up to
+      the next `>` through as text, and that `>` could belong to an end tag
+      inside the span, so `<</noscript>` and `< </noscript>` kept the
+      breakout that a bare `</noscript>` lost; the original CVE-2025-66021
+      fix had the same hole.  And a `<` left dangling at the end of a chunk
+      could be completed by the next chunk, or by the sanitizer's own end
+      tag, into a live tag.  The scan now resumes right after a `<` that
+      opens no tag, a dangling `<` goes unless whitespace follows it, and
+      `HtmlStreamRenderer` refuses literal content holding an end tag of
+      `noscript`, `noframes` or `noembed` whatever policy produced it.
     * Text kept inside a `style`, `script` or `iframe` element, or any other
       element whose content the renderer emits unescaped, now has every tag
       removed, end tags included, instead of only the tags of elements the
@@ -12,7 +23,7 @@ Most recent at top.
       came out unchanged under a policy allowing `noscript`, `style` with
       text and `img`.  A browser with scripting on reads `noscript` as raw
       text up to that inner `</noscript>` and then runs the handler; the
-      same holds for `noframes` and `noembed` with scripting off.  The
+      same holds for `noframes` and `noembed` with or without scripting.  The
       filter also keeps the text after a start tag with no matching end tag,
       which it used to discard to the end of the chunk, and keeps a `<` that
       opens no tag.

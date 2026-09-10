@@ -34,6 +34,8 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import java.io.StringReader;
+import java.util.Collections;
+import java.util.regex.Pattern;
 
 import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 import org.junit.jupiter.api.Test;
@@ -923,6 +925,170 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Test #12:
+   * A {@code <} that opens no tag used to carry everything up to the next
+   * {@code >} through as text, and that {@code >} could belong to an end tag
+   * inside the span, so {@code <</noscript>} and {@code < </noscript>} kept
+   * the breakout that a bare {@code </noscript>} lost.  The original fix had
+   * the same hole.  The scan now resumes right after such a {@code <}.
+   */
+  @Test
+  void testCVE202566021_12EndTagBehindAStrayBracket() {
+    PolicyFactory policy = noscriptStyleImg();
+
+    assertEquals(
+        "<noscript><style></style></noscript>",
+        policy.sanitize(
+            "<noscript><style><</noscript>"
+            + "<<img src=x onerror=alert(1)></style></noscript>"));
+    assertEquals(
+        "<noscript><style>< </style></noscript>",
+        policy.sanitize(
+            "<noscript><style>< </noscript>"
+            + "<img src=x onerror=alert(1)></style></noscript>"));
+    assertEquals(
+        "<noscript><style><3</style></noscript>",
+        policy.sanitize(
+            "<noscript><style><3</noscript>"
+            + "<img src=x onerror=alert(1)></style></noscript>"));
+    assertEquals(
+        "<noscript><style><??></style></noscript>",
+        policy.sanitize(
+            "<noscript><style><?</noscript>"
+            + "<img src=x onerror=alert(1)>?></style></noscript>"));
+    assertEquals(
+        "<noscript><style><!----></style></noscript>",
+        policy.sanitize(
+            "<noscript><style><!--</noscript>"
+            + "<img src=x onerror=alert(1)>--></style></noscript>"));
+    // The dropped tag takes a '<' just before it along: "<" + "/noscript>"
+    // would otherwise be an end tag again.
+    assertEquals(
+        "<noscript><style>/noscript></style></noscript>",
+        policy.sanitize(
+            "<noscript><style><<b>/noscript></style></noscript>"));
+  }
+
+  /**
+   * Test #13:
+   * Once a breakout has put a browser in a markup state, a start tag left
+   * without its {@code >} inside the literal text is completed by the
+   * {@code >} of the sanitizer's own end tag.  A dangling {@code <} goes
+   * unless HTML whitespace follows it, which starts no tag in any browser
+   * state.
+   */
+  @Test
+  void testCVE202566021_13DanglingBracketBeforeTheEndTag() {
+    PolicyFactory policy = noscriptStyleImg();
+
+    assertEquals(
+        "<noscript><style>< img src=y onerror=alert(1)</style></noscript>",
+        policy.sanitize(
+            "<noscript><style>< </noscript>"
+            + "<img src=y onerror=alert(1)</style></noscript>"));
+    assertEquals(
+        "<style>a { } b < c</style>",
+        policy.sanitize("<style>a { } b < c</style>"));
+  }
+
+  /**
+   * Test #14:
+   * The lexer hands the content of a literal element over in more than one
+   * chunk when a server-side script tag {@code <%...%>} sits in it, so the
+   * pieces of an end tag or a start tag can arrive in different chunks, and
+   * each chunk has to drop its own dangling {@code <}.
+   */
+  @Test
+  void testCVE202566021_14ChunksSplitByServerCode() {
+    assertEquals(
+        "<noscript><style>/noscript>img src=x onerror=alert(1)>"
+        + "</style></noscript>",
+        noscriptStyleImg().sanitize(
+            "<noscript><style><<<%%>/noscript><<<%%>"
+            + "img src=x onerror=alert(1)></style></noscript>"));
+  }
+
+  /**
+   * Test #15:
+   * Text re-chunked by a preprocessor into fixed-size blocks, which can
+   * split a tag anywhere, still leaves nothing in the literal text that a
+   * browser could read as an end tag or as a start tag.
+   */
+  @Test
+  void testCVE202566021_15FixedSizeRechunking() {
+    for (final int size : new int[] { 1, 2, 3, 5, 7, 16 }) {
+      PolicyFactory policy = new HtmlPolicyBuilder()
+          .allowElements("noscript", "style", "img")
+          .allowTextIn("style")
+          .allowAttributes("src").onElements("img")
+          .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+            @Override
+            public void text(String text) {
+              for (int i = 0, n = text.length(); i < n; i += size) {
+                underlying.text(text.substring(i, Math.min(n, i + size)));
+              }
+            }
+          })
+          .toFactory();
+      for (String html : new String[] {
+              "<noscript><style><</noscript>"
+              + "<<img src=x onerror=alert(1)></style></noscript>",
+              "<noscript><style>< </noscript>"
+              + "<img src=y onerror=alert(1)</style></noscript>",
+           }) {
+        String out = policy.sanitize(html);
+        String styleText = out.substring(
+            out.indexOf("<style>") + 7, out.indexOf("</style>"));
+        assertFalse(styleText.contains("</"), size + ": " + out);
+        assertFalse(
+            Pattern.compile("<[a-zA-Z]").matcher(styleText).find(),
+            size + ": " + out);
+      }
+    }
+  }
+
+  /**
+   * Test #16:
+   * The renderer itself refuses literal content holding the end tag of an
+   * element that a browser reads as raw text, so a policy that never runs
+   * the filter, such as one built by hand on {@code PolicyFactory.apply},
+   * is covered too.
+   */
+  @Test
+  void testCVE202566021_16RendererRefusesContainerEndTags() {
+    for (String name
+         : new String[] { "noscript", "NOSCRIPT", "noframes", "noembed" }) {
+      StringBuilder sb = new StringBuilder();
+      HtmlStreamRenderer r = HtmlStreamRenderer.create(sb, Handler.DO_NOTHING);
+      r.openDocument();
+      r.openTag("style", Collections.<String>emptyList());
+      r.text("a{} </" + name + "><img src=x onerror=alert(1)> b{}");
+      r.closeTag("style");
+      r.closeDocument();
+      assertEquals("<style></style>", sb.toString(), name);
+    }
+    // Names that only start alike are left alone.
+    StringBuilder sb = new StringBuilder();
+    HtmlStreamRenderer r = HtmlStreamRenderer.create(sb, Handler.DO_NOTHING);
+    r.openDocument();
+    r.openTag("style", Collections.<String>emptyList());
+    r.text("a{} </noscripts> </no b{}");
+    r.closeTag("style");
+    r.closeDocument();
+    assertEquals("<style>a{} </noscripts> </no b{}</style>", sb.toString());
+  }
+
+  /** Allows noscript, style with its text, and img with src. */
+  private static PolicyFactory noscriptStyleImg() {
+    return new HtmlPolicyBuilder()
+        .allowElements("noscript", "style", "img")
+        .allowTextIn("style")
+        .allowAttributes("src").onElements("img")
+        .allowUrlProtocols("https")
+        .toFactory();
+  }
+
+  /**
    * A chunk of literal text full of start tags with no end tags is the
    * worst case for pairing tags, since every one is searched for a match.
    * Pairing is done in one pass, so this takes a fraction of a second; a
@@ -933,16 +1099,12 @@ class HtmlSanitizerTest {
     PolicyFactory p = new HtmlPolicyBuilder()
         .allowElements("style").allowTextIn("style").toFactory();
     int n = 200_000;
-    StringBuilder html = new StringBuilder("<style>");
-    StringBuilder expected = new StringBuilder("<style>");
-    for (int i = 0; i < n; ++i) {
-      html.append("<b>x");
-      expected.append('x');
-    }
-    html.append("</style>");
-    expected.append("</style>");
+    final String html = "<style>" + stringRepeatedTimes("<b>x", n) + "</style>";
+    String expected = "<style>" + stringRepeatedTimes("x", n) + "</style>";
 
-    assertEquals(expected.toString(), p.sanitize(html.toString()));
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(html));
+    assertEquals(expected, out);
   }
 
   /**
@@ -960,8 +1122,10 @@ class HtmlSanitizerTest {
     assertEquals(
         "<script>if (a < b) x();</script>",
         policy.sanitize("<script>if (a < b) x();</script>"));
+    // A '<' dangling before a letter at the end of a chunk goes; #470
+    // tracks the fidelity cost.
     assertEquals(
-        "<script>if (a<b) x();</script>",
+        "<script>if (ab) x();</script>",
         policy.sanitize("<script>if (a<b) x();</script>"));
     // A tag with no matching end tag goes alone; the text after it stays.
     assertEquals(
@@ -974,10 +1138,14 @@ class HtmlSanitizerTest {
     assertEquals(
         "<style>a{}c{}</style>",
         policy.sanitize("<style>a{}<b>x<b>y</b>z</b>c{}</style>"));
-    // Not tags: a comment, an empty end tag, a bare bracket.
+    // Not tags: a comment and an empty end tag stay; a bare bracket with no
+    // '>' after it in the chunk is dangling and goes.
     assertEquals(
-        "<style>a{}<!-- x --></>c<3{}</style>",
+        "<style>a{}<!-- x --></>c3{}</style>",
         policy.sanitize("<style>a{}<!-- x --></>c<3{}</style>"));
+    assertEquals(
+        "<style>a{}<3>{}</style>",
+        policy.sanitize("<style>a{}<3>{}</style>"));
   }
 
   /**
