@@ -2,6 +2,25 @@
 
 Most recent at top.
   * Next release
+    * Text kept inside a `style`, `script` or `iframe` element, or any other
+      element whose content the renderer emits unescaped, now has every tag
+      removed, end tags included, instead of only the tags of elements the
+      policy does not allow.  An allowed element's start tag was copied
+      through with its attributes unvetted, and an end tag was kept when its
+      element was allowed, so
+      `<noscript><style></noscript><img src=x onerror=alert(1)></style></noscript>`
+      came out unchanged under a policy allowing `noscript`, `style` with
+      text and `img`.  A browser with scripting on reads `noscript` as raw
+      text up to that inner `</noscript>` and then runs the handler; the
+      same holds for `noframes` and `noembed` with scripting off.  The
+      filter also keeps the text after a start tag with no matching end tag,
+      which it used to discard to the end of the chunk, and keeps a `<` that
+      opens no tag.
+    * The IE-only `comment` element is no longer read as raw text.  No
+      current browser reads it so, and its content was emitted unescaped, so
+      under a policy allowing `comment` with text a tag inside it reached
+      the browser unvetted.  Its content is now parsed, vetted and escaped
+      like any other element's.
     * Two tokenizer differences from browsers are gone.  A tag that the
       input ends inside, such as `x<p ` or `<p class=">y</p>`, is dropped
       whole, as a browser drops it, instead of being opened with the

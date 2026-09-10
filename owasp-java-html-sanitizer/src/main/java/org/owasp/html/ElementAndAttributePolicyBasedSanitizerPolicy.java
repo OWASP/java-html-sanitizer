@@ -27,8 +27,11 @@
 
 package org.owasp.html;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -80,9 +83,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   transient boolean skipText = true;
   /**
-   * True while a kept {@code <style>} or {@code <script>} that is an allowed
-   * text container is open, so {@link #text} knows to vet its content for the
-   * tags the lexer hands over as text.  Maintained like {@link #skipText}.
+   * True while a kept element whose text the renderer emits unescaped, such
+   * as {@code <style>}, {@code <script>} or {@code <iframe>}, is open as an
+   * allowed text container, so {@link #text} knows to strip the tags the
+   * lexer hands over as text.  Maintained like {@link #skipText}.
    */
   private boolean inKeptCdataElement;
   /**
@@ -157,16 +161,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public void text(String textChunk) {
     if (!skipText) {
-      // Note: Only style and script are CDATA elements; noscript, noembed
-      // and noframes are PCDATA.
-      // If inside a CDATA element (style/script) with allowTextIn, we need
-      // to filter out HTML tags that aren't allowed because tags inside
-      // these blocks are reclassified as UNESCAPED text by the lexer
+      // The renderer emits the text of a kept literal-content element as it
+      // is, so a tag in it would reach the browser as written.  stripTags
+      // says why none may.
       if (inKeptCdataElement
           && textChunk != null && textChunk.indexOf('<') >= 0) {
-        // Strip out HTML tags that aren't in the allowed elements list
-        String filtered = stripDisallowedTags(textChunk);
-        out.text(filtered);
+        out.text(stripTags(textChunk));
       } else {
         out.text(textChunk);
       }
@@ -174,144 +174,133 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
   
   /**
-   * Strips out HTML tags that aren't in the allowed elements list from text
-   * content.  This is used when tags appear inside text containers (like
-   * style blocks) where they're treated as text but should still be
-   * validated.
+   * Removes every tag from a chunk of the text of a kept literal-content
+   * element such as {@code style}, {@code script} or {@code iframe}.
+   * <p>
+   * A browser reads such text literally, so a tag in it is at best noise.
+   * It is also where the sanitizer and a browser can disagree about which
+   * element the text is in: a browser with scripting on reads
+   * {@code noscript} as raw text up to the first {@code </noscript>}, and
+   * reads {@code noframes} and {@code noembed} that way always, while the
+   * sanitizer treats all three as ordinary containers.  A
+   * {@code </noscript>} inside a {@code style} nested in a {@code noscript}
+   * therefore ends the {@code noscript} for the browser, and whatever
+   * follows is parsed as markup (CVE-2025-66021).  So no end tag may
+   * survive, whatever element it names, and no start tag is re-emitted:
+   * an allowed element's start tag used to be copied through with its
+   * attributes unvetted, which put an event handler after the breakout.
+   * <p>
+   * A start tag goes together with everything up to its matching end tag
+   * when this chunk has one, so that {@code <script>alert(1)</script>}
+   * inside a style block goes entirely; a start tag with no matching end
+   * tag goes alone and the text after it stays.  A {@code <} that opens no
+   * tag, because no {@code >} follows it in the chunk, is text and stays,
+   * except where a later chunk could complete it into an end tag: an end tag
+   * needs its {@code </} to start here, so a {@code <} that ends the chunk
+   * or is followed by {@code /} goes.  Text arrives in chunks whose
+   * boundaries fall anywhere, so each chunk has to be safe on its own.
    */
-  private String stripDisallowedTags(String text) {
-    if (text == null) {
-      return text;
-    }
-    
-    StringBuilder result = new StringBuilder();
+  private static String stripTags(String text) {
     int len = text.length();
+    // Find every tag, and pair each start tag with the end tag that matches
+    // it, counting nested tags of the same name, the way brackets pair.  One
+    // pass, so that a chunk full of unmatched start tags stays linear.
+    List<int[]> tags = new ArrayList<>();
+    Map<String, Deque<Integer>> unmatchedStarts = new HashMap<>();
     int i = 0;
-    
     while (i < len) {
       int tagStart = text.indexOf('<', i);
-      if (tagStart < 0) {
-        // No more tags, append the rest
-        result.append(text.substring(i));
-        break;
-      }
-      
-      // Append text before the tag
-      if (tagStart > i) {
-        result.append(text.substring(i, tagStart));
-      }
-      
-      // Find the end of the tag (either '>' or end of string)
+      if (tagStart < 0) { break; }
       int tagEnd = text.indexOf('>', tagStart + 1);
-      if (tagEnd < 0) {
-        // Unclosed tag, skip it
-        i = tagStart + 1;
-        continue;
-      }
-      
-      // Extract the tag content (between < and >)
-      String tagContent = text.substring(tagStart + 1, tagEnd);
-      
-      // Only process if this looks like a valid HTML element tag
-      // Valid tags start with a letter or / followed by a letter
-      // Skip things like <, </>, <3, etc.
-      // Also handle tags with leading whitespace like < script>
-      boolean isValidTag = false;
-      String tagName = null;
-      
-      // Trim leading whitespace for tag name detection
-      String trimmedTagContent = tagContent.trim();
-      
-      if (trimmedTagContent.startsWith("/")) {
-        // Closing tag - must have / followed by a letter
-        if (trimmedTagContent.length() > 1) {
-          char firstChar = trimmedTagContent.charAt(1);
-          if (Character.isLetter(firstChar)) {
-            isValidTag = true;
-            tagName = trimmedTagContent.substring(1).trim().split("\\s")[0];
-            tagName = HtmlLexer.canonicalElementName(tagName);
-          }
+      if (tagEnd < 0) { break; }  // No '<' from here on starts a tag.
+      String trimmed = text.substring(tagStart + 1, tagEnd).trim();
+      boolean isEndTag = trimmed.startsWith("/");
+      String tagName = tagNameOf(trimmed, isEndTag);
+      int kind = tagName == null ? NOT_A_TAG : isEndTag ? END_TAG : START_TAG;
+      int[] tag = { tagStart, tagEnd + 1, -1, kind };
+      if (kind == START_TAG) {
+        Deque<Integer> starts = unmatchedStarts.get(tagName);
+        if (starts == null) {
+          starts = new ArrayDeque<>();
+          unmatchedStarts.put(tagName, starts);
         }
-      } else {
-        // Opening tag - must start with a letter (after trimming whitespace)
-        if (trimmedTagContent.length() > 0) {
-          char firstChar = trimmedTagContent.charAt(0);
-          if (Character.isLetter(firstChar)) {
-            isValidTag = true;
-            tagName = trimmedTagContent.split("\\s")[0];
-            tagName = HtmlLexer.canonicalElementName(tagName);
-          }
+        starts.push(tags.size());
+      } else if (kind == END_TAG) {
+        Deque<Integer> starts = unmatchedStarts.get(tagName);
+        if (starts != null && !starts.isEmpty()) {
+          tags.get(starts.pop())[MATCH_END] = tagEnd + 1;
         }
       }
-      
-      if (!isValidTag) {
-        // Not a valid HTML tag, just append it as-is
-        result.append('<').append(tagContent).append('>');
-        i = tagEnd + 1;
-        continue;
-      }
-      
-      // Check if it's a closing tag
-      if (tagContent.startsWith("/")) {
-        // Only allow closing tags if the element is allowed
-        if (elAndAttrPolicies.containsKey(tagName)) {
-          result.append('<').append(tagContent).append('>');
-        }
-        // Otherwise skip the closing tag
-        i = tagEnd + 1;
-      } else {
-        // Opening tag - only allow tags if the element is in the allowed list
-        if (elAndAttrPolicies.containsKey(tagName)) {
-          result.append('<').append(tagContent).append('>');
-          i = tagEnd + 1;
-        } else {
-          // Skip disallowed tag and its content until matching closing tag
-          i = tagEnd + 1;
-          // Track nesting level to find the matching closing tag
-          int nestingLevel = 1;
-          while (i < len && nestingLevel > 0) {
-            int nextTagStart = text.indexOf('<', i);
-            if (nextTagStart < 0) {
-              // No more tags, skip to end
-              i = len;
-              break;
-            }
-            int nextTagEnd = text.indexOf('>', nextTagStart + 1);
-            if (nextTagEnd < 0) {
-              // Unclosed tag, skip to end
-              i = len;
-              break;
-            }
-            String nextTagContent =
-                text.substring(nextTagStart + 1, nextTagEnd);
-            String trimmedNextTagContent = nextTagContent.trim();
-            String nextTagName = trimmedNextTagContent.split("\\s")[0];
-            if (trimmedNextTagContent.startsWith("/")) {
-              // Closing tag
-              nextTagName = nextTagName.substring(1);
-              nextTagName = HtmlLexer.canonicalElementName(nextTagName);
-              if (nextTagName.equals(tagName)) {
-                nestingLevel--;
-                if (nestingLevel == 0) {
-                  // Found matching closing tag, skip it and continue
-                  i = nextTagEnd + 1;
-                  break;
-                }
-              }
-            } else {
-              // Opening tag
-              nextTagName = HtmlLexer.canonicalElementName(nextTagName);
-              if (nextTagName.equals(tagName)) {
-                nestingLevel++;
-              }
-            }
-            i = nextTagEnd + 1;
-          }
-        }
+      tags.add(tag);
+      i = tagEnd + 1;
+    }
+
+    StringBuilder result = new StringBuilder(len);
+    int pos = 0;
+    for (int[] tag : tags) {
+      if (tag[TAG_START] < pos) { continue; }  // Inside dropped content.
+      result.append(text, pos, tag[TAG_START]);
+      switch (tag[KIND]) {
+        case NOT_A_TAG:
+          // "<!-- -->", "</>", "<3" and the like are text.
+          result.append(text, tag[TAG_START], tag[TAG_END]);
+          pos = tag[TAG_END];
+          break;
+        case END_TAG:
+          pos = tag[TAG_END];
+          break;
+        default:
+          pos = tag[MATCH_END] >= 0 ? tag[MATCH_END] : tag[TAG_END];
+          break;
       }
     }
-    
+    // The rest holds no tag.  Each '<' in it is text, unless a later chunk
+    // could complete it into an end tag.
+    for (int c = pos; c < len; ++c) {
+      char ch = text.charAt(c);
+      if (ch != '<' || (c + 1 < len && text.charAt(c + 1) != '/')) {
+        result.append(ch);
+      }
+    }
     return result.toString();
+  }
+
+  /** Indices into the records {@link #stripTags} keeps for each tag. */
+  private static final int TAG_START = 0, TAG_END = 1, MATCH_END = 2, KIND = 3;
+  /** The kinds of record. */
+  private static final int NOT_A_TAG = 0, START_TAG = 1, END_TAG = 2;
+
+  /**
+   * The canonical name of the tag whose trimmed content between the angle
+   * brackets is {@code trimmed}, or null if it is not a tag.  A tag name
+   * starts with a letter; whitespace between {@code <} or {@code </} and the
+   * name is tolerated, which is stricter than a browser.
+   */
+  private static @Nullable String tagNameOf(String trimmed, boolean isEndTag) {
+    String body = isEndTag ? trimmed.substring(1).trim() : trimmed;
+    if (body.isEmpty() || !Character.isLetter(body.charAt(0))) {
+      return null;
+    }
+    return HtmlLexer.canonicalElementName(body.split("\\s")[0]);
+  }
+
+  /**
+   * True if the renderer emits the element's text as it is, without
+   * escaping, so that a tag in that text would reach the browser as written.
+   * Judged by the name the renderer emits: it renames {@code xmp},
+   * {@code listing} and {@code plaintext} to {@code pre} and escapes their
+   * text.
+   */
+  private static boolean isLiteralContentElement(String elementName) {
+    switch (HtmlTextEscapingMode.getModeForTag(
+                HtmlStreamRenderer.safeName(elementName))) {
+      case CDATA:
+      case CDATA_SOMETIMES:
+      case PLAIN_TEXT:
+        return true;
+      default:
+        return false;
+    }
   }
 
   public void openTag(String elementName, List<String> attrs) {
@@ -409,8 +398,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       skipText = !allowedTextContainers.contains(adjustedElementName)
           || disallowedTextContainers.contains(policies.elementName);
       inKeptCdataElement = inKeptCdataElement
-          || (("style".equals(adjustedElementName)
-               || "script".equals(adjustedElementName))
+          || (isLiteralContentElement(adjustedElementName)
               && allowedTextContainers.contains(adjustedElementName));
     }
     out.openTag(adjustedElementName, attrs);
