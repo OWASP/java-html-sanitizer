@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * A link inside a table cell, caption or template element, or an applet,
+      marquee or object, no longer ends a link open outside that element.
+      Browsers clear their active formatting elements to a marker on
+      entering those, so `<a><table><tr><td><a>` nests, as it does in the
+      DOM; the tag balancer used to close back to the outer link, taking the
+      inner table's cell, row and table with it, so a nested table's later
+      rows landed in the outer table.  A second link with no such element
+      between still ends the first, as in a browser.  Issue #333.
     * `HtmlChangeListener.discardedAttributes` now also reports the
       attributes rejected from an element the policy allowed when that
       rejection is what left the element attribute-less and so skipped, as
