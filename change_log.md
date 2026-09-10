@@ -2,6 +2,31 @@
 
 Most recent at top.
   * Next release
+    * `PolicyFactory.and` no longer lets a factory that allowed no URL
+      protocol veto the protocols the other factory allowed.  A builder that
+      never called `allowUrlProtocols` guards its URL attributes with a
+      default that rejects every absolute URL, and `and()` joined that
+      default in as though it were a policy, so `noProtocols.and(httpLinks)`
+      dropped every `http:` link that `httpLinks` allowed, in either order.
+      `Sanitizers.LINKS.and(f)` suffered the same way whenever `f` mentioned
+      `href` without allowing a protocol, which is how a factory that only
+      meant to restrict `href` to a pattern silently dropped every absolute
+      link.  The default now yields to the other factory's allowlist.  Two
+      allowlists still intersect, as `and()` documents, so
+      `httpsOnly.and(Sanitizers.LINKS)` still allows only `https:`, and the
+      default never yields to a policy attached with `matching`, so a
+      builder that allowed no protocol still rejects every absolute URL on
+      its own.  This holds for `srcset`, and for `url()` in `style` between
+      factories that both allowed URLs in styles, as well as for `href` and
+      `src`, and the same factories combined in any grouping allow the same
+      URLs.  One consequence to know about: the
+      protocol guard now runs after the policies an author attached with
+      `matching`, as the `style` guard already did, rather than before them.
+      So a `matching` policy on a URL attribute sees the value as written,
+      before the guard trims surrounding whitespace and percent-encodes
+      parentheses and control characters, and a policy that rewrites a URL
+      can no longer hand the output a protocol the builder did not allow.
+      Issue #204.
     * Text inside a dropped element is now gated by every element enclosing
       it, not by the last tag the policy saw.  The policy kept one flag for
       whether text may be emitted and set it from each open tag alone, so a

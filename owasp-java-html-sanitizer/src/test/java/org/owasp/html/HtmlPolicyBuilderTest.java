@@ -634,6 +634,38 @@ class HtmlPolicyBuilderTest {
     assertEquals("", withMatching, "the non-matching src is dropped too");
   }
 
+  /**
+   * The URL protocol guard runs after the policies an author attaches with
+   * matching, so it vets what they produce: a rewrite cannot hand the output
+   * a protocol the builder did not allow, while a rewrite to an allowed one
+   * survives.
+   */
+  @Test
+  void testUrlProtocolGuardVetsWhatAMatchingPolicyProduces() {
+    assertEquals(
+        "x",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href")
+                .matching((elementName, attributeName, value) ->
+                    "javascript:" + value)
+                .onElements("a")
+            .allowUrlProtocols("http"),
+            "<a href='/x'>x</a>"));
+    assertEquals(
+        "<a href=\"http://example.com/x\">x</a>",
+        apply(
+            new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href")
+                .matching((elementName, attributeName, value) ->
+                    "http://example.com" + value)
+                .onElements("a")
+            .allowUrlProtocols("http"),
+            "<a href='/x'>x</a>"));
+  }
+
   /** Rejecting only some values means allowing the rest. */
   @Test
   void testAnInvertedAllowRejectsOnlyTheMatchingValues() {

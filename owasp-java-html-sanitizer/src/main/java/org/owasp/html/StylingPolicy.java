@@ -336,9 +336,8 @@ final class StylingPolicy implements JoinableAttributePolicy {
 
     public JoinableAttributePolicy join(
         Iterable<? extends JoinableAttributePolicy> toJoin) {
-      Function<String, String> identity = Function.<String>identity();
       CssSchema cssSchema = null;
-      Function<String, String> urlRewriter = identity;
+      List<AttributePolicy> urlPolicies = new ArrayList<>();
       for (JoinableAttributePolicy p : toJoin) {
         StylingPolicy sp = (StylingPolicy) p;
         // Joining narrows: a value has to satisfy every policy being joined,
@@ -347,31 +346,88 @@ final class StylingPolicy implements JoinableAttributePolicy {
         // properties that neither a nor b allowed on its own.
         cssSchema = cssSchema == null
             ? sp.cssSchema : CssSchema.intersection(cssSchema, sp.cssSchema);
-        urlRewriter = urlRewriter.equals(identity)
-            || urlRewriter.equals(sp.urlRewriter)
-            ? sp.urlRewriter
-            : andThen(urlRewriter, sp.urlRewriter);
+        urlPolicies.add(UrlPolicyRewriter.toAttributePolicy(sp.urlRewriter));
       }
-      return new StylingPolicy(cssSchema, urlRewriter);
+      // The rewriters are joined as attribute policies rather than composed
+      // as functions so that the URL protocol guards the builder put in them
+      // meet and join as they do on href: a builder that allowed no protocol
+      // yields to one that did, and two allowlists intersect.  A URL still
+      // has to satisfy every rewriter, in the order they were joined.
+      return new StylingPolicy(
+          cssSchema,
+          new UrlPolicyRewriter(
+              AttributePolicy.Util.join(
+                  urlPolicies.toArray(new AttributePolicy[0]))));
+    }
+  }
+
+  /**
+   * A url rewriter that applies an attribute policy, which is how the builder
+   * vets the URLs in a style attribute: the policy is the join of the one
+   * given to {@link HtmlPolicyBuilder#allowUrlsInStyles} and the protocol
+   * guard.  Keeping the policy reachable, rather than closing over it, lets
+   * the join strategy above join rewriters as attribute policies.
+   */
+  static final class UrlPolicyRewriter implements Function<String, String> {
+    final AttributePolicy policy;
+
+    UrlPolicyRewriter(AttributePolicy policy) {
+      this.policy = policy;
     }
 
-    /**
-     * A rewriter that runs both in turn, so a URL has to satisfy both to
-     * survive.  A rewriter signals "dropped" by returning null or the empty
-     * string, which is not a URL, so it short-circuits instead of being
-     * passed on to the next rewriter.
-     */
-    private static Function<String, String> andThen(
-        final Function<String, String> first,
-        final Function<String, String> second) {
-      return new Function<String, String>() {
-        public @Nullable String apply(String url) {
-          String rewritten = first.apply(url);
-          return rewritten == null || rewritten.isEmpty()
-              ? null
-              : second.apply(rewritten);
-        }
-      };
+    public @Nullable String apply(String url) {
+      return policy.apply("img", "src", url != null ? url : "about:invalid");
+    }
+
+    /** The attribute policy that vets a URL the way the rewriter does. */
+    static AttributePolicy toAttributePolicy(
+        Function<String, String> rewriter) {
+      return rewriter instanceof UrlPolicyRewriter
+          ? ((UrlPolicyRewriter) rewriter).policy
+          : new RewriterAttributePolicy(rewriter);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof UrlPolicyRewriter
+          && policy.equals(((UrlPolicyRewriter) o).policy);
+    }
+
+    @Override
+    public int hashCode() {
+      return policy.hashCode();
+    }
+  }
+
+  /**
+   * A caller's rewriter as an attribute policy.  A rewriter signals "dropped"
+   * by returning null or the empty string, which is not a URL, so the empty
+   * string becomes the null that stops a joined policy rather than being
+   * passed on to the next one.
+   */
+  private static final class RewriterAttributePolicy
+  implements AttributePolicy {
+    final Function<String, String> rewriter;
+
+    RewriterAttributePolicy(Function<String, String> rewriter) {
+      this.rewriter = rewriter;
+    }
+
+    public @Nullable String apply(
+        String elementName, String attributeName, String value) {
+      String rewritten = rewriter.apply(value);
+      return rewritten == null || rewritten.isEmpty() ? null : rewritten;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof RewriterAttributePolicy
+          && rewriter.equals(((RewriterAttributePolicy) o).rewriter);
+    }
+
+    @Override
+    public int hashCode() {
+      return rewriter.hashCode();
     }
   }
 }
