@@ -1382,6 +1382,178 @@ class HtmlSanitizerTest {
         p.sanitize("<svg><g></foo></g></svg><svg/>x"));
   }
 
+  /**
+   * Issue #461.  More start-tag rules that change the tracked stack, and
+   * those whose outcome the sanitizer cannot know.
+   */
+  @Test
+  void testMoreHtmlStartTagRulesInForeignContentContext() {
+    PolicyFactory p = foreignContentPolicy();
+    // xmp closes a p in button scope, as pre and listing do.
+    assertEquals(
+        "<svg><foreignObject><p></p><math></math></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><p><xmp></xmp><math></svg><object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject><p></p></foreignObject></svg>"
+        + "<svg><path></path></svg>",
+        p.sanitize(
+            "<svg><foreignObject><p><xmp></xmp></foreignObject></svg>"
+            + "<svg><path/></p></foreignObject><object/>hidden"));
+    // Whether a table start closes an open p depends on the quirks mode of
+    // the document that embeds the output, so the context fails closed.
+    assertEquals(
+        "<svg><foreignObject><p></p></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><p><table></table></foreignObject>"
+            + "<object/>hidden"));
+    // The tokenizer keeps only the first of duplicate attributes, so this
+    // input is not hidden: in table mode it still pops the open select.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<table><svg><foreignObject><select><input type=text type=hidden>"
+            + "</foreignObject></svg></select></foreignObject>"
+            + "<object/>hidden"));
+    // A table inside a cell's foreign content is tracked exactly and hands
+    // the cell's in-body rules back when it closes.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<table><tr><td><svg><foreignObject><table></table>"
+            + "<object/>hidden"));
+    // A self-closing root closes itself even where the tracker gives up.
+    assertEquals(
+        "<svg><foreignObject><svg></svg>x</foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><table><svg/>x"));
+  }
+
+  /**
+   * Issue #461.  The specification puts search in the special category but
+   * Chrome does not, so an end-tag or list-item walk that reaches one has
+   * no single right answer, and the context fails closed.
+   */
+  @Test
+  void testSearchElementCategoryIsNotReliedOn() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><foreignObject><cite></cite></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><search><span></cite></foreignObject>"
+            + "</svg></span></search></cite></foreignObject><object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><li><search><li></li></foreignObject></svg>"
+            + "</search></li></foreignObject><object/>hidden"));
+  }
+
+  /**
+   * Issue #461.  The insertion mode inherited from an untracked table
+   * depends on which cell, caption or section is open, and browsers ignore
+   * the end tags that name something else.
+   */
+  @Test
+  void testUntrackedTableEndTagsMustNameTheOpenPart() {
+    PolicyFactory p = foreignContentPolicy();
+    String svgForm
+        = "<svg><foreignObject><form></foreignObject><object/>hidden";
+    // Inside a cell or caption the in-body rules insert the form, which
+    // stays open and keeps the object's fallback text hidden.
+    String hidden = "<svg><foreignObject><form></form></foreignObject></svg>";
+    for (String context : new String[] {
+             "<table><tr><th></td>", "<table><tr><td></th>",
+             "<table><thead><tr><td></tbody>", "<table><tr><td></tfoot>",
+             "<table><tr><td></caption>", "<table><caption></tr>",
+             "<table><caption></tbody>", "<table><caption></td>",
+             "<table><caption>", "<table><tr><td><table></table>",
+             "<table><tr><td><table><tr><td></table>",
+             "<table><tr><td><table><tr><td></td></tr></table>" }) {
+      assertEquals(hidden, p.sanitize(context + svgForm), context);
+    }
+    // Back in the table modes the form is inserted and popped at once, so
+    // the foreignObject closes and the object is foreign.
+    String shown
+        = "<svg><foreignObject><form></form></foreignObject>hidden</svg>";
+    for (String context : new String[] {
+             "<table><tr><td></td>", "<table><tr><td></tr>",
+             "<table><thead><tr><td></thead>", "<table><caption></caption>",
+             "<table><tr><td><table></table></td>",
+             "<table><tr><td><table><tr><td></td></tr></table></td>" }) {
+      assertEquals(shown, p.sanitize(context + svgForm), context);
+    }
+    // Table structure inside a caption closes the caption and everything
+    // above it, which the tracker does not follow.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<table><caption><svg><foreignObject><td></foreignObject>"
+            + "<object/>hidden"));
+  }
+
+  /** Well-formed nested tables and captions do not poison later SVG. */
+  @Test
+  void testForeignContentContextRecoversAfterNestedTables() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "x<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<table><tr><td><table><tr><td>x</td></tr></table></td></tr>"
+            + "</table><svg><path/><rect/></svg>"));
+    assertEquals(
+        "x<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<table><caption>x</caption></table><svg><path/><rect/></svg>"));
+    assertEquals(
+        "<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<table><caption><table></table></caption></table>"
+            + "<svg><path/><rect/></svg>"));
+  }
+
+  /**
+   * Issue #461.  The modeled transitions are followed exactly rather than
+   * by failing closed: a self-closing tag is still honored in later SVG.
+   */
+  @Test
+  void testModeledTransitionsKeepHonoringSelfClosingTags() {
+    PolicyFactory p = foreignContentPolicy();
+    String[] inputs = {
+        "<svg><foreignObject><p><div></div><math></svg><svg><path/>x",
+        "<svg><foreignObject><h2><h1></h1><math></svg><svg><path/>x",
+        "<svg><foreignObject><button><div><button></button></div><math>"
+        + "</svg><svg><path/>x",
+        "<svg><foreignObject><form><div><form></form></div><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><li><div><li></li></div><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><dd><div><dt></dt></div><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><option><option></option><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><select><input><math></svg><svg><path/>x",
+        "<svg><foreignObject><p><hr><math></svg><svg><path/>x",
+        "<svg><foreignObject><p><xmp></xmp><math></svg><svg><path/>x",
+        "<svg><foreignObject><image><math></svg><svg><path/>x",
+        "<svg><foreignObject><form><option></form><image><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><h2><svg></h1><svg><path/>x",
+        "<svg><foreignObject><form><cite></form></foreignObject>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><cite><div></cite></foreignObject>"
+        + "<svg><path/>x",
+        "<table><svg><foreignObject><form><math></svg><svg><path/>x",
+        "<table><tr><th></td><svg><foreignObject><form></foreignObject>"
+        + "</svg><svg><path/>x",
+        "<table><tr><td><table><tr><td>x</td></tr></table></td></tr></table>"
+        + "<svg><foreignObject><form></foreignObject></svg><svg><path/>x",
+    };
+    for (String input : inputs) {
+      String output = p.sanitize(input);
+      assertTrue(output.contains("<path></path>x"), input + " -> " + output);
+    }
+  }
+
   /** The bounded context tracker falls back to suppressing dropped content. */
   @Test
   void testDeepForeignContentContextFailsClosed() {

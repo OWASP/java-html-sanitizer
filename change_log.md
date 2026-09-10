@@ -13,6 +13,14 @@ Most recent at top.
       `<math/>` close themselves.  Well-formed select and empty-table HTML
       islands no longer make later SVG unnecessarily use that fallback.
       Issue #461.
+    * The same tracker now closes p for `xmp`, honors only the first of
+      duplicate `type` attributes on `input`, fails closed for `table` after
+      an open p (whose fate depends on quirks mode) and for `search` (which
+      the specification and Chrome categorize differently), and follows
+      untracked cells, captions, sections and nested tables so that a
+      mismatched cell or section end tag is ignored as browsers ignore it.
+      Well-formed nested tables and captions no longer make later SVG use
+      the fallback.  Issue #461.
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
       content breakout tags, mismatched foreign end tags, and the end tags

@@ -258,8 +258,14 @@ public final class HtmlSanitizer {
     /** The HTML mode that remains in force while foreign rules run. */
     private HtmlInsertionMode htmlInsertionMode = HtmlInsertionMode.IN_BODY;
 
-    /** Whether an untracked table is known to be in table scope. */
-    private boolean untrackedTableInScope;
+    /** Bound the memory spent on untracked tables that never close. */
+    private static final int MAX_UNTRACKED_TABLES = 32;
+
+    /**
+     * The tables open below the tracked region, innermost last.  Each is in
+     * table scope, since a template makes the context unknown.
+     */
+    private final List<UntrackedTable> untrackedTables = new ArrayList<>();
 
     /**
      * True once the browser's context can no longer be derived from the
@@ -410,6 +416,10 @@ public final class HtmlSanitizer {
         if (anyOther) {
           // "Any other end tag" stops at any element in the special
           // category.
+          if (AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES.contains(openName)) {
+            becomeUnknown();
+            return;
+          }
           if (SPECIAL_HTML_ELEMENT_NAMES.contains(openName)) { return; }
           continue;
         }
@@ -443,7 +453,7 @@ public final class HtmlSanitizer {
         // foster-parenting elements.  Keep the empty-table case exact and
         // fail closed for the rest.
         becomeUnknown();
-        return false;
+        return selfClosing && isForeignContentRoot(elementName);
       }
 
       Namespace namespace;
@@ -454,10 +464,7 @@ public final class HtmlSanitizer {
       } else {
         if (openElements.isEmpty()) {
           trackUntrackedHtmlStartTag(elementName);
-        }
-        if (htmlInsertionMode == HtmlInsertionMode.UNKNOWN) {
-          becomeUnknown();
-          return false;
+          if (unknown) { return false; }
         }
         if (UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES.contains(elementName)) {
           becomeUnknown();
@@ -487,7 +494,8 @@ public final class HtmlSanitizer {
         if (P_CLOSING_START_TAG_NAMES.contains(elementName)
             || "pre".equals(elementName)
             || "listing".equals(elementName)
-            || "plaintext".equals(elementName)) {
+            || "plaintext".equals(elementName)
+            || "xmp".equals(elementName)) {
           if (!closePIfInButtonScope()) { return false; }
         } else if (isHeadingName(elementName)) {
           if (!closePIfInButtonScope()) { return false; }
@@ -571,7 +579,12 @@ public final class HtmlSanitizer {
             becomeUnknown();
             return false;
           }
-          if (!closePIfInButtonScope()) { return false; }
+          if (findHtmlElementInDefaultScope("p", true) >= 0) {
+            // Only a no-quirks document closes the p, and the sanitizer
+            // cannot know the mode of the document that embeds its output.
+            becomeUnknown();
+            return false;
+          }
           OpenElement table = new OpenElement(
               elementName, Namespace.HTML, attrs);
           push(table);
@@ -598,39 +611,82 @@ public final class HtmlSanitizer {
       return selfClosing;
     }
 
-    private void trackUntrackedHtmlStartTag(String elementName) {
-      if ("table".equals(elementName)) {
-        if (!untrackedTableInScope) {
-          untrackedTableInScope = true;
-          htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
-        } else if (htmlInsertionMode == HtmlInsertionMode.IN_CELL) {
-          // This is a nested table; its eventual end tag needs a mode stack.
-          htmlInsertionMode = HtmlInsertionMode.UNKNOWN;
-        }
-        return;
-      }
-      if (!untrackedTableInScope) { return; }
-      if ("td".equals(elementName) || "th".equals(elementName)) {
+    private @Nullable UntrackedTable currentUntrackedTable() {
+      int size = untrackedTables.size();
+      return size != 0 ? untrackedTables.get(size - 1) : null;
+    }
+
+    /** Derives the HTML insertion mode from the innermost untracked table. */
+    private void syncInsertionMode() {
+      UntrackedTable table = currentUntrackedTable();
+      if (table == null) {
+        htmlInsertionMode = HtmlInsertionMode.IN_BODY;
+      } else if (table.cellName != null) {
+        // The cell and caption modes hand everything else to the in-body
+        // rules, but hand table structure to the table rules.
         htmlInsertionMode = HtmlInsertionMode.IN_CELL;
-      } else if ("caption".equals(elementName)) {
-        // Caption uses body rules for most tokens, but not for table-family
-        // starts, so keep the distinction conservative.
-        htmlInsertionMode = HtmlInsertionMode.UNKNOWN;
-      } else if (TABLE_STRUCTURE_START_TAG_NAMES.contains(elementName)) {
+      } else {
         htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
       }
     }
 
-    private void trackUntrackedHtmlEndTag(String elementName) {
-      if (!untrackedTableInScope) { return; }
+    private void trackUntrackedHtmlStartTag(String elementName) {
+      UntrackedTable table = currentUntrackedTable();
       if ("table".equals(elementName)) {
-        if (htmlInsertionMode != HtmlInsertionMode.UNKNOWN) {
-          untrackedTableInScope = false;
-          htmlInsertionMode = HtmlInsertionMode.IN_BODY;
+        if (table != null && table.cellName == null) {
+          // The table modes pop the open table before reprocessing the
+          // token; a cell or caption nests the new table instead.
+          untrackedTables.remove(untrackedTables.size() - 1);
         }
-      } else if (TABLE_SCOPED_ELEMENT_NAMES.contains(elementName)) {
-        htmlInsertionMode = HtmlInsertionMode.IN_TABLE;
+        if (untrackedTables.size() == MAX_UNTRACKED_TABLES) {
+          becomeUnknown();
+          return;
+        }
+        untrackedTables.add(new UntrackedTable());
+      } else if (table == null) {
+        return;
+      } else if ("td".equals(elementName) || "th".equals(elementName)) {
+        table.cellName = elementName;
+        if (table.sectionName == null) { table.sectionName = "tbody"; }
+      } else if ("caption".equals(elementName)) {
+        table.cellName = elementName;
+        table.sectionName = null;
+      } else if ("tr".equals(elementName)) {
+        table.cellName = null;
+        if (table.sectionName == null) { table.sectionName = "tbody"; }
+      } else if ("tbody".equals(elementName) || "thead".equals(elementName)
+                 || "tfoot".equals(elementName)) {
+        table.cellName = null;
+        table.sectionName = elementName;
+      } else if ("col".equals(elementName) || "colgroup".equals(elementName)) {
+        table.cellName = null;
+        table.sectionName = null;
       }
+      syncInsertionMode();
+    }
+
+    private void trackUntrackedHtmlEndTag(String elementName) {
+      UntrackedTable table = currentUntrackedTable();
+      if (table == null) { return; }
+      if ("table".equals(elementName)) {
+        untrackedTables.remove(untrackedTables.size() - 1);
+      } else if ("td".equals(elementName) || "th".equals(elementName)
+                 || "caption".equals(elementName)) {
+        // Ignored unless it names the open cell or caption.
+        if (elementName.equals(table.cellName)) { table.cellName = null; }
+      } else if ("tr".equals(elementName)) {
+        // A caption ignores it; a cell closes along with the row.
+        if (!"caption".equals(table.cellName)) { table.cellName = null; }
+      } else if ("tbody".equals(elementName) || "thead".equals(elementName)
+                 || "tfoot".equals(elementName)) {
+        // A caption ignores it, and so does a cell in another section.
+        if (!"caption".equals(table.cellName)
+            && elementName.equals(table.sectionName)) {
+          table.cellName = null;
+          table.sectionName = null;
+        }
+      }
+      syncInsertionMode();
     }
 
     private void processFormStartTag(List<String> attrs) {
@@ -660,6 +716,12 @@ public final class HtmlSanitizer {
                 : "dd".equals(open.elementName)
                     || "dt".equals(open.elementName))) {
           return popTrackedElementsFrom(i, false, null);
+        }
+        if (open.namespace == Namespace.HTML
+            && AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES.contains(
+                open.elementName)) {
+          becomeUnknown();
+          return false;
         }
         if (isSpecial(open)
             && !isHtmlElement(open, "address")
@@ -760,9 +822,9 @@ public final class HtmlSanitizer {
 
     private static boolean hasHiddenInputType(List<String> attrs) {
       for (int i = 0; i + 1 < attrs.size(); i += 2) {
-        if ("type".equals(attrs.get(i))
-            && asciiEqualsIgnoreCase("hidden", attrs.get(i + 1))) {
-          return true;
+        if ("type".equals(attrs.get(i))) {
+          // The tokenizer drops all but the first of duplicate attributes.
+          return asciiEqualsIgnoreCase("hidden", attrs.get(i + 1));
         }
       }
       return false;
@@ -773,7 +835,7 @@ public final class HtmlSanitizer {
       formElementPointerSet = false;
       trackedFormElement = null;
       simpleTable = null;
-      untrackedTableInScope = false;
+      untrackedTables.clear();
       unknown = true;
     }
 
@@ -823,7 +885,6 @@ public final class HtmlSanitizer {
     IN_BODY,
     IN_TABLE,
     IN_CELL,
-    UNKNOWN,
   }
 
   private enum Namespace {
@@ -853,6 +914,14 @@ public final class HtmlSanitizer {
           || (namespace == Namespace.MATHML
               && "annotation-xml".equals(elementName));
     }
+  }
+
+  /** A table open below the tracked region, and the part of it being filled. */
+  private static final class UntrackedTable {
+    /** td, th or caption while one is open. */
+    @Nullable String cellName;
+    /** tbody, thead or tfoot while one is open. */
+    @Nullable String sectionName;
   }
 
   private static boolean isForeignContentRoot(String canonElementName) {
@@ -971,6 +1040,13 @@ public final class HtmlSanitizer {
           "summary", "table", "tbody", "td", "template", "textarea",
           "tfoot", "th", "thead", "title", "tr", "track", "ul", "wbr",
           "xmp");
+
+  /**
+   * Elements the specification puts in the special category but current
+   * Chrome does not, so a walk that reaches one has an uncertain outcome.
+   */
+  private static final Set<String> AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES
+      = j8().setOf("search");
 
   /** Start tags whose HTML stack effect this bounded tracker cannot derive. */
   private static final Set<String> UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES
