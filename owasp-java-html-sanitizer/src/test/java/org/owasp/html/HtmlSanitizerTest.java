@@ -810,7 +810,8 @@ class HtmlSanitizerTest {
             + "</a></th></tr></table></a>",
             "<a href=\"http://u\">x<a href=\"http://v\">y</a>z</a>",
          }) {
-      assertEquals(parseAsBrowser(html), parseAsBrowser(p.sanitize(html)), html);
+      assertEquals(
+          parseAsBrowser(html), parseAsBrowser(p.sanitize(html)), html);
     }
   }
 
