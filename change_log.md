@@ -59,6 +59,30 @@ Most recent at top.
       backslash as a slash, so `\\example.org/` names the same authority
       as `//example.org/`.  Policies that allow both web protocols keep
       accepting these values, as they accept `//example.org/`.  Issue #453.
+    * The context tracker behind self-closing SVG and MathML tags now follows
+      the HTML start- and end-tag rules that can change the open-element
+      stack inside an integration point, including p, list, heading, button,
+      form, formatting, select and option rules.  It also tracks the form
+      pointer and inherited table or cell mode, and uses the current parser's
+      element categories rather than legacy void-element classifications.
+      When an outcome still depends on untracked table or template state or
+      on the active formatting list, it fails closed so only `<svg/>` and
+      `<math/>` close themselves.  Well-formed select and empty-table HTML
+      islands no longer make later SVG unnecessarily use that fallback.
+      Issue #461.
+    * The same tracker now closes p for `xmp`, honors only the first of
+      duplicate `type` attributes on `input`, fails closed for `table` after
+      an open p (whose fate depends on quirks mode) and for `search` (which
+      the specification and Chrome categorize differently), and follows
+      untracked cells, captions, sections and nested tables so that a
+      mismatched cell or section end tag is ignored as browsers ignore it.
+      Well-formed nested tables and captions no longer make later SVG use
+      the fallback.  Issue #461.
+    * The same tracker now also fails closed when a walk reaches an open
+      `dialog`, which the specification and Chrome categorize differently in
+      the special category, exactly as it already did for `search`.  Without
+      this a later self-closing `<object/>` was honored, exposing text a
+      spec-compliant parser keeps inside the HTML `object`.  Issue #461.
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
       content breakout tags, mismatched foreign end tags, and the end tags

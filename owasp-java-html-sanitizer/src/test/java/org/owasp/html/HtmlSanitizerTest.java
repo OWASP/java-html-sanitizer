@@ -1096,9 +1096,9 @@ class HtmlSanitizerTest {
 
   /**
    * Issue #457.  An end tag that names none of the open foreign elements
-   * may close an HTML ancestor of the foreign root, which is not tracked,
-   * so the parser is assumed to be back in HTML content unless the browser
-   * would ignore the tag.
+   * may close an HTML ancestor of the foreign root, which is not tracked.
+   * The context is then unknown and the sanitizer falls back to the HTML
+   * rules, unless the browser would ignore the tag.
    */
   @Test
   void testEndTagsOfHtmlAncestorsEndForeignContent() {
@@ -1258,6 +1258,457 @@ class HtmlSanitizerTest {
         events);
   }
 
+  /**
+   * Issue #461.  Browsers process the end tags of table structure with
+   * table scope, which no integration point bounds, so they can close the
+   * foreign content around a cell along with the cell.
+   */
+  @Test
+  void testTableScopeEndTagsEndForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    for (String endTag
+         : new String[] { "</table>", "</tbody>", "</tr>", "</td>" }) {
+      assertEquals(
+          "<svg><foreignObject><svg></svg></foreignObject></svg>",
+          p.sanitize(
+              "<table><tbody><tr><td><svg><foreignObject><svg>" + endTag
+              + "<object/>hidden"),
+          endTag);
+    }
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>",
+        p.sanitize(
+            "<table><caption><svg><foreignObject><svg></caption>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<svg><desc><svg></svg></desc></svg>",
+        p.sanitize("<table><tr><td><svg><desc><svg></table><object/>hidden"));
+    assertEquals(
+        "<math><mi><svg></svg></mi></math>",
+        p.sanitize("<table><tr><td><math><mi><svg></table><object/>hidden"));
+    assertEquals(
+        "<math><annotation-xml encoding=\"text/html\"><svg></svg>"
+        + "</annotation-xml></math>",
+        p.sanitize(
+            "<table><tr><td><math><annotation-xml encoding=text/html><svg>"
+            + "</table><object/>hidden"));
+    // This table began below the tracked foreign root, so the context stays
+    // unknown after the end tag.
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>"
+        + "<svg><path>x</path></svg>",
+        p.sanitize(
+            "<table><tr><td><svg><foreignObject><svg></table><svg><path/>x"));
+    // Table structure inside an integration point follows the inherited
+    // table insertion mode, including implied elements and cell closing.
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><table><tr><td><svg></tbody>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject><svg>hidden</svg></foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><select><svg><object/>hidden"));
+    // An end tag searched in the default or list-item scope stops at the
+    // integration point, so a browser ignores it and the dropped element
+    // still closes itself in foreign content.
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>shown",
+        p.sanitize(
+            "<ul><li><svg><foreignObject><svg></li><object/>shown"));
+  }
+
+  /** Issue #461.  HTML start-tag rules can remove tracked stack entries. */
+  @Test
+  void testHtmlStartTagsUpdateForeignContentContext() {
+    PolicyFactory p = foreignContentPolicy();
+    String[] inputs = {
+        // image is rewritten to the void img element.
+        "<svg><foreignObject><image><math></svg><object/>hidden",
+        // command and isindex are ordinary elements in the current parser,
+        // despite legacy serialization tables classifying them as void.
+        "<svg><foreignObject><command><math></math></foreignObject>"
+        + "<object/>hidden",
+        "<svg><foreignObject><isindex><math></math></foreignObject>"
+        + "<object/>hidden",
+        // A block start closes p in button scope.
+        "<svg><foreignObject><p><div></div><math></svg><object/>hidden",
+        "<svg><foreignObject><p><hr><math></svg><object/>hidden",
+        // A heading start pops a heading current node.
+        "<svg><foreignObject><h2><h1></h1><math></svg><object/>hidden",
+        // A second button pops the first button and everything above it.
+        "<svg><foreignObject><button><div><button></button></div>"
+        + "<math></svg><object/>hidden",
+        // Duplicate formatting elements invoke the adoption agency rules.
+        "<svg><foreignObject><a><div><a></a></div><math></svg>"
+        + "<object/>hidden",
+        "<svg><foreignObject><nobr><div><nobr></nobr></div><math></svg>"
+        + "<object/>hidden",
+        // A non-formatting end tag can strand b in the active formatting
+        // list, from which a later start tag reconstructs it.
+        "<svg><foreignObject><div><b></div><math></math>"
+        + "</foreignObject><object/>hidden",
+        // An adoption-agency end tag removes only its own formatting entry;
+        // other formatting elements it pops can still be reconstructed.
+        "<svg><foreignObject><b><i></b><math></math></foreignObject>"
+        + "<object/>hidden",
+        // A duplicate form is ignored while the form pointer is non-null.
+        "<svg><foreignObject><form><div><form></form></div><math></svg>"
+        + "<object/>hidden",
+        // A form start closes p before inserting the form.
+        "<svg><foreignObject><p><form></form><math></svg><object/>hidden",
+        // A form end generates implied end tags before removing the form.
+        "<svg><foreignObject><form><option></form><image><math></svg>"
+        + "<object/>hidden",
+        // New list and description items close an earlier item.
+        "<svg><foreignObject><li><div><li></li></div><math></svg>"
+        + "<object/>hidden",
+        "<svg><foreignObject><dd><div><dt></dt></div><math></svg>"
+        + "<object/>hidden",
+        // A second option closes the current option even without a select.
+        "<svg><foreignObject><option><option></option><math></svg>"
+        + "<object/>hidden",
+        // input pops a select that is in scope under the current rules.
+        "<svg><foreignObject><select><input><math></svg><object/>hidden",
+        // In table mode a form is inserted and immediately popped.
+        "<table><svg><foreignObject><form><math></svg><object/>hidden",
+    };
+    for (String input : inputs) {
+      String output = p.sanitize(input);
+      assertFalse(output.contains("hidden"), input + " -> " + output);
+    }
+    // bgsound is still inserted and immediately popped by the tree builder,
+    // even though it is absent from the sanitizer's legacy void table.
+    assertEquals(
+        "<svg><foreignObject><math></math></foreignObject>hidden</svg>",
+        p.sanitize(
+            "<svg><foreignObject><bgsound><math></math></foreignObject>"
+            + "<object/>hidden"));
+  }
+
+  /** Issue #461.  {@code </form>} has a different effect in a template. */
+  @Test
+  void testFormEndTagInTemplatePopsThroughForm() {
+    assertEquals(
+        "<form><svg></svg></form>",
+        foreignContentPolicy().sanitize(
+            "<body><template><form><svg></form><object/>hidden"));
+  }
+
+  /** Well-formed HTML islands do not poison later foreign-content tracking. */
+  @Test
+  void testForeignContentContextRecoversAfterHtmlIsland() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><path></path><rect></rect></svg>"
+        + "<svg><path></path></svg>",
+        p.sanitize(
+            "<table><tr><td><svg><path/><rect/></svg></td></tr></table>"
+            + "<svg><path/></svg>"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>"
+        + "<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<svg><foreignObject><table></table></foreignObject></svg>"
+            + "<svg><path/><rect/></svg>"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>"
+        + "<svg><title></title><path></path></svg><p>after</p>",
+        p.sanitize(
+            "<svg><foreignObject><select></select></foreignObject></svg>"
+            + "<svg><title/><path/></svg><p>after</p>"));
+  }
+
+  /**
+   * Issue #461.  Under the HTML rules an end tag search stops at an element
+   * in the special category, so the elements above it stay open, and the
+   * end tag of the integration point holding them is ignored while they do.
+   */
+  @Test
+  void testSpecialElementsBlockHtmlEndTagsInForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><foreignObject><cite><div></div></cite></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><div></cite></foreignObject>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<math><mi><cite><div></div></cite></mi></math>",
+        p.sanitize("<math><mi><cite><div></cite></mi><object/>hidden"));
+    // A td start tag is ignored in body, but the div it seems to hold is
+    // still special.
+    assertEquals(
+        "<svg><foreignObject><div></div></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><td><div></td></foreignObject>"
+            + "<object/>hidden"));
+    // Without a special element in the way the end tags match, the
+    // integration point closes, and the flag is honored again.
+    assertEquals(
+        "<svg><foreignObject><cite><kbd></kbd></cite></foreignObject>"
+        + "<path></path>x</svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><kbd></cite></foreignObject>"
+            + "<path/>x"));
+    // Any h1 through h6 end tag closes an open heading.
+    assertEquals(
+        "<svg><foreignObject><h2><svg></svg></h2></foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><h2><svg></h1><object/>hidden"));
+    // </form> removes the form without closing what it holds.
+    assertEquals(
+        "<svg><foreignObject><form><cite></cite></form></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><form><cite></form></foreignObject>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject><form><svg></svg></form>shown</foreignObject>"
+        + "</svg>",
+        p.sanitize(
+            "<svg><foreignObject><form><svg></form><object/>shown"));
+    // The adoption agency algorithm rebuilds the stack around a special
+    // element and drops the foreign nodes above it.
+    assertEquals(
+        "<svg><foreignObject><b><div><svg></svg></div></b></foreignObject>"
+        + "</svg>",
+        p.sanitize(
+            "<svg><foreignObject><b><div><svg></b></foreignObject>"
+            + "<object/>hidden"));
+    // When a special element blocks the end tag, the foreign element above
+    // it is still the current node, where the flag is honored.
+    assertEquals(
+        "<svg><foreignObject><cite><div><svg></svg></div></cite>shown"
+        + "</foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><div><svg></cite><object/>shown"));
+  }
+
+  /**
+   * Issue #461.  After a stray end tag the tracker cannot tell whether the
+   * browser left the foreign content, and the next svg start tag inside
+   * MathML is a MathML element whose foreignObject is not an integration
+   * point, so the tracker stays unknown rather than starting over.
+   */
+  @Test
+  void testStrayEndTagLeavesForeignContentContextUnknown() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<math><mrow><svg><foreignObject><div></div></foreignObject></svg>"
+        + "</mrow></math>",
+        p.sanitize(
+            "<math><mrow></foo><svg><foreignObject><div></div>"
+            + "</foreignObject><object/>hidden"));
+    assertEquals(
+        "<svg><g></g></svg><svg><path>x</path></svg>",
+        p.sanitize("<svg><g></foo></g></svg><svg><path/>x</svg>"));
+    // A self-closing root is still empty in every context.
+    assertEquals(
+        "<svg><g></g></svg><svg></svg>x",
+        p.sanitize("<svg><g></foo></g></svg><svg/>x"));
+  }
+
+  /**
+   * Issue #461.  More start-tag rules that change the tracked stack, and
+   * those whose outcome the sanitizer cannot know.
+   */
+  @Test
+  void testMoreHtmlStartTagRulesInForeignContentContext() {
+    PolicyFactory p = foreignContentPolicy();
+    // xmp closes a p in button scope, as pre and listing do.
+    assertEquals(
+        "<svg><foreignObject><p></p><math></math></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><p><xmp></xmp><math></svg><object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject><p></p></foreignObject></svg>"
+        + "<svg><path></path></svg>",
+        p.sanitize(
+            "<svg><foreignObject><p><xmp></xmp></foreignObject></svg>"
+            + "<svg><path/></p></foreignObject><object/>hidden"));
+    // Whether a table start closes an open p depends on the quirks mode of
+    // the document that embeds the output, so the context fails closed.
+    assertEquals(
+        "<svg><foreignObject><p></p></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><p><table></table></foreignObject>"
+            + "<object/>hidden"));
+    // The tokenizer keeps only the first of duplicate attributes, so this
+    // input is not hidden: in table mode it still pops the open select.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<table><svg><foreignObject><select><input type=text type=hidden>"
+            + "</foreignObject></svg></select></foreignObject>"
+            + "<object/>hidden"));
+    // A table inside a cell's foreign content is tracked exactly and hands
+    // the cell's in-body rules back when it closes.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<table><tr><td><svg><foreignObject><table></table>"
+            + "<object/>hidden"));
+    // A self-closing root closes itself even where the tracker gives up.
+    assertEquals(
+        "<svg><foreignObject><svg></svg>x</foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><table><svg/>x"));
+  }
+
+  /**
+   * Issue #461.  The specification puts search in the special category but
+   * Chrome does not, so an end-tag or list-item walk that reaches one has
+   * no single right answer, and the context fails closed.
+   */
+  @Test
+  void testSearchElementCategoryIsNotReliedOn() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><foreignObject><cite></cite></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><search><span></cite></foreignObject>"
+            + "</svg></span></search></cite></foreignObject><object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><li><search><li></li></foreignObject></svg>"
+            + "</search></li></foreignObject><object/>hidden"));
+  }
+
+  /**
+   * Issue #461.  Like {@code search}, {@code dialog} is in the special
+   * category of the WHATWG parsing algorithm but not in Chrome's special-node
+   * set, so a walk that reaches an open {@code dialog} has no single right
+   * answer across browsers and the context must fail closed.  Without this a
+   * following {@code <object/>} was honored as self-closing, exposing text
+   * that a spec-compliant parser keeps inside the HTML {@code object}.
+   */
+  @Test
+  void testDialogElementCategoryIsNotReliedOn() {
+    PolicyFactory p = foreignContentPolicy();
+    // "Any other end tag" (</cite>) walks past the open dialog.
+    assertEquals(
+        "<svg><foreignObject><cite></cite></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><dialog></cite></foreignObject>"
+            + "<object/>hidden"));
+    // A list-item start (<li>) walks past the open dialog.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><li><dialog><li></li></foreignObject>"
+            + "<object/>hidden"));
+    // The adoption agency's furthest-block search (</b>) reaches the dialog.
+    assertEquals(
+        "<svg><foreignObject><b><svg></svg></b></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><b><dialog><svg></b></foreignObject>"
+            + "<object/>hidden"));
+  }
+
+  /**
+   * Issue #461.  The insertion mode inherited from an untracked table
+   * depends on which cell, caption or section is open, and browsers ignore
+   * the end tags that name something else.
+   */
+  @Test
+  void testUntrackedTableEndTagsMustNameTheOpenPart() {
+    PolicyFactory p = foreignContentPolicy();
+    String svgForm
+        = "<svg><foreignObject><form></foreignObject><object/>hidden";
+    // Inside a cell or caption the in-body rules insert the form, which
+    // stays open and keeps the object's fallback text hidden.
+    String hidden = "<svg><foreignObject><form></form></foreignObject></svg>";
+    for (String context : new String[] {
+             "<table><tr><th></td>", "<table><tr><td></th>",
+             "<table><thead><tr><td></tbody>", "<table><tr><td></tfoot>",
+             "<table><tr><td></caption>", "<table><caption></tr>",
+             "<table><caption></tbody>", "<table><caption></td>",
+             "<table><caption>", "<table><tr><td><table></table>",
+             "<table><tr><td><table><tr><td></table>",
+             "<table><tr><td><table><tr><td></td></tr></table>" }) {
+      assertEquals(hidden, p.sanitize(context + svgForm), context);
+    }
+    // Back in the table modes the form is inserted and popped at once, so
+    // the foreignObject closes and the object is foreign.
+    String shown
+        = "<svg><foreignObject><form></form></foreignObject>hidden</svg>";
+    for (String context : new String[] {
+             "<table><tr><td></td>", "<table><tr><td></tr>",
+             "<table><thead><tr><td></thead>", "<table><caption></caption>",
+             "<table><tr><td><table></table></td>",
+             "<table><tr><td><table><tr><td></td></tr></table></td>" }) {
+      assertEquals(shown, p.sanitize(context + svgForm), context);
+    }
+    // Table structure inside a caption closes the caption and everything
+    // above it, which the tracker does not follow.
+    assertEquals(
+        "<svg><foreignObject></foreignObject></svg>",
+        p.sanitize(
+            "<table><caption><svg><foreignObject><td></foreignObject>"
+            + "<object/>hidden"));
+  }
+
+  /** Well-formed nested tables and captions do not poison later SVG. */
+  @Test
+  void testForeignContentContextRecoversAfterNestedTables() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "x<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<table><tr><td><table><tr><td>x</td></tr></table></td></tr>"
+            + "</table><svg><path/><rect/></svg>"));
+    assertEquals(
+        "x<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<table><caption>x</caption></table><svg><path/><rect/></svg>"));
+    assertEquals(
+        "<svg><path></path><rect></rect></svg>",
+        p.sanitize(
+            "<table><caption><table></table></caption></table>"
+            + "<svg><path/><rect/></svg>"));
+  }
+
+  /**
+   * Issue #461.  The modeled transitions are followed exactly rather than
+   * by failing closed: a self-closing tag is still honored in later SVG.
+   */
+  @Test
+  void testModeledTransitionsKeepHonoringSelfClosingTags() {
+    PolicyFactory p = foreignContentPolicy();
+    String[] inputs = {
+        "<svg><foreignObject><p><div></div><math></svg><svg><path/>x",
+        "<svg><foreignObject><h2><h1></h1><math></svg><svg><path/>x",
+        "<svg><foreignObject><button><div><button></button></div><math>"
+        + "</svg><svg><path/>x",
+        "<svg><foreignObject><form><div><form></form></div><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><li><div><li></li></div><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><dd><div><dt></dt></div><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><option><option></option><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><select><input><math></svg><svg><path/>x",
+        "<svg><foreignObject><p><hr><math></svg><svg><path/>x",
+        "<svg><foreignObject><p><xmp></xmp><math></svg><svg><path/>x",
+        "<svg><foreignObject><image><math></svg><svg><path/>x",
+        "<svg><foreignObject><form><option></form><image><math></svg>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><h2><svg></h1><svg><path/>x",
+        "<svg><foreignObject><form><cite></form></foreignObject>"
+        + "<svg><path/>x",
+        "<svg><foreignObject><cite><div></cite></foreignObject>"
+        + "<svg><path/>x",
+        "<table><svg><foreignObject><form><math></svg><svg><path/>x",
+        "<table><tr><th></td><svg><foreignObject><form></foreignObject>"
+        + "</svg><svg><path/>x",
+        "<table><tr><td><table><tr><td>x</td></tr></table></td></tr></table>"
+        + "<svg><foreignObject><form></foreignObject></svg><svg><path/>x",
+    };
+    for (String input : inputs) {
+      String output = p.sanitize(input);
+      assertTrue(output.contains("<path></path>x"), input + " -> " + output);
+    }
+  }
+
   /** The bounded context tracker falls back to suppressing dropped content. */
   @Test
   void testDeepForeignContentContextFailsClosed() {
@@ -1274,7 +1725,8 @@ class HtmlSanitizerTest {
         .allowElements(
             "svg", "math", "path", "g", "rect", "clipPath", "foreignObject",
             "desc", "annotation-xml", "textArea", "textarea", "mi", "mrow",
-            "mglyph", "a", "div", "p", "font", "br", "style", "title")
+            "mglyph", "a", "div", "p", "font", "br", "style", "title",
+            "cite", "kbd", "b", "h2", "form")
         .allowAttributes("width", "height", "viewBox").onElements("svg")
         .allowAttributes("id", "opacity", "d").onElements("path")
         .allowAttributes("href").onElements("a")
