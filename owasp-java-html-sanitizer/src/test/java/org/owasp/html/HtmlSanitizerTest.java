@@ -393,11 +393,14 @@ class HtmlSanitizerTest {
     //
     //      All could be fine if this form typo-that-happens-to-be-legal was
     //      properly implemented in contemporary HTML user-agents. It is not.
-    assertEquals("<p></p>", sanitize("<p/b/"));  // Short-tag discarded.
+    // Short-tag discarded, and since the input ends inside the tag, the tag
+    // goes with it, as in a browser (#410).
+    assertEquals("", sanitize("<p/b/"));
     assertEquals("<p></p>", sanitize("<p<b>"));  // Discard <b attribute
     assertEquals(
-        // This behavior for short tags is not ideal, but it is safe.
-        "<p href=\"/\">first part of the text&lt;/&gt; second part</p>",
+        // This behavior for short tags is not ideal, but it is safe.  The
+        // "</>" is nothing to a browser, and nothing here (#410).
+        "<p href=\"/\">first part of the text second part</p>",
         sanitize("<p<a href=\"/\">first part of the text</> second part"));
   }
 
@@ -763,6 +766,39 @@ class HtmlSanitizerTest {
     assertEquals(expectedPayload, sanitized);
   }
 
+  /**
+   * Two tokenizer differences left over from #189 (#410).  A tag that the
+   * input ends inside is dropped whole, as a browser drops it, rather than
+   * opened with whatever attributes had been read; and {@code </} followed
+   * by anything but a letter is a bogus comment running to the next
+   * {@code >}, or text at the end of input, rather than text up to the next
+   * tag.
+   */
+  @Test
+  void testIssue410EofInTagAndBogusEndTags() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("p", "b")
+        .allowAttributes("class", "x").onElements("p")
+        .toFactory();
+
+    // End of input inside a tag: the tag goes, the text before it stays.
+    assertEquals("x", p.sanitize("x<p "));
+    assertEquals("", p.sanitize("<p class=\">y</p>"));
+    assertEquals(
+        "<p>foo</p> ",
+        p.sanitize("<p>foo</p> <p class=\"test\" \"=\">bar</p> <p>baz</p>"));
+    // An end tag the input ends inside goes too; the balancer closes the
+    // element at the end as it would have anyway.
+    assertEquals("<b>x</b>", p.sanitize("<b>x</b"));
+    assertEquals("<b>x</b>", p.sanitize("<b>x</b class"));
+
+    // "</" and a non-letter.
+    assertEquals("<p>z</p>", p.sanitize("<p></>z"));
+    assertEquals("<p x=\"x\">y</p>", p.sanitize("<p x></\"<p>y</p>"));
+    assertEquals("<b>xy</b>", p.sanitize("<b>x</ b>y"));
+    assertEquals("a&lt;/", p.sanitize("a</"));
+  }
+
   @Test
   void testIssue189StrayQuoteInTag() {
     // A quote that does not directly follow an attribute name and '=' is part
@@ -781,9 +817,10 @@ class HtmlSanitizerTest {
     assertEquals("<p class=\"p-x\">y</p>", sanitize("<p class=\"x\"/=\">y</p>"));
     assertEquals("<p>y</p>", sanitize("<p title/=\">y</p>"));
     // Here the second quote does follow '=', so it begins a value that never
-    // closes; browsers hit EOF inside the tag and drop everything from it on.
+    // closes; browsers hit EOF inside the tag and drop everything from it on,
+    // and so does the sanitizer (#410).
     assertEquals(
-        "<p>foo</p> <p class=\"p-test\"></p>",
+        "<p>foo</p> ",
         sanitize("<p>foo</p> <p class=\"test\" \"=\">bar</p> <p>baz</p>"));
   }
 

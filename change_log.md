@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * Two tokenizer differences from browsers are gone.  A tag that the
+      input ends inside, such as `x<p ` or `<p class=">y</p>`, is dropped
+      whole, as a browser drops it, instead of being opened with the
+      attributes read so far; the text before it stands.  And `</` followed
+      by anything but a letter is a bogus comment running to the next `>`,
+      so `<p></>z` gives `<p>z</p>` and `</"<p>y</p>` swallows the `<p>`, as
+      in a browser; `</` at the end of input is text.  Literal content such
+      as script and style text is unaffected.  Issue #410.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such

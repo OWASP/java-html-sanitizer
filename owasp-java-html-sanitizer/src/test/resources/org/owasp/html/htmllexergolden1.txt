@@ -88,7 +88,9 @@ COMMENT    [<!-- some tokenization corner cases -->]  :  891-930
 TEXT       [\n\n< notatag ]  :  930-942
 TAGBEGIN   [<atag]  :  942-947
 TAGEND     [/>]  :  947-949
-TEXT       [\n\n</ notatag> ]  :  949-963
+TEXT       [\n\n]  :  949-951
+COMMENT    [</ notatag>]  :  951-962
+TEXT       [ ]  :  962-963
 TAGBEGIN   [</redundantlyclosed]  :  963-982
 TAGEND     [/>]  :  982-984
 TEXT       [\n\n]  :  984-986

@@ -490,6 +490,8 @@ final class HtmlInputSplitter extends AbstractTokenStream {
     DIRECTIVE,
     DONE,
     BOGUS_COMMENT,
+    /** After "</" and a character that cannot start a tag name. */
+    END_TAG_BOGUS_COMMENT,
     SERVER_CODE,
     SERVER_CODE_PCT,
     ;
@@ -664,13 +666,25 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                 case SLASH:
                   if (Character.isLetter(ch)) {
                     state = State.TAGNAME;
-                  } else {
+                  } else if (this.inEscapeExemptBlock) {
+                    // Literal content: "</" not followed by a letter is
+                    // text, as it is in a browser's RAWTEXT state.
                     if ('<' == ch) {
                       type = HtmlTokenType.TEXT;
                     } else {
                       ++end;
                     }
                     break charloop;
+                  } else if ('>' == ch) {
+                    // "</>" is a missing-end-tag-name error for which a
+                    // browser emits nothing, so it is an empty comment here.
+                    type = HtmlTokenType.COMMENT;
+                    state = State.DONE;
+                  } else {
+                    // Anything else after "</" is an
+                    // invalid-first-character-of-tag-name error that starts
+                    // a bogus comment running to the next '>'.
+                    state = State.END_TAG_BOGUS_COMMENT;
                   }
                   break;
                 case BANG:
@@ -764,6 +778,12 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                     state = State.DONE;
                   }
                   break;
+                case END_TAG_BOGUS_COMMENT:
+                  if ('>' == ch) {
+                    type = HtmlTokenType.COMMENT;
+                    state = State.DONE;
+                  }
+                  break;
                 case SERVER_CODE:
                   if ('%' == ch) {
                     state = State.SERVER_CODE_PCT;
@@ -790,6 +810,11 @@ final class HtmlInputSplitter extends AbstractTokenStream {
                   break;
                 case BOGUS_COMMENT:
                   type = HtmlTokenType.QMARKMETA;
+                  break;
+                case END_TAG_BOGUS_COMMENT:
+                  // A bogus comment that runs to the end of input is still a
+                  // comment.
+                  type = HtmlTokenType.COMMENT;
                   break;
                 case COMMENT:
                 case COMMENT_DASH:
