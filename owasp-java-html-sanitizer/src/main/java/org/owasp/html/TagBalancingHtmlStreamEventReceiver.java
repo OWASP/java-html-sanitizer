@@ -53,6 +53,20 @@ public class TagBalancingHtmlStreamEventReceiver
       METADATA.indexForName(HtmlElementNames.CUSTOM_ELEMENT_NAME);
   private static final int A_TAG = METADATA.indexForName("a");
   private static final int BODY_TAG = METADATA.indexForName("body");
+  /**
+   * Elements on entering which a browser puts a marker on its list of
+   * active formatting elements, so that an {@code a} opened inside one of
+   * them does not end an {@code a} open outside it: the cell, caption and
+   * template elements, and the legacy applet, marquee and object.
+   */
+  private static final BitSet FORMATTING_MARKERS = new BitSet();
+  static {
+    for (String name : new String[] {
+             "applet", "caption", "marquee", "object", "td", "template", "th",
+         }) {
+      FORMATTING_MARKERS.set(METADATA.indexForName(name));
+    }
+  }
 
   private static final boolean DEBUG = false;
 
@@ -187,6 +201,22 @@ public class TagBalancingHtmlStreamEventReceiver
     }
   }
 
+  /**
+   * True if an {@code a} is open above the nearest formatting marker, which
+   * is when a browser ends it before opening another {@code a}: the
+   * adoption agency algorithm runs for an {@code a} on the list of active
+   * formatting elements after the last marker, and a link inside a table
+   * cell leaves one outside the table alone.
+   */
+  private boolean hasOpenLinkInFormattingScope() {
+    for (int i = openElements.size(); --i >= 0;) {
+      int openElementIndex = openElements.get(i);
+      if (openElementIndex == A_TAG) { return true; }
+      if (FORMATTING_MARKERS.get(openElementIndex)) { return false; }
+    }
+    return false;
+  }
+
   private void prepareForContent(int elIndex) {
     int nOpen = openElements.size();
     {
@@ -223,8 +253,7 @@ public class TagBalancingHtmlStreamEventReceiver
       // Close all the elements that cannot contain the content to open.
       while (true) {
         boolean canContain = canContain(elIndex, top, nOpen - 1)
-            && !(elIndex == A_TAG
-                 && openElements.lastIndexOf(A_TAG) >= 0);
+            && !(elIndex == A_TAG && hasOpenLinkInFormattingScope());
         if (canContain) {
           break;
         }

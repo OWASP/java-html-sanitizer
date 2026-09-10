@@ -181,6 +181,13 @@ String sanitizedHtml = myPolicyFactory.sanitize(
     myContext);
 ```
 
+`discardedAttributes` also fires for attributes rejected from an element that
+was then dropped for having none left, such as a link whose only `href` was
+rejected.  Two default methods carry more detail for listeners that override
+them: `discardedAttribute` receives each rejected attribute's value, and
+`discardedText` receives content the renderer could not emit from a kept
+`script` or `style` element.
+
 **Note**: If a string sanitizes with no change notifications, it is not the case
 that the input string is necessarily safe to use. Only use the output of the sanitizer.
 

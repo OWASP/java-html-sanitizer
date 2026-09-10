@@ -2,6 +2,55 @@
 
 Most recent at top.
   * Next release
+    * A link inside a table cell, caption or template element, or an applet,
+      marquee or object, no longer ends a link open outside that element.
+      Browsers clear their active formatting elements to a marker on
+      entering those, so `<a><table><tr><td><a>` nests, as it does in the
+      DOM; the tag balancer used to close back to the outer link, taking the
+      inner table's cell, row and table with it, so a nested table's later
+      rows landed in the outer table.  A second link with no such element
+      between still ends the first, as in a browser.  Issue #333.
+    * `HtmlChangeListener.discardedAttributes` now also reports the
+      attributes rejected from an element the policy allowed when that
+      rejection is what left the element attribute-less and so skipped, as
+      `a`, `font`, `img`, `input` and `span` are by default.  The listener
+      used to hear only that the element was discarded, so a rejected
+      `javascript:` `href` on a link reached an intrusion detection system as
+      a dropped `a` and nothing more.  Attributes on an element the policy
+      does not allow are still covered by `discardedTag` alone.  Issue #447.
+    * `HtmlChangeListener.discardedAttribute`, a new default method, follows
+      each `discardedAttributes` report with one call per dropped attribute
+      carrying the value it had in the input, so a listener can see the URL
+      or handler that was rejected.  Listeners that do not override it are
+      unaffected.  Issue #243.
+    * `HtmlChangeListener.discardedText`, a new default method, reports the
+      content of a kept `script` or `style` element that the renderer dropped
+      because it could not be emitted safely, such as a `-->` with no comment
+      open.  Such drops were invisible to the listener.  The report comes
+      from `HtmlStreamRenderer`, which `PolicyFactory.sanitize` uses; a
+      sanitizer built with `PolicyFactory.apply` on another receiver reports
+      tags and attributes only.  Issue #155.
+    * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
+      relative-only URL policy.  It allows URLs with neither a protocol nor
+      an authority, but rejects absolute URLs and protocol-relative URLs such
+      as `//example.org/`, including equivalent slash and backslash spellings
+      that browsers resolve to an authority.  Unlike the default guard on a
+      builder that never called `allowUrlProtocols`, this restriction
+      intersects with every protocol allowlist and remains relative-only
+      through `PolicyFactory.and`, including for `srcset` and `url()` in
+      styles.
+      Existing `and()` compositions that deliberately relied on a
+      protocol-less factory to strip absolute URLs allowed by another factory
+      should call `allowOnlyRelativeUrls()` on the restrictive builder before
+      upgrading; without it, the change for issue #204 may widen those
+      compositions to the protocols the other factory allows.  Issue #453.
+    * `FilterUrlByProtocolAttributePolicy`, and so the protocol guard on every
+      builder that did not allow both `http` and `https`, now rejects
+      `/\`, `\/`, and `\\` at the start of a URL as it already rejected
+      `//`.  Browsers resolving against an `http:` or `https:` page treat a
+      backslash as a slash, so `\\example.org/` names the same authority
+      as `//example.org/`.  Policies that allow both web protocols keep
+      accepting these values, as they accept `//example.org/`.  Issue #453.
     * The context tracker behind self-closing SVG and MathML tags now follows
       the HTML start- and end-tag rules that can change the open-element
       stack inside an integration point, including p, list, heading, button,
@@ -72,6 +121,9 @@ Most recent at top.
       before the guard trims surrounding whitespace and percent-encodes
       parentheses and control characters, and a policy that rewrites a URL
       can no longer hand the output a protocol the builder did not allow.
+      A composition that relied on the old behavior to keep another
+      factory's links relative should call `allowOnlyRelativeUrls()` on the
+      restrictive builder; see the entry for issue #453 above.
       Issue #204.
     * The javadoc for `matching`, `allowUrlProtocols` and `allowUrlsInStyles`
       now says where the URL protocol guard runs: after the policies an
