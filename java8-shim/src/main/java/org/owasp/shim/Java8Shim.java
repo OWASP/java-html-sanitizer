@@ -32,77 +32,77 @@ public abstract class Java8Shim {
     }
 
     /**
-     * {@link java.util.List.of}
+     * {@code java.util.List.of}
      */
     public abstract <T> List<T> listOf();
 
     /**
-     * {@link java.util.List.of}
+     * {@code java.util.List.of}
      */
     public abstract <T> List<T> listOf(T a);
 
     /**
-     * {@link java.util.List.of}
+     * {@code java.util.List.of}
      */
     public abstract <T> List<T> listOf(T a, T b);
 
     /**
-     * {@link java.util.List.of}
+     * {@code java.util.List.of}
      */
     public abstract <T> List<T> listOf(T a, T b, T c);
 
     /**
-     * {@link java.util.List.of}
+     * {@code java.util.List.of}
      */
     public abstract <T> List<T> listOf(T... els);
 
     /**
-     * {@link java.util.List.copyOf}
+     * {@code java.util.List.copyOf}
      */
     public abstract <T> List<T> listCopyOf(Collection<? extends T> c);
 
     /**
-     * {@link java.util.Map.copyOf}
+     * {@code java.util.Map.copyOf}
      */
     public abstract <K, V> Map<K, V> mapCopyOf(Map<? extends K, ? extends V> m);
 
     /**
-     * {@link java.util.Map.entry}
+     * {@code java.util.Map.entry}
      */
     public abstract <K, V> Map.Entry<K, V> mapEntry(K key, V value);
 
     /**
-     * {@link java.util.Map.ofEntries}
+     * {@code java.util.Map.ofEntries}
      */
     public abstract <K, V> Map<K, V> mapOfEntries(Map.Entry<K, V>... entries);
 
     /**
-     * {@link java.util.Set.of}
+     * {@code java.util.Set.of}
      */
     public abstract <T> Set<T> setOf();
 
     /**
-     * {@link java.util.Set.of}
+     * {@code java.util.Set.of}
      */
     public abstract <T> Set<T> setOf(T a);
 
     /**
-     * {@link java.util.Set.of}
+     * {@code java.util.Set.of}
      */
     public abstract <T> Set<T> setOf(T a, T b);
 
     /**
-     * {@link java.util.Set.of}
+     * {@code java.util.Set.of}
      */
     public abstract <T> Set<T> setOf(T a, T b, T c);
 
     /**
-     * {@link java.util.Set.of}
+     * {@code java.util.Set.of}
      */
     public abstract <T> Set<T> setOf(T... els);
 
     /**
-     * {@link java.util.Set.copyOf}
+     * {@code java.util.Set.copyOf}
      */
     public abstract <T> Set<T> setCopyOf(Collection<? extends T> c);
 }

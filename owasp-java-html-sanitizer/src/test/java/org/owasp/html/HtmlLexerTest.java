@@ -71,6 +71,35 @@ class HtmlLexerTest {
     assertTokens("</div\n", "TAGBEGIN: </div");
   }
 
+  /**
+   * After {@code </}, only a letter starts an end tag.  A browser drops
+   * {@code </>} outright, turns anything else into a bogus comment that
+   * runs to the next {@code >}, and takes {@code </} at the end of input as
+   * text (#410).  Inside literal content none of that applies.
+   */
+  @Test
+  void testEndTagOpenFollowedByANonLetter() {
+    assertTokens("</>", "COMMENT: </>");
+    assertTokens("</ notatag>x", "COMMENT: </ notatag>", "TEXT: x");
+    assertTokens(
+        "</\"<p>y</p>",
+        "COMMENT: </\"<p>", "TEXT: y", "TAGBEGIN: </p", "TAGEND: >");
+    assertTokens("</<p>y", "COMMENT: </<p>", "TEXT: y");
+    // Unterminated, the bogus comment runs to the end of input.
+    assertTokens("</\"", "COMMENT: </\"");
+    assertTokens("</", "TEXT: </");
+    assertTokens("a</", "TEXT: a</");
+    // Literal content is text whatever follows "</", up to its end tag.
+    assertTokens(
+        "<script></\"</script>",
+        "TAGBEGIN: <script", "TAGEND: >", "UNESCAPED: </\"",
+        "TAGBEGIN: </script", "TAGEND: >");
+    assertTokens(
+        "<style>a</ b</style>",
+        "TAGBEGIN: <style", "TAGEND: >", "UNESCAPED: a</ b",
+        "TAGBEGIN: </style", "TAGEND: >");
+  }
+
   @Test
   void testPartialTagInCData() {
     assertTokens(
@@ -129,7 +158,10 @@ class HtmlLexerTest {
         "ATTRNAME: href",
         "ATTRVALUE: \"/\"",
         "TAGEND: >",
-        "TEXT: first part of the text</> second part");
+        "TEXT: first part of the text",
+        // "</>" is nothing to a browser: an empty comment here.
+        "COMMENT: </>",
+        "TEXT:  second part");
     assertTokens(
         "<p/b/",
         "TAGBEGIN: <p",

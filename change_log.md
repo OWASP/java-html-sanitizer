@@ -21,6 +21,42 @@ Most recent at top.
       under a policy allowing `comment` with text a tag inside it reached
       the browser unvetted.  Its content is now parsed, vetted and escaped
       like any other element's.
+    * Two tokenizer differences from browsers are gone.  A tag that the
+      input ends inside, such as `x<p ` or `<p class=">y</p>`, is dropped
+      whole, as a browser drops it, instead of being opened with the
+      attributes read so far; the text before it stands.  And `</` followed
+      by anything but a letter is a bogus comment running to the next `>`,
+      so `<p></>z` gives `<p>z</p>` and `</"<p>y</p>` swallows the `<p>`, as
+      in a browser; `</` at the end of input is text.  Literal content such
+      as script and style text is unaffected.  Issue #410.
+    * A link inside a table cell, caption or template element, or an applet,
+      marquee or object, no longer ends a link open outside that element.
+      Browsers clear their active formatting elements to a marker on
+      entering those, so `<a><table><tr><td><a>` nests, as it does in the
+      DOM; the tag balancer used to close back to the outer link, taking the
+      inner table's cell, row and table with it, so a nested table's later
+      rows landed in the outer table.  A second link with no such element
+      between still ends the first, as in a browser.  Issue #333.
+    * `HtmlChangeListener.discardedAttributes` now also reports the
+      attributes rejected from an element the policy allowed when that
+      rejection is what left the element attribute-less and so skipped, as
+      `a`, `font`, `img`, `input` and `span` are by default.  The listener
+      used to hear only that the element was discarded, so a rejected
+      `javascript:` `href` on a link reached an intrusion detection system as
+      a dropped `a` and nothing more.  Attributes on an element the policy
+      does not allow are still covered by `discardedTag` alone.  Issue #447.
+    * `HtmlChangeListener.discardedAttribute`, a new default method, follows
+      each `discardedAttributes` report with one call per dropped attribute
+      carrying the value it had in the input, so a listener can see the URL
+      or handler that was rejected.  Listeners that do not override it are
+      unaffected.  Issue #243.
+    * `HtmlChangeListener.discardedText`, a new default method, reports the
+      content of a kept `script` or `style` element that the renderer dropped
+      because it could not be emitted safely, such as a `-->` with no comment
+      open.  Such drops were invisible to the listener.  The report comes
+      from `HtmlStreamRenderer`, which `PolicyFactory.sanitize` uses; a
+      sanitizer built with `PolicyFactory.apply` on another receiver reports
+      tags and attributes only.  Issue #155.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such

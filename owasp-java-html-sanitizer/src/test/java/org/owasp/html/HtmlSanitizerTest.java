@@ -33,7 +33,13 @@ import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
 
+import java.io.StringReader;
+
+import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.xml.sax.InputSource;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -393,11 +399,14 @@ class HtmlSanitizerTest {
     //
     //      All could be fine if this form typo-that-happens-to-be-legal was
     //      properly implemented in contemporary HTML user-agents. It is not.
-    assertEquals("<p></p>", sanitize("<p/b/"));  // Short-tag discarded.
+    // Short-tag discarded, and since the input ends inside the tag, the tag
+    // goes with it, as in a browser (#410).
+    assertEquals("", sanitize("<p/b/"));
     assertEquals("<p></p>", sanitize("<p<b>"));  // Discard <b attribute
     assertEquals(
-        // This behavior for short tags is not ideal, but it is safe.
-        "<p href=\"/\">first part of the text&lt;/&gt; second part</p>",
+        // This behavior for short tags is not ideal, but it is safe.  The
+        // "</>" is nothing to a browser, and nothing here (#410).
+        "<p href=\"/\">first part of the text second part</p>",
         sanitize("<p<a href=\"/\">first part of the text</> second part"));
   }
 
@@ -971,6 +980,120 @@ class HtmlSanitizerTest {
         policy.sanitize("<style>a{}<!-- x --></>c<3{}</style>"));
   }
 
+  /**
+   * Two tokenizer differences left over from #189 (#410).  A tag that the
+   * input ends inside is dropped whole, as a browser drops it, rather than
+   * opened with whatever attributes had been read; and {@code </} followed
+   * by anything but a letter is a bogus comment running to the next
+   * {@code >}, or text at the end of input, rather than text up to the next
+   * tag.
+   */
+  @Test
+  void testIssue410EofInTagAndBogusEndTags() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("p", "b")
+        .allowAttributes("class", "x").onElements("p")
+        .toFactory();
+
+    // End of input inside a tag: the tag goes, the text before it stays.
+    assertEquals("x", p.sanitize("x<p "));
+    assertEquals("", p.sanitize("<p class=\">y</p>"));
+    assertEquals(
+        "<p>foo</p> ",
+        p.sanitize("<p>foo</p> <p class=\"test\" \"=\">bar</p> <p>baz</p>"));
+    // An end tag the input ends inside goes too; the balancer closes the
+    // element at the end as it would have anyway.
+    assertEquals("<b>x</b>", p.sanitize("<b>x</b"));
+    assertEquals("<b>x</b>", p.sanitize("<b>x</b class"));
+
+    // "</" and a non-letter.
+    assertEquals("<p>z</p>", p.sanitize("<p></>z"));
+    assertEquals("<p x=\"x\">y</p>", p.sanitize("<p x></\"<p>y</p>"));
+    assertEquals("<b>xy</b>", p.sanitize("<b>x</ b>y"));
+    assertEquals("a&lt;/", p.sanitize("a</"));
+  }
+
+  /**
+   * A link inside a table cell inside a link stays where it is: a browser
+   * clears its active formatting elements to a marker on entering the cell,
+   * so the inner {@code a} does not end the outer one.  The balancer used to
+   * close back to the outer {@code a}, taking the inner table's cell, row
+   * and table with it, so that table's second row landed in the outer table
+   * (#333).  The parser check reads both the input and the output the way a
+   * browser does and compares the trees.
+   */
+  @Test
+  void testLinkInsideCellInsideLinkKeepsTheTableTogether() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("a", "table", "tbody", "tr", "td", "th", "caption")
+        .allowAttributes("href").onElements("a")
+        .allowUrlProtocols("http")
+        .toFactory();
+    String input = "<table><tr><td><a href=\"http://b.example\">"
+        + "<table><tbody>"
+        + "<tr><td><a href=\"http://b.example\">11111</a></td></tr>"
+        + "<tr><td><a href=\"http://b.example\">22222</a></td></tr>"
+        + "</tbody></table></a></td></tr></table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table><tbody><tr><td><a href=\"http://b.example\">"
+        + "<table><tbody>"
+        + "<tr><td><a href=\"http://b.example\">11111</a></td></tr>"
+        + "<tr><td><a href=\"http://b.example\">22222</a></td></tr>"
+        + "</tbody></table></a></td></tr></tbody></table>",
+        out);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+
+    // caption and th are markers too; a link straight inside a link is not,
+    // and the second still ends the first, as in a browser.
+    for (String html : new String[] {
+            "<a href=\"http://u\"><table><caption><a href=\"http://v\">c"
+            + "</a></caption></table></a>",
+            "<a href=\"http://u\"><table><tr><th><a href=\"http://v\">h"
+            + "</a></th></tr></table></a>",
+            "<a href=\"http://u\">x<a href=\"http://v\">y</a>z</a>",
+         }) {
+      assertEquals(
+          parseAsBrowser(html), parseAsBrowser(p.sanitize(html)), html);
+    }
+  }
+
+  /** The tree a browser builds from html, one node per line. */
+  private static String parseAsBrowser(String html) throws Exception {
+    Node fragment = new HtmlDocumentBuilder().parseFragment(
+        new InputSource(new StringReader(html)), "body");
+    StringBuilder sb = new StringBuilder();
+    appendTree(fragment, "", sb);
+    return sb.toString();
+  }
+
+  private static void appendTree(Node node, String indent, StringBuilder sb) {
+    switch (node.getNodeType()) {
+      case Node.ELEMENT_NODE:
+        sb.append(indent).append('<').append(node.getNodeName());
+        NamedNodeMap attrs = node.getAttributes();
+        for (int i = 0, n = attrs.getLength(); i < n; ++i) {
+          Node attr = attrs.item(i);
+          sb.append(' ').append(attr.getNodeName())
+              .append('=').append(attr.getNodeValue());
+        }
+        sb.append(">\n");
+        indent += "  ";
+        break;
+      case Node.TEXT_NODE:
+        sb.append(indent).append('"').append(node.getNodeValue())
+            .append("\"\n");
+        break;
+      default:
+        break;
+    }
+    for (Node child = node.getFirstChild(); child != null;
+         child = child.getNextSibling()) {
+      appendTree(child, indent, sb);
+    }
+  }
+
   @Test
   void testIssue189StrayQuoteInTag() {
     // A quote that does not directly follow an attribute name and '=' is part
@@ -989,9 +1112,10 @@ class HtmlSanitizerTest {
     assertEquals("<p class=\"p-x\">y</p>", sanitize("<p class=\"x\"/=\">y</p>"));
     assertEquals("<p>y</p>", sanitize("<p title/=\">y</p>"));
     // Here the second quote does follow '=', so it begins a value that never
-    // closes; browsers hit EOF inside the tag and drop everything from it on.
+    // closes; browsers hit EOF inside the tag and drop everything from it on,
+    // and so does the sanitizer (#410).
     assertEquals(
-        "<p>foo</p> <p class=\"p-test\"></p>",
+        "<p>foo</p> ",
         sanitize("<p>foo</p> <p class=\"test\" \"=\">bar</p> <p>baz</p>"));
   }
 
