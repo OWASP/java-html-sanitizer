@@ -270,7 +270,12 @@ public class HtmlPolicyBuilder {
       // that to infect later allowElement calls for this particular element
       // name.  rejects should have higher priority than allows.
       elPolicies.put(elementName, newPolicy);
-      if (!textContainers.containsKey(elementName)) {
+      // An allowed element that can hold text is a text container unless
+      // told otherwise.  A rejected element grants nothing, so it is not
+      // recorded as one: under PolicyFactory.and, that record would cancel a
+      // disallowTextIn for the same element in the other factory.
+      if (!ElementPolicy.REJECT_ALL_ELEMENT_POLICY.equals(newPolicy)
+          && !textContainers.containsKey(elementName)) {
         if (METADATA.canContainPlainText(METADATA.indexForName(elementName))) {
           textContainers.put(elementName, true);
         }
@@ -337,6 +342,20 @@ public class HtmlPolicyBuilder {
    * default stylesheets, or, like {@code <template>} contain text nodes that
    * are eventually for human consumption, but which are created in a separate
    * document fragment.
+   * <p>
+   * This applies to the element as the author wrote it, whether the policy
+   * keeps it, renames it or drops it.  With both
+   * {@code disallowElements("template")} and
+   * {@code disallowTextIn("template")} in effect,
+   * {@code <template>hidden</template>} contributes nothing to the output,
+   * where dropping the element alone would leave {@code hidden} behind as
+   * bare text.
+   * <p>
+   * Text belongs to the nearest enclosing element that survives the policy,
+   * so this does not reach text inside a nested element that survives:
+   * {@code <template><p>shown</p></template>} keeps {@code shown} if
+   * {@code <p>} is allowed and kept.  It is not a way to drop an element
+   * together with everything inside it.
    */
   public HtmlPolicyBuilder disallowTextIn(String... elementNames) {
     invalidateCompiledState();
@@ -808,16 +827,21 @@ public class HtmlPolicyBuilder {
    */
   public PolicyFactory toFactory() {
     Set<String> textContainerSetBuilder = new HashSet<>();
+    Set<String> disallowedTextContainerSetBuilder = new HashSet<>();
     for (Map.Entry<String, Boolean> textContainer
          : this.textContainers.entrySet()) {
       if (Boolean.TRUE.equals(textContainer.getValue())) {
         textContainerSetBuilder.add(textContainer.getKey());
+      } else {
+        disallowedTextContainerSetBuilder.add(textContainer.getKey());
       }
     }
     CompiledState compiled = compilePolicies();
 
     return new PolicyFactory(
-        compiled.compiledPolicies, Collections.unmodifiableSet(textContainerSetBuilder),
+        compiled.compiledPolicies,
+        Collections.unmodifiableSet(textContainerSetBuilder),
+        Collections.unmodifiableSet(disallowedTextContainerSetBuilder),
         j8().mapCopyOf(compiled.globalAttrPolicies),
         preprocessor, postprocessor);
   }

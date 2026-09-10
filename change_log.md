@@ -2,6 +2,53 @@
 
 Most recent at top.
   * Next release
+    * Text inside a dropped element is now gated by every element enclosing
+      it, not by the last tag the policy saw.  The policy kept one flag for
+      whether text may be emitted and set it from each open tag alone, so a
+      dropped tag inside `<noscript>`, `<object>` or any other element whose
+      content is never shown reset the gate and let the content through:
+      `<noscript><b>text</b></noscript>` came out as `text`, and
+      `<div><object><b>x</b>y</object>z</div>` as `<div>xyz</div>`.  The
+      same slip defeated `disallowTextIn`: with text disallowed in
+      `<template>`, `<template><p>x</p></template>` kept `x` whenever `<p>`
+      was not allowed.  Text now belongs to the nearest enclosing element the
+      policy kept, and a dropped element in between suppresses it only when
+      its content is never shown or text in it is disallowed.  Two
+      consequences of that rule are worth knowing.  Text that follows a kept
+      child inside such an element stays suppressed:
+      `<noscript>a<p>b</p>c</noscript>` gives `<p>b</p>`, where `c` used to
+      leak.  And text inside a dropped child of a kept element that cannot
+      hold text itself is dropped rather than written straight into that
+      element: `<tr><td>cell</td></tr>` with `td` not allowed gives an empty
+      row, not `<tr>cell</tr>`.  Not an XSS -- the text was escaped -- but
+      content the policy said to suppress was shown.  The gate now costs
+      constant time per tag.  The close-tag path used to re-scan the open
+      elements, as did the check for text inside a kept `<style>` or
+      `<script>`, and both were quadratic on a long run of unknown tags,
+      which the balancer forwards without counting them toward its nesting
+      limit; a test pins that 200,000 of them finish in linear time.
+      Closes #444.
+    * `disallowTextIn(x)` now applies to `x` as the author wrote it, whether
+      the policy keeps it, renames it or drops it, rather than only when it
+      keeps it under its own name.  The builder discarded the disallowed
+      names when it compiled, so `disallowElements("template")` together
+      with `disallowTextIn("template")` still emitted the template's text as
+      bare text, and a policy that renamed `span` to `div` ignored
+      `disallowTextIn("span")` unless the span happened to be dropped.  The
+      names now travel through `PolicyFactory`, and `and()` keeps them
+      unless the other factory allows text in that element -- the same union
+      of grants it applies to everything else.  `disallowElements(x)` no
+      longer records `x` as a text container, since a rejected element
+      grants nothing; it used to, and under `and()` that record would have
+      cancelled the other factory's `disallowTextIn(x)`.  The tag balancer,
+      which drops a start tag past the 256-deep nesting limit before the
+      policy sees it, now asks the policy whether that element's text is
+      suppressed instead of consulting only its fixed list, so
+      `disallowTextIn` holds past the limit too.  This also reaches an
+      allowed element dropped for having no attributes, such as a bare
+      `<span>` with `disallowTextIn("span")`.  Text inside a nested element
+      that survives the policy is that element's, and still shows; this is
+      not a way to drop an element with all of its content.  Closes #194.
     * `HtmlChangeReporter` no longer reports an element that an
       `ElementPolicy` renamed as a discarded tag.  It decided whether a tag
       survived by comparing the output element name with the input one, so a

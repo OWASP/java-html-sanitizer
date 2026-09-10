@@ -56,17 +56,25 @@ public final class PolicyFactory
   private final Map<String, ElementAndAttributePolicies> policies;
   private final Map<String, AttributePolicy> globalAttrPolicies;
   private final Set<String> textContainers;
+  /**
+   * Elements in which text is disallowed, from
+   * {@link HtmlPolicyBuilder#disallowTextIn}, whether the element is kept,
+   * renamed or dropped.  Disjoint from {@link #textContainers}.
+   */
+  private final Set<String> disallowedTextContainers;
   private final HtmlStreamEventProcessor preprocessor;
   private final HtmlStreamEventProcessor postprocessor;
 
   PolicyFactory(
       Map<String, ElementAndAttributePolicies> policies,
       Set<String> textContainers,
+      Set<String> disallowedTextContainers,
       Map<String, AttributePolicy> globalAttrPolicies,
       HtmlStreamEventProcessor preprocessor,
       HtmlStreamEventProcessor postprocessor) {
     this.policies = policies;
     this.textContainers = textContainers;
+    this.disallowedTextContainers = disallowedTextContainers;
     this.globalAttrPolicies = globalAttrPolicies;
     this.preprocessor = preprocessor;
     this.postprocessor = postprocessor;
@@ -80,7 +88,8 @@ public final class PolicyFactory
   /** Produces a sanitizer that emits tokens to {@code out}. */
   public HtmlSanitizer.Policy apply(@Nonnull HtmlStreamEventReceiver out) {
     return new ElementAndAttributePolicyBasedSanitizerPolicy(
-        postprocessor.wrap(out), policies, textContainers);
+        postprocessor.wrap(out), policies, textContainers,
+        disallowedTextContainers);
   }
 
   /**
@@ -182,6 +191,15 @@ public final class PolicyFactory
       f.textContainers.forEach(containerBuilder::add);
       allTextContainers = Collections.unmodifiableSet(containerBuilder);
     }
+    // A disallowTextIn from either factory carries over, unless the other
+    // allows text in that element: grants union here as they do above, and
+    // the two sets stay disjoint as they are in a single builder.
+    Set<String> disallowedBuilder
+        = new HashSet<>(this.disallowedTextContainers);
+    disallowedBuilder.addAll(f.disallowedTextContainers);
+    disallowedBuilder.removeAll(allTextContainers);
+    Set<String> allDisallowedTextContainers
+        = Collections.unmodifiableSet(disallowedBuilder);
     Map<String, AttributePolicy> allGlobalAttrPolicies;
     if (f.globalAttrPolicies.isEmpty()) {
       allGlobalAttrPolicies = this.globalAttrPolicies;
@@ -213,7 +231,8 @@ public final class PolicyFactory
         = HtmlStreamEventProcessor.Processors.compose(
             this.postprocessor, f.postprocessor);
     return new PolicyFactory(
-        Collections.unmodifiableMap(builder), allTextContainers, allGlobalAttrPolicies,
+        Collections.unmodifiableMap(builder), allTextContainers,
+        allDisallowedTextContainers, allGlobalAttrPolicies,
         compositionOfPreprocessors, compositionOfPostprocessors);
   }
 }

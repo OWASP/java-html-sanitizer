@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -110,6 +112,55 @@ class HtmlSanitizerTest {
     // But ordinary text outside the suppressed element still comes through.
     assertTrue(
         p.sanitize(nest("<script>S</script>VISIBLE", 300)).contains("VISIBLE"));
+
+    // The same holds for an element the policy, rather than the fixed list,
+    // says to suppress text in: the balancer has to ask the policy.
+    PolicyFactory q = new HtmlPolicyBuilder()
+        .allowElements("div").disallowTextIn("template").toFactory();
+    String deep = nest("<template>SECRET</template>", 300);
+    assertFalse(q.sanitize(deep).contains("SECRET"));
+    // Also with an HtmlChangeReporter between the balancer and the policy.
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(@Nullable Object context, String elementName) {
+        // Not under test.
+      }
+      public void discardedAttributes(
+          @Nullable Object context, String tagName, String... attributeNames) {
+        // Not under test.
+      }
+    };
+    assertFalse(q.sanitize(deep, listener, null).contains("SECRET"));
+    // And the template's text still shows where nothing disallows it.
+    assertTrue(p.sanitize(deep).contains("SECRET"));
+  }
+
+  /**
+   * The balancer forwards tags it does not recognize without counting them
+   * toward the nesting limit, so a run of them is the one way to grow the
+   * policy's open-element stack without bound.  Nothing on the per-tag or
+   * per-text path may walk that stack, or a few hundred kilobytes of unknown
+   * tags cost seconds of CPU.  Quadratic behaviour takes minutes here; linear
+   * takes a fraction of a second.
+   */
+  @Test
+  void testLongRunOfUnknownTagsIsLinear() {
+    PolicyFactory p = new HtmlPolicyBuilder().allowElements("div").toFactory();
+    int n = 200_000;
+    StringBuilder html = new StringBuilder("<div>");
+    StringBuilder expected = new StringBuilder("<div>");
+    for (int i = 0; i < n; ++i) {
+      html.append("<zz>a");
+      expected.append('a');
+    }
+    for (int i = 0; i < n; ++i) {
+      html.append("</zz>");
+    }
+    html.append("</div>");
+    expected.append("</div>");
+    String input = html.toString();
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(input));
+    assertEquals(expected.toString(), out);
   }
 
   /**
