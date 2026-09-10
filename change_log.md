@@ -4,7 +4,8 @@ Most recent at top.
   * Next release
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
-      content breakout tags, and mismatched foreign end tags.  A slash after
+      content breakout tags, mismatched foreign end tags, and the end tags
+      of HTML elements enclosing the foreign content.  A slash after
       an equals sign remains part of an unquoted attribute value, and a
       self-closing foreign element named `<title>`, `<style>`, `<textarea>`,
       or another HTML literal-content element closes without consuming the

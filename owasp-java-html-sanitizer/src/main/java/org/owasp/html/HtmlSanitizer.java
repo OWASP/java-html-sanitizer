@@ -294,19 +294,46 @@ public final class HtmlSanitizer {
         return;
       }
 
+      // The foreign-content end-tag algorithm walks down from the current
+      // node.  A foreign node with the tag name closes, along with every
+      // node above it.  At the first HTML node the browser reprocesses the
+      // token under the HTML rules instead, where an HTML node with the tag
+      // name closes the same way, but a node in the special category, which
+      // among foreign elements means an integration point, ends the search
+      // and the token is ignored.
+      boolean htmlRules = false;
+      boolean sawIntegrationPoint = false;
       for (int i = openElements.size(); --i >= 0;) {
         OpenElement open = openElements.get(i);
-        if (open.namespace == Namespace.HTML) {
-          // The browser reprocesses the token under the HTML insertion mode.
-          // A foreign element above this HTML node blocks a generic HTML end
-          // tag from reaching farther down the stack.
+        boolean isHtml = open.namespace == Namespace.HTML;
+        boolean isIntegrationPoint
+            = open.mathTextIntegrationPoint || open.htmlIntegrationPoint;
+        if (isHtml) {
+          htmlRules = true;
+        } else if (htmlRules && isIntegrationPoint) {
           return;
         }
-        if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
+        if (isHtml == htmlRules
+            && asciiEqualsIgnoreCase(open.elementName, elementName)) {
           openElements.subList(i, openElements.size()).clear();
           return;
         }
+        sawIntegrationPoint |= isIntegrationPoint;
       }
+      // Nothing tracked matched, so the token now applies to the HTML
+      // elements below the first foreign root, which are not tracked.  No
+      // HTML element is named svg or math, and an integration point in
+      // between is special and stops the search, so the browser ignores the
+      // token in those cases.  Otherwise the named element may well be
+      // open below, in which case the browser closes it and every foreign
+      // element above it.  Assume that it is: the cost of guessing wrong is
+      // only that self-closing flags stop being honored in the rest of an
+      // svg or math element whose author wrote a stray end tag, which is
+      // how those tags were always processed before the flag was honored.
+      if (isForeignContentRoot(elementName) || sawIntegrationPoint) {
+        return;
+      }
+      openElements.clear();
     }
 
     private boolean processHtmlStartTag(

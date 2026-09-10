@@ -962,12 +962,64 @@ class HtmlSanitizerTest {
     assertEquals(
         "<svg><math></math></svg>",
         p.sanitize("<svg><math></svg><object/>hidden"));
-    // An end tag cannot match through an intervening HTML element while the
-    // current node is foreign.
+    // The end tag of an HTML element that is open below a foreign element
+    // closes both, and puts the parser back under the HTML rules.
     assertEquals(
-        "<math><mi><div><svg></svg></div><path></path>x</mi></math>",
+        "<math><mi><div><svg></svg></div><path>x</path></mi></math>",
         p.sanitize(
             "<math><mi><div><svg></div><path/>x</svg></div></mi></math>"));
+  }
+
+  /**
+   * Issue #457.  An end tag that names none of the open foreign elements
+   * may close an HTML ancestor of the foreign root, which is not tracked,
+   * so the parser is assumed to be back in HTML content unless the browser
+   * would ignore the tag.
+   */
+  @Test
+  void testEndTagsOfHtmlAncestorsEndForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<div><svg></svg></div>",
+        p.sanitize("<div><svg></div><object/>hidden"));
+    assertEquals(
+        "<div><svg><path></path></svg></div>",
+        p.sanitize("<div><svg><path></div><object/>hidden"));
+    assertEquals(
+        "<p><svg></svg></p>",
+        p.sanitize("<p><svg></p><object/>hidden"));
+    assertEquals(
+        "<div><svg><path></path></svg></div><path>x</path>",
+        p.sanitize("<div><svg><path></div><path/>x"));
+    // An integration point is in the special category and stops the search
+    // for the named element, so the tag is ignored and the content of the
+    // integration point stays under the HTML rules.
+    assertEquals(
+        "<div><svg><foreignObject></foreignObject></svg></div>",
+        p.sanitize("<div><svg><foreignObject></div><object/>hidden"));
+    assertEquals(
+        "<div><math><mi></mi></math></div>",
+        p.sanitize("<div><math><mi></div><object/>hidden"));
+    // The path is still empty and closes at once.  Where the tag balancer
+    // then puts it is its own concern.
+    assertEquals(
+        "<div><svg><foreignObject><div><svg></svg></div></foreignObject>"
+        + "<path></path>x</svg></div>",
+        p.sanitize(
+            "<div><svg><foreignObject><div><svg></foreignObject>"
+            + "<path/>x"));
+    // No HTML element is named svg or math, so a stray foreign end tag is
+    // ignored rather than taken as closing an ancestor.
+    assertEquals(
+        "<div><math><mi></mi>x</math></div>",
+        p.sanitize("<div><math></svg><mi/>x</math></div>"));
+    // A stray end tag that names nothing open is ignored by browsers, and
+    // the self-closing flag is still honored after it.  The sanitizer does
+    // not know that nothing below the svg matched, so it errs toward the
+    // HTML rules, where the flag is ignored and the path holds the text.
+    assertEquals(
+        "<svg><path>x</path></svg>",
+        p.sanitize("<svg></foo><path/>x</svg>"));
   }
 
   /**
