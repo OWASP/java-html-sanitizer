@@ -243,8 +243,11 @@ public final class HtmlSanitizer {
     private final List<OpenElement> openElements = new ArrayList<>();
 
     /**
-     * True once the bounded stack is exhausted.  The legacy HTML behavior is
-     * the conservative fallback for ordinary tags from that point onward.
+     * True once the browser's context can no longer be derived from the
+     * tracked elements: the bounded stack was exhausted, or a tag's effect
+     * depended on untracked ancestors or on the insertion mode.  The legacy
+     * HTML behavior is the conservative fallback for ordinary tags from that
+     * point onward.
      */
     private boolean unknown;
 
@@ -282,58 +285,103 @@ public final class HtmlSanitizer {
     void processEndTag(String elementName) {
       if (unknown || openElements.isEmpty()) { return; }
 
-      OpenElement current = currentElement();
-      if (current.namespace == Namespace.HTML) {
-        processHtmlEndTag(elementName);
+      if (currentElement().namespace == Namespace.HTML) {
+        processEndTagUnderHtmlRules(elementName);
         return;
       }
 
       if ("br".equals(elementName) || "p".equals(elementName)) {
         popToHtmlOrIntegrationPoint();
-        processHtmlEndTag(elementName);
+        processEndTagUnderHtmlRules(elementName);
         return;
       }
 
       // The foreign-content end-tag algorithm walks down from the current
       // node.  A foreign node with the tag name closes, along with every
       // node above it.  At the first HTML node the browser reprocesses the
-      // token under the HTML rules instead, where an HTML node with the tag
-      // name closes the same way, but a node in the special category, which
-      // among foreign elements means an integration point, ends the search
-      // and the token is ignored.
-      boolean htmlRules = false;
-      boolean sawIntegrationPoint = false;
+      // token under the rules of its current HTML insertion mode instead.
       for (int i = openElements.size(); --i >= 0;) {
         OpenElement open = openElements.get(i);
-        boolean isHtml = open.namespace == Namespace.HTML;
-        boolean isIntegrationPoint
-            = open.mathTextIntegrationPoint || open.htmlIntegrationPoint;
-        if (isHtml) {
-          htmlRules = true;
-        } else if (htmlRules && isIntegrationPoint) {
-          return;
-        }
-        if (isHtml == htmlRules
-            && asciiEqualsIgnoreCase(open.elementName, elementName)) {
+        if (open.namespace == Namespace.HTML) { break; }
+        if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
           openElements.subList(i, openElements.size()).clear();
           return;
         }
-        sawIntegrationPoint |= isIntegrationPoint;
       }
-      // Nothing tracked matched, so the token now applies to the HTML
-      // elements below the first foreign root, which are not tracked.  No
-      // HTML element is named svg or math, and an integration point in
-      // between is special and stops the search, so the browser ignores the
-      // token in those cases.  Otherwise the named element may well be
-      // open below, in which case the browser closes it and every foreign
-      // element above it.  Assume that it is: the cost of guessing wrong is
-      // only that self-closing flags stop being honored in the rest of an
-      // svg or math element whose author wrote a stray end tag, which is
-      // how those tags were always processed before the flag was honored.
-      if (isForeignContentRoot(elementName) || sawIntegrationPoint) {
+      processEndTagUnderHtmlRules(elementName);
+    }
+
+    /**
+     * Applies an end tag that a browser processes under the rules of its
+     * current HTML insertion mode.  Only outcomes that follow from the
+     * tracked elements alone are modeled.  Anything that depends on the
+     * untracked ancestors of the foreign root, on the insertion mode, or on
+     * the list of active formatting elements makes the context unknown,
+     * which fails closed: self-closing flags are no longer honored.
+     */
+    private void processEndTagUnderHtmlRules(String elementName) {
+      if (TABLE_SCOPED_ELEMENT_NAMES.contains(elementName)
+          || "template".equals(elementName)) {
+        // Table scope is bounded only by html, table and template, so these
+        // end tags reach past integration points to untracked ancestors,
+        // and what they close depends on the insertion mode.
+        becomeUnknown();
         return;
       }
-      openElements.clear();
+      if (IGNORED_HTML_END_TAG_NAMES.contains(elementName)) {
+        return;
+      }
+      boolean anyOther = !SPECIFIC_END_TAG_RULE_NAMES.contains(elementName);
+      boolean formatting = FORMATTING_ELEMENT_NAMES.contains(elementName);
+      boolean heading = isHeadingName(elementName);
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        if (open.namespace != Namespace.HTML) {
+          // Integration points and annotation-xml are in the special
+          // category and bound every scope.  Other foreign elements are
+          // transparent to both kinds of search.
+          if (open.special) { return; }
+          continue;
+        }
+        String openName = open.elementName;
+        if (asciiEqualsIgnoreCase(openName, elementName)
+            || (heading && isHeadingName(openName))) {
+          if ("form".equals(elementName)) {
+            // </form> removes the form element without popping the
+            // elements above it.
+            openElements.remove(i);
+          } else {
+            openElements.subList(i, openElements.size()).clear();
+          }
+          return;
+        }
+        if (anyOther) {
+          // "Any other end tag" stops at any element in the special
+          // category.
+          if (SPECIAL_HTML_ELEMENT_NAMES.contains(openName)) { return; }
+          continue;
+        }
+        if (DEFAULT_SCOPE_BOUNDARY_NAMES.contains(openName)
+            || ("li".equals(elementName)
+                && ("ol".equals(openName) || "ul".equals(openName)))
+            || ("p".equals(elementName) && "button".equals(openName))) {
+          // Not in scope: the token is ignored, or for </p> an empty p is
+          // inserted and closed at once.
+          return;
+        }
+        if (formatting && SPECIAL_HTML_ELEMENT_NAMES.contains(openName)) {
+          // The adoption agency algorithm restructures the stack around
+          // this "furthest block", dropping the foreign nodes above it.
+          becomeUnknown();
+          return;
+        }
+      }
+      if (openElements.isEmpty() || "form".equals(elementName)) {
+        return;
+      }
+      // Nothing tracked bounded the search, so whether the token closes the
+      // whole foreign region depends on the untracked HTML ancestors.
+      becomeUnknown();
     }
 
     private boolean processHtmlStartTag(
@@ -344,9 +392,15 @@ public final class HtmlSanitizer {
       } else if ("math".equals(elementName)) {
         namespace = Namespace.MATHML;
       } else {
-        if (!openElements.isEmpty()
-            && !HtmlTextEscapingMode.isVoidElement(elementName)) {
-          push(new OpenElement(elementName, Namespace.HTML, attrs));
+        if (!openElements.isEmpty()) {
+          if (CONTEXT_CHANGING_START_TAG_NAMES.contains(elementName)) {
+            // Table structure, templates and selects change the insertion
+            // mode or pop the stack in ways that depend on untracked state.
+            becomeUnknown();
+          } else if (!HtmlTextEscapingMode.isVoidElement(elementName)
+                     && !IGNORED_HTML_START_TAG_NAMES.contains(elementName)) {
+            push(new OpenElement(elementName, Namespace.HTML, attrs));
+          }
         }
         // HTML ignores the self-closing flag on ordinary non-void elements.
         // Void elements are already empty and need no synthetic close event.
@@ -359,15 +413,9 @@ public final class HtmlSanitizer {
       return selfClosing;
     }
 
-    private void processHtmlEndTag(String elementName) {
-      for (int i = openElements.size(); --i >= 0;) {
-        OpenElement open = openElements.get(i);
-        if (open.namespace != Namespace.HTML) { return; }
-        if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
-          openElements.subList(i, openElements.size()).clear();
-          return;
-        }
-      }
+    private void becomeUnknown() {
+      openElements.clear();
+      unknown = true;
     }
 
     private void popToHtmlOrIntegrationPoint() {
@@ -384,8 +432,7 @@ public final class HtmlSanitizer {
 
     private void push(OpenElement element) {
       if (openElements.size() == MAX_DEPTH) {
-        openElements.clear();
-        unknown = true;
+        becomeUnknown();
       } else {
         openElements.add(element);
       }
@@ -425,6 +472,8 @@ public final class HtmlSanitizer {
     final Namespace namespace;
     final boolean mathTextIntegrationPoint;
     final boolean htmlIntegrationPoint;
+    /** In the special category, which bounds every scope. */
+    final boolean special;
 
     OpenElement(
         String elementName, Namespace namespace, List<String> attrs) {
@@ -434,6 +483,9 @@ public final class HtmlSanitizer {
           && MATHML_TEXT_INTEGRATION_POINT_NAMES.contains(elementName);
       this.htmlIntegrationPoint = isHtmlIntegrationPoint(
           elementName, namespace, attrs);
+      this.special = mathTextIntegrationPoint || htmlIntegrationPoint
+          || (namespace == Namespace.MATHML
+              && "annotation-xml".equals(elementName));
     }
   }
 
@@ -485,6 +537,79 @@ public final class HtmlSanitizer {
     }
     return false;
   }
+
+
+  /** True for h1 through h6, any of which an h1 through h6 end tag closes. */
+  private static boolean isHeadingName(String canonElementName) {
+    if (canonElementName.length() != 2 || canonElementName.charAt(0) != 'h') {
+      return false;
+    }
+    char digit = canonElementName.charAt(1);
+    return digit >= '1' && digit <= '6';
+  }
+
+  /** End tags whose effect is decided by table scope or the insertion mode. */
+  private static final Set<String> TABLE_SCOPED_ELEMENT_NAMES
+      = j8().setOf(
+          "table", "caption", "tbody", "thead", "tfoot", "tr", "td", "th");
+
+  /** HTML end tags that never pop the stack. */
+  private static final Set<String> IGNORED_HTML_END_TAG_NAMES
+      = j8().setOf(
+          "svg", "math", "body", "html", "br", "col", "colgroup", "frame",
+          "head");
+
+  /**
+   * End tags with their own "in body" rules, which search a scope rather
+   * than stopping at the first element in the special category.
+   */
+  private static final Set<String> SPECIFIC_END_TAG_RULE_NAMES
+      = j8().setOf(
+          "address", "article", "aside", "blockquote", "button", "center",
+          "details", "dialog", "dir", "div", "dl", "fieldset", "figcaption",
+          "figure", "footer", "header", "hgroup", "listing", "main", "menu",
+          "nav", "ol", "pre", "search", "section", "summary", "ul", "form",
+          "p", "li", "dd", "dt", "h1", "h2", "h3", "h4", "h5", "h6",
+          "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small",
+          "strike", "strong", "tt", "u", "applet", "marquee", "object");
+
+  private static final Set<String> FORMATTING_ELEMENT_NAMES
+      = j8().setOf(
+          "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small",
+          "strike", "strong", "tt", "u");
+
+  /** The HTML elements that bound the default scope. */
+  private static final Set<String> DEFAULT_SCOPE_BOUNDARY_NAMES
+      = j8().setOf(
+          "applet", "caption", "html", "table", "td", "th", "marquee",
+          "object", "select", "template");
+
+  /** The HTML elements in the special category. */
+  private static final Set<String> SPECIAL_HTML_ELEMENT_NAMES
+      = j8().setOf(
+          "address", "applet", "area", "article", "aside", "base",
+          "basefont", "bgsound", "blockquote", "body", "br", "button",
+          "caption", "center", "col", "colgroup", "dd", "details", "dir",
+          "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure",
+          "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4",
+          "h5", "h6", "head", "header", "hgroup", "hr", "html", "iframe",
+          "img", "input", "keygen", "li", "link", "listing", "main",
+          "marquee", "menu", "meta", "nav", "noembed", "noframes",
+          "noscript", "object", "ol", "p", "param", "plaintext", "pre",
+          "script", "search", "section", "select", "source", "style",
+          "summary", "table", "tbody", "td", "template", "textarea",
+          "tfoot", "th", "thead", "title", "tr", "track", "ul", "wbr",
+          "xmp");
+
+  /** Start tags inside foreign content whose effect depends on the mode. */
+  private static final Set<String> CONTEXT_CHANGING_START_TAG_NAMES
+      = j8().setOf(
+          "table", "caption", "col", "colgroup", "tbody", "thead", "tfoot",
+          "tr", "td", "th", "template", "select", "frameset");
+
+  /** Start tags that "in body" ignores or merges rather than inserting. */
+  private static final Set<String> IGNORED_HTML_START_TAG_NAMES
+      = j8().setOf("html", "body", "head", "frame");
 
   private static final Set<String> MATHML_TEXT_INTEGRATION_POINT_NAMES
       = j8().setOf("mi", "mo", "mn", "ms", "mtext");

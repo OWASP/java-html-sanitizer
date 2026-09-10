@@ -2,6 +2,18 @@
 
 Most recent at top.
   * Next release
+    * The context tracker behind self-closing SVG and MathML tags now fails
+      closed when an end tag reaches the HTML rules with an effect it cannot
+      derive from the elements it tracks: end tags processed with table
+      scope (`</table>`, `</td>` and the rest of the table structure),
+      `</h1>` through `</h6>`, `</form>`, a formatting end tag across a
+      special element, a stray end tag that may name an ancestor of the
+      foreign root, and table, `<template>` or `<select>` start tags at an
+      integration point.  From then on only `<svg/>` and `<math/>` close
+      themselves, as before issue #122.  Inside an integration point the
+      tracker follows the special category and the default, list-item and
+      button scopes, so `</foreignObject>` is ignored while an HTML element
+      such as `<div>` is still open inside it, as in browsers.  Issue #461.
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
       content breakout tags, mismatched foreign end tags, and the end tags

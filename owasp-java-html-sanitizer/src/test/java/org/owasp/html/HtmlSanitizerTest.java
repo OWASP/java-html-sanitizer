@@ -972,9 +972,9 @@ class HtmlSanitizerTest {
 
   /**
    * Issue #457.  An end tag that names none of the open foreign elements
-   * may close an HTML ancestor of the foreign root, which is not tracked,
-   * so the parser is assumed to be back in HTML content unless the browser
-   * would ignore the tag.
+   * may close an HTML ancestor of the foreign root, which is not tracked.
+   * The context is then unknown and the sanitizer falls back to the HTML
+   * rules, unless the browser would ignore the tag.
    */
   @Test
   void testEndTagsOfHtmlAncestorsEndForeignContent() {
@@ -1134,6 +1134,154 @@ class HtmlSanitizerTest {
         events);
   }
 
+  /**
+   * Issue #461.  Browsers process the end tags of table structure with
+   * table scope, which no integration point bounds, so they close the
+   * foreign content around a cell along with the cell.  The tracker cannot
+   * see the table, so it fails closed for the rest of the input.
+   */
+  @Test
+  void testTableScopeEndTagsEndForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    for (String endTag
+         : new String[] { "</table>", "</tbody>", "</tr>", "</td>" }) {
+      assertEquals(
+          "<svg><foreignObject><svg></svg></foreignObject></svg>",
+          p.sanitize(
+              "<table><tbody><tr><td><svg><foreignObject><svg>" + endTag
+              + "<object/>hidden"),
+          endTag);
+    }
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>",
+        p.sanitize(
+            "<table><caption><svg><foreignObject><svg></caption>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<svg><desc><svg></svg></desc></svg>",
+        p.sanitize("<table><tr><td><svg><desc><svg></table><object/>hidden"));
+    assertEquals(
+        "<math><mi><svg></svg></mi></math>",
+        p.sanitize("<table><tr><td><math><mi><svg></table><object/>hidden"));
+    assertEquals(
+        "<math><annotation-xml encoding=\"text/html\"><svg></svg>"
+        + "</annotation-xml></math>",
+        p.sanitize(
+            "<table><tr><td><math><annotation-xml encoding=text/html><svg>"
+            + "</table><object/>hidden"));
+    // The context stays unknown, so a later self-closing tag is not honored
+    // either.
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>"
+        + "<svg><path>x</path></svg>",
+        p.sanitize(
+            "<table><tr><td><svg><foreignObject><svg></table><svg><path/>x"));
+    // Table structure inside an integration point implies elements the
+    // tracker does not see, so it fails closed at the start tag.
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><table><tr><td><svg></tbody>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><select><svg><object/>hidden"));
+    // An end tag searched in the default or list-item scope stops at the
+    // integration point, so a browser ignores it and the dropped element
+    // still closes itself in foreign content.
+    assertEquals(
+        "<svg><foreignObject><svg></svg></foreignObject></svg>shown",
+        p.sanitize(
+            "<ul><li><svg><foreignObject><svg></li><object/>shown"));
+  }
+
+  /**
+   * Issue #461.  Under the HTML rules an end tag search stops at an element
+   * in the special category, so the elements above it stay open, and the
+   * end tag of the integration point holding them is ignored while they do.
+   */
+  @Test
+  void testSpecialElementsBlockHtmlEndTagsInForeignContent() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<svg><foreignObject><cite><div></div></cite></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><div></cite></foreignObject>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<math><mi><cite><div></div></cite></mi></math>",
+        p.sanitize("<math><mi><cite><div></cite></mi><object/>hidden"));
+    // A td start tag is ignored in body, but the div it seems to hold is
+    // still special.
+    assertEquals(
+        "<svg><foreignObject><div></div></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><td><div></td></foreignObject>"
+            + "<object/>hidden"));
+    // Without a special element in the way the end tags match, the
+    // integration point closes, and the flag is honored again.
+    assertEquals(
+        "<svg><foreignObject><cite><kbd></kbd></cite></foreignObject>"
+        + "<path></path>x</svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><kbd></cite></foreignObject>"
+            + "<path/>x"));
+    // Any h1 through h6 end tag closes an open heading.
+    assertEquals(
+        "<svg><foreignObject><h2><svg></svg></h2></foreignObject></svg>",
+        p.sanitize("<svg><foreignObject><h2><svg></h1><object/>hidden"));
+    // </form> removes the form without closing what it holds.
+    assertEquals(
+        "<svg><foreignObject><form><cite></cite></form></foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><form><cite></form></foreignObject>"
+            + "<object/>hidden"));
+    assertEquals(
+        "<svg><foreignObject><form><svg></svg></form>shown</foreignObject>"
+        + "</svg>",
+        p.sanitize(
+            "<svg><foreignObject><form><svg></form><object/>shown"));
+    // The adoption agency algorithm rebuilds the stack around a special
+    // element and drops the foreign nodes above it.
+    assertEquals(
+        "<svg><foreignObject><b><div><svg></svg></div></b></foreignObject>"
+        + "</svg>",
+        p.sanitize(
+            "<svg><foreignObject><b><div><svg></b></foreignObject>"
+            + "<object/>hidden"));
+    // When a special element blocks the end tag, the foreign element above
+    // it is still the current node, where the flag is honored.
+    assertEquals(
+        "<svg><foreignObject><cite><div><svg></svg></div></cite>shown"
+        + "</foreignObject></svg>",
+        p.sanitize(
+            "<svg><foreignObject><cite><div><svg></cite><object/>shown"));
+  }
+
+  /**
+   * Issue #461.  After a stray end tag the tracker cannot tell whether the
+   * browser left the foreign content, and the next svg start tag inside
+   * MathML is a MathML element whose foreignObject is not an integration
+   * point, so the tracker stays unknown rather than starting over.
+   */
+  @Test
+  void testStrayEndTagLeavesForeignContentContextUnknown() {
+    PolicyFactory p = foreignContentPolicy();
+    assertEquals(
+        "<math><mrow><svg><foreignObject><div></div></foreignObject></svg>"
+        + "</mrow></math>",
+        p.sanitize(
+            "<math><mrow></foo><svg><foreignObject><div></div>"
+            + "</foreignObject><object/>hidden"));
+    assertEquals(
+        "<svg><g></g></svg><svg><path>x</path></svg>",
+        p.sanitize("<svg><g></foo></g></svg><svg><path/>x</svg>"));
+    // A self-closing root is still empty in every context.
+    assertEquals(
+        "<svg><g></g></svg><svg></svg>x",
+        p.sanitize("<svg><g></foo></g></svg><svg/>x"));
+  }
+
   /** The bounded context tracker falls back to suppressing dropped content. */
   @Test
   void testDeepForeignContentContextFailsClosed() {
@@ -1150,7 +1298,8 @@ class HtmlSanitizerTest {
         .allowElements(
             "svg", "math", "path", "g", "rect", "clipPath", "foreignObject",
             "desc", "annotation-xml", "textArea", "textarea", "mi", "mrow",
-            "mglyph", "a", "div", "p", "font", "br", "style", "title")
+            "mglyph", "a", "div", "p", "font", "br", "style", "title",
+            "cite", "kbd", "b", "h2", "form")
         .allowAttributes("width", "height", "viewBox").onElements("svg")
         .allowAttributes("id", "opacity", "d").onElements("path")
         .allowAttributes("href").onElements("a")
