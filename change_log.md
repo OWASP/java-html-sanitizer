@@ -49,6 +49,15 @@ Most recent at top.
       parentheses and control characters, and a policy that rewrites a URL
       can no longer hand the output a protocol the builder did not allow.
       Issue #204.
+    * The javadoc for `matching`, `allowUrlProtocols` and `allowUrlsInStyles`
+      now says where the URL protocol guard runs: after the policies an
+      author attaches, which see the value as written and can be handed a
+      protocol the builder never allowed.  A policy that rewrites a URL into
+      another, such as a redirector, should vet the protocol itself, and the
+      javadoc shows how with `FilterUrlByProtocolAttributePolicy`.  The
+      `allowUrlsInStyles` javadoc had the order backwards, and said the
+      policy was never consulted without `allowUrlProtocols` when it always
+      was.  Issue #454.
     * Text inside a dropped element is now gated by every element enclosing
       it, not by the last tag the policy saw.  The policy kept one flag for
       whether text may be emitted and set it from each open tag alone, so a
