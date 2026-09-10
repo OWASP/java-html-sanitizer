@@ -155,7 +155,10 @@ public final class PolicyFactory
    * The guard a builder puts on URL attributes when it allowed no protocol
    * is a default rather than a policy, so it yields here to the other
    * factory's protocol allowlist; two allowlists intersect like any other
-   * overlapping policies.  See {@link HtmlPolicyBuilder#allowUrlProtocols}.
+   * overlapping policies.  A builder configured with
+   * {@link HtmlPolicyBuilder#allowOnlyRelativeUrls} instead supplies an
+   * explicit empty allowlist that continues to reject absolute URLs after
+   * composition.  See {@link HtmlPolicyBuilder#allowUrlProtocols}.
    */
   public PolicyFactory and(PolicyFactory f) {
     Map<String, ElementAndAttributePolicies> builder

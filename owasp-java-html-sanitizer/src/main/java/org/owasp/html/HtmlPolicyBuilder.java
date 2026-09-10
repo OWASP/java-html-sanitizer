@@ -217,6 +217,8 @@ public class HtmlPolicyBuilder {
   private final Map<String, AttributePolicy> globalAttrPolicies
       = new LinkedHashMap<>();
   private final Set<String> allowedProtocols = new HashSet<>();
+  /** Whether URL values must stay relative when factories are combined. */
+  private boolean onlyRelativeUrls;
   private final Map<String, HtmlTagSkipType> skipIssueTagMap = new LinkedHashMap<>(DEFAULT_SKIP_TAG_MAP_IF_EMPTY_ATTR);
   private final Map<String, Boolean> textContainers = new LinkedHashMap<>();
   private HtmlStreamEventProcessor postprocessor =
@@ -555,7 +557,10 @@ public class HtmlPolicyBuilder {
    * treats it differently from one.  A factory that allowed no protocol,
    * combined with one that did, defers to it, so the combination allows the
    * protocols the other factory allowed.  Two factories that each allowed
-   * some protocols together allow only those both allowed.
+   * some protocols together allow only those both allowed.  Use
+   * {@link #allowOnlyRelativeUrls()} when this builder should continue to
+   * reject every URL with a protocol after it is combined with another
+   * factory.
    * <p>
    * The guard runs after any policies attached to the attribute with
    * {@link AttributeBuilder#matching(AttributePolicy) matching}, and after
@@ -582,7 +587,35 @@ public class HtmlPolicyBuilder {
   }
 
   /**
+   * Restricts URL values to relative URLs.
+   * A relative URL here has neither a protocol nor an authority, so values
+   * such as {@code path}, {@code /path}, {@code ?query}, and {@code #fragment}
+   * are allowed, while {@code https://example.org/} and the protocol-relative
+   * {@code //example.org/} are rejected.
+   * <p>
+   * Unlike the default guard used when {@link #allowUrlProtocols} was never
+   * called, this is an explicit restriction.  It continues to reject every
+   * URL with a protocol when the resulting factory is combined with another
+   * factory by {@link PolicyFactory#and}.  Use this on a restrictive builder
+   * that previously relied on its empty protocol set to narrow another
+   * factory during composition.
+   * <p>
+   * This restriction takes precedence over calls to
+   * {@code allowUrlProtocols}, regardless of call order.  It does not itself
+   * allow any URL attribute or URLs in styles.
+   */
+  public HtmlPolicyBuilder allowOnlyRelativeUrls() {
+    invalidateCompiledState();
+    onlyRelativeUrls = true;
+    return this;
+  }
+
+  /**
    * Reverses a decision made by {@link #allowUrlProtocols}.
+   * If this removes every allowed protocol, the builder again uses the
+   * default guard that yields to another factory's allowlist during
+   * {@link PolicyFactory#and}.  To keep allowing only relative URLs through
+   * composition, use {@link #allowOnlyRelativeUrls()}.
    */
   public HtmlPolicyBuilder disallowUrlProtocols(String... protocols) {
     invalidateCompiledState();
@@ -918,7 +951,9 @@ public class HtmlPolicyBuilder {
     // Add guards on top of any custom policies.
     {
       final AttributePolicy urlAttributePolicy =
-          UrlProtocolGuard.forProtocols(allowedProtocols);
+          onlyRelativeUrls
+          ? UrlProtocolGuard.RELATIVE_ONLY
+          : UrlProtocolGuard.forProtocols(allowedProtocols);
 
       Set<String> toGuard = new HashSet<>(ATTRIBUTE_GUARDS.keySet());
       AttributeGuardIntermediates intermediates = new AttributeGuardIntermediates(

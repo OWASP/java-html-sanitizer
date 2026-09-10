@@ -2,6 +2,18 @@
 
 Most recent at top.
   * Next release
+    * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
+      relative-only URL policy.  It allows URLs with neither a protocol nor
+      an authority, but rejects absolute URLs and protocol-relative URLs such
+      as `//example.org/`.  Unlike the default guard on a builder that never
+      called `allowUrlProtocols`, this restriction intersects with every
+      protocol allowlist and remains relative-only through
+      `PolicyFactory.and`, including for `srcset` and `url()` in styles.
+      Existing `and()` compositions that deliberately relied on a
+      protocol-less factory to strip absolute URLs allowed by another factory
+      should call `allowOnlyRelativeUrls()` on the restrictive builder before
+      upgrading; without it, the change for issue #204 may widen those
+      compositions to the protocols the other factory allows.  Issue #453.
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
       content breakout tags, mismatched foreign end tags, and the end tags

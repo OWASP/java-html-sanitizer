@@ -150,11 +150,83 @@ final class PolicyFactoryTest {
 
     PolicyFactory noProtocols = links();
     PolicyFactory http = links("http");
+    PolicyFactory disallowedBackToDefault = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowUrlProtocols("http")
+        .disallowUrlProtocols("http")
+        .toFactory();
 
     assertEquals(relativeOnly, noProtocols.sanitize(links));
+    assertEquals(relativeOnly, disallowedBackToDefault.sanitize(links));
     assertEquals(httpOnly, http.sanitize(links));
     assertEquals(httpOnly, noProtocols.and(http).sanitize(links));
     assertEquals(httpOnly, http.and(noProtocols).sanitize(links));
+    assertEquals(
+        httpOnly, disallowedBackToDefault.and(http).sanitize(links));
+    assertEquals(
+        httpOnly, http.and(disallowedBackToDefault).sanitize(links));
+  }
+
+  /**
+   * Issue #453.  A caller can choose an explicit empty protocol allowlist
+   * when a factory must keep allowing only relative URLs after and() combines
+   * it with a factory that allows protocols.  The restriction is independent
+   * of operand grouping and of calls to allowUrlProtocols on the same builder.
+   */
+  @Test
+  void testAndExplicitRelativeOnlyUrlGuardIntersectsAnAllowlist() {
+    String links = String.join(
+        "\n",
+        "<a href='http://example.com/'>http</a>",
+        "<a href='HTTPS://example.com/'>https</a>",
+        "<a href='//example.com/'>scheme-relative</a>",
+        "<a href='/local'>root-relative</a>",
+        "<a href='child'>path-relative</a>",
+        "<a href='?q=1'>query</a>",
+        "<a href='#fragment'>fragment</a>",
+        "<a href='jAvAsCrIpT:alert(1)'>js</a>",
+        "<a href='java&#9;script:alert(1)'>split js</a>",
+        "<a href='data:text/html,x'>data</a>");
+    String expected = String.join(
+        "\n",
+        "http",
+        "https",
+        "scheme-relative",
+        "<a href=\"/local\">root-relative</a>",
+        "<a href=\"child\">path-relative</a>",
+        "<a href=\"?q&#61;1\">query</a>",
+        "<a href=\"#fragment\">fragment</a>",
+        "js",
+        "split js",
+        "data");
+
+    PolicyFactory relativeOnly = relativeOnlyLinks();
+    PolicyFactory defaultGuard = links();
+    PolicyFactory web = links("http", "https");
+
+    assertEquals(expected, relativeOnly.sanitize(links));
+    assertEquals(expected, relativeOnly.and(web).sanitize(links));
+    assertEquals(expected, web.and(relativeOnly).sanitize(links));
+    assertEquals(
+        expected, defaultGuard.and(relativeOnly).and(web).sanitize(links));
+    assertEquals(
+        expected, defaultGuard.and(relativeOnly.and(web)).sanitize(links));
+
+    PolicyFactory relativeThenWeb = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowOnlyRelativeUrls()
+        .allowUrlProtocols("http", "https")
+        .toFactory();
+    PolicyFactory webThenRelative = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowUrlProtocols("http", "https")
+        .allowOnlyRelativeUrls()
+        .toFactory();
+    assertEquals(expected, relativeThenWeb.sanitize(links));
+    assertEquals(expected, webThenRelative.sanitize(links));
   }
 
   /** Two factories that allowed no protocol still allow none together. */
@@ -340,16 +412,53 @@ final class PolicyFactoryTest {
   void testAndDefaultUrlProtocolGuardYieldsInSrcset() {
     PolicyFactory noProtocols = images();
     PolicyFactory http = images("http");
+    PolicyFactory relativeOnly = relativeOnlyImages();
     String img = "<img src='http://example.com/a.png'"
         + " srcset='http://example.com/a.png 1x, javascript:alert(1) 2x,"
         + " /b.png 3x'>";
     String httpKept = "<img src=\"http://example.com/a.png\""
         + " srcset=\"http://example.com/a.png 1x , /b.png 3x\" />";
+    String relativeKept = "<img srcset=\"/b.png 3x\" />";
 
-    assertEquals("<img srcset=\"/b.png 3x\" />", noProtocols.sanitize(img));
+    assertEquals(relativeKept, noProtocols.sanitize(img));
     assertEquals(httpKept, http.sanitize(img));
     assertEquals(httpKept, noProtocols.and(http).sanitize(img));
     assertEquals(httpKept, http.and(noProtocols).sanitize(img));
+    assertEquals(relativeKept, relativeOnly.sanitize(img));
+    assertEquals(relativeKept, relativeOnly.and(http).sanitize(img));
+    assertEquals(relativeKept, http.and(relativeOnly).sanitize(img));
+  }
+
+  /** The explicit empty allowlist also survives joining inside CSS url(). */
+  @Test
+  void testAndExplicitRelativeOnlyUrlGuardIntersectsInStyles() {
+    CssSchema images =
+        CssSchema.withProperties(Arrays.asList("background-image"));
+    PolicyFactory noProtocols = styled(images);
+    PolicyFactory relativeOnly = relativeOnlyStyled(images);
+    PolicyFactory web = styled(images, "http", "https");
+    String divs =
+        "<div style=\"background-image: url(https://example.com/i.png)\">"
+        + "https</div>"
+        + "<div style=\"background-image: url(//example.com/i.png)\">"
+        + "scheme-relative</div>"
+        + "<div style=\"background-image: url(/local.png)\">relative</div>"
+        + "<div style=\"background-image: url(javascript:alert%281%29)\">"
+        + "js</div>";
+    String expected =
+        "<div>https</div>"
+        + "<div>scheme-relative</div>"
+        + "<div style=\"background-image:url(&#39;/local.png&#39;)\">"
+        + "relative</div>"
+        + "<div>js</div>";
+
+    assertEquals(expected, relativeOnly.sanitize(divs));
+    assertEquals(expected, relativeOnly.and(web).sanitize(divs));
+    assertEquals(expected, web.and(relativeOnly).sanitize(divs));
+    assertEquals(
+        expected, noProtocols.and(relativeOnly).and(web).sanitize(divs));
+    assertEquals(
+        expected, noProtocols.and(relativeOnly.and(web)).sanitize(divs));
   }
 
   /**
@@ -420,12 +529,30 @@ final class PolicyFactoryTest {
         .toFactory();
   }
 
+  /** Links whose hrefs must have neither a protocol nor an authority. */
+  private static PolicyFactory relativeOnlyLinks() {
+    return new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href").onElements("a")
+        .allowOnlyRelativeUrls()
+        .toFactory();
+  }
+
   /** Images with src and srcset, with the given protocols allowed. */
   private static PolicyFactory images(String... protocols) {
     return new HtmlPolicyBuilder()
         .allowElements("img")
         .allowAttributes("src", "srcset").onElements("img")
         .allowUrlProtocols(protocols)
+        .toFactory();
+  }
+
+  /** Images whose src and srcset URLs must be relative. */
+  private static PolicyFactory relativeOnlyImages() {
+    return new HtmlPolicyBuilder()
+        .allowElements("img")
+        .allowAttributes("src", "srcset").onElements("img")
+        .allowOnlyRelativeUrls()
         .toFactory();
   }
 
@@ -439,6 +566,17 @@ final class PolicyFactoryTest {
         .allowStyling(schema)
         .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
         .allowUrlProtocols(protocols)
+        .toFactory();
+  }
+
+  /** Styled divs whose CSS URLs must be relative. */
+  private static PolicyFactory relativeOnlyStyled(CssSchema schema) {
+    return new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style").onElements("div")
+        .allowStyling(schema)
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowOnlyRelativeUrls()
         .toFactory();
   }
 
