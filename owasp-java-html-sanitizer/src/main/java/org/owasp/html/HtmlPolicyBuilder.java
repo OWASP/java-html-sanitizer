@@ -604,7 +604,9 @@ public class HtmlPolicyBuilder {
    * <p>
    * This restriction takes precedence over calls to
    * {@code allowUrlProtocols}, regardless of call order.  It does not itself
-   * allow any URL attribute or URLs in styles.
+   * allow any URL attribute or URLs in styles, and it reaches only those
+   * this builder allows: {@code and()} unions grants, so a URL attribute
+   * that only the other factory allows keeps that factory's protocols.
    */
   public HtmlPolicyBuilder allowOnlyRelativeUrls() {
     invalidateCompiledState();

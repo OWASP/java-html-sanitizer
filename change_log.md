@@ -16,6 +16,13 @@ Most recent at top.
       should call `allowOnlyRelativeUrls()` on the restrictive builder before
       upgrading; without it, the change for issue #204 may widen those
       compositions to the protocols the other factory allows.  Issue #453.
+    * `FilterUrlByProtocolAttributePolicy`, and so the protocol guard on every
+      builder that did not allow both `http` and `https`, now rejects
+      `/\`, `\/`, and `\\` at the start of a URL as it already rejected
+      `//`.  Browsers resolving against an `http:` or `https:` page treat a
+      backslash as a slash, so `\\example.org/` names the same authority
+      as `//example.org/`.  Policies that allow both web protocols keep
+      accepting these values, as they accept `//example.org/`.  Issue #453.
     * Self-closing SVG and MathML handling now follows the browser's current
       tree-construction context through HTML integration points, foreign
       content breakout tags, mismatched foreign end tags, and the end tags
@@ -62,6 +69,9 @@ Most recent at top.
       before the guard trims surrounding whitespace and percent-encodes
       parentheses and control characters, and a policy that rewrites a URL
       can no longer hand the output a protocol the builder did not allow.
+      A composition that relied on the old behavior to keep another
+      factory's links relative should call `allowOnlyRelativeUrls()` on the
+      restrictive builder; see the entry for issue #453 above.
       Issue #204.
     * The javadoc for `matching`, `allowUrlProtocols` and `allowUrlsInStyles`
       now says where the URL protocol guard runs: after the policies an

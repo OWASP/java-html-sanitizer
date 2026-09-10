@@ -249,6 +249,8 @@ final class PolicyFactoryTest {
     };
     PolicyFactory defaultGuard = links();
     PolicyFactory relativeOnly = relativeOnlyLinks();
+    PolicyFactory httpOnly = links("http");
+    PolicyFactory mailtoOnly = links("mailto");
     PolicyFactory web = links("http", "https");
     PolicyFactory relativeAndWeb = relativeOnly.and(web);
     PolicyFactory webAndRelative = web.and(relativeOnly);
@@ -259,10 +261,34 @@ final class PolicyFactoryTest {
           "<a href=\"" + spelling[1] + "\">external</a>";
       assertEquals("external", defaultGuard.sanitize(html), spelling[0]);
       assertEquals("external", relativeOnly.sanitize(html), spelling[0]);
+      assertEquals("external", httpOnly.sanitize(html), spelling[0]);
+      assertEquals("external", mailtoOnly.sanitize(html), spelling[0]);
       assertEquals("external", relativeAndWeb.sanitize(html), spelling[0]);
       assertEquals("external", webAndRelative.sanitize(html), spelling[0]);
       assertEquals(webAllowed, web.sanitize(html), spelling[0]);
     }
+  }
+
+  /**
+   * The relative-only restriction reaches only the URL attributes its
+   * builder allows.  and() unions grants, so an attribute that only the
+   * other factory allows keeps that factory's protocols.
+   */
+  @Test
+  void testRelativeOnlyDoesNotReachAttributesOnlyTheOtherFactoryAllows() {
+    String html = "<a href='https://example.com/'>abs</a>"
+        + "<a href='/local'>rel</a>"
+        + "<img src='https://example.com/a.png'"
+        + " srcset='//example.com/b.png 2x'>";
+    String expected = "abs<a href=\"/local\">rel</a>"
+        + "<img src=\"https://example.com/a.png\""
+        + " srcset=\"//example.com/b.png 2x\" />";
+
+    PolicyFactory relativeLinks = relativeOnlyLinks();
+    PolicyFactory webImages = images("http", "https");
+
+    assertEquals(expected, relativeLinks.and(webImages).sanitize(html));
+    assertEquals(expected, webImages.and(relativeLinks).sanitize(html));
   }
 
   /** Two factories that allowed no protocol still allow none together. */
