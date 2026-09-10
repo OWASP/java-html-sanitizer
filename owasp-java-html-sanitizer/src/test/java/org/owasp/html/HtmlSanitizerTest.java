@@ -833,15 +833,14 @@ class HtmlSanitizerTest {
 
   /**
    * Test #9:
-   * iframe and comment content is literal to the renderer too, and used to
-   * escape the filter, which looked only for style and script.  A browser
-   * today parses the content of a comment element as markup outright.
+   * iframe content is literal to the renderer too, and used to escape the
+   * filter, which looked only for style and script.
    */
   @Test
-  void testCVE202566021_9OtherLiteralContentElements() {
+  void testCVE202566021_9IframeContent() {
     PolicyFactory policy = new HtmlPolicyBuilder()
-        .allowElements("noscript", "iframe", "comment", "img")
-        .allowTextIn("iframe", "comment")
+        .allowElements("noscript", "iframe", "img")
+        .allowTextIn("iframe")
         .allowAttributes("src").onElements("img")
         .allowUrlProtocols("https")
         .toFactory();
@@ -851,20 +850,47 @@ class HtmlSanitizerTest {
         policy.sanitize(
             "<noscript><iframe></noscript>"
             + "<img src=x onerror=alert(1)></iframe></noscript>"));
-    assertEquals(
-        "<comment></comment>",
-        policy.sanitize("<comment><img src=x onerror=alert(1)></comment>"));
   }
 
   /**
    * Test #10:
+   * The IE-only comment element was read as raw text, but no current
+   * browser reads it so: its content is markup to all of them.  It used to
+   * be emitted unescaped, so a tag inside it reached the browser unvetted,
+   * and a start tag with no {@code >} of its own was completed by the
+   * {@code >} of the sanitizer's own end tag.  Its content is now parsed,
+   * vetted and escaped like any other element's.
+   */
+  @Test
+  void testCVE202566021_10CommentElementIsNotLiteralContent() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("comment", "img")
+        .allowTextIn("comment")
+        .allowAttributes("src").onElements("img")
+        .allowUrlProtocols("https")
+        .toFactory();
+
+    assertEquals(
+        "<comment><img src=\"x\" /></comment>",
+        policy.sanitize("<comment><img src=x onerror=alert(1)></comment>"));
+    assertEquals(
+        "<comment>x<img src=\"x\" /></comment>",
+        policy.sanitize(
+            "<comment>x<img src=x onerror=alert(1)//</comment>"));
+    assertEquals(
+        "<comment>a &lt;b&gt; c</comment>",
+        policy.sanitize("<comment>a &lt;b&gt; c</comment>"));
+  }
+
+  /**
+   * Test #11:
    * Text reaches the policy in chunks whose boundaries fall anywhere, so a
    * chunk that ends in {@code <}, or holds {@code </} with no {@code >},
    * must not combine with the next chunk into an end tag.  A preprocessor
    * that delivers one character at a time is the extreme case.
    */
   @Test
-  void testCVE202566021_10ChunkBoundariesCannotAssembleAnEndTag() {
+  void testCVE202566021_11ChunkBoundariesCannotAssembleAnEndTag() {
     PolicyFactory policy = new HtmlPolicyBuilder()
         .allowElements("noscript", "style", "img")
         .allowTextIn("style")

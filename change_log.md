@@ -12,11 +12,15 @@ Most recent at top.
       came out unchanged under a policy allowing `noscript`, `style` with
       text and `img`.  A browser with scripting on reads `noscript` as raw
       text up to that inner `</noscript>` and then runs the handler; the
-      same holds for `noframes` and `noembed` with scripting off, and a
-      `comment` element's content is markup to every current browser.  The
+      same holds for `noframes` and `noembed` with scripting off.  The
       filter also keeps the text after a start tag with no matching end tag,
       which it used to discard to the end of the chunk, and keeps a `<` that
       opens no tag.
+    * The IE-only `comment` element is no longer read as raw text.  No
+      current browser reads it so, and its content was emitted unescaped, so
+      under a policy allowing `comment` with text a tag inside it reached
+      the browser unvetted.  Its content is now parsed, vetted and escaped
+      like any other element's.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such

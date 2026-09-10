@@ -98,7 +98,10 @@ public enum HtmlTextEscapingMode {
       //.put("noembed", CDATA_SOMETIMES)
       //.put("noframes", CDATA_SOMETIMES)
       //.put("noscript", CDATA_SOMETIMES)
-      j8().mapEntry("comment", CDATA_SOMETIMES),  // IE only
+      // The IE-only comment element is not here either: no current browser
+      // reads its content as raw text, so treating it so let markup inside
+      // it reach the browser unvetted and unescaped.  It is an unknown
+      // element, whose content is parsed and escaped like any other.
 
       // Runs till end of file.
       j8().mapEntry("plaintext", PLAIN_TEXT),
