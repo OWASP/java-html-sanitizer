@@ -151,6 +151,11 @@ public final class PolicyFactory
    * Produces a factory that allows the union of the grants, and intersects
    * policies where they overlap on a particular granted attribute or element
    * name.
+   * <p>
+   * The guard a builder puts on URL attributes when it allowed no protocol
+   * is a default rather than a policy, so it yields here to the other
+   * factory's protocol allowlist; two allowlists intersect like any other
+   * overlapping policies.  See {@link HtmlPolicyBuilder#allowUrlProtocols}.
    */
   public PolicyFactory and(PolicyFactory f) {
     Map<String, ElementAndAttributePolicies> builder

@@ -36,7 +36,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -552,6 +551,12 @@ public class HtmlPolicyBuilder {
    * not white-listing any protocols, effectively disallows the "href"
    * attribute globally.
    * <p>
+   * That default is not itself an allowlist, and {@link PolicyFactory#and}
+   * treats it differently from one.  A factory that allowed no protocol,
+   * combined with one that did, defers to it, so the combination allows the
+   * protocols the other factory allowed.  Two factories that each allowed
+   * some protocols together allow only those both allowed.
+   * <p>
    * Do not allow any <code>*script</code> such as <code>javascript</code>
    * protocols if you might use this policy with untrusted code.
    */
@@ -765,17 +770,12 @@ public class HtmlPolicyBuilder {
         if (intermediates.cssSchema == null) {
           return null;
         }
-        final AttributePolicy styleUrlPolicyFinal = AttributePolicy.Util.join(
-            intermediates.styleUrlPolicy, intermediates.urlAttributePolicy);
         return new StylingPolicy(
             intermediates.cssSchema,
-            new Function<String, String>() {
-              public String apply(String url) {
-                return styleUrlPolicyFinal.apply(
-                    "img", "src",
-                    url != null ? url : "about:invalid");
-              }
-            });
+            new StylingPolicy.UrlPolicyRewriter(
+                AttributePolicy.Util.join(
+                    intermediates.styleUrlPolicy,
+                    intermediates.urlAttributePolicy)));
       }
 
     });
@@ -903,16 +903,8 @@ public class HtmlPolicyBuilder {
 
     // Add guards on top of any custom policies.
     {
-      final AttributePolicy urlAttributePolicy;
-      if (allowedProtocols.size() == 3
-          && allowedProtocols.contains("mailto")
-          && allowedProtocols.contains("http")
-          && allowedProtocols.contains("https")) {
-        urlAttributePolicy = StandardUrlAttributePolicy.INSTANCE;
-      } else {
-        urlAttributePolicy = new FilterUrlByProtocolAttributePolicy(
-            allowedProtocols);
-      }
+      final AttributePolicy urlAttributePolicy =
+          UrlProtocolGuard.forProtocols(allowedProtocols);
 
       Set<String> toGuard = new HashSet<>(ATTRIBUTE_GUARDS.keySet());
       AttributeGuardIntermediates intermediates = new AttributeGuardIntermediates(

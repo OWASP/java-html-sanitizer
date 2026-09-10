@@ -27,6 +27,11 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
+
 /**
  * Applies a URL policy to all URLs in a srcset attribute value.
  * <p>
@@ -47,7 +52,7 @@ package org.owasp.html;
  * This policy applies the given attribute policy to URLs and emits metadata
  * as given, but normalizing spaces.
  */
-final class SrcsetAttributePolicy implements AttributePolicy {
+final class SrcsetAttributePolicy implements JoinableAttributePolicy {
 
   private final AttributePolicy srcPolicy;
 
@@ -128,6 +133,43 @@ final class SrcsetAttributePolicy implements AttributePolicy {
       return null;
     }
     return sb.toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof SrcsetAttributePolicy
+        && srcPolicy.equals(((SrcsetAttributePolicy) o).srcPolicy);
+  }
+
+  @Override
+  public int hashCode() {
+    return srcPolicy.hashCode();
+  }
+
+  public Joinable.JoinStrategy<JoinableAttributePolicy> getJoinStrategy() {
+    return SrcsetJoinStrategy.INSTANCE;
+  }
+
+  /**
+   * Joins srcset policies by joining the policies they apply to each URL, so
+   * that the URL protocol guards inside them meet and join as they do on
+   * {@code src}: a builder that allowed no protocol yields to one that did,
+   * and two allowlists intersect.
+   */
+  static final class SrcsetJoinStrategy
+  implements Joinable.JoinStrategy<JoinableAttributePolicy> {
+    static final SrcsetJoinStrategy INSTANCE = new SrcsetJoinStrategy();
+
+    public JoinableAttributePolicy join(
+        Iterable<? extends JoinableAttributePolicy> toJoin) {
+      List<AttributePolicy> srcPolicies = new ArrayList<>();
+      for (JoinableAttributePolicy p : toJoin) {
+        srcPolicies.add(((SrcsetAttributePolicy) p).srcPolicy);
+      }
+      return new SrcsetAttributePolicy(
+          AttributePolicy.Util.join(
+              srcPolicies.toArray(new AttributePolicy[0])));
+    }
   }
 
 }
