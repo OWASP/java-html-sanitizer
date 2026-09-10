@@ -2,6 +2,21 @@
 
 Most recent at top.
   * Next release
+    * Text kept inside a `style`, `script` or `iframe` element, or any other
+      element whose content the renderer emits unescaped, now has every tag
+      removed, end tags included, instead of only the tags of elements the
+      policy does not allow.  An allowed element's start tag was copied
+      through with its attributes unvetted, and an end tag was kept when its
+      element was allowed, so
+      `<noscript><style></noscript><img src=x onerror=alert(1)></style></noscript>`
+      came out unchanged under a policy allowing `noscript`, `style` with
+      text and `img`.  A browser with scripting on reads `noscript` as raw
+      text up to that inner `</noscript>` and then runs the handler; the
+      same holds for `noframes` and `noembed` with scripting off, and a
+      `comment` element's content is markup to every current browser.  The
+      filter also keeps the text after a start tag with no matching end tag,
+      which it used to discard to the end of the chunk, and keeps a `<` that
+      opens no tag.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such

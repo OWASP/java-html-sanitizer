@@ -671,14 +671,16 @@ class HtmlSanitizerTest {
 
   /**
    * Test #3:
-   * Ensure that, if <div> is allowed, then <div> injected inside <style>
-   * is retained by the sanitizer (since it is now in the policy).
+   * A tag inside style text is text to a browser, never markup, so even an
+   * allowed element's tag goes, content and all.  It used to be copied
+   * through with its attributes unvetted, which is how an event handler
+   * could follow the breakout in test #7.
    */
   @Test
   void testCVE202566021_3() {
-    // Arrange: <div> is now allowed, so it should survive sanitization inside <style>.
+    // Arrange: <div> is allowed as an element, which buys it nothing as style text.
     String actualPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
-    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }<div id=\"good\">ALLOWED?</div></style></noscript>";
+    String expectedPayload = "<noscript><style>/* user content */.x { font-size: 12px; }</style></noscript>";
 
     HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
     PolicyFactory policy = htmlPolicyBuilder
@@ -696,13 +698,16 @@ class HtmlSanitizerTest {
   /**
    * Test #4:
    * Confirm that an attempt to prematurely close <style> with </noscript>, then inject a script,
-   * does not allow the injected script. Sanitizer closes elements properly and only emits allowed tags.
+   * does not allow the injected script.  The </noscript> goes too: a browser
+   * with scripting on reads noscript as raw text up to the first </noscript>
+   * and parses whatever follows as markup, so no end tag may survive in
+   * style text, whatever element it names.
    */
   @Test
   void testCVE202566021_4() {
     // Arrange: Try to break out of <style> and <noscript>, then add a script. Only style/noscript/p allowed.
     String actualPayload = "<noscript><style></noscript><script>alert(1)</script>";
-    String expectedPayload = "<noscript><style></noscript></style></noscript>";
+    String expectedPayload = "<noscript><style></style></noscript>";
 
     HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
     PolicyFactory policy = htmlPolicyBuilder
@@ -720,13 +725,14 @@ class HtmlSanitizerTest {
   /**
    * Test #5:
    * Like Test #4, but with <p> instead of <noscript>. Ensures sanitizer emits correctly closed tags
-   * and strips the injected script tag completely.
+   * and strips the injected script tag completely.  The </p> in the style
+   * text goes like every other end tag there, allowed element or not.
    */
   @Test
   void testCVE202566021_5() {
     // Arrange: Try to break out of <style> through <p>, then add a script. Only style/noscript/p allowed.
     String actualPayload = "<p><style></p><script>alert(1)</script>";
-    String expectedPayload = "<p><style></p></style></p>";
+    String expectedPayload = "<p><style></style></p>";
 
     HtmlPolicyBuilder htmlPolicyBuilder = new HtmlPolicyBuilder();
     PolicyFactory policy = htmlPolicyBuilder
@@ -761,6 +767,182 @@ class HtmlSanitizerTest {
 
     // Assert
     assertEquals(expectedPayload, sanitized);
+  }
+
+  /**
+   * Test #7:
+   * An allowed element's start tag inside style text used to be copied
+   * through with its attributes unvetted, and an end tag was kept when its
+   * element was allowed.  Together they let an event handler follow a
+   * {@code </noscript>} that a browser with scripting on honours as the end
+   * of the raw-text noscript.  Neither survives.
+   */
+  @Test
+  void testCVE202566021_7AllowedElementInStyleTextKeepsNoAttributes() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("noscript", "style", "img", "b")
+        .allowTextIn("style")
+        .allowAttributes("src").onElements("img")
+        .allowUrlProtocols("https")
+        .toFactory();
+
+    assertEquals(
+        "<noscript><style></style></noscript>",
+        policy.sanitize(
+            "<noscript><style></noscript>"
+            + "<img src=x onerror=alert(1)></style></noscript>"));
+    assertEquals(
+        "<noscript><style></style></noscript>",
+        policy.sanitize(
+            "<noscript><style></noscript>"
+            + "<b onmouseover=alert(1)>x</b></style></noscript>"));
+    // Outside any noscript the same tag is harmless, and treated the same.
+    assertEquals(
+        "<style></style>",
+        policy.sanitize("<style><img src=x onerror=alert(1)></style>"));
+  }
+
+  /**
+   * Test #8:
+   * noframes and noembed are raw text to a browser whether or not scripting
+   * is on, so they break out the same way, and every spelling of an end tag
+   * a browser accepts has to go: any case, trailing whitespace, or a slash
+   * before the {@code >}.
+   */
+  @Test
+  void testCVE202566021_8EveryEndTagLeavesStyleText() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("noframes", "noembed", "style", "b")
+        .allowTextIn("style")
+        .toFactory();
+
+    assertEquals(
+        "<noframes><style></style></noframes>",
+        policy.sanitize(
+            "<noframes><style></noframes>"
+            + "<b onmouseover=alert(1)>x</b></style></noframes>"));
+    assertEquals(
+        "<noembed><style></style></noembed>",
+        policy.sanitize(
+            "<noembed><style></NOEMBED ><b onclick=alert(1)>x</b>"
+            + "</style></noembed>"));
+    assertEquals(
+        "<style>a{} b{}</style>",
+        policy.sanitize("<style>a{} </noembed/></div></ b>b{}</style>"));
+  }
+
+  /**
+   * Test #9:
+   * iframe and comment content is literal to the renderer too, and used to
+   * escape the filter, which looked only for style and script.  A browser
+   * today parses the content of a comment element as markup outright.
+   */
+  @Test
+  void testCVE202566021_9OtherLiteralContentElements() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("noscript", "iframe", "comment", "img")
+        .allowTextIn("iframe", "comment")
+        .allowAttributes("src").onElements("img")
+        .allowUrlProtocols("https")
+        .toFactory();
+
+    assertEquals(
+        "<noscript><iframe></iframe></noscript>",
+        policy.sanitize(
+            "<noscript><iframe></noscript>"
+            + "<img src=x onerror=alert(1)></iframe></noscript>"));
+    assertEquals(
+        "<comment></comment>",
+        policy.sanitize("<comment><img src=x onerror=alert(1)></comment>"));
+  }
+
+  /**
+   * Test #10:
+   * Text reaches the policy in chunks whose boundaries fall anywhere, so a
+   * chunk that ends in {@code <}, or holds {@code </} with no {@code >},
+   * must not combine with the next chunk into an end tag.  A preprocessor
+   * that delivers one character at a time is the extreme case.
+   */
+  @Test
+  void testCVE202566021_10ChunkBoundariesCannotAssembleAnEndTag() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("noscript", "style", "img")
+        .allowTextIn("style")
+        .allowAttributes("src").onElements("img")
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void text(String text) {
+            for (int i = 0, n = text.length(); i < n; ++i) {
+              underlying.text(text.substring(i, i + 1));
+            }
+          }
+        })
+        .toFactory();
+
+    assertEquals(
+        "<noscript><style>/noscript>img src=x onerror=alert(1)>"
+        + "</style></noscript>",
+        policy.sanitize(
+            "<noscript><style></noscript>"
+            + "<img src=x onerror=alert(1)></style></noscript>"));
+  }
+
+  /**
+   * A chunk of literal text full of start tags with no end tags is the
+   * worst case for pairing tags, since every one is searched for a match.
+   * Pairing is done in one pass, so this takes a fraction of a second; a
+   * search restarted from each tag takes minutes.
+   */
+  @Test
+  void testLongRunOfUnmatchedTagsInLiteralTextIsLinear() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("style").allowTextIn("style").toFactory();
+    int n = 200_000;
+    StringBuilder html = new StringBuilder("<style>");
+    StringBuilder expected = new StringBuilder("<style>");
+    for (int i = 0; i < n; ++i) {
+      html.append("<b>x");
+      expected.append('x');
+    }
+    html.append("</style>");
+    expected.append("</style>");
+
+    assertEquals(expected.toString(), p.sanitize(html.toString()));
+  }
+
+  /**
+   * The filter no longer discards the rest of a chunk after a start tag with
+   * no matching end tag, and keeps a {@code <} that opens no tag, so script
+   * and style text with a bare comparison survives.
+   */
+  @Test
+  void testLiteralTextKeepsWhatIsNotATag() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("script", "style")
+        .allowTextIn("script", "style")
+        .toFactory();
+
+    assertEquals(
+        "<script>if (a < b) x();</script>",
+        policy.sanitize("<script>if (a < b) x();</script>"));
+    assertEquals(
+        "<script>if (a<b) x();</script>",
+        policy.sanitize("<script>if (a<b) x();</script>"));
+    // A tag with no matching end tag goes alone; the text after it stays.
+    assertEquals(
+        "<script>var s = 'ad';</script>",
+        policy.sanitize("<script>var s = 'a<b'; var t = 'c>d';</script>"));
+    assertEquals(
+        "<style>a{}c{}</style>",
+        policy.sanitize("<style>a{}<b>c{}</style>"));
+    // With one, it goes with its content, as a script in a style block does.
+    assertEquals(
+        "<style>a{}c{}</style>",
+        policy.sanitize("<style>a{}<b>x<b>y</b>z</b>c{}</style>"));
+    // Not tags: a comment, an empty end tag, a bare bracket.
+    assertEquals(
+        "<style>a{}<!-- x --></>c<3{}</style>",
+        policy.sanitize("<style>a{}<!-- x --></>c<3{}</style>"));
   }
 
   @Test
