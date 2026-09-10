@@ -30,9 +30,11 @@ import static org.owasp.shim.Java8Shim.j8;
  * {@code matching}, so a builder that allowed no protocol rejects every
  * absolute URL on its own, however its author-supplied policies are written.
  *
- * <p>Two allowlists with nothing in common join to an empty allowlist.  On
- * its own that behaves like the default, but it is not one and does not
- * yield, so the same factories combined in any grouping allow the same URLs.
+ * <p>{@link HtmlPolicyBuilder#allowOnlyRelativeUrls} installs
+ * {@link #RELATIVE_ONLY}, whose explicit empty allowlist does not yield.
+ * Two nonempty allowlists with nothing in common also join to an explicit
+ * empty allowlist.  On its own either behaves like the default, but neither
+ * is one, so the same factories combined in any grouping allow the same URLs.
  */
 @TCB
 @Immutable
@@ -43,6 +45,10 @@ final class UrlProtocolGuard implements JoinableAttributePolicy {
 
   /** The guard for a builder that allowed no protocol. */
   static final UrlProtocolGuard NONE = new UrlProtocolGuard(null);
+
+  /** The explicit empty allowlist for a relative-only builder. */
+  static final UrlProtocolGuard RELATIVE_ONLY =
+      new UrlProtocolGuard(j8().setOf());
 
   /** The protocols allowed, or null for the default guard. */
   private final @Nullable Set<String> allowlist;

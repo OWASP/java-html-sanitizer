@@ -40,7 +40,8 @@ import javax.annotation.Nullable;
  * <p>
  * URLs with protocols must match the protocol set passed to the constructor.
  * URLs without protocols but which specify an origin different from the
- * containing page (e.g. {@code //example.org}) are only allowed if the
+ * containing page (e.g. {@code //example.org}, including the equivalent
+ * slash and backslash spellings browsers recognize) are only allowed if the
  * {@link FilterUrlByProtocolAttributePolicy#allowProtocolRelativeUrls policy}
  * allows both {@code http} and {@code https} which are normally used to serve
  * HTML.
@@ -72,16 +73,18 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
   public @Nullable String apply(
       String elementName, String attributeName, String value) {
     String url = Strings.stripHtmlSpaces(value);
+    // When resolving against an HTTP(S) page, browsers treat backslashes as
+    // slashes.  Each of these pairs introduces an authority: //, /\, \/, \\.
+    if (url.length() >= 2
+        && isUrlSlash(url.charAt(0))
+        && isUrlSlash(url.charAt(1))
+        && !allowProtocolRelativeUrls()) {
+      return null;
+    }
     protocol_loop:
     for (int i = 0, n = url.length(); i < n; ++i) {
       switch (url.charAt(i)) {
         case '/': case '#': case '?':  // No protocol.
-          // Check for domain relative URLs like //www.evil.org/
-          if (url.startsWith("//")
-              // or the protocols by which HTML is normally served are OK.
-              && !allowProtocolRelativeUrls()) {
-            return null;
-          }
           break protocol_loop;
         case ':':
           String protocol = Strings.toLowerCase(url.substring(0, i));
@@ -90,6 +93,10 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
       }
     }
     return normalizeUri(url);
+  }
+
+  private static boolean isUrlSlash(char ch) {
+    return ch == '/' || ch == '\\';
   }
 
   protected boolean allowProtocolRelativeUrls() {
