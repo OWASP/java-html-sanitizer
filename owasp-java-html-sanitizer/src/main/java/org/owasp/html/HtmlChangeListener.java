@@ -49,9 +49,58 @@ public interface HtmlChangeListener<T> {
   public void discardedTag(@Nullable T context, String elementName);
 
   /**
-   * Called when attributes are discarded
-   * from the input but the containing tag is not.
+   * Called when attributes are discarded from a tag that the policy allowed.
+   * <p>
+   * Usually the tag itself survives without them.  When every attribute is
+   * rejected and the element is one the policy skips when it has none, as
+   * {@code a}, {@code font}, {@code img}, {@code input} and {@code span} are
+   * by default, the tag is discarded as a consequence: {@link #discardedTag}
+   * reports the tag, and this method still reports the attributes, since
+   * rejecting them is what the policy did.  Attributes on a tag that the
+   * policy did not allow are not reported; {@code discardedTag} covers the
+   * whole tag.
+   * <p>
+   * A repeated attribute name counts once per dropped copy.
    */
   public void discardedAttributes(
       @Nullable T context, String tagName, String... attributeNames);
+
+  /**
+   * Called once for each attribute named in a {@link #discardedAttributes}
+   * report, after that report, with the value the attribute had in the input.
+   * The value is as the author wrote it, after character references have
+   * been decoded, and has not been vetted by any policy, so treat it as
+   * untrusted.
+   * <p>
+   * The default implementation does nothing.
+   */
+  public default void discardedAttribute(
+      @Nullable T context, String tagName, String attributeName,
+      String attributeValue) {
+    // Listeners that do not need values need not override this.
+  }
+
+  /**
+   * Called when the content of an element the policy kept could not be
+   * rendered and was dropped, leaving the element empty.  A {@code script}
+   * or {@code style} element cannot hold content that a browser would read
+   * as ending the element early or as opening a comment it never closes,
+   * such as a {@code -->} with no {@code <!--} before it, so the renderer
+   * drops the whole content rather than emit it.
+   * <p>
+   * Text inside a discarded element is not reported here; the
+   * {@link #discardedTag} report covers it.  These reports come from
+   * {@link HtmlStreamRenderer}, which
+   * {@link PolicyFactory#sanitize(String, HtmlChangeListener, Object)}
+   * always uses; a sanitizer built on another receiver does not send them.
+   * <p>
+   * The default implementation does nothing.
+   *
+   * @param elementName the element whose content was dropped.
+   * @param text the content that was dropped.
+   */
+  public default void discardedText(
+      @Nullable T context, String elementName, String text) {
+    // Listeners that do not need text need not override this.
+  }
 }

@@ -34,6 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.Nullable;
 import javax.annotation.WillCloseWhenClosed;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -55,6 +56,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final Appendable output;
   private final Handler<? super IOException> ioExHandler;
   private final Handler<? super String> badHtmlHandler;
+  /** Told about dropped literal content; null while nobody is listening. */
+  private @Nullable DroppedTextListener droppedTextListener;
   private String lastTagOpened;
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
@@ -128,6 +131,26 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     if (badHtmlHandler != Handler.DO_NOTHING) {   // Avoid string append.
       badHtmlHandler.handle(message + " : " + identifier);
     }
+  }
+
+  /**
+   * Told when the content of a literal-content element such as
+   * {@code script} or {@code style} is dropped because it cannot be emitted
+   * without a browser reading it differently.  The bad HTML handler hears
+   * of it too, as a message; this carries the content itself, so that
+   * {@link HtmlChangeReporter} can report the loss to its listener.
+   */
+  interface DroppedTextListener {
+    /**
+     * @param elementName the element whose content was dropped.
+     * @param text the content that was dropped.
+     */
+    void droppedText(String elementName, String text);
+  }
+
+  /** Sends dropped literal content to {@code listener}, or to nobody. */
+  final void reportDroppedTextTo(@Nullable DroppedTextListener listener) {
+    this.droppedTextListener = listener;
   }
 
   public final void openDocument() throws IllegalStateException {
@@ -304,6 +327,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             cdataContent.subSequence(
                 problemIndex,
                 Math.min(problemIndex + 10, cdataContent.length())));
+        if (droppedTextListener != null) {
+          droppedTextListener.droppedText(
+              elementName, cdataContent.toString());
+        }
         // Still output the close tag.
       }
       if ("plaintext".equals(elementName)) { return; }

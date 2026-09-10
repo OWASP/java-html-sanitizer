@@ -95,6 +95,12 @@ public final class PolicyFactory
   /**
    * Produces a sanitizer that emits tokens to {@code out} and that notifies
    * any {@code listener} of any dropped tags and attributes.
+   * Content that {@code out} cannot render, such as a {@code -->} inside a
+   * kept {@code script} element, is reported through
+   * {@link HtmlChangeListener#discardedText} only when {@code out} is an
+   * {@link HtmlStreamRenderer}, since that is where the decision to drop it
+   * is made; {@link #sanitize(String, HtmlChangeListener, Object)} always
+   * uses one.
    * @param out a renderer that receives approved tokens only.
    * @param listener if non-null, receives notifications of tags and attributes
    *     that were rejected by the policy.  This may tie into intrusion
@@ -122,7 +128,9 @@ public final class PolicyFactory
 
   /**
    * A convenience function that sanitizes a string of HTML and reports
-   * the names of rejected element and attributes to listener.
+   * the names of rejected elements and attributes to listener, along with
+   * the rejected attributes' values and any content the renderer could not
+   * emit.
    * @param html the string of HTML to sanitize.
    * @param listener if non-null, receives notifications of tags and attributes
    *     that were rejected by the policy.  This may tie into intrusion

@@ -2,6 +2,26 @@
 
 Most recent at top.
   * Next release
+    * `HtmlChangeListener.discardedAttributes` now also reports the
+      attributes rejected from an element the policy allowed when that
+      rejection is what left the element attribute-less and so skipped, as
+      `a`, `font`, `img`, `input` and `span` are by default.  The listener
+      used to hear only that the element was discarded, so a rejected
+      `javascript:` `href` on a link reached an intrusion detection system as
+      a dropped `a` and nothing more.  Attributes on an element the policy
+      does not allow are still covered by `discardedTag` alone.  Issue #447.
+    * `HtmlChangeListener.discardedAttribute`, a new default method, follows
+      each `discardedAttributes` report with one call per dropped attribute
+      carrying the value it had in the input, so a listener can see the URL
+      or handler that was rejected.  Listeners that do not override it are
+      unaffected.  Issue #243.
+    * `HtmlChangeListener.discardedText`, a new default method, reports the
+      content of a kept `script` or `style` element that the renderer dropped
+      because it could not be emitted safely, such as a `-->` with no comment
+      open.  Such drops were invisible to the listener.  The report comes
+      from `HtmlStreamRenderer`, which `PolicyFactory.sanitize` uses; a
+      sanitizer built with `PolicyFactory.apply` on another receiver reports
+      tags and attributes only.  Issue #155.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such

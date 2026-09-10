@@ -83,10 +83,27 @@ public final class HtmlChangeReporter<T> {
    */
   public HtmlSanitizer.Policy getWrappedPolicy() { return input; }
 
+  /**
+   * Implemented by a policy that can say, after
+   * {@link HtmlSanitizer.Policy#openTag}, whether it allowed the element but
+   * emitted no tag because every attribute had been rejected and the element
+   * is skipped when it has none.  Attributes rejected from such an element
+   * are the policy's doing and are reported; attributes on a rejected
+   * element go with it and are not.
+   */
+  interface AttributelessSkipPolicy {
+    /**
+     * @return true if the most recent start tag was allowed by the element
+     *     policy and dropped only for having no attributes left.
+     */
+    boolean skippedLastTagAsAttributeless();
+  }
+
   private static final class InputChannel<T>
       implements HtmlSanitizer.Policy,
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
-                 TextSuppressionPolicy {
+                 TextSuppressionPolicy,
+                 HtmlStreamRenderer.DroppedTextListener {
     HtmlStreamEventReceiver policy;
     final OutputChannel output;
     final T context;
@@ -120,20 +137,37 @@ public final class HtmlChangeReporter<T> {
               .suppressesTextWhenDropped(canonElementName);
     }
 
+    /**
+     * The renderer sits downstream and drops literal content it cannot emit
+     * without a browser reading it differently.  It tells us directly, as
+     * the balancer does for the nesting limit.
+     */
+    public void droppedText(String elementName, String text) {
+      listener.discardedText(context, elementName, text);
+    }
+
     public void openDocument() {
+      // The renderer decides on its own to drop literal content it cannot
+      // emit, so it has to tell us; any other receiver keeps that to itself.
+      // Bound for this document only, so that a renderer reused without this
+      // reporter does not go on reporting to it.
+      output.listenForDroppedText(this);
       policy.openDocument();
     }
 
     public void closeDocument() {
+      // Closing may flush and drop pending literal content, so listen until
+      // the renderer is done.
       policy.closeDocument();
+      output.listenForDroppedText(null);
     }
 
     public void openTag(String elementName, List<String> attrs) {
       output.openedElementName = null;
-      output.expectedAttrNames.clear();
-      for (int i = 0, n = attrs.size(); i < n; i += 2) {
-        output.expectedAttrNames.add(attrs.get(i));
-      }
+      output.expectedAttrs.clear();
+      // Copied before the policy runs: it removes rejected attributes from
+      // attrs in place, and their values are wanted for the report.
+      output.expectedAttrs.addAll(attrs);
       policy.openTag(elementName, attrs);
       {
         // Gather the notification details to avoid any problems with the
@@ -145,20 +179,38 @@ public final class HtmlChangeReporter<T> {
         // rename the element, and a renamed element was kept, not dropped.
         boolean discarded = output.openedElementName == null;
         output.openedElementName = null;
-        int nExpected = output.expectedAttrNames.size();
-        String[] discardedAttrNames =
-            nExpected != 0 && !discarded
-            ? output.expectedAttrNames.toArray(new String[nExpected])
+        // Attributes go unreported with a tag the policy rejected: the tag
+        // report covers them.  Not so when the policy allowed the element and
+        // dropped it only because none of its attributes survived: rejecting
+        // them was the policy's decision, and the tag went as a consequence.
+        boolean attrsRejectedOnTheirOwn = !discarded
+            || (policy instanceof AttributelessSkipPolicy
+                && ((AttributelessSkipPolicy) policy)
+                    .skippedLastTagAsAttributeless());
+        int nDiscarded = attrsRejectedOnTheirOwn
+            ? output.expectedAttrs.size() / 2
+            : 0;
+        String[] discardedAttrs = nDiscarded != 0
+            ? output.expectedAttrs.toArray(new String[nDiscarded * 2])
             : ZERO_STRINGS;
-        output.expectedAttrNames.clear();
+        output.expectedAttrs.clear();
         // Dispatch notifications to the listener, under the input name,
         // which is the one the listener can relate to what came in.
         if (discarded) {
           listener.discardedTag(context, elementName);
         }
-        if (discardedAttrNames.length != 0) {
+        if (nDiscarded != 0) {
+          String[] discardedAttrNames = new String[nDiscarded];
+          for (int i = 0; i < nDiscarded; ++i) {
+            discardedAttrNames[i] = discardedAttrs[i * 2];
+          }
           listener.discardedAttributes(
               context, elementName, discardedAttrNames);
+          for (int i = 0; i < nDiscarded; ++i) {
+            listener.discardedAttribute(
+                context, elementName,
+                discardedAttrs[i * 2], discardedAttrs[i * 2 + 1]);
+          }
         }
       }
     }
@@ -182,17 +234,29 @@ public final class HtmlChangeReporter<T> {
      */
     String openedElementName;
     /**
-     * Names of the attributes on the tag being opened that have not turned up
-     * in the output yet.  A list rather than a set: a name repeated on one tag
-     * is two attributes, and HTML forbids that, so the sanitizer keeps the
-     * first and drops the rest.  Collapsing the copies here would leave the
-     * surviving one accounting for all of them, and the drops would go
-     * unreported.
+     * The attributes on the tag being opened, as name and value pairs, that
+     * have not turned up in the output yet.  A list rather than a map: a
+     * name repeated on one tag is two attributes, and HTML forbids that, so
+     * the sanitizer keeps the first and drops the rest.  Collapsing the copies
+     * here would leave the surviving one accounting for all of them, and the
+     * drops would go unreported.  The values ride along so that the drops can
+     * be reported with them.
      */
-    List<String> expectedAttrNames = new ArrayList<>();
+    List<String> expectedAttrs = new ArrayList<>();
 
     OutputChannel(HtmlStreamEventReceiver renderer) {
       this.renderer = renderer;
+    }
+
+    /**
+     * Has the renderer report dropped literal content to {@code listener},
+     * or to nobody when null, if it is one that can.
+     */
+    void listenForDroppedText(
+        @Nullable HtmlStreamRenderer.DroppedTextListener listener) {
+      if (renderer instanceof HtmlStreamRenderer) {
+        ((HtmlStreamRenderer) renderer).reportDroppedTextTo(listener);
+      }
     }
 
     public void openDocument() {
@@ -208,9 +272,19 @@ public final class HtmlChangeReporter<T> {
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
         // Accounts for one copy of the name, so repeats the policy dropped
         // stay behind to be reported.
-        expectedAttrNames.remove(attrs.get(i));
+        removeFirstNamed(expectedAttrs, attrs.get(i));
       }
       renderer.openTag(elementName, attrs);
+    }
+
+    /** Removes the first pair in pairs whose name is name, if there is one. */
+    private static void removeFirstNamed(List<String> pairs, String name) {
+      for (int i = 0, n = pairs.size(); i < n; i += 2) {
+        if (name.equals(pairs.get(i))) {
+          pairs.subList(i, i + 2).clear();
+          return;
+        }
+      }
     }
 
     public void closeTag(String elementName) {
