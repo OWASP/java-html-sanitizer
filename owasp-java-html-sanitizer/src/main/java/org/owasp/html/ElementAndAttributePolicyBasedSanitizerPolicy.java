@@ -50,7 +50,8 @@ import static org.owasp.shim.Java8Shim.j8;
 class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy,
                TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy,
-               HtmlChangeReporter.AttributelessSkipPolicy {
+               HtmlChangeReporter.AttributelessSkipPolicy,
+               HtmlChangeReporter.DroppedTextSource {
   final Map<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final Set<String> allowedTextContainers;
   /**
@@ -90,6 +91,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   private boolean inKeptCdataElement;
   /**
+   * The adjusted name of the outermost kept literal-content element, or null
+   * outside one.  This accompanies {@link #inKeptCdataElement} so a listener
+   * can identify the element whose text the policy filtered.
+   */
+  private @Nullable String keptCdataElementName;
+  /**
    * Alternating input names and adjusted names of elements opened by the
    * caller.
    */
@@ -102,6 +109,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private final BitSet skipTextBeforeOpen = new BitSet();
   /** The same for {@link #inKeptCdataElement}. */
   private final BitSet inKeptCdataBeforeOpen = new BitSet();
+  /** The same for {@link #keptCdataElementName}; entries may be null. */
+  private final List<String> keptCdataNameBeforeOpen = new ArrayList<>();
+
+  /** Told about filtered literal content; null while nobody is listening. */
+  private @Nullable HtmlStreamRenderer.DroppedTextListener droppedTextListener;
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
@@ -137,10 +149,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   public void openDocument() {
     skipText = false;
     inKeptCdataElement = false;
+    keptCdataElementName = null;
+    droppedTextListener = null;
     skippedLastTagAsAttributeless = false;
     openElementStack.clear();
     skipTextBeforeOpen.clear();
     inKeptCdataBeforeOpen.clear();
+    keptCdataNameBeforeOpen.clear();
     out.openDocument();
   }
 
@@ -154,9 +169,16 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     openElementStack.clear();
     skipTextBeforeOpen.clear();
     inKeptCdataBeforeOpen.clear();
+    keptCdataNameBeforeOpen.clear();
     skipText = true;
     inKeptCdataElement = false;
+    keptCdataElementName = null;
     out.closeDocument();
+  }
+
+  public void reportDroppedTextTo(
+      @Nullable HtmlStreamRenderer.DroppedTextListener listener) {
+    this.droppedTextListener = listener;
   }
 
   public void text(String textChunk) {
@@ -166,7 +188,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       // says why none may.
       if (inKeptCdataElement
           && textChunk != null && textChunk.indexOf('<') >= 0) {
-        out.text(stripTags(textChunk));
+        String elementName = keptCdataElementName;
+        if (elementName == null) {
+          throw new IllegalStateException("Missing literal-content element");
+        }
+        out.text(stripTags(textChunk, elementName));
       } else {
         out.text(textChunk);
       }
@@ -199,8 +225,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * needs its {@code </} to start here, so a {@code <} that ends the chunk
    * or is followed by {@code /} goes.  Text arrives in chunks whose
    * boundaries fall anywhere, so each chunk has to be safe on its own.
+   * Each exact range removed is also sent to {@link #droppedTextListener}.
    */
-  private static String stripTags(String text) {
+  private String stripTags(String text, String elementName) {
     int len = text.length();
     // Find every tag, and pair each start tag with the end tag that matches
     // it, counting nested tags of the same name, the way brackets pair.  One
@@ -247,10 +274,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           pos = tag[TAG_END];
           break;
         case END_TAG:
+          reportDroppedText(elementName, text, tag[TAG_START], tag[TAG_END]);
           pos = tag[TAG_END];
           break;
         default:
-          pos = tag[MATCH_END] >= 0 ? tag[MATCH_END] : tag[TAG_END];
+          int dropEnd = tag[MATCH_END] >= 0 ? tag[MATCH_END] : tag[TAG_END];
+          reportDroppedText(elementName, text, tag[TAG_START], dropEnd);
+          pos = dropEnd;
           break;
       }
     }
@@ -260,9 +290,19 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       char ch = text.charAt(c);
       if (ch != '<' || (c + 1 < len && text.charAt(c + 1) != '/')) {
         result.append(ch);
+      } else {
+        reportDroppedText(elementName, text, c, c + 1);
       }
     }
     return result.toString();
+  }
+
+  /** Reports one exact range removed from a literal-content text chunk. */
+  private void reportDroppedText(
+      String elementName, String text, int start, int end) {
+    if (droppedTextListener != null) {
+      droppedTextListener.droppedText(elementName, text.substring(start, end));
+    }
   }
 
   /** Indices into the records {@link #stripTags} keeps for each tag. */
@@ -382,6 +422,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         openElementStack.subList(i, n).clear();
         skipText = skipTextBeforeOpen.get(i / 2);
         inKeptCdataElement = inKeptCdataBeforeOpen.get(i / 2);
+        keptCdataElementName = keptCdataNameBeforeOpen.get(i / 2);
+        keptCdataNameBeforeOpen.subList(
+            i / 2, keptCdataNameBeforeOpen.size()).clear();
         break;
       }
     }
@@ -397,9 +440,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       // text was disallowed in that.
       skipText = !allowedTextContainers.contains(adjustedElementName)
           || disallowedTextContainers.contains(policies.elementName);
-      inKeptCdataElement = inKeptCdataElement
-          || (isLiteralContentElement(adjustedElementName)
-              && allowedTextContainers.contains(adjustedElementName));
+      boolean enteringKeptCdata = isLiteralContentElement(adjustedElementName)
+          && allowedTextContainers.contains(adjustedElementName);
+      if (!inKeptCdataElement && enteringKeptCdata) {
+        keptCdataElementName = adjustedElementName;
+      }
+      inKeptCdataElement = inKeptCdataElement || enteringKeptCdata;
     }
     out.openTag(adjustedElementName, attrs);
   }
@@ -421,6 +467,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     int depth = openElementStack.size() / 2;
     skipTextBeforeOpen.set(depth, skipText);
     inKeptCdataBeforeOpen.set(depth, inKeptCdataElement);
+    keptCdataNameBeforeOpen.add(keptCdataElementName);
     openElementStack.add(elementName);
     openElementStack.add(adjustedElementName);
   }

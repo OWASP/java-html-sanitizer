@@ -30,7 +30,7 @@ package org.owasp.html;
 import javax.annotation.Nullable;
 
 /**
- * Receives events when an HTML tag, or attribute is discarded.
+ * Receives events when an HTML tag, attribute, or text is discarded.
  * This can be hooked into an intrusion detection system to alert code when
  * suspicious HTML passes through the sanitizer.
  * <p>
@@ -83,23 +83,29 @@ public interface HtmlChangeListener<T> {
   }
 
   /**
-   * Called when the content of an element the policy kept could not be
-   * rendered and was dropped, leaving the element empty.  A {@code script}
-   * or {@code style} element cannot hold content that a browser would read
-   * as ending the element early or as opening a comment it never closes,
-   * such as a {@code -->} with no {@code <!--} before it, so the renderer
-   * drops the whole content rather than emit it.
+   * Called when text is discarded from an element the policy kept.  The
+   * policy removes tag-shaped ranges from literal content such as
+   * {@code <style>x<div>y</div></style>}, because a browser would receive
+   * those ranges as markup without their passing through element and
+   * attribute policies.  The renderer may instead drop all the remaining
+   * content when a browser would read it differently, such as a {@code -->}
+   * with no {@code <!--} before it.
    * <p>
    * Text inside a discarded element is not reported here; the
-   * {@link #discardedTag} report covers it.  These reports come from
-   * {@link HtmlStreamRenderer}, which
-   * {@link PolicyFactory#sanitize(String, HtmlChangeListener, Object)}
-   * always uses, seen through any {@link HtmlStreamEventReceiverWrapper}
-   * around it; a sanitizer built on some other receiver does not send them.
+   * {@link #discardedTag} report covers it.  Policy drops are reported with
+   * any output receiver.  Renderer drops are reported only with an
+   * {@link HtmlStreamRenderer}, seen through any
+   * {@link HtmlStreamEventReceiverWrapper} around it;
+   * {@link PolicyFactory#sanitize(String, HtmlChangeListener, Object)} always
+   * uses one.
+   * <p>
+   * One input text chunk may result in multiple calls.  Callers must not rely
+   * on the boundaries between calls.  Treat the text as untrusted; it may
+   * contain attacker-controlled markup.
    * <p>
    * The default implementation does nothing.
    *
-   * @param elementName the element whose content was dropped.
+   * @param elementName the name under which the policy kept the element.
    * @param text the content that was dropped.
    */
   public default void discardedText(

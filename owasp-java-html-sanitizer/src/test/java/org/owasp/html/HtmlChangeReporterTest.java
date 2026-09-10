@@ -335,6 +335,113 @@ class HtmlChangeReporterTest {
   }
 
   /**
+   * A tag in kept literal content reaches the policy as text, so the policy's
+   * removal of it must use the text channel rather than the tag channel.
+   * Issue #468.
+   */
+  @Test
+  void testTagRemovedFromKeptLiteralContentIsReportedAsText() {
+    Result result = sanitizeVerbose(
+        scriptAndStyleWithText(),
+        "<style>.x{}<div id=\"evil\">XSS?</div>y{}</style>");
+
+    assertEquals("<style>.x{}y{}</style>", result.html);
+    assertEquals("style{<div id=\"evil\">XSS?</div>} ", result.log);
+  }
+
+  /** Each report contains only the exact input range the policy removed. */
+  @Test
+  void testPolicyReportsSeparateLiteralTextDropsExactly() {
+    Result result = sanitizeVerbose(
+        scriptAndStyleWithText(),
+        "<style>a<div>x</div>b</noscript>c</style>");
+
+    assertEquals("<style>abc</style>", result.html);
+    assertEquals(
+        "style{<div>x</div>} style{</noscript>} ", result.log);
+  }
+
+  /** Policy and renderer drops are both reported, without overlap. */
+  @Test
+  void testPolicyAndRendererTextDropsAreBothReported() {
+    Result result = sanitizeVerbose(
+        scriptAndStyleWithText(),
+        "<style>a<div>x</div>-->b</style>");
+
+    assertEquals("<style></style>", result.html);
+    assertEquals("style{<div>x</div>} style{a-->b} ", result.log);
+  }
+
+  /** A postprocessor rewrite is not a policy rejection and is not reported. */
+  @Test
+  void testPostprocessorTextRewriteIsNotReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("style")
+        .allowTextIn("style")
+        .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void text(String text) {
+            underlying.text(text.replace("red", "blue"));
+          }
+        })
+        .toFactory();
+    Result result = sanitizeVerbose(
+        policy, "<style>.x{color:red}</style>");
+
+    assertEquals("<style>.x{color:blue}</style>", result.html);
+    assertEquals("", result.log);
+  }
+
+  /**
+   * The reported container is the literal name emitted by an element policy.
+   */
+  @Test
+  void testPolicyDropUsesAdjustedLiteralElementName() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements((elementName, attrs) -> "style", "div")
+        .allowTextIn("style")
+        .toFactory();
+    Result result = sanitizeVerbose(
+        policy, "<div>a&lt;img onerror=alert(1)&gt;b</div>");
+
+    assertEquals("<style>ab</style>", result.html);
+    assertEquals("style{<img onerror=alert(1)>} ", result.log);
+  }
+
+  /** Policy-side drops do not depend on HtmlStreamRenderer's callback. */
+  @Test
+  void testPolicyDroppedTextReachesListenerWithAForeignReceiver() {
+    final List<String> dropped = new ArrayList<>();
+    HtmlChangeListener<Object> listener =
+        textAndTagCollector(dropped, new ArrayList<String>());
+    StringBuilder out = new StringBuilder();
+    final HtmlStreamRenderer renderer =
+        HtmlStreamRenderer.create(out, Handler.DO_NOTHING);
+    HtmlStreamEventReceiver foreign = new HtmlStreamEventReceiver() {
+      public void openDocument() { renderer.openDocument(); }
+
+      public void closeDocument() { renderer.closeDocument(); }
+
+      public void openTag(String elementName, List<String> attrs) {
+        renderer.openTag(elementName, attrs);
+      }
+
+      public void closeTag(String elementName) {
+        renderer.closeTag(elementName);
+      }
+
+      public void text(String text) { renderer.text(text); }
+    };
+
+    HtmlSanitizer.sanitize(
+        "<style>a<div>x</div>b</style>",
+        scriptAndStyleWithText().apply(foreign, listener, null));
+
+    assertEquals("<style>ab</style>", out.toString());
+    assertEquals(Arrays.asList("style:<div>x</div>"), dropped);
+  }
+
+  /**
    * The convenience method renders with HtmlStreamRenderer, so dropped
    * content reaches the listener, as it does through the library's own
    * receiver wrapper around one.  A sanitizer built on some other receiver

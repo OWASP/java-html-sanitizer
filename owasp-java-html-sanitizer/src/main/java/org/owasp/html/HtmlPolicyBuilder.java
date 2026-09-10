@@ -857,7 +857,7 @@ public class HtmlPolicyBuilder {
    * @param out receives calls to open only tags allowed by
    *      previous calls to this object.
    *      Typically a {@link HtmlStreamRenderer}.
-   * @param listener is notified of dropped tags and attributes so that
+   * @param listener is notified of dropped tags, attributes and text so that
    *      intrusion detection systems can be alerted to questionable HTML.
    *      If {@code null} then no notifications are sent.
    * @param context if {@code (listener != null)} then the context value passed

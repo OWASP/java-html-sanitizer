@@ -55,8 +55,14 @@ Most recent at top.
       because it could not be emitted safely, such as a `-->` with no comment
       open.  Such drops were invisible to the listener.  The report comes
       from `HtmlStreamRenderer`, which `PolicyFactory.sanitize` uses; a
-      sanitizer built with `PolicyFactory.apply` on another receiver reports
-      tags and attributes only.  Issue #155.
+      sanitizer built with `PolicyFactory.apply` on another receiver cannot
+      report this renderer-side loss.  Issue #155.
+    * `HtmlChangeListener.discardedText` now also reports tag-like ranges the
+      policy removes from the text of a kept `script`, `style`, `iframe` or
+      other literal-content element.  Such ranges arrive from the lexer as
+      text rather than tag events, so an injection attempt like
+      `<style><img onerror=alert(1)></style>` was removed silently instead of
+      reaching an intrusion-detection listener.  Issue #468.
     * `HtmlPolicyBuilder.allowOnlyRelativeUrls()` now provides an explicit
       relative-only URL policy.  It allows URLs with neither a protocol nor
       an authority, but rejects absolute URLs and protocol-relative URLs such
