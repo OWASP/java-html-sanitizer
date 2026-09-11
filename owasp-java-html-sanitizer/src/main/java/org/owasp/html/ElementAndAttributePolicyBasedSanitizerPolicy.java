@@ -49,9 +49,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy,
                TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy,
                TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy,
-               TagBalancingHtmlStreamEventReceiver.OpenTagSuppressionPolicy,
-               TagBalancingHtmlStreamEventReceiver.ReopenedTablePolicy,
-               TagBalancingHtmlStreamEventReceiver.OutputContextPolicy,
+               TagBalancingHtmlStreamEventReceiver.PushedOutTablePolicy,
                HtmlChangeReporter.AttributelessSkipPolicy,
                HtmlChangeReporter.DroppedTextSource,
                HtmlChangeReporter.DiscardedAttributeSource {
@@ -241,6 +239,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   public @Nullable String outputElementNameForLastOpenTag() {
     return outputElementNameForLastOpenTag;
   }
+
+  public boolean supportsPushedOutTableOperations() { return true; }
 
   public boolean isOutputInForeignContent() {
     return outputForeignContent.isInForeignContent();

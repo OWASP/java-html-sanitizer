@@ -34,9 +34,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy;
-import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagSuppressionPolicy;
-import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OutputContextPolicy;
-import org.owasp.html.TagBalancingHtmlStreamEventReceiver.ReopenedTablePolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.PushedOutTablePolicy;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
 
 /**
@@ -131,9 +129,7 @@ public final class HtmlChangeReporter<T> {
       implements HtmlSanitizer.Policy,
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
                  OpenTagOutputPolicy,
-                 OpenTagSuppressionPolicy,
-                 OutputContextPolicy,
-                 ReopenedTablePolicy,
+                 PushedOutTablePolicy,
                  TextSuppressionPolicy,
                  HtmlStreamRenderer.DropListener {
     HtmlStreamEventReceiver policy;
@@ -213,22 +209,34 @@ public final class HtmlChangeReporter<T> {
       return outputElementNameForLastOpenTag;
     }
 
+    public boolean supportsPushedOutTableOperations() {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null
+          && tablePolicy.supportsPushedOutTableOperations();
+    }
+
     public boolean isOutputInForeignContent() {
-      return policy instanceof OutputContextPolicy
-          && ((OutputContextPolicy) policy).isOutputInForeignContent();
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null && tablePolicy.isOutputInForeignContent();
     }
 
     public @Nullable String outputForeignContentRootName() {
-      return policy instanceof OutputContextPolicy
-          ? ((OutputContextPolicy) policy).outputForeignContentRootName()
-          : null;
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null
+          ? tablePolicy.outputForeignContentRootName() : null;
     }
 
     public boolean outputStartTagUsesForeignContentRules(
         String elementName, List<String> attrs) {
-      return policy instanceof OutputContextPolicy
-          && ((OutputContextPolicy) policy)
-              .outputStartTagUsesForeignContentRules(elementName, attrs);
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null
+          && tablePolicy.outputStartTagUsesForeignContentRules(
+              elementName, attrs);
+    }
+
+    private @Nullable PushedOutTablePolicy pushedOutTablePolicy() {
+      return policy instanceof PushedOutTablePolicy
+          ? (PushedOutTablePolicy) policy : null;
     }
 
     public void openDocument() {
@@ -286,18 +294,21 @@ public final class HtmlChangeReporter<T> {
       // attrs in place, and their values are wanted for the report.
       output.expectAttributes(attrs);
       if (mode == OpenTagMode.REOPENED_TABLE) {
-        if (!(policy instanceof ReopenedTablePolicy)) {
+        PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+        if (tablePolicy == null
+            || !tablePolicy.supportsPushedOutTableOperations()) {
           throw new IllegalStateException(
               "Policy cannot safely reopen a table");
         }
-        ((ReopenedTablePolicy) policy).openReopenedTable(attrs);
+        tablePolicy.openReopenedTable(attrs);
       } else if (mode == OpenTagMode.SUPPRESS) {
-        if (!(policy instanceof OpenTagSuppressionPolicy)) {
+        PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+        if (tablePolicy == null
+            || !tablePolicy.supportsPushedOutTableOperations()) {
           throw new IllegalStateException(
               "Policy cannot suppress a table-structure tag");
         }
-        ((OpenTagSuppressionPolicy) policy)
-            .openTagWithoutOutput(elementName, attrs);
+        tablePolicy.openTagWithoutOutput(elementName, attrs);
       } else {
         policy.openTag(elementName, attrs);
       }

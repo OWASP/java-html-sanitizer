@@ -187,23 +187,20 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
-   * Implemented by a policy that can apply its element and text decisions to
-   * a start tag while deliberately emitting no tag for it.
+   * Optional policy operations used to keep output around a pushed-out table
+   * in a browser context that matches the logical input context.
    */
-  interface OpenTagSuppressionPolicy {
+  interface PushedOutTablePolicy {
+    /** Whether the operations below are available for the current policy. */
+    boolean supportsPushedOutTableOperations();
+
+    /** Applies element and text policy while deliberately emitting no tag. */
     void openTagWithoutOutput(String elementName, List<String> attrs);
-  }
 
-  /**
-   * Implemented by a policy that emits a synthetic table only when its element
-   * policy keeps it as a table, and otherwise retains it as a virtual element.
-   */
-  interface ReopenedTablePolicy {
+    /** Emits a synthetic table only if policy keeps it as a table. */
     void openReopenedTable(List<String> attrs);
-  }
 
-  /** Reports the browser context of the elements the policy actually emits. */
-  interface OutputContextPolicy {
+    /** Reports the browser context of the elements actually emitted. */
     boolean isOutputInForeignContent();
 
     @Nullable String outputForeignContentRootName();
@@ -391,24 +388,31 @@ public class TagBalancingHtmlStreamEventReceiver
    * behavior, including its nesting-limit accounting.
    */
   private boolean isOutputInForeignContent() {
-    return underlying instanceof OutputContextPolicy
-        && ((OutputContextPolicy) underlying).isOutputInForeignContent();
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null && policy.isOutputInForeignContent();
   }
 
   /** The outermost foreign root the policy has actually emitted, if known. */
   private @Nullable String outputForeignContentRootName() {
-    return underlying instanceof OutputContextPolicy
-        ? ((OutputContextPolicy) underlying).outputForeignContentRootName()
-        : null;
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null ? policy.outputForeignContentRootName() : null;
   }
 
   /** Whether the current output context applies foreign rules to this tag. */
   private boolean outputStartTagUsesForeignContentRules(
       String elementName, List<String> attrs) {
-    return underlying instanceof OutputContextPolicy
-        ? ((OutputContextPolicy) underlying)
-            .outputStartTagUsesForeignContentRules(elementName, attrs)
-        : false;
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null
+        && policy.outputStartTagUsesForeignContentRules(elementName, attrs);
+  }
+
+  /** The pushed-out-table operations supported by the current policy. */
+  private @Nullable PushedOutTablePolicy pushedOutTablePolicy() {
+    if (underlying instanceof PushedOutTablePolicy) {
+      PushedOutTablePolicy policy = (PushedOutTablePolicy) underlying;
+      if (policy.supportsPushedOutTableOperations()) { return policy; }
+    }
+    return null;
   }
 
   /** Opens one logical element, suppressing unsafe table structure if needed. */
@@ -423,10 +427,10 @@ public class TagBalancingHtmlStreamEventReceiver
   private int openElement(
       int inputElementIndex, List<String> attrs, boolean implied) {
     String inputElementName = METADATA.canonNameForIndex(inputElementIndex);
-    if (shouldSuppressTablePart(inputElementIndex, implied)
-        && underlying instanceof OpenTagSuppressionPolicy) {
-      ((OpenTagSuppressionPolicy) underlying)
-          .openTagWithoutOutput(inputElementName, attrs);
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    if (policy != null
+        && shouldSuppressTablePart(inputElementIndex, implied)) {
+      policy.openTagWithoutOutput(inputElementName, attrs);
       return NO_OUTPUT_ELEMENT;
     }
     underlying.openTag(inputElementName, attrs);
@@ -701,13 +705,13 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(foreignRootPendingTableReturn);
       foreignRootPendingTableReturn = null;
     }
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
     for (int i = 0; i < n; ++i) {
       int outputElementIndex = NO_OUTPUT_ELEMENT;
       if (openElements.size() < nestingLimit) {
         List<String> attrs = new ArrayList<>();
-        if (run[i] == TABLE_TAG
-            && underlying instanceof ReopenedTablePolicy) {
-          ((ReopenedTablePolicy) underlying).openReopenedTable(attrs);
+        if (run[i] == TABLE_TAG && policy != null) {
+          policy.openReopenedTable(attrs);
           outputElementIndex = outputElementIndexForLastOpenTag(run[i]);
         } else {
           outputElementIndex = openElement(run[i], attrs);
@@ -715,7 +719,8 @@ public class TagBalancingHtmlStreamEventReceiver
       }
       openElements.add(run[i]);
       outputElements.add(outputElementIndex);
-      if (run[i] == TABLE_TAG && outputElementIndex != TABLE_TAG) {
+      if (policy != null
+          && run[i] == TABLE_TAG && outputElementIndex != TABLE_TAG) {
         reopenedWithoutTable.set(openElements.size() - 1);
       }
     }
