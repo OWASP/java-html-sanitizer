@@ -256,6 +256,17 @@ public class HtmlPolicyBuilder {
   private static HtmlElementTables METADATA = HtmlElementTables.get();
   /**
    * Allow the given elements with the given policy.
+   * <p>
+   * Whether text may appear inside an element the policy renames follows the
+   * name given here, which {@link #allowTextIn} and {@link #disallowTextIn}
+   * take as well, not the name the policy returns: a policy that turns
+   * {@code span} into {@code div} keeps the text of the span whether or not
+   * {@code div} is allowed in its own right.  The one exception is a rename
+   * into an element whose content a browser reads literally, such as
+   * {@code style} or {@code script}, which keeps text only if that name was
+   * also passed to {@code allowTextIn}, as it would have to be if written.
+   * A void element renamed to one that is not void, such as {@code br} to
+   * {@code span}, is closed at once, since no close tag will come for it.
    *
    * @param policy May remove or add attributes, change the element name, or
    *    deny the element.

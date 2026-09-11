@@ -2,6 +2,17 @@
 
 Most recent at top.
   * Next release
+    * An element an `ElementPolicy` renames is judged for text by the name
+      the author wrote, which is the name `allowElements`, `allowTextIn` and
+      `disallowTextIn` take, so `span` renamed to `div` keeps its text
+      whether or not `div` is allowed in its own right (#445).  A rename
+      into an element whose content a browser reads literally, such as
+      `style`, still needs `allowTextIn` on that name.  A void element
+      renamed to one that is not, such as `br` to `span`, is closed at once
+      rather than left open until its parent closes, which also kept the
+      renamed elements from nesting past the balancer's limit (#450).  An
+      element renamed to a void one no longer lets its close tag end an outer
+      element of the same name.
     * Ordinary script and style text survives the filter on kept
       literal-content elements.  A tag now needs a well-formed name -- an
       ASCII letter and then letters, digits, `-`, `_`, `:` or `.` -- so

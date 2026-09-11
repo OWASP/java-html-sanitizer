@@ -68,8 +68,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * <p>
    * While a document is open, this is the gate {@link #openElementStack}
    * implies.  Text belongs to the nearest enclosing element the policy kept,
-   * and is emitted only if that element is an allowed text container whose
-   * input name is not one text was disallowed in.  A dropped element between
+   * and is emitted only if that element is an allowed text container under
+   * the name the author wrote, and, where the policy emitted it under a name
+   * a browser reads literally, under that name too.  A dropped element between
    * the text and that container is not a container in the output, so it does
    * not decide -- unless its content is never meant to be read as text
    * ({@link #SKIPPABLE_ELEMENT_CONTENT}) or text in it was disallowed, either
@@ -113,7 +114,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private String literalTextTail = "";
   /**
    * Alternating input names and adjusted names of elements opened by the
-   * caller.
+   * caller, for the input names a close tag can come for: the ones that are
+   * not void.  The adjusted name is null where there is nothing to close in
+   * the output, because the element was dropped or emitted as a void one.
    */
   private final List<String> openElementStack = new ArrayList<>();
   /**
@@ -857,27 +860,53 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       ElementAndAttributePolicies policies, String adjustedElementName,
       List<String> attrs) {
     outputElementNameForLastOpenTag = adjustedElementName;
-    if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
-      push(policies.elementName, adjustedElementName);
-      // A kept element is the container for the text inside it.  It is judged
-      // by the name it was kept under, and by the name the author wrote when
-      // text was disallowed in that.
-      skipText = !allowedTextContainers.contains(adjustedElementName)
-          || disallowedTextContainers.contains(policies.elementName);
-      boolean enteringKeptCdata = isLiteralContentElement(adjustedElementName)
-          && allowedTextContainers.contains(adjustedElementName);
-      if (!inKeptCdataElement && enteringKeptCdata) {
-        keptCdataElementName = adjustedElementName;
-        literalTextTail = "";
+    String elementName = policies.elementName;
+    // Whether a close tag will come for this element depends on the name the
+    // author wrote, which is the one the lexer and the tag balancer see, not
+    // on the name the policy emitted it under.  The stack follows suit, so
+    // that every entry on it is one a close tag can pop.
+    if (HtmlTextEscapingMode.isVoidElement(elementName)) {
+      out.openTag(adjustedElementName, attrs);
+      if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
+        // Renamed to an element that needs closing, which nothing upstream
+        // will do: closed at once, so it does not swallow what follows.
+        out.closeTag(adjustedElementName);
       }
-      inKeptCdataElement = inKeptCdataElement || enteringKeptCdata;
-      // Judged before this element is in foreign content itself: a browser
-      // parses the content of an svg or math element as markup, but the
-      // element's own tag sits in whatever contains it.
-      inForeignContent = inForeignContent
-          || HtmlStreamRenderer.FOREIGN_CONTENT_ROOT_ELEMENT_NAMES.contains(
-                 adjustedElementName);
+      return;
     }
+    if (HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
+      // Renamed to a void element.  The close tag that comes for the input
+      // name has nothing to close in the output, and the text between is
+      // not inside the element there, so the gate stays as it was, as after
+      // a dropped element.
+      push(elementName, null);
+      skipText = skipText || suppressesTextWhenDropped(elementName);
+      out.openTag(adjustedElementName, attrs);
+      return;
+    }
+    push(elementName, adjustedElementName);
+    // A kept element is the container for the text inside it.  Whether it may
+    // hold text was said of the name the author wrote, which is the name the
+    // builder's methods take, so that is the name judged.  An element the
+    // policy emits under a name a browser reads literally, such as style, is
+    // held to the same bar as one written under that name: text in it needs
+    // allowTextIn on that name too.
+    boolean literal = isLiteralContentElement(adjustedElementName);
+    skipText = !allowedTextContainers.contains(elementName)
+        || disallowedTextContainers.contains(elementName)
+        || (literal && !allowedTextContainers.contains(adjustedElementName));
+    boolean enteringKeptCdata = literal && !skipText;
+    if (!inKeptCdataElement && enteringKeptCdata) {
+      keptCdataElementName = adjustedElementName;
+      literalTextTail = "";
+    }
+    inKeptCdataElement = inKeptCdataElement || enteringKeptCdata;
+    // Judged before this element is in foreign content itself: a browser
+    // parses the content of an svg or math element as markup, but the
+    // element's own tag sits in whatever contains it.
+    inForeignContent = inForeignContent
+        || HtmlStreamRenderer.FOREIGN_CONTENT_ROOT_ELEMENT_NAMES.contains(
+               adjustedElementName);
     out.openTag(adjustedElementName, attrs);
   }
 
