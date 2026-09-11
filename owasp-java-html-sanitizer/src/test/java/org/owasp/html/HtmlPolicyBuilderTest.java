@@ -2001,6 +2001,152 @@ class HtmlPolicyBuilderTest {
   }
 
   /**
+   * Whether an element may hold text is said of the name the author wrote,
+   * which is the name {@code allowElements(ElementPolicy, String...)} takes,
+   * so a rename to a name the policy does not allow in its own right keeps
+   * the text (#445).  The gate used to follow the emitted name, so the span
+   * survived as an empty div.
+   */
+  @Test
+  void testTextSurvivesARenameToAnUnallowedName() {
+    assertEquals(
+        "<div>hi</div>",
+        apply(
+            new HtmlPolicyBuilder()
+                .allowElements((name, attrs) -> "div", "span")
+                .allowWithoutAttributes("span"),
+            "<span>hi</span>"));
+    assertEquals(
+        "<div>hi</div> <div>x<i>y</i>z</div>",
+        apply(
+            new HtmlPolicyBuilder()
+                .allowElements((name, attrs) -> "div", "b")
+                .allowElements("i"),
+            "<b>hi</b> <b>x<i>y</i>z</b>"));
+  }
+
+  /**
+   * {@code allowTextIn} takes the name the author wrote too, so it reaches a
+   * renamed element, and without it the text of a raw-text element written
+   * under that name stays out, whatever the policy renames it to.
+   */
+  @Test
+  void testAllowTextInFollowsTheInputNameOfARenamedElement() {
+    HtmlPolicyBuilder styleToDiv = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "div", "style");
+    assertEquals(
+        "<div></div>", apply(styleToDiv, "<style>a<b</style>"));
+    assertEquals(
+        "<div>a&lt;b</div>",
+        apply(styleToDiv.allowTextIn("style"), "<style>a<b</style>"));
+  }
+
+  /**
+   * A rename into an element whose content a browser reads literally is held
+   * to the bar the builder sets for that name: text in a {@code style} needs
+   * {@code allowTextIn("style")} whether the author wrote {@code <style>} or
+   * a {@code <div>} the policy turned into one.  Otherwise a rename would be
+   * a way to write raw stylesheet or script text without saying so.
+   */
+  @Test
+  void testRenameIntoALiteralContentElementStillNeedsAllowTextInOnTheTarget() {
+    HtmlPolicyBuilder divToStyle = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "style", "div");
+    assertEquals(
+        "<style></style>", apply(divToStyle, "<div>a{b:c}</div>"));
+    assertEquals(
+        "<style>a{b:c}</style>",
+        apply(divToStyle.allowTextIn("style"), "<div>a{b:c}</div>"));
+  }
+
+  /**
+   * A void element renamed to one that is not void is closed at once (#450).
+   * The lexer never produces a close tag for {@code br}, and the balancer,
+   * which also goes by the input name, never synthesizes one, so the renamed
+   * element used to stay open until its parent closed and swallowed every
+   * sibling after it.  Same result whether or not the target may hold text:
+   * the text after the void element belongs to the paragraph.
+   */
+  @Test
+  void testVoidElementRenamedToANonVoidOneIsClosedAtOnce() {
+    String html = "<p>a<br>b<i>c</i>d</p><p>e</p>";
+    assertEquals(
+        "<p>a<span></span>bcd</p><p>e</p>",
+        apply(
+            new HtmlPolicyBuilder()
+                .allowElements((name, attrs) -> "span", "br")
+                .allowElements("p", "span"),
+            html));
+    assertEquals(
+        "<p>a<span></span>bcd</p><p>e</p>",
+        apply(
+            new HtmlPolicyBuilder()
+                .allowElements((name, attrs) -> "span", "br")
+                .allowElements("p"),
+            html));
+  }
+
+  /**
+   * The balancer caps how deep the output nests, but it never counts a void
+   * input element, so the phantom entries of #450 nested past the cap: three
+   * hundred {@code <br>} renamed to {@code span} came out as three hundred
+   * spans inside one another.
+   */
+  @Test
+  void testVoidElementRenamedToANonVoidOneDoesNotNest() {
+    StringBuilder html = new StringBuilder();
+    StringBuilder expected = new StringBuilder();
+    for (int i = 0; i < 300; ++i) {
+      html.append("<br>");
+      expected.append("<span></span>");
+    }
+    assertEquals(
+        expected.toString(),
+        apply(
+            new HtmlPolicyBuilder()
+                .allowElements((name, attrs) -> "span", "br")
+                .allowElements("span"),
+            html.toString()));
+  }
+
+  /**
+   * The reverse rename, to a void element, has nothing to close in the
+   * output, and the text after the void element belongs to the enclosing
+   * container, as it does after a dropped element.  Text was disallowed in
+   * the element by the name the author wrote, so that still holds.
+   */
+  @Test
+  void testNonVoidElementRenamedToAVoidOne() {
+    HtmlPolicyBuilder spanToBr = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "br", "span")
+        .allowWithoutAttributes("span")
+        .allowElements("p");
+    assertEquals(
+        "<p>x<br />yz</p>", apply(spanToBr, "<p>x<span>y</span>z</p>"));
+    assertEquals(
+        "<p>x<br />z</p>",
+        apply(spanToBr.disallowTextIn("span"), "<p>x<span>y</span>z</p>"));
+  }
+
+  /**
+   * The close tag of an element renamed to a void one pops that element and
+   * nothing else.  Before #450 the policy pushed nothing for it, so the close
+   * tag found the nearest open element of the same input name instead and
+   * ended the outer span early, leaving {@code c} outside it.
+   */
+  @Test
+  void testCloseTagOfAnElementRenamedToAVoidOnePopsOnlyThatElement() {
+    HtmlPolicyBuilder classedSpanToBr = new HtmlPolicyBuilder()
+        .allowElements(
+            (name, attrs) -> attrs.isEmpty() ? "span" : "br", "span")
+        .allowWithoutAttributes("span")
+        .allowAttributes("class").onElements("span");
+    assertEquals(
+        "<span>a<br class=\"x\" />bc</span>",
+        apply(classedSpanToBr, "<span>a<span class=x>b</span>c</span>"));
+  }
+
+  /**
    * A factory is typically parked in a static final for the life of the JVM,
    * so nothing it holds may point back at the throwaway builder.  The value
    * policies behind {@code matching(...)} used to be anonymous classes, and
