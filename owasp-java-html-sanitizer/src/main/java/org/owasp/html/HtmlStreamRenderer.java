@@ -63,7 +63,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
   private boolean open;
   /**
-   * The count of {@link #foreignContentRootElementNames} opened and not
+   * The count of {@link #FOREIGN_CONTENT_ROOT_ELEMENT_NAMES} opened and not
    * subsequently closed.
    */
   private int foreignContentDepth = 0;
