@@ -57,7 +57,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   private final Handler<? super IOException> ioExHandler;
   private final Handler<? super String> badHtmlHandler;
   /** Told about dropped literal content; null while nobody is listening. */
-  private @Nullable DroppedTextListener droppedTextListener;
+  private @Nullable DropListener dropListener;
   private String lastTagOpened;
   private StringBuilder pendingUnescaped;
   private HtmlTextEscapingMode escapingMode = HtmlTextEscapingMode.PCDATA;
@@ -83,7 +83,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
    * @param badHtmlHandler receives alerts when HTML cannot be rendered because
    *    there is not valid HTML tree that results from that series of calls.
    *    E.g. it is not possible to create an HTML {@code <style>} element whose
-   *    textual content is {@code "</style>"}.
+   *    textual content is {@code "</style>"}.  What the renderer leaves out
+   *    on such an alert also reaches an {@link HtmlChangeListener} when the
+   *    renderer is behind an {@link HtmlChangeReporter}, as it is in
+   *    {@link PolicyFactory#sanitize(String, HtmlChangeListener, Object)}.
    */
   public static HtmlStreamRenderer create(
       @WillCloseWhenClosed Appendable output,
@@ -149,12 +152,41 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   }
 
   /**
-   * Sends dropped literal content to {@code listener}, or to nobody, until
+   * Carries the renderer's other drops to {@link HtmlChangeReporter} as
+   * well: a start tag it did not write, and an attribute it left off one it
+   * did.  Each also goes to the bad-HTML handler as a message, which is all
+   * there was before and which {@link PolicyFactory#sanitize} wires to
+   * nobody, so without this a listener heard nothing of them.
+   */
+  interface DropListener extends DroppedTextListener {
+    /**
+     * A start tag the renderer did not write, because the element's name is
+     * not one HTML allows or because it arrived inside literal content that
+     * cannot hold a tag.  The matching end tag is refused for the same reason
+     * when it comes, and is not reported: it is the same loss.
+     *
+     * @param elementName the element's name as the renderer received it.
+     */
+    void droppedTag(String elementName);
+
+    /**
+     * An attribute left off a start tag the renderer wrote, because its name
+     * is not one HTML allows.
+     *
+     * @param elementName the element the tag opened.
+     * @param name the attribute's name, as the renderer received it.
+     * @param value the attribute's value, as the renderer received it.
+     */
+    void droppedAttribute(String elementName, String name, String value);
+  }
+
+  /**
+   * Sends what the renderer drops to {@code listener}, or to nobody, until
    * the next {@link #openDocument}, which starts a document with nobody
    * listening.
    */
-  final void reportDroppedTextTo(@Nullable DroppedTextListener listener) {
-    this.droppedTextListener = listener;
+  final void reportDropsTo(@Nullable DropListener listener) {
+    this.dropListener = listener;
   }
 
   public final void openDocument() throws IllegalStateException {
@@ -162,7 +194,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     open = true;
     // A listener is for one document; whoever wants this one's drops
     // registers after this, so an earlier document's cannot linger.
-    droppedTextListener = null;
+    dropListener = null;
   }
 
   public final void closeDocument() throws IllegalStateException {
@@ -203,10 +235,12 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     String elementName = safeName(unsafeElementName);
     if (!isValidHtmlName(elementName)) {
       error("Invalid element name", elementName);
+      if (dropListener != null) { dropListener.droppedTag(elementName); }
       return;
     }
     if (pendingUnescaped != null) {
       error("Tag content cannot appear inside CDATA element", elementName);
+      if (dropListener != null) { dropListener.droppedTag(elementName); }
       return;
     }
 
@@ -245,6 +279,9 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       name = HtmlLexer.canonicalAttributeName(name);
       if (!isValidHtmlName(name)) {
         error("Invalid attr name", name);
+        if (dropListener != null) {
+          dropListener.droppedAttribute(elementName, name, value);
+        }
         continue;
       }
       output.append(' ').append(name).append('=').append('"');
@@ -320,9 +357,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             cdataContent.subSequence(
                 problemIndex,
                 Math.min(problemIndex + 10, cdataContent.length())));
-        if (droppedTextListener != null) {
-          droppedTextListener.droppedText(
-              elementName, cdataContent.toString());
+        if (dropListener != null) {
+          dropListener.droppedText(elementName, cdataContent.toString());
         }
         // Still output the close tag.
       }

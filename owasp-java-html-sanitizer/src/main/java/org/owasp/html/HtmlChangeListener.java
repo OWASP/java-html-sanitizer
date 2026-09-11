@@ -45,7 +45,15 @@ import javax.annotation.Nullable;
  */
 public interface HtmlChangeListener<T> {
 
-  /** Called when a tag is discarded from the input. */
+  /**
+   * Called when a tag is discarded from the input, by the policy, by the tag
+   * balancer for nesting past its limit, or by the renderer.  The renderer
+   * writes no tag whose name is not one HTML allows, which an
+   * {@link ElementPolicy} can produce by renaming, and none that arrives
+   * inside literal content it is writing, such as the tags inside an element
+   * a policy renamed into a {@code style}.  Its drops are reported under the
+   * same conditions as its dropped text: see {@link #discardedText}.
+   */
   public void discardedTag(@Nullable T context, String elementName);
 
   /**
@@ -60,7 +68,9 @@ public interface HtmlChangeListener<T> {
    * reports the tag, and this method still reports the attributes, since
    * rejecting them is what the policy did.  Attributes on a tag that the
    * policy did not allow are not reported; {@code discardedTag} covers the
-   * whole tag.
+   * whole tag.  An attribute the renderer leaves off a tag it writes, because
+   * its name is not one HTML allows, is reported here too, under the same
+   * conditions as the renderer's dropped text: see {@link #discardedText}.
    * <p>
    * A repeated attribute name counts once per dropped copy.
    */
