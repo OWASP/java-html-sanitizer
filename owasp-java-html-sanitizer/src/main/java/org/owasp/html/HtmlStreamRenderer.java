@@ -137,11 +137,8 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   }
 
   /**
-   * Told when the content of a literal-content element such as
-   * {@code script} or {@code style} is dropped because it cannot be emitted
-   * without a browser reading it differently.  The bad HTML handler hears
-   * of it too, as a message; this carries the content itself, so that
-   * {@link HtmlChangeReporter} can report the loss to its listener.
+   * Carries literal content discarded by the policy or renderer to
+   * {@link HtmlChangeReporter}, which reports the loss to its listener.
    */
   interface DroppedTextListener {
     /**

@@ -185,8 +185,8 @@ String sanitizedHtml = myPolicyFactory.sanitize(
 was then dropped for having none left, such as a link whose only `href` was
 rejected.  Two default methods carry more detail for listeners that override
 them: `discardedAttribute` receives each rejected attribute's value, and
-`discardedText` receives content the renderer could not emit from a kept
-`script` or `style` element.
+`discardedText` receives tag-like content the policy removed from a kept
+literal-content element, and content the renderer could not emit from one.
 
 **Note**: If a string sanitizes with no change notifications, it is not the case
 that the input string is necessarily safe to use. Only use the output of the sanitizer.
@@ -194,7 +194,7 @@ that the input string is necessarily safe to use. Only use the output of the san
 The sanitizer ensures that the output is in a sub-set of HTML that commonly
 used HTML parsers will agree on the meaning of, but the absence of
 notifications does not mean that the input is in such a sub-set,
-only that it does not contain elements or attributes that were removed.
+only that it does not contain structural content that was removed.
 
 See ["Why sanitize when you can validate"](https://github.com/OWASP/java-html-sanitizer/blob/main/docs/html-validation.md) for more on this topic.
 

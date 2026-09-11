@@ -36,7 +36,8 @@ import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
 
 /**
  * Sits between the HTML parser, the policy, and the renderer so that it
- * can report dropped elements and attributes to an {@link HtmlChangeListener}.
+ * can report dropped elements, attributes and text to an
+ * {@link HtmlChangeListener}.
  *
  * <pre>
  * HtmlChangeReporter&lt;T&gt; hcr = new HtmlChangeReporter&lt;T&gt;(
@@ -47,7 +48,7 @@ import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
  *
  * The renderer receives events from the policy unchanged, but the reporter
  * notices differences between the events from the lexer and those from the
- * policy.
+ * policy, and receives notice of text the policy or renderer drops.
  *
  * @param <T> The type of context value passed to the
  */
@@ -99,6 +100,16 @@ public final class HtmlChangeReporter<T> {
     boolean skippedLastTagAsAttributeless();
   }
 
+  /**
+   * Implemented by a policy that can report text it drops after keeping the
+   * element that contained it.
+   */
+  interface DroppedTextSource {
+    /** Sends dropped text to {@code listener}, or to nobody when null. */
+    void reportDroppedTextTo(
+        @Nullable HtmlStreamRenderer.DroppedTextListener listener);
+  }
+
   private static final class InputChannel<T>
       implements HtmlSanitizer.Policy,
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
@@ -108,6 +119,8 @@ public final class HtmlChangeReporter<T> {
     final OutputChannel output;
     final T context;
     final HtmlChangeListener<? super T> listener;
+    /** Alternating element names and text, gathered before user callbacks. */
+    final List<String> pendingDroppedText = new ArrayList<>();
 
     InputChannel(
         OutputChannel output, HtmlChangeListener<? super T> listener,
@@ -143,11 +156,16 @@ public final class HtmlChangeReporter<T> {
      * the balancer does for the nesting limit.
      */
     public void droppedText(String elementName, String text) {
-      listener.discardedText(context, elementName, text);
+      pendingDroppedText.add(elementName);
+      pendingDroppedText.add(text);
     }
 
     public void openDocument() {
+      pendingDroppedText.clear();
       policy.openDocument();
+      if (policy instanceof DroppedTextSource) {
+        ((DroppedTextSource) policy).reportDroppedTextTo(this);
+      }
       // The renderer decides on its own to drop literal content it cannot
       // emit, so it has to tell us; any other receiver keeps that to itself.
       // Bound once the renderer has opened the document, which forgets any
@@ -160,7 +178,11 @@ public final class HtmlChangeReporter<T> {
       // Closing may flush and drop pending literal content, so listen until
       // the renderer is done.
       policy.closeDocument();
+      if (policy instanceof DroppedTextSource) {
+        ((DroppedTextSource) policy).reportDroppedTextTo(null);
+      }
       output.listenForDroppedText(null);
+      dispatchDroppedText();
     }
 
     public void openTag(String elementName, List<String> attrs) {
@@ -218,10 +240,24 @@ public final class HtmlChangeReporter<T> {
 
     public void closeTag(String elementName) {
       policy.closeTag(elementName);
+      dispatchDroppedText();
     }
 
     public void text(String textChunk) {
       policy.text(textChunk);
+      dispatchDroppedText();
+    }
+
+    /** Dispatches outside the policy call that decided to drop the text. */
+    private void dispatchDroppedText() {
+      if (!pendingDroppedText.isEmpty()) {
+        String[] dropped = pendingDroppedText.toArray(
+            new String[pendingDroppedText.size()]);
+        pendingDroppedText.clear();
+        for (int i = 0; i < dropped.length; i += 2) {
+          listener.discardedText(context, dropped[i], dropped[i + 1]);
+        }
+      }
     }
 
     private static final String[] ZERO_STRINGS = new String[0];
