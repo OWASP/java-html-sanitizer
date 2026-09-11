@@ -92,6 +92,10 @@ public class TagBalancingHtmlStreamEventReceiver
    * and returns to the table: its parts, which clear the stack back to the
    * table, and a table itself, which pops the open table and takes its
    * place.
+   * <p>
+   * These are the same elements whose end tags are scoped to a table in
+   * {@link #SCOPE_FOR_END_TAG}, which is built far below; the two lists are
+   * written out separately because that one is not initialized yet here.
    */
   private static final BitSet TABLE_PARTS = new BitSet();
   static {
@@ -313,9 +317,22 @@ public class TagBalancingHtmlStreamEventReceiver
         && TABLE_PARTS.get(elIndex)) {
       returnToPushedOutTable(elIndex);
     }
-    int nOpen = openElements.size();
+    // Push an open table out of the way before anything below asks what
+    // contains the content: a browser puts content a table cannot hold in
+    // front of the table, so what contains the table contains the content,
+    // and it is what decides which elements are implied and what must close.
+    if (isFosterParented(elIndex) && !endsAnOpenLink(elIndex)) {
+      int tableIndex = containerIndex();
+      if (tableIndex >= 0
+          && TABLE_CONTEXT.get(openElements.get(tableIndex))
+          && !canHold(elIndex, openElements.get(tableIndex), tableIndex)) {
+        pushOutTable(tableIndex);
+      }
+    }
+
     {
-      int top = nOpen != 0 ? openElements.get(nOpen - 1) : BODY_TAG;
+      int container = containerIndex();
+      int top = container >= 0 ? openElements.get(container) : BODY_TAG;
       // Open implied elements, such as list-items and table cells & rows.
       int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
       if (impliedElIndices.length != 0) {
@@ -339,50 +356,47 @@ public class TagBalancingHtmlStreamEventReceiver
           openElements.add(impliedElIndex);
           outputElements.add(
               outputElementIndexForLastOpenTag(impliedElIndex));
-          top = impliedElIndex;
-          ++nOpen;
         }
       }
     }
 
-    if (nOpen != 0) {
-      int top = openElements.get(nOpen - 1);
-      // Close all the elements that cannot contain the content to open.
-      while (true) {
-        // A link ends the link open before it, wherever that is: nested
-        // links do not survive a browser's parse, so a table between them
-        // cannot stay open either.
-        boolean linkEndsLink =
-            elIndex == A_TAG && hasOpenLinkInFormattingScope();
-        boolean canContain = canContain(elIndex, top, nOpen - 1)
-            && !linkEndsLink;
-        if (canContain) {
-          break;
+    // Close all the elements that cannot contain the content to open.
+    while (true) {
+      int container = containerIndex();
+      if (container < 0) { break; }
+      int top = openElements.get(container);
+      // A link ends the link open before it, wherever that is: nested links
+      // do not survive a browser's parse, so a table between them cannot
+      // stay open either.
+      boolean endsLink = endsAnOpenLink(elIndex);
+      if (!endsLink && canContain(elIndex, top, container)) {
+        break;
+      }
+      if (!endsLink
+          && TABLE_CONTEXT.get(top) && isFosterParented(elIndex)) {
+        // As above, for a table uncovered by closing what held it.
+        pushOutTable(container);
+        continue;
+      }
+      // Close the container, and with it anything put in front of a table
+      // it holds, from the top down.
+      for (int i = openElements.size(); --i >= container;) {
+        int unclosed = openElements.get(i);
+        if (i + 1 < nestingLimit && !pushedOut.get(i)) {
+          underlying.closeTag(METADATA.canonNameForIndex(unclosed));
         }
-        if (!linkEndsLink
-            && TABLE_CONTEXT.get(top) && isFosterParented(elIndex)) {
-          // A browser puts the content in front of the table and keeps the
-          // table open.  Close the table in the output, keep it here, and
-          // open the content beside it.
-          pushOutTable(nOpen - 1);
-          break;
+        openElements.remove(i);
+        outputElements.remove(i);
+        pushedOut.clear(i);
+        if (METADATA.resumable(unclosed) && unclosed != elIndex) {
+          toResumeInReverse.add(unclosed);
         }
-        if (openElements.size() < nestingLimit && !pushedOut.get(nOpen - 1)) {
-          underlying.closeTag(METADATA.canonNameForIndex(top));
-        }
-        openElements.remove(--nOpen);
-        outputElements.remove(nOpen);
-        pushedOut.clear(nOpen);
-        if (METADATA.resumable(top) && top != elIndex) {
-          toResumeInReverse.add(top);
-        }
-        if (nOpen == 0) { break; }
-        top = openElements.get(nOpen - 1);
       }
     }
 
     while (!toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
+      int nOpen;
       // If toResume can contain elInfo AND the top of the stack can contain
       // toResume, then we push toResume.  A link is not resumed around
       // another link, or where one is open: a browser ends a link when the
@@ -413,10 +427,50 @@ public class TagBalancingHtmlStreamEventReceiver
   /**
    * True if a browser puts content of this kind that arrives inside a table,
    * outside a cell or caption, in front of the table rather than in it: text,
-   * and any element that is not one of a table's own parts.
+   * and any element that is not one of a table's own parts.  What a table
+   * may hold directly, such as a {@code script} or a {@code form}, never
+   * reaches this: the containment tables say the table can contain it.
    */
   private static boolean isFosterParented(int elIndex) {
     return elIndex == HtmlElementTables.TEXT_NODE || !TABLE_PARTS.get(elIndex);
+  }
+
+  /** True if a link is open that a browser ends before opening this one. */
+  private boolean endsAnOpenLink(int elIndex) {
+    return elIndex == A_TAG && hasOpenLinkInFormattingScope();
+  }
+
+  /**
+   * The stack index of the element that content arriving now goes into: the
+   * top, unless a pushed-out table is at the top, in which case the content
+   * goes beside the table, so the element that contains the table is the one
+   * that contains the content.
+   */
+  private int containerIndex() {
+    int i = openElements.size();
+    while (--i >= 0 && pushedOut.get(i)) {
+      // Skip a table closed in the output but still open here.
+    }
+    return i;
+  }
+
+  /**
+   * True if {@code container} can hold {@code elIndex}, with elements
+   * implied between them where it needs them.  The implied path has to run
+   * through the container: one that does not is a fresh table, or list, to
+   * open inside it rather than a way into the one that is already open.
+   */
+  private boolean canHold(
+      int elIndex, int container, int containerIndexOnStack) {
+    int[] implied = METADATA.impliedElements(container, elIndex);
+    for (int i = 0, n = implied.length; i < n; ++i) {
+      if (implied[i] == container) {
+        return i + 1 < n
+            || canContain(elIndex, container, containerIndexOnStack);
+      }
+    }
+    return implied.length == 0
+        && canContain(elIndex, container, containerIndexOnStack);
   }
 
   /**
@@ -470,11 +524,7 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     while (top >= 0 && pushedOut.get(top)) {
-      int entry = openElements.get(top);
-      if (canContain(elIndex, entry, top)
-          || METADATA.impliedElements(entry, elIndex).length != 0) {
-        break;
-      }
+      if (canHold(elIndex, openElements.get(top), top)) { break; }
       openElements.remove(top);
       outputElements.remove(top);
       pushedOut.clear(top);

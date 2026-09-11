@@ -13,9 +13,14 @@ Most recent at top.
       output cannot put anything in front of a tag already written, so the
       table is written twice, once empty and once with the later rows, and
       text pushed out of a table follows it rather than preceding it as in a
-      browser; a browser reads the rest as it reads the input.  A link
-      pushed out of a table is not written again around or inside another
-      link.
+      browser; a browser reads the rest as it reads the input.  Such content
+      is judged by the element that holds the table, which is where a
+      browser puts it: that element closes if it cannot hold the content,
+      and supplies the elements a browser would imply around it, such as the
+      `select` around an `option`.  A link is no longer written again around
+      or inside another link, with or without a table involved, since a
+      browser's parse unnests links and the output would read back as a
+      different tree.
     * What `HtmlStreamRenderer` leaves out now reaches an `HtmlChangeListener`
       as well as the renderer's bad-HTML handler: a start tag whose name is
       not one HTML allows, which an `ElementPolicy` can produce by renaming,

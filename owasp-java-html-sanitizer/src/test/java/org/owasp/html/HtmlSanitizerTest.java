@@ -1981,6 +1981,131 @@ class HtmlSanitizerTest {
     assertEquals(out, p.sanitize(out));
   }
 
+  /**
+   * Content is judged by what holds the table it was pushed out of, since
+   * that is where a browser puts it.  An element that cannot hold the
+   * content closes instead of nesting it: a heading inside a heading does
+   * not survive a browser's parse, so the output would read back as a
+   * different tree.
+   */
+  @Test
+  void testPushedOutContentIsJudgedByWhatHoldsTheTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "h1", "button")
+        .toFactory();
+    String heading = p.sanitize(
+        "<h1><table><tr><td>a</td></tr><h1>b</h1></table>");
+    assertEquals(
+        "<h1><table><tbody><tr><td>a</td></tr></tbody></table></h1>"
+        + "<h1>b</h1>",
+        heading);
+    assertEquals(heading, p.sanitize(heading));
+
+    String button = p.sanitize(
+        "<button><table><tr><td>a</td></tr><button>b</button></table>");
+    assertEquals(
+        "<button><table><tbody><tr><td>a</td></tr></tbody></table></button>"
+        + "<button>b</button>",
+        button);
+    assertEquals(button, p.sanitize(button));
+  }
+
+  /**
+   * And it gets the elements a browser would imply around it there: an
+   * option needs its select whether or not a table was pushed out of the
+   * way, which the tables never leave to chance, since the sanitizer does
+   * not know what the output will be embedded in.
+   */
+  @Test
+  void testContentBesideAPushedOutTableStillGetsItsImpliedWrapper() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "select", "option")
+        .toFactory();
+    String out = p.sanitize("<table>x<option>o</option></table>z");
+
+    assertEquals("<table></table>x<select><option>o</option></select>z", out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * Text that follows a pushed-out table reaches the output even where the
+   * element holding the table cannot hold text: that element closes, as it
+   * would for text arriving anywhere else, rather than the text going into
+   * it and being dropped.  The table inside the {@code colgroup} here is a
+   * separate, older mis-implication (#483); what this pins is that
+   * {@code tail} survives.
+   */
+  @Test
+  void testTextAfterAPushedOutTableSurvivesAContainerThatCannotHoldIt() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "colgroup", "col", "tbody", "tr", "td")
+        .toFactory();
+    String out = p.sanitize("<table><col><tr><td>a</td></tr>tail</table>");
+
+    assertEquals(
+        "<table><colgroup><col />"
+        + "<table><tbody><tr><td>a</td></tr></tbody></table>"
+        + "</colgroup></table>tail",
+        out);
+  }
+
+  /**
+   * A cell returning to a pushed-out table lands in the table, not in a
+   * fresh one: the row group it arrives in cannot hold a cell without a row
+   * between, and the path to that row runs through a table, so the row group
+   * goes and the table takes the cell.
+   */
+  @Test
+  void testACellReturningToAPushedOutSectionDoesNotOpenANewTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "thead", "tfoot", "tbody", "tr", "td", "th")
+        .toFactory();
+    String head = p.sanitize("<table><thead>x<td>y</td></table>tail");
+    assertEquals(
+        "<table><thead></thead></table>x"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        head);
+    assertEquals(head, p.sanitize(head));
+
+    String foot = p.sanitize("<table><tfoot>x<th>h</th></table>tail");
+    assertEquals(
+        "<table><tfoot></tfoot></table>x"
+        + "<table><tbody><tr><th>h</th></tr></tbody></table>tail",
+        foot);
+    assertEquals(foot, p.sanitize(foot));
+  }
+
+  /**
+   * The rule that a link is not written again around or inside another link
+   * is not about tables: an end tag that closes the element a link was
+   * misnested in queues the link for resumption, and resuming it around the
+   * next link used to produce nested links, which a browser's parse
+   * unnests, so the output read back as a different tree.
+   */
+  @Test
+  void testLinkIsNotResumedAroundAnotherLinkWithoutATable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("div", "p", "a")
+        .allowAttributes("href").onElements("a")
+        .allowUrlProtocols("http")
+        .allowWithoutAttributes("a")
+        .toFactory();
+    String out = p.sanitize(
+        "<div><a href=http://u>x</div><a href=http://v>y");
+    assertEquals(
+        "<div><a href=\"http://u\">x</a></div><a href=\"http://v\">y</a>",
+        out);
+    assertEquals(out, p.sanitize(out));
+
+    String nested = p.sanitize(
+        "<div><a href=http://u>x<p><a href=http://v>y</a></p></a>");
+    assertEquals(
+        "<div><a href=\"http://u\">x<p></p></a>"
+        + "<a href=\"http://v\">y</a></div>",
+        nested);
+    assertEquals(nested, p.sanitize(nested));
+  }
+
   /** Pushed-out content is bounded by the nesting limit like any other. */
   @Test
   void testPushedOutContentRespectsTheNestingLimit() {
@@ -1993,12 +2118,27 @@ class HtmlSanitizerTest {
         out.endsWith("</div><table><tbody><tr><td>y</td></tr></tbody></table>z"),
         out.substring(out.length() - 80));
     assertEquals(out, p.sanitize(out));
+  }
 
-    sb = new StringBuilder();
+  /**
+   * A table arriving beside a pushed-out table replaces it, so a long run
+   * of them leaves nothing behind: the stack stays flat however many there
+   * are, where the content used to nest one run inside the next.
+   */
+  @Test
+  void testRepeatedPushOutAndReturnDoesNotAccumulate() {
+    PolicyFactory p = tablePolicy();
+    StringBuilder sb = new StringBuilder();
     for (int i = 0; i < 300; ++i) { sb.append("<table><div>"); }
     sb.append("<tr><td>y</td></tr></table>z");
-    out = p.sanitize(sb.toString());
-    assertTrue(out.startsWith("<table></table><div></div><table></table>"), out);
+    String out = p.sanitize(sb.toString());
+
+    StringBuilder expected = new StringBuilder();
+    for (int i = 0; i < 300; ++i) { expected.append("<table></table><div></div>"); }
+    expected.setLength(expected.length() - "<table></table><div></div>".length());
+    expected.append("<table></table><div></div>")
+        .append("<table><tbody><tr><td>y</td></tr></tbody></table>z");
+    assertEquals(expected.toString(), out);
     assertEquals(out, p.sanitize(out));
   }
 
