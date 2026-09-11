@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * What `HtmlStreamRenderer` leaves out now reaches an `HtmlChangeListener`
+      as well as the renderer's bad-HTML handler: a start tag whose name is
+      not one HTML allows, which an `ElementPolicy` can produce by renaming,
+      is reported as a discarded tag, as is a tag arriving inside literal
+      content the renderer is writing; an attribute whose name is not one
+      HTML allows is reported as a discarded attribute, with its value.  The
+      policy had emitted each, so the listener used to hear nothing of them
+      (#469).
     * An element an `ElementPolicy` renames is judged for text by the name
       the author wrote, which is the name `allowElements`, `allowTextIn` and
       `disallowTextIn` take, so `span` renamed to `div` keeps its text

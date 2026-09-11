@@ -626,6 +626,77 @@ class HtmlChangeReporterTest {
    * Like {@link #sanitize} but also records each discarded attribute's value
    * and any dropped text; see {@link #verboseListener}.
    */
+  /**
+   * The renderer writes no tag whose name is not one HTML allows, which an
+   * element policy can produce by renaming (#469).  The policy had opened
+   * the tag, so the reporter counted it as kept and the listener heard
+   * nothing.  The attributes the policy rejected on it were its own
+   * decisions and are still reported, as for a tag skipped for having none.
+   */
+  @Test
+  void testTagRenamedToAnInvalidNameIsReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements((elementName, attrs) -> "a@b", "b")
+        .allowElements("p")
+        .toFactory();
+    Result result = sanitizeVerbose(policy, "<p><b onclick=x>hi</b>y</p>");
+
+    assertEquals("<p>hiy</p>", result.html);
+    assertEquals("<b> <b onclick> b.onclick=\"x\" ", result.log);
+  }
+
+  /**
+   * The renderer leaves an attribute whose name is not one HTML allows off
+   * the tag it writes.  It is reported with the value the author wrote.
+   */
+  @Test
+  void testAttributeWithAnInvalidNameIsReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("b")
+        .allowAttributes("x@y", "title").onElements("b")
+        .toFactory();
+    Result result = sanitizeVerbose(policy, "<b x@y=1 title=t>hi</b>");
+
+    assertEquals("<b title=\"t\">hi</b>", result.html);
+    assertEquals("<b x@y> b.x@y=\"1\" ", result.log);
+  }
+
+  /** An attribute a policy added is reported as the renderer received it. */
+  @Test
+  void testAddedAttributeWithAnInvalidNameIsReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements(
+            (elementName, attrs) -> {
+              attrs.add("x@y");
+              attrs.add("1");
+              return elementName;
+            },
+            "b")
+        .toFactory();
+    Result result = sanitizeVerbose(policy, "<b>hi</b>");
+
+    assertEquals("<b>hi</b>", result.html);
+    assertEquals("<b x@y> b.x@y=\"1\" ", result.log);
+  }
+
+  /**
+   * A tag arriving inside literal content the renderer is writing is dropped
+   * as content that cannot appear there, which a policy that renames an
+   * element into {@code style} brings about.  Reported under the input name.
+   */
+  @Test
+  void testTagInsideRenamedLiteralContentElementIsReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements((elementName, attrs) -> "style", "div")
+        .allowElements("b")
+        .allowTextIn("style")
+        .toFactory();
+    Result result = sanitizeVerbose(policy, "<div>a<b>bold</b>c</div>");
+
+    assertEquals("<style>aboldc</style>", result.html);
+    assertEquals("<b> ", result.log);
+  }
+
   private static Result sanitizeVerbose(PolicyFactory policy, String html) {
     return sanitize(policy, html, true);
   }

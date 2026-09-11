@@ -129,7 +129,7 @@ public final class HtmlChangeReporter<T> {
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
                  TextSuppressionPolicy,
                  OpenTagOutputPolicy,
-                 HtmlStreamRenderer.DroppedTextListener {
+                 HtmlStreamRenderer.DropListener {
     HtmlStreamEventReceiver policy;
     final OutputChannel output;
     final T context;
@@ -177,6 +177,26 @@ public final class HtmlChangeReporter<T> {
       pendingDroppedText.add(text);
     }
 
+    /**
+     * The renderer likewise refuses a start tag whose name it cannot write
+     * or that arrives inside literal content, after the policy has opened
+     * it.  No tag came out, so the input tag was discarded, and the report
+     * below says so; the end tag the renderer refuses later is the same loss.
+     */
+    public void droppedTag(String elementName) {
+      output.refusedOpenedTag();
+    }
+
+    /**
+     * And it leaves an attribute whose name it cannot write off a tag it
+     * does write.  The policy's own accounting had counted it as emitted;
+     * this returns it to the discarded.
+     */
+    public void droppedAttribute(
+        String elementName, String name, String value) {
+      output.attributeLeftOff(name, value);
+    }
+
     public @Nullable String outputElementNameForLastOpenTag() {
       return outputElementNameForLastOpenTag;
     }
@@ -193,11 +213,12 @@ public final class HtmlChangeReporter<T> {
             .reportDiscardedAttributesTo(output);
       }
       // The renderer decides on its own to drop literal content it cannot
-      // emit, so it has to tell us; any other receiver keeps that to itself.
+      // emit, a tag it cannot write and an attribute it cannot write, so it
+      // has to tell us; any other receiver keeps that to itself.
       // Bound once the renderer has opened the document, which forgets any
       // earlier listener, and for this document only, so that a renderer
       // reused without this reporter does not go on reporting to it.
-      output.listenForDroppedText(this);
+      output.listenForDrops(this);
     }
 
     public void closeDocument() {
@@ -211,7 +232,7 @@ public final class HtmlChangeReporter<T> {
         ((DiscardedAttributeSource) policy)
             .reportDiscardedAttributesTo(null);
       }
-      output.listenForDroppedText(null);
+      output.listenForDrops(null);
       dispatchDroppedText();
     }
 
@@ -226,17 +247,20 @@ public final class HtmlChangeReporter<T> {
         // listener re-entering the stream event receiver.  This shouldn't
         // occur, but if it does it will be a source of subtle confusing bugs.
         //
-        // The tag survived if the policy opened anything in response.  Its
-        // name is not compared with the input name: an ElementPolicy may
-        // rename the element, and a renamed element was kept, not dropped.
+        // The tag survived if the policy opened anything in response and
+        // the renderer wrote it.  Its name is not compared with the input
+        // name: an ElementPolicy may rename the element, and a renamed
+        // element was kept, not dropped.
         boolean discarded = output.openedElementName == null;
         outputElementNameForLastOpenTag = output.openedElementName;
         output.openedElementName = null;
         // Attributes go unreported with a tag the policy rejected: the tag
         // report covers them.  Not so when the policy allowed the element and
-        // dropped it only because none of its attributes survived: rejecting
-        // them was the policy's decision, and the tag went as a consequence.
+        // dropped it only because none of its attributes survived, or when
+        // the renderer refused the tag the policy opened: rejecting them was
+        // the policy's decision, and the tag went for another reason.
         boolean attrsRejectedOnTheirOwn = !discarded
+            || output.tagRefusedByRenderer
             || (policy instanceof AttributelessSkipPolicy
                 && ((AttributelessSkipPolicy) policy)
                     .skippedLastTagAsAttributeless());
@@ -317,6 +341,13 @@ public final class HtmlChangeReporter<T> {
     final BitSet rejectedAttrs = new BitSet();
     /** Input pairs accounted for by attributes the policy emitted. */
     final BitSet emittedAttrs = new BitSet();
+    /**
+     * Name and value pairs the policy added to the tag, so that no input
+     * pair accounts for them, and the renderer then left off.
+     */
+    final List<String> addedThenLeftOffAttrs = new ArrayList<>();
+    /** True if the renderer refused the tag the policy opened. */
+    boolean tagRefusedByRenderer;
 
     OutputChannel(HtmlStreamEventReceiver renderer) {
       super(renderer);
@@ -328,6 +359,31 @@ public final class HtmlChangeReporter<T> {
       expectedAttrs.addAll(attrs);
       rejectedAttrs.clear();
       emittedAttrs.clear();
+      addedThenLeftOffAttrs.clear();
+      tagRefusedByRenderer = false;
+    }
+
+    /** Records that the renderer wrote no tag for the one the policy opened. */
+    void refusedOpenedTag() {
+      openedElementName = null;
+      tagRefusedByRenderer = true;
+    }
+
+    /**
+     * Records that the renderer left an attribute off the tag it wrote.  The
+     * input copy that the policy's emitting it accounted for, if any, is
+     * discarded after all, with the value the author wrote; a pair the policy
+     * added is reported as the renderer received it.
+     */
+    void attributeLeftOff(String name, String value) {
+      for (int i = 0, n = expectedAttrs.size() / 2; i < n; ++i) {
+        if (emittedAttrs.get(i) && name.equals(expectedAttrs.get(i * 2))) {
+          emittedAttrs.clear(i);
+          return;
+        }
+      }
+      addedThenLeftOffAttrs.add(name);
+      addedThenLeftOffAttrs.add(value);
     }
 
     public void discardedAttribute(String name, String value) {
@@ -342,10 +398,14 @@ public final class HtmlChangeReporter<T> {
       }
     }
 
-    /** Returns original pairs not accounted for by emitted attributes. */
+    /**
+     * Returns original pairs not accounted for by emitted attributes, then
+     * any pairs the policy added and the renderer left off.
+     */
     String[] discardedAttributes() {
       int n = expectedAttrs.size() / 2;
-      int nDiscarded = n - emittedAttrs.cardinality();
+      int nDiscarded = n - emittedAttrs.cardinality()
+          + addedThenLeftOffAttrs.size() / 2;
       if (nDiscarded == 0) { return InputChannel.ZERO_STRINGS; }
       String[] discarded = new String[nDiscarded * 2];
       int out = 0;
@@ -355,6 +415,9 @@ public final class HtmlChangeReporter<T> {
           discarded[out++] = expectedAttrs.get(i * 2 + 1);
         }
       }
+      for (String s : addedThenLeftOffAttrs) {
+        discarded[out++] = s;
+      }
       return discarded;
     }
 
@@ -362,22 +425,24 @@ public final class HtmlChangeReporter<T> {
       expectedAttrs.clear();
       rejectedAttrs.clear();
       emittedAttrs.clear();
+      addedThenLeftOffAttrs.clear();
+      tagRefusedByRenderer = false;
     }
 
     /**
-     * Has the renderer report dropped literal content to {@code listener},
-     * or to nobody when null, if it is one that can.  The library's own
-     * decorator, which a postprocessor or a logging wrapper is likely to
-     * extend, is seen through.
+     * Has the renderer report what it drops to {@code listener}, or to
+     * nobody when null, if it is one that can.  The library's own decorator,
+     * which a postprocessor or a logging wrapper is likely to extend, is seen
+     * through.
      */
-    void listenForDroppedText(
-        @Nullable HtmlStreamRenderer.DroppedTextListener listener) {
+    void listenForDrops(
+        @Nullable HtmlStreamRenderer.DropListener listener) {
       HtmlStreamEventReceiver r = underlying;
       while (r instanceof HtmlStreamEventReceiverWrapper) {
         r = ((HtmlStreamEventReceiverWrapper) r).underlying;
       }
       if (r instanceof HtmlStreamRenderer) {
-        ((HtmlStreamRenderer) r).reportDroppedTextTo(listener);
+        ((HtmlStreamRenderer) r).reportDropsTo(listener);
       }
     }
 

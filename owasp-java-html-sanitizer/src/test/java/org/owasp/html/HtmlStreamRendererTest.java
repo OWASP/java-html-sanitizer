@@ -141,6 +141,58 @@ class HtmlStreamRendererTest {
     errors.clear();
   }
 
+  /**
+   * What the renderer drops reaches its drop listener as well as the
+   * bad-HTML handler, so that {@code HtmlChangeReporter} can report it
+   * (#469): a tag it cannot write, an attribute it cannot write, and a tag
+   * inside literal content.  An end tag refused for the same reason as its
+   * start tag is the same loss and is not reported again.
+   */
+  @Test
+  void testDropsReachTheDropListener() throws Exception {
+    List<String> drops = new ArrayList<>();
+    renderer.openDocument();
+    renderer.reportDropsTo(new HtmlStreamRenderer.DropListener() {
+      public void droppedText(String elementName, String text) {
+        drops.add(elementName + "{" + text + "}");
+      }
+
+      public void droppedTag(String elementName) {
+        drops.add("<" + elementName + ">");
+      }
+
+      public void droppedAttribute(
+          String elementName, String name, String value) {
+        drops.add(elementName + "." + name + "=" + value);
+      }
+    });
+    renderer.openTag("a@b", j8().listOf("id", "x"));
+    renderer.text("t");
+    renderer.closeTag("a@b");
+    renderer.openTag("div", j8().listOf("x@y", "1", "id", "z"));
+    renderer.openTag("style", j8().listOf());
+    renderer.text("a");
+    renderer.openTag("b", j8().listOf());
+    renderer.text("bold");
+    renderer.closeTag("b");
+    renderer.closeTag("style");
+    renderer.closeTag("div");
+    renderer.closeDocument();
+
+    assertEquals(
+        "t<div id=\"z\"><style>abold</style></div>", rendered.toString());
+    assertEquals(j8().listOf("<a@b>", "div.x@y=1", "<b>"), drops);
+    assertIterableEquals(
+        j8().listOf(
+            "Invalid element name : a@b",
+            "Invalid element name : a@b",
+            "Invalid attr name : x@y",
+            "Tag content cannot appear inside CDATA element : b",
+            "Tag content cannot appear inside CDATA element : b"),
+        errors);
+    errors.clear();
+  }
+
   @Test
   void testCdataContainsEndTag1() throws Exception {
     renderer.openDocument();
