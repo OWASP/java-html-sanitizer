@@ -48,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
@@ -1133,6 +1134,47 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * The worst case for the sweep that keeps a removal from leaving a tag
+   * behind: a long run of what could be the start of one, ended by a tag that
+   * goes.  Every {@code <} of the run goes with it, and the run is rewritten
+   * once rather than closed up around each, which would be quadratic: this
+   * text takes well under a second, where closing up each takes half a minute.
+   */
+  @Test
+  void testLongRunOfUnfinishedTagsInLiteralTextIsLinear() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("style", "svg").allowTextIn("style").toFactory();
+    int n = 1_500_000;
+    final String html =
+        "<style>" + stringRepeatedTimes("<b", n) + "<svg></style>";
+
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(html));
+    assertEquals("<style>" + stringRepeatedTimes("b", n) + "</style>", out);
+  }
+
+  /**
+   * The other worst case for the scan: literal text where no {@code <} opens a
+   * tag and the only {@code >} is at the end, so that every {@code <} is
+   * looked at and none of them resolves until the last character.  The scan
+   * remembers the {@code >} it found rather than looking for the same one
+   * again from each {@code <}, which would be quadratic: this text takes
+   * under a second, where looking again takes minutes.
+   */
+  @Test
+  void testLiteralTextFullOfBracketsThatOpenNoTagIsLinear() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("style").allowTextIn("style").toFactory();
+    final String html =
+        "<style>" + stringRepeatedTimes("a<b'", 1_000_000) + ">" + "</style>";
+
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(html));
+    // None of it is a tag, so none of it goes.
+    assertEquals(html, out);
+  }
+
+  /**
    * The filter no longer discards the rest of a chunk after a start tag with
    * no matching end tag, and keeps a {@code <} that opens no tag, so script
    * and style text with a bare comparison survives.
@@ -1147,14 +1189,15 @@ class HtmlSanitizerTest {
     assertEquals(
         "<script>if (a < b) x();</script>",
         policy.sanitize("<script>if (a < b) x();</script>"));
-    // A '<' dangling before a letter at the end of a chunk goes; #470
-    // tracks the fidelity cost.
+    // A '<' dangling before a letter at the end of a chunk goes: a later
+    // chunk could complete it into a tag.
     assertEquals(
         "<script>if (ab) x();</script>",
         policy.sanitize("<script>if (a<b) x();</script>"));
-    // A tag with no matching end tag goes alone; the text after it stays.
+    // "<b'; var t = 'c>" is a tag only where a browser would read "b';" as a
+    // tag name, which is nowhere this text can reach one, so it stays (#470).
     assertEquals(
-        "<script>var s = 'ad';</script>",
+        "<script>var s = 'a<b'; var t = 'c>d';</script>",
         policy.sanitize("<script>var s = 'a<b'; var t = 'c>d';</script>"));
     assertEquals(
         "<style>a{}c{}</style>",
@@ -1171,6 +1214,426 @@ class HtmlSanitizerTest {
     assertEquals(
         "<style>a{}<3>{}</style>",
         policy.sanitize("<style>a{}<3>{}</style>"));
+  }
+
+  /**
+   * Issue #470.  Ordinary script and style text tripped the filter, which
+   * took {@code <} plus anything up to the next {@code >} for a tag, so a
+   * comparison or a loop condition lost the text between.  A tag now needs a
+   * well-formed name.
+   */
+  @Test
+  void testIssue470ComparisonOperatorsInScriptTextSurvive() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("script", "style")
+        .allowTextIn("script", "style")
+        .toFactory();
+
+    for (String js : new String[] {
+            "if (a < b) { x(); } if (c > d) { y(); }",
+            "for(i=0;i<n;i++){a[i]=b>c;}",
+            "a = b << 2 >> 1;",
+            "if (x<y) { g(); } // z>w",
+            "if (a<b){c();}else{d>e;}",
+         }) {
+      assertEquals("<script>" + js + "</script>",
+                   policy.sanitize("<script>" + js + "</script>"), js);
+    }
+    // CSS keeps its own comparisons, and a media query's parentheses.
+    assertEquals(
+        "<style>@media (max-width:10px){a{}}</style>",
+        policy.sanitize("<style>@media (max-width:10px){a{}}</style>"));
+    // What is left: a name followed by whitespace is a tag wherever a browser
+    // reads markup, so "<b ||" goes with everything up to the next '>', as
+    // the "< script>" that test #6 pins does.  The filter cannot tell them
+    // apart, and an end tag hiding there would break out.
+    assertEquals(
+        "<script>if (ad) f();</script>",
+        policy.sanitize("<script>if (a<b || c>d) f();</script>"));
+  }
+
+  /**
+   * Issue #470.  Relaxing what counts as a tag gives up nothing: a browser
+   * reads a weird name as a tag only in a markup context, and the text of a
+   * kept literal-content element never reaches one.  Anything that could end
+   * such an element for a browser has a well-formed name and still goes,
+   * including a name that only becomes one once the renderer elides a
+   * character it cannot emit.
+   */
+  @Test
+  void testIssue470OnlyAWellFormedNameMakesATag() {
+    PolicyFactory policy = noscriptStyleImg();
+
+    // Names a browser could act on, in every shape an element name takes.
+    for (String tag : new String[] {
+            "<img src=x onerror=alert(1)>", "<my-widget onmouseover=alert(1)>",
+            "<svg:a onmouseover=alert(1)>", "<b2 onmouseover=alert(1)>",
+            "<b_c onmouseover=alert(1)>", "<b.c onmouseover=alert(1)>",
+            "< img src=x onerror=alert(1)>", "<img/src=x onerror=alert(1)>",
+         }) {
+      assertEquals(
+          "<style>a{}b{}</style>",
+          policy.sanitize("<style>a{}" + tag + "b{}</style>"), tag);
+    }
+    // A name that is not one stays, and is inert: a browser reads the text of
+    // a style element literally, and an end tag whose name is not an element's
+    // own name does not end it.
+    for (String notATag : new String[] {
+            "<b) onmouseover=alert(1)>", "<n;i++){a[i]=b>", "<b'x'>",
+            "</b) onmouseover=alert(1)>", "</3>",
+         }) {
+      assertEquals(
+          "<style>a{}" + notATag + "b{}</style>",
+          policy.sanitize("<style>a{}" + notATag + "b{}</style>"), notATag);
+    }
+    // The renderer elides a NUL, a DEL and a C1 control, which would
+    // otherwise join a name to what follows it, so they end a name instead.
+    for (String elided : new String[] { "\u0000", "\u007f", "\u0085" }) {
+      assertEquals(
+          "<noscript><style></style></noscript>",
+          policy.sanitize(
+              "<noscript><style></noscript" + elided + ">"
+              + "<img src=x onerror=alert(1)></style></noscript>"),
+          "U+" + Integer.toHexString(elided.charAt(0)));
+      assertEquals(
+          "<style>a{}b{}</style>",
+          policy.sanitize(
+              "<style>a{}<img" + elided + " src=x onerror=alert(1)>b{}"
+              + "</style>"));
+    }
+  }
+
+  /**
+   * Issue #473.  The filter kept a record per tag, so a chunk of literal text
+   * full of tags cost a multiple of its own size in heap, and text that used
+   * to sanitize in 160 MB needed 256 MB.  It now keeps only its output and a
+   * bounded note of the start tags it has not matched, so the cost per tag is
+   * what the lexer already spends on the same text.
+   */
+  @Test
+  void testIssue473LiteralTextFilterKeepsNoRecordPerTag() {
+    java.lang.management.ThreadMXBean threads
+        = java.lang.management.ManagementFactory.getThreadMXBean();
+    assumeTrue(threads instanceof com.sun.management.ThreadMXBean,
+               "needs a JVM that counts allocation per thread");
+    com.sun.management.ThreadMXBean counter
+        = (com.sun.management.ThreadMXBean) threads;
+
+    int n = 200_000;
+    String html = "<style>" + stringRepeatedTimes("<b>x", n) + "</style>";
+    // The same text, filtered and not: one policy keeps the text of a style
+    // element and filters it, the other drops it, so the difference in what
+    // they allocate is the filter's own, without the lexer's share of it.
+    PolicyFactory filtering = new HtmlPolicyBuilder()
+        .allowElements("style").allowTextIn("style").toFactory();
+    PolicyFactory notFiltering = new HtmlPolicyBuilder()
+        .allowElements("style").toFactory();
+    filtering.sanitize(html);
+    notFiltering.sanitize(html);  // Load the classes both use.
+
+    long id = Thread.currentThread().getId();
+    long before = counter.getThreadAllocatedBytes(id);
+    filtering.sanitize(html);
+    long between = counter.getThreadAllocatedBytes(id);
+    notFiltering.sanitize(html);
+    long after = counter.getThreadAllocatedBytes(id);
+
+    long perTag = ((between - before) - (after - between)) / n;
+    // Around 5 bytes a tag, for the output and the string it becomes; a
+    // record per tag cost more than 700.
+    assertTrue(perTag < 64, perTag + " bytes allocated per tag");
+  }
+
+  /**
+   * Issue #473.  Pairing a start tag with its end tag keeps a dropped
+   * element's content with it, which is fidelity rather than safety, so the
+   * filter bounds what it remembers.  Literal text nested deeper than that
+   * loses each tag on its own, and still no tag survives.
+   */
+  @Test
+  void testIssue473LiteralTextNestedPastThePairingBoundIsStillTagFree() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("style").allowTextIn("style").toFactory();
+    for (int depth : new int[] { 8, 64, 65, 100, 1000 }) {
+      String html = "<style>" + stringRepeatedTimes("<b>x", depth)
+          + stringRepeatedTimes("</b>", depth) + "</style>";
+      String out = policy.sanitize(html);
+      String body = out.substring(
+          out.indexOf("<style>") + 7, out.lastIndexOf("</style>"));
+      assertFalse(body.contains("<"), depth + ": " + out);
+      assertFalse(body.contains(">"), depth + ": " + out);
+    }
+  }
+
+  /**
+   * Issue #475.  Removing a tag joins the text on either side of it, which
+   * could make a {@code <!--} or a {@code -->} that the input did not have.
+   * The renderer refuses the whole content of a literal element whose comment
+   * delimiters do not balance, so the element came out empty.  A space goes in
+   * where the join would make one.
+   */
+  @Test
+  void testIssue475RemovingATagDoesNotSpliceACommentDelimiter() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("style", "script", "b")
+        .allowTextIn("style", "script")
+        .toFactory();
+
+    assertEquals(
+        "<style>a{}- ->b{}</style>",
+        policy.sanitize("<style>a{}-<b>->b{}</style>"));
+    assertEquals(
+        "<style>a{}-- >b{}</style>",
+        policy.sanitize("<style>a{}--<b>>b{}</style>"));
+    assertEquals(
+        "<style>a<! --x</style>",
+        policy.sanitize("<style>a<!<b>--x</style>"));
+    assertEquals(
+        "<style>a<!- -x</style>",
+        policy.sanitize("<style>a<!-<b>-x</style>"));
+    // The text on either side of the join can be in different chunks, which
+    // the lexer splits at server-side script tags, so the last of a chunk is
+    // remembered, and a join at the end of one assumes the worst.
+    assertEquals(
+        "<style>a{}- ->b{}</style>",
+        policy.sanitize("<style>a{}-<%%><b>->b{}</style>"));
+    assertEquals(
+        "<style>a{}- ->b{}</style>",
+        policy.sanitize("<style>a{}-<b><%%>->b{}</style>"));
+    // A delimiter the input itself holds is not the filter's to fix: the
+    // renderer still refuses the content, and says so.
+    assertEquals(
+        "<style></style>",
+        policy.sanitize("<style>a{}--><b>b{}</style>"));
+  }
+
+  /**
+   * Issue #475, the other way round: a start tag dropped together with its
+   * content can take a {@code -->} with it and leave an earlier {@code <!--}
+   * unclosed, which costs the whole content again.  Such a pair is dropped
+   * tag by tag instead, so what the comment holds stays.
+   */
+  @Test
+  void testIssue475ADroppedPairDoesNotTakeACommentDelimiter() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("style", "script", "b")
+        .allowTextIn("style", "script")
+        .toFactory();
+
+    assertEquals(
+        "<script><!-- if (a > 0) {  } -->  f();</script>",
+        policy.sanitize(
+            "<script><!-- if (a > 0) { <b> } --> </b> f();</script>"));
+    assertEquals(
+        "<style><!-- a --> b </style>",
+        policy.sanitize("<style><!-- a<b> --> b </b></style>"));
+    // A pair whose content holds no delimiter still goes whole.
+    assertEquals(
+        "<style>a{}c{}</style>",
+        policy.sanitize("<style>a{}<b>x - y</b>c{}</style>"));
+  }
+
+  /**
+   * Removing a tag must not splice what is on either side of it into another
+   * tag, nor leave the element's own end tag to finish one.  A browser reads
+   * the text of a kept literal-content element literally, so none of this is
+   * reachable, but the filter must not hand one a tag the text did not hold:
+   * {@code <b<svg>} is a tag a browser acts on and the text after it is text,
+   * while {@code <b} followed by that text is a tag with a live handler.
+   */
+  @Test
+  void testRemovingATagDoesNotSpliceAnotherTag() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("noscript", "style", "script", "svg", "b", "img", "p")
+        .allowTextIn("style", "script")
+        .allowAttributes("src").onElements("img")
+        .allowUrlProtocols("https")
+        .toFactory();
+
+    // The "<b" the removed tag followed goes, so the text after it cannot
+    // become its attributes.
+    assertEquals(
+        "<style>b onmouseover=alert(1)>x</style>",
+        policy.sanitize("<style><b<svg> onmouseover=alert(1)>x</style>"));
+    // Every '<' of the run goes: dropping one leaves the next before a name.
+    assertEquals(
+        "<style>bb onmouseover=alert(1)>x</style>",
+        policy.sanitize("<style><b<b<svg> onmouseover=alert(1)>x</style>"));
+    // A "</" before the removed tag would have met the name after it, which
+    // is the breakout the filter exists to stop.
+    assertEquals(
+        "<style>/noscript></style>",
+        policy.sanitize("<style></<b>noscript></style>"));
+    assertEquals(
+        "<noscript><style>/noscript></style></noscript>",
+        policy.sanitize(
+            "<noscript><style></<b>noscript>"
+            + "<img src=x onerror=alert(1)></style></noscript>"));
+    // At the end of the text it is the element's own end tag that would
+    // finish the tag, whether or not a '>' came earlier.
+    assertEquals(
+        "<style>a{}b</style>",
+        policy.sanitize("<style>a{}<b<svg></style>"));
+    assertEquals(
+        "<script>x> x<3/style</script>",
+        policy.sanitize("<script>x><p> x<3</style<B></script>"));
+    // A start tag the text kept has a place to come back to that the sweep
+    // has already been over, so its end tag cannot cut the text short.
+    assertEquals(
+        "<noscript><style>--bnoscript></style></noscript>",
+        policy.sanitize(
+            "<noscript><style>--<b<b/></><style></ b>noscript></noscript>"));
+    // What opens no tag stays: "3" is no name, and no browser state starts a
+    // tag at '<' and whitespace.
+    assertEquals(
+        "<style>a{}<3{}</style>",
+        policy.sanitize("<style>a{}<3<svg>{}</style>"));
+    assertEquals(
+        "<style>a{}< b{}</style>",
+        policy.sanitize("<style>a{}< b<svg>{}</style>"));
+    // And ordinary text is untouched.
+    assertEquals(
+        "<style>a{}c{}</style>",
+        policy.sanitize("<style>a{}<b>c{}</style>"));
+    assertEquals(
+        "<script>var s = 'a<b'; var t = 'c>d';</script>",
+        policy.sanitize("<script>var s = 'a<b'; var t = 'c>d';</script>"));
+  }
+
+  /**
+   * Issue #474.  Inside {@code svg} or {@code math} a browser parses the
+   * content of every element as markup, so the renderer escapes the text of a
+   * style or script element there instead of emitting it as written.  The
+   * filter used to strip the tags from that text as well, which was safe but
+   * lost them for no reason.
+   */
+  @Test
+  void testIssue474LiteralTextInForeignContentIsEscapedNotStripped() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("svg", "math", "style", "script", "b")
+        .allowTextIn("style", "script", "svg", "math")
+        .toFactory();
+
+    assertEquals(
+        "<svg><style>a{}&lt;b&gt;x&lt;/b&gt;c{}</style></svg>",
+        policy.sanitize("<svg><style>a{}<b>x</b>c{}</style></svg>"));
+    assertEquals(
+        "<math><script>a&lt;b&gt;c</script></math>",
+        policy.sanitize("<math><script>a<b>c</script></math>"));
+    // Escaped, so a breakout cannot ride along on it either.
+    assertEquals(
+        "<svg><style>&lt;/noscript&gt;&lt;img src&#61;x onerror&#61;alert(1)&gt;"
+        + "</style></svg>",
+        policy.sanitize(
+            "<svg><style></noscript><img src=x onerror=alert(1)></style>"
+            + "</svg>"));
+    // Outside the svg the same element's text is emitted as written, so the
+    // filter runs over it: the tags go and the end tag with them.
+    assertEquals(
+        "<svg></svg><style>a{}c{}</style>",
+        policy.sanitize("<svg></svg><style>a{}<b>x</b>c{}</style>"));
+    assertEquals(
+        "<svg><b></b></svg><style>a{}c{}</style>",
+        policy.sanitize("<svg><b></b></svg><style>a{}<b>x</b>c{}</style>"));
+  }
+
+  /**
+   * Issue #474.  The filter judged the element by the name the library's own
+   * renderer emits, which renames {@code xmp}, {@code listing} and
+   * {@code plaintext} to {@code pre} and escapes their text.  A receiver
+   * handed to {@link PolicyFactory#apply} does not rename, so it used to
+   * receive the text of those elements with its tags intact, a
+   * {@code </noscript>} among them, and the renderer-side check cannot run
+   * for it either.  With any other receiver every element whose content the
+   * lexer read as raw text is filtered.
+   */
+  @Test
+  void testIssue474ACustomReceiverGetsRawTextWithoutTags() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("noscript", "xmp", "listing", "plaintext", "style",
+                       "img")
+        .allowTextIn("xmp", "listing", "plaintext", "style")
+        .allowAttributes("src").onElements("img")
+        .toFactory();
+
+    for (String rawText : new String[] { "xmp", "listing", "plaintext" }) {
+      String html = "<noscript><" + rawText + "></noscript>"
+          + "<img src=x onerror=alert(1)></" + rawText + "></noscript>";
+      final List<String> text = new ArrayList<>();
+      HtmlSanitizer.sanitize(html, policy.apply(collectText(text)));
+      assertEquals(Arrays.asList(""), text, rawText);
+
+      // Through the library's renderer, which renames the element and escapes
+      // its text, the tags are still there to see.  A plaintext element runs
+      // to the end of the input, so its own end tag is part of its text.
+      assertEquals(
+          "<noscript><pre>&lt;/noscript&gt;&lt;img src&#61;x"
+          + " onerror&#61;alert(1)&gt;"
+          + ("plaintext".equals(rawText)
+             ? "&lt;/plaintext&gt;&lt;/noscript&gt;" : "")
+          + "</pre></noscript>",
+          policy.sanitize(html), rawText);
+    }
+    // A receiver the library cannot see through gets no tags in the text of a
+    // style element inside an svg either, where the renderer would escape
+    // them, since it may write what it is given as it stands.
+    PolicyFactory svgPolicy = new HtmlPolicyBuilder()
+        .allowElements("svg", "style", "b").allowTextIn("style", "svg")
+        .toFactory();
+    final List<String> text = new ArrayList<>();
+    HtmlSanitizer.sanitize(
+        "<svg><style>a{}<b>x</b>c{}</style></svg>",
+        svgPolicy.apply(collectText(text)));
+    assertEquals(Arrays.asList("a{}c{}"), text);
+  }
+
+  /** A receiver that records the text events it is given. */
+  private static HtmlStreamEventReceiver collectText(final List<String> text) {
+    return new HtmlStreamEventReceiver() {
+      public void openDocument() { /* Not under test. */ }
+
+      public void closeDocument() { /* Not under test. */ }
+
+      public void openTag(String elementName, List<String> attrs) {
+        // Not under test.
+      }
+
+      public void closeTag(String elementName) { /* Not under test. */ }
+
+      public void text(String t) { text.add(t); }
+    };
+  }
+
+  /**
+   * Listening for what a policy drops must not change what it keeps.  The
+   * filter follows what the receiver escapes, and a reporter sits between the
+   * policy and the renderer, so the renderer has to stay visible behind it.
+   */
+  @Test
+  void testTheLiteralTextFilterDoesNotDependOnAListener() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("svg", "style", "xmp", "b")
+        .allowTextIn("style", "xmp", "svg")
+        .toFactory();
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Not under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Not under test.
+      }
+    };
+
+    for (String html : new String[] {
+            "<svg><style>a{}<b>x</b>c{}</style></svg>",
+            "<style>a{}<b>x</b>c{}</style>",
+            "<xmp>a<b>x</b>c</xmp>",
+         }) {
+      assertEquals(
+          policy.sanitize(html), policy.sanitize(html, ignore, null), html);
+    }
   }
 
   /**
