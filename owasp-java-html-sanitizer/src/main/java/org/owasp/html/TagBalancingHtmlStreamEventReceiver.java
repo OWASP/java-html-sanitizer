@@ -48,6 +48,10 @@ public class TagBalancingHtmlStreamEventReceiver
     implements HtmlStreamEventReceiver {
   private final HtmlStreamEventReceiver underlying;
   private int nestingLimit = Integer.MAX_VALUE;
+  private HtmlSanitizer.ForeignContentContext foreignContent
+      = new HtmlSanitizer.ForeignContentContext();
+  /** Input name whose rendered foreign root closes before the table reopens. */
+  private @Nullable String foreignRootPendingTableReturn;
   private final IntVector openElements = new IntVector();
   /**
    * The element each entry in {@link #openElements} became after policy
@@ -56,12 +60,66 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private final IntVector outputElements = new IntVector();
   private final IntVector toResumeInReverse = new IntVector();
+  /**
+   * Bit {@code i} is set while the element at {@code i} of
+   * {@link #openElements} is closed in the output but still open here.
+   * <p>
+   * A browser keeps a table, and any row group and row open in it, on its
+   * stack when content arrives that cannot go inside a table: it puts the
+   * content in front of the table instead, foster parenting, and later table
+   * content pops that content and carries on in the same table.  The output
+   * cannot put anything in front of a tag already written, so the table is
+   * closed there and the content written after it, and the table is written
+   * again, as a new table, when its content resumes (#342).  Meanwhile its
+   * entries stay here, so that table content finds them and comes back to
+   * them, and so that they bound end tags for elements below them as they do
+   * in a browser.  Such entries are contiguous, from a {@code table} up, and
+   * are the only pushed-out entries below the content pushed out of them.
+   */
+  private final BitSet pushedOut = new BitSet();
+  /**
+   * Bit {@code i} is set when the policy did not emit a synthetic table while
+   * returning from {@link #pushedOut}.  Its table-structure descendants cannot
+   * be emitted in that output context without changing when a browser reparses
+   * them.
+   */
+  private final BitSet reopenedWithoutTable = new BitSet();
   private static final HtmlElementTables METADATA = HtmlElementTables.get();
   private static final int UNRECOGNIZED_TAG =
       METADATA.indexForName(HtmlElementNames.CUSTOM_ELEMENT_NAME);
   private static final int A_TAG = METADATA.indexForName("a");
   private static final int BODY_TAG = METADATA.indexForName("body");
+  private static final int TABLE_TAG = METADATA.indexForName("table");
   private static final int NO_OUTPUT_ELEMENT = -1;
+  /**
+   * The elements a browser keeps open, and later clears its stack back to,
+   * when it foster-parents content that arrives inside them: a table and its
+   * row groups and rows.  Not the cell, caption or template, inside which
+   * content nests normally.
+   */
+  private static final BitSet TABLE_CONTEXT = new BitSet();
+  /**
+   * The elements whose arrival, in a browser, ends foster-parented content
+   * and returns to the table: its parts, which clear the stack back to the
+   * table, and a table itself, which pops the open table and takes its
+   * place.
+   * <p>
+   * These are the same elements whose end tags are scoped to a table in
+   * {@link #SCOPE_FOR_END_TAG}, which is built far below; the two lists are
+   * written out separately because that one is not initialized yet here.
+   */
+  private static final BitSet TABLE_PARTS = new BitSet();
+  static {
+    for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
+      TABLE_CONTEXT.set(METADATA.indexForName(name));
+    }
+    for (String name : new String[] {
+             "caption", "col", "colgroup", "table", "tbody", "td", "tfoot",
+             "th", "thead", "tr",
+         }) {
+      TABLE_PARTS.set(METADATA.indexForName(name));
+    }
+  }
   /**
    * Elements on entering which a browser puts a marker on its list of
    * active formatting elements, so that an {@code a} opened inside one of
@@ -129,6 +187,29 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
+   * Optional policy operations used to keep output around a pushed-out table
+   * in a browser context that matches the logical input context.
+   */
+  interface PushedOutTablePolicy {
+    /** Whether the operations below are available for the current policy. */
+    boolean supportsPushedOutTableOperations();
+
+    /** Applies element and text policy while deliberately emitting no tag. */
+    void openTagWithoutOutput(String elementName, List<String> attrs);
+
+    /** Emits a synthetic table only if policy keeps it as a table. */
+    void openReopenedTable(List<String> attrs);
+
+    /** Reports the browser context of the elements actually emitted. */
+    boolean isOutputInForeignContent();
+
+    @Nullable String outputForeignContentRootName();
+
+    boolean outputStartTagUsesForeignContentRules(
+        String elementName, List<String> attrs);
+  }
+
+  /**
    * How many elements whose content the policy would suppress -- {@code
    * <script>}, {@code <style>}, {@code <iframe>} and friends, plus any the
    * policy names through {@link TextSuppressionPolicy} -- have been dropped
@@ -179,17 +260,23 @@ public class TagBalancingHtmlStreamEventReceiver
 
   public void openDocument() {
     droppedSkippableDepth = 0;
+    foreignContent = new HtmlSanitizer.ForeignContentContext();
+    foreignRootPendingTableReturn = null;
     underlying.openDocument();
   }
 
   public void closeDocument() {
     for (int i = Math.min(nestingLimit, openElements.size()); --i >= 0;) {
+      if (pushedOut.get(i)) { continue; }  // Already closed in the output.
       int elIndex = openElements.get(i);
       String elname = METADATA.canonNameForIndex(elIndex);
       underlying.closeTag(elname);
     }
     openElements.clear();
     outputElements.clear();
+    pushedOut.clear();
+    reopenedWithoutTable.clear();
+    foreignRootPendingTableReturn = null;
     toResumeInReverse.clear();
     underlying.closeDocument();
   }
@@ -201,6 +288,39 @@ public class TagBalancingHtmlStreamEventReceiver
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
+    String foreignRootBefore = foreignContent.outermostForeignElementName();
+    String outputForeignRootBefore = outputForeignContentRootName();
+    boolean outputUsesForeignContentRules =
+        outputStartTagUsesForeignContentRules(canonElementName, attrs);
+    foreignContent.processStartTag(canonElementName, attrs, false);
+    boolean usesForeignContentRules =
+        foreignContent.lastTagUsedForeignContentRules();
+    if (!pushedOut.isEmpty()
+        && foreignRootBefore != null
+        && !usesForeignContentRules
+        && foreignContent.outermostForeignElementName() == null) {
+      foreignRootPendingTableReturn = outputForeignRootBefore != null
+          ? foreignRootBefore : null;
+    }
+    if (isForeignContentRoot(canonElementName)
+        && needsFosterParenting(elIndex)) {
+      // SVG and MathML start tags use the generic foster-parenting rule in
+      // the table insertion modes.  They are absent from the legacy HTML
+      // containment metadata, so handle them before the unrecognized-tag
+      // fast path below.
+      prepareForContent(elIndex);
+    }
+    if ((usesForeignContentRules || foreignRootPendingTableReturn != null)
+        && outputUsesForeignContentRules
+        && TABLE_PARTS.get(elIndex)
+        && isOutputInForeignContent()) {
+      // HTML table balancing does not apply to SVG or MathML descendants, even
+      // when a local name happens to be a table part.
+      // An HTML integration point makes ForeignContentContext report HTML
+      // rules and deliberately does not take this path.
+      underlying.openTag(elementName, attrs);
+      return;
+    }
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
     if (elIndex == UNRECOGNIZED_TAG) {
       if (openElements.size() < nestingLimit) {
@@ -215,10 +335,10 @@ public class TagBalancingHtmlStreamEventReceiver
     prepareForContent(elIndex);
 
     if (openElements.size() < nestingLimit) {
-      underlying.openTag(METADATA.canonNameForIndex(elIndex), attrs);
+      int outputElementIndex = openElement(elIndex, attrs);
       if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         openElements.add(elIndex);
-        outputElements.add(outputElementIndexForLastOpenTag(elIndex));
+        outputElements.add(outputElementIndex);
       }
     } else {
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
@@ -262,10 +382,99 @@ public class TagBalancingHtmlStreamEventReceiver
     return inputElementIndex;
   }
 
+  /**
+   * Whether a foreign table-part token will actually be written in foreign
+   * content.  A receiver without policy feedback keeps the legacy balancing
+   * behavior, including its nesting-limit accounting.
+   */
+  private boolean isOutputInForeignContent() {
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null && policy.isOutputInForeignContent();
+  }
+
+  /** The outermost foreign root the policy has actually emitted, if known. */
+  private @Nullable String outputForeignContentRootName() {
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null ? policy.outputForeignContentRootName() : null;
+  }
+
+  /** Whether the current output context applies foreign rules to this tag. */
+  private boolean outputStartTagUsesForeignContentRules(
+      String elementName, List<String> attrs) {
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null
+        && policy.outputStartTagUsesForeignContentRules(elementName, attrs);
+  }
+
+  /** The pushed-out-table operations supported by the current policy. */
+  private @Nullable PushedOutTablePolicy pushedOutTablePolicy() {
+    if (underlying instanceof PushedOutTablePolicy) {
+      PushedOutTablePolicy policy = (PushedOutTablePolicy) underlying;
+      if (policy.supportsPushedOutTableOperations()) { return policy; }
+    }
+    return null;
+  }
+
+  /** Opens one logical element, suppressing unsafe table structure if needed. */
+  private int openElement(int inputElementIndex, List<String> attrs) {
+    return openElement(inputElementIndex, attrs, false);
+  }
+
+  /**
+   * Opens one logical element, optionally treating an implied table as part
+   * of the structure below a synthetic table that the policy did not emit.
+   */
+  private int openElement(
+      int inputElementIndex, List<String> attrs, boolean implied) {
+    String inputElementName = METADATA.canonNameForIndex(inputElementIndex);
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    if (policy != null
+        && shouldSuppressTablePart(inputElementIndex, implied)) {
+      policy.openTagWithoutOutput(inputElementName, attrs);
+      return NO_OUTPUT_ELEMENT;
+    }
+    underlying.openTag(inputElementName, attrs);
+    return outputElementIndexForLastOpenTag(inputElementIndex);
+  }
+
+  /**
+   * Whether the nearest logical table was not re-opened in the output, making
+   * an emitted row, cell, section or column invalid there.
+   */
+  private boolean shouldSuppressTablePart(int elIndex) {
+    return shouldSuppressTablePart(elIndex, false);
+  }
+
+  private boolean shouldSuppressTablePart(int elIndex, boolean includeTable) {
+    if ((elIndex == TABLE_TAG && !includeTable) || !TABLE_PARTS.get(elIndex)) {
+      return false;
+    }
+    for (int i = openElements.size(); --i >= 0;) {
+      if (openElements.get(i) == TABLE_TAG) {
+        return reopenedWithoutTable.get(i);
+      }
+    }
+    return false;
+  }
+
   private void prepareForContent(int elIndex) {
-    int nOpen = openElements.size();
+    if (!pushedOut.isEmpty()
+        && elIndex != HtmlElementTables.TEXT_NODE
+        && TABLE_PARTS.get(elIndex)) {
+      returnToPushedOutTable(elIndex);
+    }
+    // Push an open table out of the way before anything below asks what
+    // contains the content: a browser puts content a table cannot hold in
+    // front of the table, so what contains the table contains the content,
+    // and it is what decides which elements are implied and what must close.
+    if (needsFosterParenting(elIndex)) {
+      int tableIndex = containerIndex();
+      pushOutTable(tableIndex);
+    }
+
     {
-      int top = nOpen != 0 ? openElements.get(nOpen - 1) : BODY_TAG;
+      int container = containerIndex();
+      int top = container >= 0 ? openElements.get(container) : BODY_TAG;
       // Open implied elements, such as list-items and table cells & rows.
       int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
       if (impliedElIndices.length != 0) {
@@ -281,62 +490,238 @@ public class TagBalancingHtmlStreamEventReceiver
         }
 
         for (int i = startPos, n = impliedElIndices.length; i < n; ++i) {
+          if (openElements.size() >= nestingLimit) { break; }
           int impliedElIndex = impliedElIndices[i];
-          String impliedElName = METADATA.canonNameForIndex(
-              impliedElIndex);
           attrs.clear();
-          underlying.openTag(impliedElName, attrs);
+          boolean suppressedImpliedTable = impliedElIndex == TABLE_TAG
+              && shouldSuppressTablePart(impliedElIndex, true);
+          int outputElementIndex = openElement(impliedElIndex, attrs, true);
           openElements.add(impliedElIndex);
-          outputElements.add(
-              outputElementIndexForLastOpenTag(impliedElIndex));
-          top = impliedElIndex;
-          ++nOpen;
+          outputElements.add(outputElementIndex);
+          if (suppressedImpliedTable) {
+            reopenedWithoutTable.set(openElements.size() - 1);
+          }
         }
       }
     }
 
-    if (nOpen != 0) {
-      int top = openElements.get(nOpen - 1);
-      // Close all the elements that cannot contain the content to open.
-      while (true) {
-        boolean canContain = canContain(elIndex, top, nOpen - 1)
-            && !(elIndex == A_TAG && hasOpenLinkInFormattingScope());
-        if (canContain) {
-          break;
+    // Close all the elements that cannot contain the content to open.
+    while (true) {
+      int container = containerIndex();
+      if (container < 0) { break; }
+      int top = openElements.get(container);
+      // A link ends the link open before it, wherever that is: nested links
+      // do not survive a browser's parse, so a table between them cannot
+      // stay open either.
+      boolean endsLink = endsAnOpenLink(elIndex);
+      if (!endsLink && canContain(elIndex, top, container)) {
+        break;
+      }
+      if (!endsLink
+          && TABLE_CONTEXT.get(top) && isFosterParented(elIndex)) {
+        // As above, for a table uncovered by closing what held it.
+        pushOutTable(container);
+        continue;
+      }
+      // Close the container, and with it anything put in front of a table
+      // it holds, from the top down.
+      for (int i = openElements.size(); --i >= container;) {
+        int unclosed = openElements.get(i);
+        if (i + 1 < nestingLimit && !pushedOut.get(i)) {
+          underlying.closeTag(METADATA.canonNameForIndex(unclosed));
         }
-        if (openElements.size() < nestingLimit) {
-          underlying.closeTag(METADATA.canonNameForIndex(top));
+        openElements.remove(i);
+        outputElements.remove(i);
+        pushedOut.clear(i);
+        reopenedWithoutTable.clear(i);
+        if (METADATA.resumable(unclosed) && unclosed != elIndex) {
+          toResumeInReverse.add(unclosed);
         }
-        openElements.remove(--nOpen);
-        outputElements.remove(nOpen);
-        if (METADATA.resumable(top) && top != elIndex) {
-          toResumeInReverse.add(top);
-        }
-        if (nOpen == 0) { break; }
-        top = openElements.get(nOpen - 1);
       }
     }
 
     while (!toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
+      int nOpen;
       // If toResume can contain elInfo AND the top of the stack can contain
-      // toResume, then we push toResume.
+      // toResume, then we push toResume.  A link is not resumed around
+      // another link, or where one is open: a browser ends a link when the
+      // next begins, and nested links do not survive a browser's parse, so
+      // the output would not read back as written.
       nOpen = openElements.size();
       if ((nOpen == 0
           || canContain(toResume, openElements.get(nOpen - 1), nOpen))
-          && canContain(elIndex, toResume, nOpen)) {
+          && canContain(elIndex, toResume, nOpen)
+          && !(toResume == A_TAG
+               && (elIndex == A_TAG || hasOpenLinkInFormattingScope()))) {
         toResumeInReverse.removeLast();
         int outputElementIndex = NO_OUTPUT_ELEMENT;
         if (openElements.size() < nestingLimit) {
-          underlying.openTag(
-              METADATA.canonNameForIndex(toResume),
-              new ArrayList<>());
-          outputElementIndex = outputElementIndexForLastOpenTag(toResume);
+          outputElementIndex = openElement(toResume, new ArrayList<>());
         }
         openElements.add(toResume);
         outputElements.add(outputElementIndex);
       } else {
         break;
+      }
+    }
+  }
+
+  /** Whether a browser would foster-parent this token out of an open table. */
+  private boolean needsFosterParenting(int elIndex) {
+    if (!isFosterParented(elIndex) || endsAnOpenLink(elIndex)) { return false; }
+    int tableIndex = containerIndex();
+    return tableIndex >= 0
+        && TABLE_CONTEXT.get(openElements.get(tableIndex))
+        && !canHold(elIndex, openElements.get(tableIndex), tableIndex);
+  }
+
+  /**
+   * True if a browser puts content of this kind that arrives inside a table,
+   * outside a cell or caption, in front of the table rather than in it: text,
+   * and any element that is not one of a table's own parts.  What a table
+   * may hold directly, such as a {@code script} or a {@code form}, never
+   * reaches this: the containment tables say the table can contain it.
+   */
+  private static boolean isFosterParented(int elIndex) {
+    return elIndex == HtmlElementTables.TEXT_NODE || !TABLE_PARTS.get(elIndex);
+  }
+
+  /** Whether this name establishes SVG or MathML foreign content. */
+  private static boolean isForeignContentRoot(String canonElementName) {
+    return "svg".equals(canonElementName) || "math".equals(canonElementName);
+  }
+
+  /** True if a link is open that a browser ends before opening this one. */
+  private boolean endsAnOpenLink(int elIndex) {
+    return elIndex == A_TAG && hasOpenLinkInFormattingScope();
+  }
+
+  /**
+   * The stack index of the element that content arriving now goes into: the
+   * top, unless a pushed-out table is at the top, in which case the content
+   * goes beside the table, so the element that contains the table is the one
+   * that contains the content.
+   */
+  private int containerIndex() {
+    int i = openElements.size();
+    while (--i >= 0 && pushedOut.get(i)) {
+      // Skip a table closed in the output but still open here.
+    }
+    return i;
+  }
+
+  /**
+   * True if {@code container} can hold {@code elIndex}, with elements
+   * implied between them where it needs them.  The implied path has to run
+   * through the container: one that does not is a fresh table, or list, to
+   * open inside it rather than a way into the one that is already open.
+   */
+  private boolean canHold(
+      int elIndex, int container, int containerIndexOnStack) {
+    int[] implied = METADATA.impliedElements(container, elIndex);
+    for (int i = 0, n = implied.length; i < n; ++i) {
+      if (implied[i] == container) {
+        return i + 1 < n
+            || canContain(elIndex, container, containerIndexOnStack);
+      }
+    }
+    return implied.length == 0
+        && canContain(elIndex, container, containerIndexOnStack);
+  }
+
+  /**
+   * Closes in the output, innermost first, the row, row group and table that
+   * the top of the stack is in, and marks them pushed out, keeping them here.
+   * Entries already pushed out, by earlier content beside the same table, are
+   * left as they are.
+   */
+  private void pushOutTable(int topIndex) {
+    for (int i = topIndex; i >= 0; --i) {
+      int elIndex = openElements.get(i);
+      if (!TABLE_CONTEXT.get(elIndex)) { break; }
+      if (!pushedOut.get(i)) {
+        if (i < nestingLimit) {
+          underlying.closeTag(METADATA.canonNameForIndex(elIndex));
+        }
+        pushedOut.set(i);
+      }
+      if (elIndex == TABLE_TAG) { break; }
+    }
+  }
+
+  /**
+   * Handles a table part, or a table, arriving while a table is pushed out,
+   * as a browser does: closes the content that was put in front of the
+   * nearest pushed-out table, pops the pushed-out entries that cannot hold
+   * the part, even by implying elements between, which for a table is all of
+   * them, and writes the rest again as a new table for the part to go in.
+   * <p>
+   * Not across a boundary of table scope, such as a {@code template} in the
+   * pushed-out content: a browser looks for the table within that scope
+   * only, so the part is handled where it arrived, as it would be with no
+   * table pushed out.
+   */
+  private void returnToPushedOutTable(int elIndex) {
+    int top = pushedOut.length() - 1;  // The nearest pushed-out entry.
+    byte tableScope = SCOPE_FOR_END_TAG[TABLE_TAG];
+    for (int i = openElements.size(); --i > top;) {
+      if ((SCOPES_BY_ELEMENT[openElements.get(i)] & tableScope) != 0) {
+        return;
+      }
+    }
+    for (int i = openElements.size(); --i > top;) {
+      int unclosed = openElements.remove(i);
+      outputElements.remove(i);
+      if (i < nestingLimit) {
+        underlying.closeTag(METADATA.canonNameForIndex(unclosed));
+      }
+      if (METADATA.resumable(unclosed)) {
+        toResumeInReverse.add(unclosed);
+      }
+      reopenedWithoutTable.clear(i);
+    }
+    while (top >= 0 && pushedOut.get(top)) {
+      if (canHold(elIndex, openElements.get(top), top)) { break; }
+      openElements.remove(top);
+      outputElements.remove(top);
+      pushedOut.clear(top);
+      reopenedWithoutTable.clear(top);
+      --top;
+    }
+    if (top < 0 || !pushedOut.get(top)) { return; }
+    int start = top;
+    while (start > 0 && pushedOut.get(start - 1)) { --start; }
+    // Pop the run and push it back, outermost first, opening each again.
+    int n = top - start + 1;
+    int[] run = new int[n];
+    for (int i = n; --i >= 0;) {
+      run[i] = openElements.remove(start + i);
+      outputElements.remove(start + i);
+      pushedOut.clear(start + i);
+      reopenedWithoutTable.clear(start + i);
+    }
+    if (foreignRootPendingTableReturn != null) {
+      underlying.closeTag(foreignRootPendingTableReturn);
+      foreignRootPendingTableReturn = null;
+    }
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    for (int i = 0; i < n; ++i) {
+      int outputElementIndex = NO_OUTPUT_ELEMENT;
+      if (openElements.size() < nestingLimit) {
+        List<String> attrs = new ArrayList<>();
+        if (run[i] == TABLE_TAG && policy != null) {
+          policy.openReopenedTable(attrs);
+          outputElementIndex = outputElementIndexForLastOpenTag(run[i]);
+        } else {
+          outputElementIndex = openElement(run[i], attrs);
+        }
+      }
+      openElements.add(run[i]);
+      outputElements.add(outputElementIndex);
+      if (policy != null
+          && run[i] == TABLE_TAG && outputElementIndex != TABLE_TAG) {
+        reopenedWithoutTable.set(openElements.size() - 1);
       }
     }
   }
@@ -400,14 +785,47 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
+    int elIndex = METADATA.indexForName(canonElementName);
+    String foreignRootBefore = foreignContent.outermostForeignElementName();
+    String outputForeignRootBefore = outputForeignContentRootName();
+    if (!pushedOut.isEmpty()
+        && foreignContent.isInForeignContent()
+        && !foreignContent.hasForeignElementNamed(canonElementName)
+        && !hasOpenElementInScope(elIndex)) {
+      // The foreign end-tag algorithm reprocesses this under HTML rules, but
+      // the pushed-out table bounds its scope and there is no target before
+      // that boundary, so the end tag is ignored.  Keeping the known foreign
+      // current node prevents later foreign names from being balanced as
+      // HTML or spuriously returning to the table.
+      foreignContent.ignoreEndTagUnderHtmlRules();
+    } else {
+      foreignContent.processEndTag(canonElementName);
+    }
+    boolean usesForeignContentRules =
+        foreignContent.lastTagUsedForeignContentRules();
+    if (!pushedOut.isEmpty()
+        && foreignRootBefore != null
+        && !usesForeignContentRules
+        && foreignContent.outermostForeignElementName() == null) {
+      foreignRootPendingTableReturn = outputForeignRootBefore != null
+          ? foreignRootBefore : null;
+    }
     if (droppedSkippableDepth != 0 && contentIsSkippable(canonElementName)) {
       --droppedSkippableDepth;
     }
 
-    int elIndex = METADATA.indexForName(canonElementName);
+    if (usesForeignContentRules
+        && TABLE_PARTS.get(elIndex)
+        && isOutputInForeignContent()) {
+      underlying.closeTag(elementName);
+      return;
+    }
     if (elIndex == UNRECOGNIZED_TAG) {  // Allow unrecognized end tags through.
       if (openElements.size() < nestingLimit) {
         underlying.closeTag(elementName);
+      }
+      if (canonElementName.equals(foreignRootPendingTableReturn)) {
+        foreignRootPendingTableReturn = null;
       }
       return;
     }
@@ -459,18 +877,39 @@ public class TagBalancingHtmlStreamEventReceiver
     while (--last > index) {
       int unclosed = openElements.remove(last);
       outputElements.remove(last);
-      if (last + 1 < nestingLimit) {
+      if (last + 1 < nestingLimit && !pushedOut.get(last)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
+      pushedOut.clear(last);
+      reopenedWithoutTable.clear(last);
       if (METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
     }
-    if (openElements.size() < nestingLimit) {
+    if (pushedOut.get(index) && foreignRootPendingTableReturn != null) {
+      underlying.closeTag(foreignRootPendingTableReturn);
+      foreignRootPendingTableReturn = null;
+    }
+    if (openElements.size() < nestingLimit && !pushedOut.get(index)) {
       underlying.closeTag(METADATA.canonNameForIndex(elIndex));
     }
+    pushedOut.clear(index);
+    reopenedWithoutTable.clear(index);
     openElements.remove(index);
     outputElements.remove(index);
+  }
+
+  /** Whether {@code elIndex} occurs before its end-tag scope is bounded. */
+  private boolean hasOpenElementInScope(int elIndex) {
+    int blockingScopes = SCOPE_FOR_END_TAG[elIndex];
+    for (int i = openElements.size(); --i >= 0;) {
+      int openElementIndex = openElements.get(i);
+      if (openElementIndex == elIndex) { return true; }
+      if ((SCOPES_BY_ELEMENT[openElementIndex] & blockingScopes) != 0) {
+        return false;
+      }
+    }
+    return false;
   }
 
   /**

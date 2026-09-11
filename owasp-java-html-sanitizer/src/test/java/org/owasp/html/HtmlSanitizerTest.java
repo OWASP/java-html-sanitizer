@@ -1779,6 +1779,518 @@ class HtmlSanitizerTest {
     assertEquals(renamedInto, intoMarker.sanitize(renamedInto));
   }
 
+  /**
+   * A browser puts content that cannot go inside a table in front of the
+   * table and keeps the table open, so that the next row pops the content
+   * and carries on in the same table (#342).  The output cannot put anything
+   * in front of a tag already written, so the table is closed there, the
+   * content written after it, and the table written again for its rows.
+   * The content used to stay open until the end of the document, taking the
+   * rows and everything after the table with it.  A browser now reads the
+   * output as it reads the input, but for the empty table in front.
+   */
+  @Test
+  void testContentPushedOutOfATableIsClosedWhenTheTableResumes()
+      throws Exception {
+    PolicyFactory p = tablePolicy();
+    String input = "<table><div>x<tr><td>y</td></tr></div></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><div>x</div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+  }
+
+  /**
+   * The shape reported in #342: the table had rows before the content and
+   * attributes of its own.  The rows before stay in the first table, and the
+   * table written again for the rows after has no attributes, as a formatting
+   * element written again after being closed has none.
+   */
+  @Test
+  void testRowsAfterPushedOutContentContinueInANewTable() throws Exception {
+    PolicyFactory p = tablePolicy();
+    String input = "<table class=t><tbody><tr><td>a</td></tr>"
+        + "<div class=d>x<tr><td>y</td></tr></div></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table class=\"t\"><tbody><tr><td>a</td></tr></tbody></table>"
+        + "<div class=\"d\">x</div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * Content pushed out of a table nests as usual until a part of the table
+   * arrives, which closes all of it.  End tags for that content arriving
+   * later find nothing to close, as in a browser, and the text after them
+   * is pushed out as well.  A browser puts that text in front of the table;
+   * the output, written in order, can only put it after.
+   */
+  @Test
+  void testPushedOutContentNestsUntilATablePartArrives() {
+    PolicyFactory p = tablePolicy();
+    String input = "<table><div><p>x<span>s<tr><td>y</td></tr></span>t</div>u"
+        + "</table>v";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><div><p>x<span>s</span></p></div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tuv",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * A browser keeps the table open below the content it pushed out, so an
+   * end tag for an element enclosing the table is ignored meanwhile, and the
+   * text after it lands in the pushed-out content.  The balancer used to
+   * close the table and let the end tag through.
+   */
+  @Test
+  void testEndTagBelowAPushedOutTableIsIgnoredWhileItIsOpen()
+      throws Exception {
+    PolicyFactory p = tablePolicy();
+    String input = "<div><table><span>x</div>y</table>z";
+    String out = p.sanitize(input);
+
+    assertEquals("<div><table></table><span>xy</span>z</div>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<div><table></table><span>xy</span>z</div>"),
+        parseAsBrowser(out));
+  }
+
+  /**
+   * The table's own end tag ends the content pushed out of it.  A browser
+   * has the content in front of the table and the text after both; the
+   * output has the same nodes with the table first.
+   */
+  @Test
+  void testTableEndTagEndsPushedOutContent() {
+    PolicyFactory p = tablePolicy();
+    String out = p.sanitize("<table><div>x</table>tail");
+
+    assertEquals("<table></table><div>x</div>tail", out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * A table arriving inside pushed-out content pops the open table in a
+   * browser and takes its place, rather than nesting in the content; and
+   * with tables pushed out at two levels, a row returns to the nearest.
+   */
+  @Test
+  void testTableInsidePushedOutContentReplacesTheOpenTable()
+      throws Exception {
+    PolicyFactory p = tablePolicy();
+    String input = "<table><div>x<table><tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+    assertEquals(
+        "<table></table><div>x</div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+
+    String nested = "<table><div>x<table><span>y<tr><td>z</td></tr></table>"
+        + "</div>w</table>v";
+    out = p.sanitize(nested);
+    assertEquals(
+        "<table></table><div>x</div><table></table><span>y</span>"
+        + "<table><tbody><tr><td>z</td></tr></tbody></table>wv",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser("<table></table>" + nested), parseAsBrowser(out));
+  }
+
+  /** Every part of a table brings the pushed-out table back. */
+  @Test
+  void testEveryTablePartReturnsToThePushedOutTable() throws Exception {
+    PolicyFactory p = tablePolicy();
+    String[][] cases = {
+        { "<caption>c</caption>", "<caption>c</caption>" },
+        { "<thead><tr><th>h</th></tr></thead>", "<thead><tr><th>h</th></tr></thead>" },
+        { "<tbody><tr><td>y</td></tr></tbody>", "<tbody><tr><td>y</td></tr></tbody>" },
+        { "<tr><td>y</td></tr>", "<tbody><tr><td>y</td></tr></tbody>" },
+        { "<td>y</td>", "<tbody><tr><td>y</td></tr></tbody>" },
+        { "<th>h</th>", "<tbody><tr><th>h</th></tr></tbody>" },
+    };
+    for (String[] c : cases) {
+      String input = "<table><div>x" + c[0] + "</table>";
+      String out = p.sanitize(input);
+      assertEquals(
+          "<table></table><div>x</div><table>" + c[1] + "</table>", out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          parseAsBrowser("<table></table>" + input), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /**
+   * Table-part names in SVG and MathML stay in foreign content.  Treating
+   * them as HTML used to close the foreign ancestors and move the elements
+   * into the pushed-out table.  At an HTML integration point the same names
+   * do use HTML rules and still return to the table.
+   */
+  @Test
+  void testForeignTablePartsDoNotReturnToAPushedOutTable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "b", "caption", "colgroup", "table", "thead", "tbody",
+            "tr", "td", "div", "svg", "g", "textArea", "foreignObject",
+            "math", "mrow", "mtext")
+        .toFactory();
+    String input = "<table><svg><g><tr><td>s</td></tr>"
+        + "<textArea><tr><td>t</td></tr></textArea></g></svg>"
+        + "<math><mrow><tr><td>m</td></tr></mrow></math>"
+        + "<tr><td>h</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><svg><g><tr><td>s</td></tr>"
+        + "<textArea><tr><td>t</td></tr></textArea></g></svg>"
+        + "<math><mrow><tr><td>m</td></tr></mrow></math>"
+        + "<table><tbody><tr><td>h</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+
+    for (String[] integrationPoint : new String[][] {
+            { "<svg><foreignObject>", "</foreignObject></svg>" },
+            { "<math><mtext>", "</mtext></math>" },
+         }) {
+      input = "<table><div>" + integrationPoint[0]
+          + "<tr><td>i</td></tr>" + integrationPoint[1]
+          + "<tr><td>h</td></tr></table>tail";
+      out = p.sanitize(input);
+      assertEquals(out, p.sanitize(out), integrationPoint[0]);
+      assertEquals(
+          parseAsBrowser("<table></table>" + input), parseAsBrowser(out),
+          integrationPoint[0]);
+    }
+
+    // An emitted HTML breakout leaves the rendered foreign root before the
+    // table is written again.  Its later end tag must not close that table in
+    // the policy's stack and strand the following section outside it.
+    input = "<table><svg><b><thead></svg>"
+        + "<tbody><tr><td>y</td></tr></table>tail";
+    out = p.sanitize(input);
+    assertEquals(
+        "<table></table><svg><b></b></svg>"
+        + "<table><thead></thead><tbody><tr><td><b>y</b></td></tr>"
+        + "</tbody></table><b>tail</b>",
+        out);
+    assertEquals(out, p.sanitize(out));
+
+    // A stray table end tag cannot lose foreign context and send a later
+    // table part back into the pushed-out table.
+    String foreign = "<table><svg><colgroup></thead>"
+        + "<caption>c</caption></colgroup></svg>"
+        + "<tr><td>y</td></tr></table>tail";
+    out = p.sanitize(foreign);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<table></table>" + foreign), parseAsBrowser(out));
+  }
+
+  /** Raw-text and RCDATA elements stay bounded by a pushed-out run. */
+  @Test
+  void testLiteralContentInPushedOutTableContent() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "tbody", "tr", "td", "div", "span", "style",
+            "script", "textarea", "noscript")
+        .allowTextIn("style", "script", "noscript")
+        .toFactory();
+    String input = "<table><textarea>&lt;tr&gt;</textarea><div>"
+        + "<style>x{}</style><script>x()</script>"
+        + "<noscript><span>n</span></noscript></div>"
+        + "<tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><textarea>&lt;tr&gt;</textarea><div>"
+        + "<style>x{}</style><script>x()</script>"
+        + "<noscript>n</noscript></div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * A policy may drop or rename the attribute-free table written when table
+   * content resumes.  A renamed synthetic table and its row structure cannot
+   * safely be emitted, but allowed cell text still survives.  This includes
+   * replacements with table, void, select, raw-text and foreign parsing rules.
+   */
+  @Test
+  void testTableStructureIsSuppressedUnderRenamedReopenedTable() {
+    String input = "<table class=t><div>x<tr><td>"
+        + "a&lt;/script&gt;&lt;svg onload=x&gt;b"
+        + "</td></tr></table>tail";
+    String[] replacements = {
+        "", "div", "tbody", "tr", "td", "caption", "colgroup", "col",
+        "br", "select", "option", "script", "style", "textarea",
+        "noscript", "xmp", "plaintext", "iframe", "svg", "math",
+    };
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output is under test, notifications are not.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output is under test, notifications are not.
+      }
+    };
+    for (String c : replacements) {
+      final String replacement = c.isEmpty() ? null : c;
+      PolicyFactory p = new HtmlPolicyBuilder()
+          .allowElements(
+              (elementName, attrs) -> attrs.isEmpty()
+                  ? replacement : elementName,
+              "table")
+          .allowElements("tbody", "tr", "td", "div")
+          .allowAttributes("class").onElements("table")
+          .allowTextIn("table")
+          .toFactory();
+      String out = p.sanitize(input);
+
+      assertEquals(
+          "<table class=\"t\"></table><div>x</div>"
+              + "a&lt;/script&gt;&lt;svg onload&#61;x&gt;btail",
+          out, c);
+      assertEquals(out, p.sanitize(out), c);
+      assertEquals(out, p.sanitize(input, ignore, null), c);
+    }
+  }
+
+  /**
+   * A link pushed out of a table is closed when the table resumes, and is
+   * not written again around another link or inside one: nested links do
+   * not survive a browser's parse.  Text is pushed out likewise, and needs
+   * nothing closed.
+   */
+  @Test
+  void testPushedOutLinkIsNotResumedAroundAnotherLink() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "a")
+        .allowAttributes("href").onElements("a")
+        .allowWithoutAttributes("a")
+        .toFactory();
+    String out = p.sanitize(
+        "<table><a href=u>x<tr><td><a href=v>y</a>z</td></tr></table>w");
+
+    assertEquals(
+        "<table></table><a href=\"u\">x</a>"
+        + "<table><tbody><tr><td><a href=\"v\">y</a><a>z</a></td></tr></tbody>"
+        + "</table><a>w</a>",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        "<table></table>x<table><tbody><tr><td>y</td></tr></tbody></table>",
+        p.sanitize("<table>x<tr><td>y</td></tr></table>"));
+  }
+
+  /**
+   * A browser looks for the table to return to within table scope only, so
+   * a table or row inside a {@code template} in the pushed-out content
+   * stays in the template, and the pushed-out table waits for a part
+   * arriving outside it.
+   */
+  @Test
+  void testReturnToAPushedOutTableStopsAtATableScopeBoundary() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "div", "template")
+        .toFactory();
+    String out = p.sanitize(
+        "<table><div><template><table><tr><td>y</td></tr></table></template>"
+        + "z</div>w<tr><td>v</td></tr></table>u");
+
+    assertEquals(
+        "<table></table><div><template>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table></template>z</div>w"
+        + "<table><tbody><tr><td>v</td></tr></tbody></table>u",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * Content is judged by what holds the table it was pushed out of, since
+   * that is where a browser puts it.  An element that cannot hold the
+   * content closes instead of nesting it: a heading inside a heading does
+   * not survive a browser's parse, so the output would read back as a
+   * different tree.
+   */
+  @Test
+  void testPushedOutContentIsJudgedByWhatHoldsTheTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "h1", "button")
+        .toFactory();
+    String heading = p.sanitize(
+        "<h1><table><tr><td>a</td></tr><h1>b</h1></table>");
+    assertEquals(
+        "<h1><table><tbody><tr><td>a</td></tr></tbody></table></h1>"
+        + "<h1>b</h1>",
+        heading);
+    assertEquals(heading, p.sanitize(heading));
+
+    String button = p.sanitize(
+        "<button><table><tr><td>a</td></tr><button>b</button></table>");
+    assertEquals(
+        "<button><table><tbody><tr><td>a</td></tr></tbody></table></button>"
+        + "<button>b</button>",
+        button);
+    assertEquals(button, p.sanitize(button));
+  }
+
+  /**
+   * And it gets the elements a browser would imply around it there: an
+   * option needs its select whether or not a table was pushed out of the
+   * way, which the tables never leave to chance, since the sanitizer does
+   * not know what the output will be embedded in.
+   */
+  @Test
+  void testContentBesideAPushedOutTableStillGetsItsImpliedWrapper() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "select", "option")
+        .toFactory();
+    String out = p.sanitize("<table>x<option>o</option></table>z");
+
+    assertEquals("<table></table>x<select><option>o</option></select>z", out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * Text that follows a pushed-out table reaches the output even where the
+   * element holding the table cannot hold text: that element closes, as it
+   * would for text arriving anywhere else, rather than the text going into
+   * it and being dropped.  The table inside the {@code colgroup} here is a
+   * separate, older mis-implication (#483); what this pins is that
+   * {@code tail} survives.
+   */
+  @Test
+  void testTextAfterAPushedOutTableSurvivesAContainerThatCannotHoldIt() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "colgroup", "col", "tbody", "tr", "td")
+        .toFactory();
+    String out = p.sanitize("<table><col><tr><td>a</td></tr>tail</table>");
+
+    assertEquals(
+        "<table><colgroup><col />"
+        + "<table><tbody><tr><td>a</td></tr></tbody></table>"
+        + "</colgroup></table>tail",
+        out);
+  }
+
+  /**
+   * A cell returning to a pushed-out table lands in the table, not in a
+   * fresh one: the row group it arrives in cannot hold a cell without a row
+   * between, and the path to that row runs through a table, so the row group
+   * goes and the table takes the cell.
+   */
+  @Test
+  void testACellReturningToAPushedOutSectionDoesNotOpenANewTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "thead", "tfoot", "tbody", "tr", "td", "th")
+        .toFactory();
+    String head = p.sanitize("<table><thead>x<td>y</td></table>tail");
+    assertEquals(
+        "<table><thead></thead></table>x"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        head);
+    assertEquals(head, p.sanitize(head));
+
+    String foot = p.sanitize("<table><tfoot>x<th>h</th></table>tail");
+    assertEquals(
+        "<table><tfoot></tfoot></table>x"
+        + "<table><tbody><tr><th>h</th></tr></tbody></table>tail",
+        foot);
+    assertEquals(foot, p.sanitize(foot));
+  }
+
+  /**
+   * The rule that a link is not written again around or inside another link
+   * is not about tables: an end tag that closes the element a link was
+   * misnested in queues the link for resumption, and resuming it around the
+   * next link used to produce nested links, which a browser's parse
+   * unnests, so the output read back as a different tree.
+   */
+  @Test
+  void testLinkIsNotResumedAroundAnotherLinkWithoutATable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("div", "p", "a")
+        .allowAttributes("href").onElements("a")
+        .allowUrlProtocols("http")
+        .allowWithoutAttributes("a")
+        .toFactory();
+    String out = p.sanitize(
+        "<div><a href=http://u>x</div><a href=http://v>y");
+    assertEquals(
+        "<div><a href=\"http://u\">x</a></div><a href=\"http://v\">y</a>",
+        out);
+    assertEquals(out, p.sanitize(out));
+
+    String nested = p.sanitize(
+        "<div><a href=http://u>x<p><a href=http://v>y</a></p></a>");
+    assertEquals(
+        "<div><a href=\"http://u\">x<p></p></a>"
+        + "<a href=\"http://v\">y</a></div>",
+        nested);
+    assertEquals(nested, p.sanitize(nested));
+  }
+
+  /** Pushed-out content is bounded by the nesting limit like any other. */
+  @Test
+  void testPushedOutContentRespectsTheNestingLimit() {
+    PolicyFactory p = tablePolicy();
+    StringBuilder sb = new StringBuilder("<table>");
+    for (int i = 0; i < 300; ++i) { sb.append("<div>"); }
+    sb.append("<tr><td>y</td></tr></table>z");
+    String out = p.sanitize(sb.toString());
+    assertTrue(
+        out.endsWith("</div><table><tbody><tr><td>y</td></tr></tbody></table>z"),
+        out.substring(out.length() - 80));
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * A table arriving beside a pushed-out table replaces it, so a long run
+   * of them leaves nothing behind: the stack stays flat however many there
+   * are, where the content used to nest one run inside the next.
+   */
+  @Test
+  void testRepeatedPushOutAndReturnDoesNotAccumulate() {
+    PolicyFactory p = tablePolicy();
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < 300; ++i) { sb.append("<table><div>"); }
+    sb.append("<tr><td>y</td></tr></table>z");
+    String out = p.sanitize(sb.toString());
+
+    StringBuilder expected = new StringBuilder();
+    for (int i = 0; i < 300; ++i) { expected.append("<table></table><div></div>"); }
+    expected.setLength(expected.length() - "<table></table><div></div>".length());
+    expected.append("<table></table><div></div>")
+        .append("<table><tbody><tr><td>y</td></tr></tbody></table>z");
+    assertEquals(expected.toString(), out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  private static PolicyFactory tablePolicy() {
+    return new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th",
+            "div", "p", "span")
+        .allowAttributes("class").onElements("table", "div")
+        .allowWithoutAttributes("span")
+        .toFactory();
+  }
+
   /** The tree a browser builds from html, one node per line. */
   private static String parseAsBrowser(String html) throws Exception {
     Node fragment = new HtmlDocumentBuilder().parseFragment(

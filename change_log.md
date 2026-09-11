@@ -2,6 +2,30 @@
 
 Most recent at top.
   * Next release
+    * Content that cannot go inside a table, such as a `div` between its
+      rows, no longer stays open until the end of the document, taking the
+      rows and everything after the table with it (#342).  A browser puts
+      such content in front of the table and keeps the table open, so that
+      the next row pops the content and carries on in the same table.  The
+      tag balancer now keeps the table, and any row group and row, on its
+      stack while closing them in the output, closes the content when a part
+      of the table arrives, and writes the table again for that part.  The
+      output cannot put anything in front of a tag already written, so the
+      table is written twice, once empty and once with the later rows, and
+      text pushed out of a table follows it rather than preceding it as in a
+      browser; a browser reads the rest as it reads the input.  Such content
+      is judged by the element that holds the table, which is where a
+      browser puts it: that element closes if it cannot hold the content,
+      and supplies the elements a browser would imply around it, such as the
+      `select` around an `option`.  A link is no longer written again around
+      or inside another link, with or without a table involved, since a
+      browser's parse unnests links and the output would read back as a
+      different tree.  Table-part names in SVG and MathML stay in foreign
+      content, including across stray end tags, while names at HTML integration
+      points still return to the table.  Implied table structure observes the
+      nesting limit.  If an element policy drops the table written again for
+      later rows, or renames it, the synthetic replacement and its row
+      structure are suppressed while allowed cell text survives.
     * What `HtmlStreamRenderer` leaves out now reaches an `HtmlChangeListener`
       as well as the renderer's bad-HTML handler: a start tag whose name is
       not one HTML allows, which an `ElementPolicy` can produce by renaming,

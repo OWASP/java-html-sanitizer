@@ -149,6 +149,47 @@ class HtmlChangeReporterTest {
     assertEquals("", log.toString());
   }
 
+  /** A public policy decorator cannot implement the package-private feedback. */
+  @Test
+  void testPolicyDecoratorDoesNotClaimPushedOutTableOperations() {
+    final Context testContext = new Context();
+    StringBuilder out = new StringBuilder();
+    final StringBuilder log = new StringBuilder();
+    HtmlStreamRenderer renderer = HtmlStreamRenderer.create(
+        out, Handler.DO_NOTHING);
+    HtmlChangeReporter<Context> hcr = new HtmlChangeReporter<>(
+        renderer, loggingListener(testContext, log), testContext);
+    final HtmlSanitizer.Policy delegate = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "div")
+        .toFactory()
+        .apply(hcr.getWrappedRenderer());
+    hcr.setPolicy(new HtmlSanitizer.Policy() {
+      public void openDocument() { delegate.openDocument(); }
+
+      public void closeDocument() { delegate.closeDocument(); }
+
+      public void openTag(String elementName, List<String> attrs) {
+        delegate.openTag(elementName, attrs);
+      }
+
+      public void closeTag(String elementName) {
+        delegate.closeTag(elementName);
+      }
+
+      public void text(String textChunk) { delegate.text(textChunk); }
+    });
+
+    HtmlSanitizer.sanitize(
+        "<table><div>x<tr><td>y</td></tr></table>tail",
+        hcr.getWrappedPolicy());
+
+    assertEquals(
+        "<table></table><div>x</div>"
+            + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out.toString());
+    assertEquals("", log.toString());
+  }
+
   /**
    * {@link ElementPolicy#apply} may return another element name, and the
    * reporter used to decide whether a tag survived by comparing names, so a

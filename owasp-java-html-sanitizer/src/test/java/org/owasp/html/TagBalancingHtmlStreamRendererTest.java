@@ -246,6 +246,130 @@ class TagBalancingHtmlStreamRendererTest {
         htmlOutputBuffer.toString());
   }
 
+  /**
+   * A browser puts content that cannot go inside a table in front of the
+   * table and keeps the table open, so that the next row pops the content
+   * and carries on in the same table (#342).  The output cannot put anything
+   * in front of a tag already written, so the table is closed there and
+   * written again for the row; the content is closed when the row comes,
+   * where it used to stay open and swallow the row and everything after.
+   */
+  @Test
+  void testContentPushedOutOfATableIsClosedWhenTheTableResumes() {
+    balancer.openDocument();
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    balancer.text("x");
+    balancer.openTag("tr", j8().listOf());
+    balancer.openTag("td", j8().listOf());
+    balancer.text("y");
+    balancer.closeTag("td");
+    balancer.closeTag("tr");
+    balancer.closeTag("div");  // Ignored: no div in table scope.
+    balancer.closeTag("table");
+    balancer.text("tail");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<table></table><div>x</div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        htmlOutputBuffer.toString());
+  }
+
+  /** The row group and row the content was pushed out of return as well. */
+  @Test
+  void testPushedOutRowAndRowGroupReturnWithTheTable() {
+    balancer.openDocument();
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("tbody", j8().listOf());
+    balancer.openTag("tr", j8().listOf());
+    balancer.openTag("td", j8().listOf());
+    balancer.text("a");
+    balancer.closeTag("td");
+    balancer.openTag("div", j8().listOf());
+    balancer.text("x");
+    balancer.openTag("td", j8().listOf());
+    balancer.text("b");
+    balancer.closeTag("td");
+    balancer.closeTag("tr");
+    balancer.closeTag("table");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<table><tbody><tr><td>a</td></tr></tbody></table><div>x</div>"
+        + "<table><tbody><tr><td>b</td></tr></tbody></table>",
+        htmlOutputBuffer.toString());
+  }
+
+  /** The table's own end tag ends the content pushed out of it. */
+  @Test
+  void testPushedOutTableEndsWithItsEndTag() {
+    balancer.openDocument();
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    balancer.text("x");
+    balancer.closeTag("table");
+    balancer.text("tail");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<table></table><div>x</div>tail", htmlOutputBuffer.toString());
+  }
+
+  /**
+   * A pushed-out table is closed in the output but still counts toward the
+   * nesting limit, which is a conservative reading of the limit.
+   */
+  @Test
+  void testPushedOutTableCountsTowardTheNestingLimit() {
+    balancer.setNestingLimit(3);
+    balancer.openDocument();
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("p", j8().listOf());
+    balancer.openTag("span", j8().listOf());  // Past the limit.
+    balancer.text("x");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<table></table><div><p>x</p></div>", htmlOutputBuffer.toString());
+  }
+
+  /** Implied table structure never opens past a small nesting limit. */
+  @Test
+  void testPushedOutTableImpliedElementsRespectSmallNestingLimits() {
+    String[] expected = {
+        "xytail",
+        "<table></table>x<table></table>ytail",
+        "<table></table><div>x</div>"
+            + "<table><tbody></tbody></table>ytail",
+        "<table></table><div>x</div>"
+            + "<table><tbody><tr></tr></tbody></table>ytail",
+    };
+    for (int limit = 0; limit < expected.length; ++limit) {
+      StringBuilder out = new StringBuilder();
+      TagBalancingHtmlStreamEventReceiver limited =
+          new TagBalancingHtmlStreamEventReceiver(
+              HtmlStreamRenderer.create(
+                  out, x -> fail("Unexpected renderer error: " + x)));
+      limited.setNestingLimit(limit);
+      limited.openDocument();
+      limited.openTag("table", j8().listOf());
+      limited.openTag("div", j8().listOf());
+      limited.text("x");
+      limited.openTag("tr", j8().listOf());
+      limited.openTag("td", j8().listOf());
+      limited.text("y");
+      limited.closeTag("td");
+      limited.closeTag("tr");
+      limited.closeTag("table");
+      limited.text("tail");
+      limited.closeDocument();
+
+      assertEquals(expected[limit], out.toString(), "limit " + limit);
+    }
+  }
+
   @Test
   void testNestingLimits() {
     // Some browsers can be DoSed by deeply nested structures.
