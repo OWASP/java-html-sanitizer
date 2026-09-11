@@ -50,8 +50,10 @@ import static org.owasp.shim.Java8Shim.j8;
 class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy,
                TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy,
+               TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy,
                HtmlChangeReporter.AttributelessSkipPolicy,
-               HtmlChangeReporter.DroppedTextSource {
+               HtmlChangeReporter.DroppedTextSource,
+               HtmlChangeReporter.DiscardedAttributeSource {
   final Map<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final Set<String> allowedTextContainers;
   /**
@@ -114,6 +116,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   /** Told about filtered literal content; null while nobody is listening. */
   private @Nullable HtmlStreamRenderer.DroppedTextListener droppedTextListener;
+  /** Told exactly which input attributes an attribute policy rejects. */
+  private @Nullable HtmlChangeReporter.DiscardedAttributeListener
+      discardedAttributeListener;
+  /** The output name, if any, produced by the most recent open-tag call. */
+  private transient @Nullable String outputElementNameForLastOpenTag;
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
@@ -151,6 +158,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     inKeptCdataElement = false;
     keptCdataElementName = null;
     droppedTextListener = null;
+    discardedAttributeListener = null;
+    outputElementNameForLastOpenTag = null;
     skippedLastTagAsAttributeless = false;
     openElementStack.clear();
     skipTextBeforeOpen.clear();
@@ -173,12 +182,22 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     skipText = true;
     inKeptCdataElement = false;
     keptCdataElementName = null;
+    outputElementNameForLastOpenTag = null;
     out.closeDocument();
   }
 
   public void reportDroppedTextTo(
       @Nullable HtmlStreamRenderer.DroppedTextListener listener) {
     this.droppedTextListener = listener;
+  }
+
+  public void reportDiscardedAttributesTo(
+      @Nullable HtmlChangeReporter.DiscardedAttributeListener listener) {
+    this.discardedAttributeListener = listener;
+  }
+
+  public @Nullable String outputElementNameForLastOpenTag() {
+    return outputElementNameForLastOpenTag;
   }
 
   public void text(String textChunk) {
@@ -247,18 +266,34 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     while (i < len) {
       int tagStart = text.indexOf('<', i);
       if (tagStart < 0) { break; }
-      int tagEnd = text.indexOf('>', tagStart + 1);
-      if (tagEnd < 0) { break; }  // No '<' from here on starts a tag.
-      String trimmed = text.substring(tagStart + 1, tagEnd).trim();
-      boolean isEndTag = trimmed.startsWith("/");
-      String tagName = tagNameOf(trimmed, isEndTag);
-      if (tagName == null) {
+      int nameStart = skipTrimSpace(text, tagStart + 1);
+      if (nameStart == len) { break; }
+      boolean isEndTag = text.charAt(nameStart) == '/';
+      if (isEndTag) {
+        nameStart = skipTrimSpace(text, nameStart + 1);
+        if (nameStart == len) { break; }
+      }
+      if (!Character.isLetter(text.charAt(nameStart))) {
         // Not a tag: "<!-- -->", "</>", "<3" and the like.  The '<' is text,
-        // and the scan resumes right after it: the '>' found above may end
-        // a tag that starts inside the span, as in "< </noscript>".
+        // and the scan resumes right after it.  In particular, do not search
+        // for a '>' until the prefix is known to open a tag: repeatedly
+        // searching the same suffix makes a long run of '<' quadratic.
         i = tagStart + 1;
         continue;
       }
+      int tagEnd = text.indexOf('>', nameStart + 1);
+      if (tagEnd < 0) { break; }  // No '<' from here on starts a tag.
+      int bodyEnd = tagEnd;
+      while (bodyEnd > nameStart && text.charAt(bodyEnd - 1) <= ' ') {
+        --bodyEnd;
+      }
+      int nameEnd = nameStart + 1;
+      while (nameEnd < bodyEnd
+          && !isRegexWhitespace(text.charAt(nameEnd))) {
+        ++nameEnd;
+      }
+      String tagName = HtmlLexer.canonicalElementName(
+          text.substring(nameStart, nameEnd));
       int kind = isEndTag ? END_TAG : START_TAG;
       int[] tag = { tagStart, tagEnd + 1, -1, kind };
       if (kind == START_TAG) {
@@ -286,11 +321,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       int dropStart = tag[TAG_START];
       pos = tag[KIND] == END_TAG || tag[MATCH_END] < 0
           ? tag[TAG_END] : tag[MATCH_END];
-      // A '<' that the dropped tag followed would meet what follows the tag.
+      // Any '<'s that the dropped tag followed would meet what follows the
+      // tag.  Take the whole adjacent run, lest "<<<b>img" become "<img".
       int last = result.length() - 1;
-      if (last >= 0 && result.charAt(last) == '<') {
+      while (last >= 0 && result.charAt(last) == '<') {
         result.setLength(last);
         dropStart -= 1;
+        --last;
       }
       reportDroppedText(elementName, text, dropStart, pos);
     }
@@ -325,18 +362,26 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /** The kinds of record. */
   private static final int START_TAG = 0, END_TAG = 1;
 
-  /**
-   * The canonical name of the tag whose trimmed content between the angle
-   * brackets is {@code trimmed}, or null if it is not a tag.  A tag name
-   * starts with a letter; whitespace between {@code <} or {@code </} and the
-   * name is tolerated, which is stricter than a browser.
-   */
-  private static @Nullable String tagNameOf(String trimmed, boolean isEndTag) {
-    String body = isEndTag ? trimmed.substring(1).trim() : trimmed;
-    if (body.isEmpty() || !Character.isLetter(body.charAt(0))) {
-      return null;
+  /** Skips characters that {@link String#trim} treats as whitespace. */
+  private static int skipTrimSpace(String s, int start) {
+    int i = start;
+    while (i < s.length() && s.charAt(i) <= ' ') { ++i; }
+    return i;
+  }
+
+  /** The Java 8 regular-expression meaning of {@code \\s}. */
+  private static boolean isRegexWhitespace(char ch) {
+    switch (ch) {
+      case ' ':
+      case '\t':
+      case '\n':
+      case '\u000b':
+      case '\f':
+      case '\r':
+        return true;
+      default:
+        return false;
     }
-    return HtmlLexer.canonicalElementName(body.split("\\s")[0]);
   }
 
   /**
@@ -359,6 +404,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void openTag(String elementName, List<String> attrs) {
+    outputElementNameForLastOpenTag = null;
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     skippedLastTagAsAttributeless = false;
@@ -377,7 +423,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     return skippedLastTagAsAttributeless;
   }
 
-  static final @Nullable String applyPolicies(
+  private @Nullable String applyPolicies(
       String elementName, List<String> attrs,
       ElementAndAttributePolicies policies) {
     String adjustedElementName;
@@ -389,12 +435,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
             = policies.attrPolicies.get(name);
         if (attrPolicy == null) {
           attrsIt.remove();
-          attrsIt.next();
+          String value = attrsIt.next();
+          reportDiscardedAttribute(name, value);
           attrsIt.remove();
         } else {
           String value = attrsIt.next();
           String adjustedValue = attrPolicy.apply(elementName, name, value);
           if (adjustedValue == null) {
+            reportDiscardedAttribute(name, value);
             attrsIt.remove();
             attrsIt.previous();
             attrsIt.remove();
@@ -417,6 +465,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       adjustedElementName = null;
     }
     return adjustedElementName;
+  }
+
+  /** Reports an attribute-policy rejection without invoking user code. */
+  private void reportDiscardedAttribute(String name, String value) {
+    if (discardedAttributeListener != null) {
+      discardedAttributeListener.discardedAttribute(name, value);
+    }
   }
 
   public void closeTag(String elementName) {
@@ -445,6 +500,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   void writeOpenTag(
       ElementAndAttributePolicies policies, String adjustedElementName,
       List<String> attrs) {
+    outputElementNameForLastOpenTag = adjustedElementName;
     if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
       push(policies.elementName, adjustedElementName);
       // A kept element is the container for the text inside it.  It is judged
