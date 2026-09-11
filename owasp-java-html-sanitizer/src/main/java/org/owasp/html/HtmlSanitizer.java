@@ -251,7 +251,7 @@ public final class HtmlSanitizer {
   }
 
   /** Tracks the tree-construction context needed for self-closing flags. */
-  private static final class ForeignContentContext {
+  static final class ForeignContentContext {
     /** Match the sanitizer's output nesting limit without growing unchecked. */
     private static final int MAX_DEPTH = 256;
 
@@ -292,12 +292,64 @@ public final class HtmlSanitizer {
      */
     private boolean unknown;
 
+    /** Whether the most recently processed tag used foreign-content rules. */
+    private boolean lastTagUsedForeignContentRules;
+
+    /**
+     * True when the most recent start or end tag was processed in SVG or
+     * MathML rather than under the HTML tree-building rules.
+     */
+    boolean lastTagUsedForeignContentRules() {
+      return lastTagUsedForeignContentRules;
+    }
+
+    /** Whether a known current node is in SVG or MathML. */
+    boolean isInForeignContent() {
+      OpenElement current = currentElement();
+      return !unknown && current != null && current.namespace != Namespace.HTML;
+    }
+
+    /** Whether this start tag would use foreign-content tree-building rules. */
+    boolean startTagUsesForeignContentRules(
+        String elementName, List<String> attrs) {
+      if (unknown) { return false; }
+      OpenElement current = currentElement();
+      return !usesHtmlRulesForStartTag(current, elementName)
+          && !breaksOutOfForeignContent(elementName, attrs);
+    }
+
+    /** The outermost SVG or MathML element in the tracked foreign region. */
+    @Nullable String outermostForeignElementName() {
+      if (unknown) { return null; }
+      for (OpenElement open : openElements) {
+        if (open.namespace != Namespace.HTML) { return open.elementName; }
+      }
+      return null;
+    }
+
+    /** Whether the foreign end-tag walk would find this local name. */
+    boolean hasForeignElementNamed(String elementName) {
+      if (!isInForeignContent()) { return false; }
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        if (open.namespace == Namespace.HTML) { return false; }
+        if (asciiEqualsIgnoreCase(open.elementName, elementName)) { return true; }
+      }
+      return false;
+    }
+
+    /** Records an HTML end tag known to be ignored without changing context. */
+    void ignoreEndTagUnderHtmlRules() {
+      lastTagUsedForeignContentRules = false;
+    }
+
     /**
      * Updates the context for a start tag and returns whether its self-closing
      * flag is honored by tree construction.
      */
     boolean processStartTag(
         String elementName, List<String> attrs, boolean selfClosing) {
+      lastTagUsedForeignContentRules = false;
       if (unknown) {
         return selfClosing && isForeignContentRoot(elementName);
       }
@@ -316,6 +368,7 @@ public final class HtmlSanitizer {
 
       // Any other start tag in foreign content inherits the current
       // namespace, even one named "svg" or "math".
+      lastTagUsedForeignContentRules = true;
       if (!selfClosing) {
         push(new OpenElement(elementName, current.namespace, attrs));
       }
@@ -324,6 +377,7 @@ public final class HtmlSanitizer {
 
     /** Updates the context using the foreign-content or HTML end-tag rules. */
     void processEndTag(String elementName) {
+      lastTagUsedForeignContentRules = false;
       if (unknown) { return; }
       if (openElements.isEmpty()) {
         if ("form".equals(elementName)) {
@@ -353,6 +407,7 @@ public final class HtmlSanitizer {
         OpenElement open = openElements.get(i);
         if (open.namespace == Namespace.HTML) { break; }
         if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
+          lastTagUsedForeignContentRules = true;
           openElements.subList(i, openElements.size()).clear();
           return;
         }

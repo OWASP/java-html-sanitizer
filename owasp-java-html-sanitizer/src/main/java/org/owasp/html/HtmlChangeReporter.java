@@ -33,8 +33,11 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
-import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagSuppressionPolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OutputContextPolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.ReopenedTablePolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
 
 /**
  * Sits between the HTML parser, the policy, and the renderer so that it
@@ -127,8 +130,11 @@ public final class HtmlChangeReporter<T> {
   private static final class InputChannel<T>
       implements HtmlSanitizer.Policy,
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
-                 TextSuppressionPolicy,
                  OpenTagOutputPolicy,
+                 OpenTagSuppressionPolicy,
+                 OutputContextPolicy,
+                 ReopenedTablePolicy,
+                 TextSuppressionPolicy,
                  HtmlStreamRenderer.DropListener {
     HtmlStreamEventReceiver policy;
     final OutputChannel output;
@@ -138,6 +144,12 @@ public final class HtmlChangeReporter<T> {
     final List<String> pendingDroppedText = new ArrayList<>();
     /** Output name produced in response to the most recent input start tag. */
     private @Nullable String outputElementNameForLastOpenTag;
+
+    private enum OpenTagMode {
+      NORMAL,
+      REOPENED_TABLE,
+      SUPPRESS,
+    }
 
     InputChannel(
         OutputChannel output, HtmlChangeListener<? super T> listener,
@@ -201,6 +213,24 @@ public final class HtmlChangeReporter<T> {
       return outputElementNameForLastOpenTag;
     }
 
+    public boolean isOutputInForeignContent() {
+      return policy instanceof OutputContextPolicy
+          && ((OutputContextPolicy) policy).isOutputInForeignContent();
+    }
+
+    public @Nullable String outputForeignContentRootName() {
+      return policy instanceof OutputContextPolicy
+          ? ((OutputContextPolicy) policy).outputForeignContentRootName()
+          : null;
+    }
+
+    public boolean outputStartTagUsesForeignContentRules(
+        String elementName, List<String> attrs) {
+      return policy instanceof OutputContextPolicy
+          && ((OutputContextPolicy) policy)
+              .outputStartTagUsesForeignContentRules(elementName, attrs);
+    }
+
     public void openDocument() {
       pendingDroppedText.clear();
       outputElementNameForLastOpenTag = null;
@@ -237,11 +267,40 @@ public final class HtmlChangeReporter<T> {
     }
 
     public void openTag(String elementName, List<String> attrs) {
+      openTag(elementName, attrs, OpenTagMode.NORMAL);
+    }
+
+    public void openTagWithoutOutput(
+        String elementName, List<String> attrs) {
+      openTag(elementName, attrs, OpenTagMode.SUPPRESS);
+    }
+
+    public void openReopenedTable(List<String> attrs) {
+      openTag("table", attrs, OpenTagMode.REOPENED_TABLE);
+    }
+
+    private void openTag(
+        String elementName, List<String> attrs, OpenTagMode mode) {
       output.openedElementName = null;
       // Copied before the policy runs: it removes rejected attributes from
       // attrs in place, and their values are wanted for the report.
       output.expectAttributes(attrs);
-      policy.openTag(elementName, attrs);
+      if (mode == OpenTagMode.REOPENED_TABLE) {
+        if (!(policy instanceof ReopenedTablePolicy)) {
+          throw new IllegalStateException(
+              "Policy cannot safely reopen a table");
+        }
+        ((ReopenedTablePolicy) policy).openReopenedTable(attrs);
+      } else if (mode == OpenTagMode.SUPPRESS) {
+        if (!(policy instanceof OpenTagSuppressionPolicy)) {
+          throw new IllegalStateException(
+              "Policy cannot suppress a table-structure tag");
+        }
+        ((OpenTagSuppressionPolicy) policy)
+            .openTagWithoutOutput(elementName, attrs);
+      } else {
+        policy.openTag(elementName, attrs);
+      }
       {
         // Gather the notification details to avoid any problems with the
         // listener re-entering the stream event receiver.  This shouldn't
@@ -249,8 +308,10 @@ public final class HtmlChangeReporter<T> {
         //
         // The tag survived if the policy opened anything in response and
         // the renderer wrote it.  Its name is not compared with the input
-        // name: an ElementPolicy may rename the element, and a renamed
-        // element was kept, not dropped.
+        // name: an ElementPolicy may rename an ordinary element, and that
+        // renamed element was kept.  A synthetic table reopen is the exception:
+        // its policy result is deliberately suppressed unless it remains a
+        // table, so it is reported as discarded here.
         boolean discarded = output.openedElementName == null;
         outputElementNameForLastOpenTag = output.openedElementName;
         output.openedElementName = null;

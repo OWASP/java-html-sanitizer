@@ -20,7 +20,12 @@ Most recent at top.
       `select` around an `option`.  A link is no longer written again around
       or inside another link, with or without a table involved, since a
       browser's parse unnests links and the output would read back as a
-      different tree.
+      different tree.  Table-part names in SVG and MathML stay in foreign
+      content, including across stray end tags, while names at HTML integration
+      points still return to the table.  Implied table structure observes the
+      nesting limit.  If an element policy drops the table written again for
+      later rows, or renames it, the synthetic replacement and its row
+      structure are suppressed while allowed cell text survives.
     * What `HtmlStreamRenderer` leaves out now reaches an `HtmlChangeListener`
       as well as the renderer's bad-HTML handler: a start tag whose name is
       not one HTML allows, which an `ElementPolicy` can produce by renaming,

@@ -49,6 +49,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     implements HtmlSanitizer.Policy,
                TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy,
                TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy,
+               TagBalancingHtmlStreamEventReceiver.OpenTagSuppressionPolicy,
+               TagBalancingHtmlStreamEventReceiver.ReopenedTablePolicy,
+               TagBalancingHtmlStreamEventReceiver.OutputContextPolicy,
                HtmlChangeReporter.AttributelessSkipPolicy,
                HtmlChangeReporter.DroppedTextSource,
                HtmlChangeReporter.DiscardedAttributeSource {
@@ -105,6 +108,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * emits.  {@link #isLiteralContentElement} says why it matters.
    */
   private boolean inForeignContent;
+  /** Browser tree-construction context for the tags actually emitted. */
+  private HtmlSanitizer.ForeignContentContext outputForeignContent
+      = new HtmlSanitizer.ForeignContentContext();
   /**
    * The last few characters emitted for the kept literal-content element that
    * is open.  Text arrives in chunks, and {@link #stripTags} needs them to see
@@ -187,6 +193,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     inKeptCdataElement = false;
     keptCdataElementName = null;
     inForeignContent = false;
+    outputForeignContent = new HtmlSanitizer.ForeignContentContext();
     literalTextTail = "";
     droppedTextListener = null;
     discardedAttributeListener = null;
@@ -204,6 +211,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     for (int i = openElementStack.size() - 1; i >= 0; i -= 2) {
       String tagNameToClose = openElementStack.get(i);
       if (tagNameToClose != null) {
+        outputForeignContent.processEndTag(tagNameToClose);
         out.closeTag(tagNameToClose);
       }
     }
@@ -232,6 +240,20 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public @Nullable String outputElementNameForLastOpenTag() {
     return outputElementNameForLastOpenTag;
+  }
+
+  public boolean isOutputInForeignContent() {
+    return outputForeignContent.isInForeignContent();
+  }
+
+  public @Nullable String outputForeignContentRootName() {
+    return outputForeignContent.outermostForeignElementName();
+  }
+
+  public boolean outputStartTagUsesForeignContentRules(
+      String elementName, List<String> attrs) {
+    return outputForeignContent.startTagUsesForeignContentRules(
+        elementName, attrs);
   }
 
   public void text(String textChunk) {
@@ -762,19 +784,52 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void openTag(String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.NORMAL);
+  }
+
+  public void openTagWithoutOutput(String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.SUPPRESS);
+  }
+
+  public void openReopenedTable(List<String> attrs) {
+    openTag("table", attrs, OpenTagMode.REOPENED_TABLE);
+  }
+
+  private void openTag(
+      String elementName, List<String> attrs, OpenTagMode mode) {
     outputElementNameForLastOpenTag = null;
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     skippedLastTagAsAttributeless = false;
     if (adjustedElementName != null) {
       if (!(attrs.isEmpty() && policies.htmlTagSkipType.skipAvailability())) {
-        writeOpenTag(policies, adjustedElementName, attrs);
+        if (mode == OpenTagMode.NORMAL
+            || (mode == OpenTagMode.REOPENED_TABLE
+                && "table".equals(adjustedElementName))) {
+          writeOpenTag(policies, adjustedElementName, attrs);
+        } else if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
+          push(elementName, null);
+          skipText = !allowedTextContainers.contains(elementName)
+              || disallowedTextContainers.contains(elementName)
+              // An emitted HTML breakout can leave the renderer's lexical
+              // SVG/Math nesting open after the browser context has left it.
+              // Text from a suppressed table part cannot be placed safely in
+              // that stale lexical context, so fail closed for that text.
+              || (inForeignContent
+                  && !outputForeignContent.isInForeignContent());
+        }
         return;
       }
       // The element was allowed; it goes only because no attribute survived.
       skippedLastTagAsAttributeless = true;
     }
     deferOpenTag(elementName);
+  }
+
+  private enum OpenTagMode {
+    NORMAL,
+    REOPENED_TABLE,
+    SUPPRESS,
   }
 
   public boolean skippedLastTagAsAttributeless() {
@@ -841,6 +896,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         for (int j = n - 1; j > i; j -= 2) {
           String tagNameToClose = openElementStack.get(j);
           if (tagNameToClose != null) {
+            outputForeignContent.processEndTag(tagNameToClose);
             out.closeTag(tagNameToClose);
           }
         }
@@ -866,10 +922,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     // on the name the policy emitted it under.  The stack follows suit, so
     // that every entry on it is one a close tag can pop.
     if (HtmlTextEscapingMode.isVoidElement(elementName)) {
+      boolean adjustedIsVoid =
+          HtmlTextEscapingMode.isVoidElement(adjustedElementName);
+      outputForeignContent.processStartTag(
+          adjustedElementName, attrs, adjustedIsVoid);
       out.openTag(adjustedElementName, attrs);
-      if (!HtmlTextEscapingMode.isVoidElement(adjustedElementName)) {
+      if (!adjustedIsVoid) {
         // Renamed to an element that needs closing, which nothing upstream
         // will do: closed at once, so it does not swallow what follows.
+        outputForeignContent.processEndTag(adjustedElementName);
         out.closeTag(adjustedElementName);
       }
       return;
@@ -881,6 +942,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       // a dropped element.
       push(elementName, null);
       skipText = skipText || suppressesTextWhenDropped(elementName);
+      outputForeignContent.processStartTag(adjustedElementName, attrs, true);
       out.openTag(adjustedElementName, attrs);
       return;
     }
@@ -907,6 +969,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     inForeignContent = inForeignContent
         || HtmlStreamRenderer.FOREIGN_CONTENT_ROOT_ELEMENT_NAMES.contains(
                adjustedElementName);
+    outputForeignContent.processStartTag(adjustedElementName, attrs, false);
     out.openTag(adjustedElementName, attrs);
   }
 

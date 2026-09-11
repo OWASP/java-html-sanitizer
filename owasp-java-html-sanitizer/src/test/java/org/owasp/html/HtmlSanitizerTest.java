@@ -1932,6 +1932,145 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Table-part names in SVG and MathML stay in foreign content.  Treating
+   * them as HTML used to close the foreign ancestors and move the elements
+   * into the pushed-out table.  At an HTML integration point the same names
+   * do use HTML rules and still return to the table.
+   */
+  @Test
+  void testForeignTablePartsDoNotReturnToAPushedOutTable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "b", "caption", "colgroup", "table", "thead", "tbody",
+            "tr", "td", "div", "svg", "g", "textArea", "foreignObject",
+            "math", "mrow", "mtext")
+        .toFactory();
+    String input = "<table><svg><g><tr><td>s</td></tr>"
+        + "<textArea><tr><td>t</td></tr></textArea></g></svg>"
+        + "<math><mrow><tr><td>m</td></tr></mrow></math>"
+        + "<tr><td>h</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><svg><g><tr><td>s</td></tr>"
+        + "<textArea><tr><td>t</td></tr></textArea></g></svg>"
+        + "<math><mrow><tr><td>m</td></tr></mrow></math>"
+        + "<table><tbody><tr><td>h</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+
+    for (String[] integrationPoint : new String[][] {
+            { "<svg><foreignObject>", "</foreignObject></svg>" },
+            { "<math><mtext>", "</mtext></math>" },
+         }) {
+      input = "<table><div>" + integrationPoint[0]
+          + "<tr><td>i</td></tr>" + integrationPoint[1]
+          + "<tr><td>h</td></tr></table>tail";
+      out = p.sanitize(input);
+      assertEquals(out, p.sanitize(out), integrationPoint[0]);
+      assertEquals(
+          parseAsBrowser("<table></table>" + input), parseAsBrowser(out),
+          integrationPoint[0]);
+    }
+
+    // An emitted HTML breakout leaves the rendered foreign root before the
+    // table is written again.  Its later end tag must not close that table in
+    // the policy's stack and strand the following section outside it.
+    input = "<table><svg><b><thead></svg>"
+        + "<tbody><tr><td>y</td></tr></table>tail";
+    out = p.sanitize(input);
+    assertEquals(
+        "<table></table><svg><b></b></svg>"
+        + "<table><thead></thead><tbody><tr><td><b>y</b></td></tr>"
+        + "</tbody></table><b>tail</b>",
+        out);
+    assertEquals(out, p.sanitize(out));
+
+    // A stray table end tag cannot lose foreign context and send a later
+    // table part back into the pushed-out table.
+    String foreign = "<table><svg><colgroup></thead>"
+        + "<caption>c</caption></colgroup></svg>"
+        + "<tr><td>y</td></tr></table>tail";
+    out = p.sanitize(foreign);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<table></table>" + foreign), parseAsBrowser(out));
+  }
+
+  /** Raw-text and RCDATA elements stay bounded by a pushed-out run. */
+  @Test
+  void testLiteralContentInPushedOutTableContent() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "tbody", "tr", "td", "div", "span", "style",
+            "script", "textarea", "noscript")
+        .allowTextIn("style", "script", "noscript")
+        .toFactory();
+    String input = "<table><textarea>&lt;tr&gt;</textarea><div>"
+        + "<style>x{}</style><script>x()</script>"
+        + "<noscript><span>n</span></noscript></div>"
+        + "<tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><textarea>&lt;tr&gt;</textarea><div>"
+        + "<style>x{}</style><script>x()</script>"
+        + "<noscript>n</noscript></div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /**
+   * A policy may drop or rename the attribute-free table written when table
+   * content resumes.  A renamed synthetic table and its row structure cannot
+   * safely be emitted, but allowed cell text still survives.  This includes
+   * replacements with table, void, select, raw-text and foreign parsing rules.
+   */
+  @Test
+  void testTableStructureIsSuppressedUnderRenamedReopenedTable() {
+    String input = "<table class=t><div>x<tr><td>"
+        + "a&lt;/script&gt;&lt;svg onload=x&gt;b"
+        + "</td></tr></table>tail";
+    String[] replacements = {
+        "", "div", "tbody", "tr", "td", "caption", "colgroup", "col",
+        "br", "select", "option", "script", "style", "textarea",
+        "noscript", "xmp", "plaintext", "iframe", "svg", "math",
+    };
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output is under test, notifications are not.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output is under test, notifications are not.
+      }
+    };
+    for (String c : replacements) {
+      final String replacement = c.isEmpty() ? null : c;
+      PolicyFactory p = new HtmlPolicyBuilder()
+          .allowElements(
+              (elementName, attrs) -> attrs.isEmpty()
+                  ? replacement : elementName,
+              "table")
+          .allowElements("tbody", "tr", "td", "div")
+          .allowAttributes("class").onElements("table")
+          .allowTextIn("table")
+          .toFactory();
+      String out = p.sanitize(input);
+
+      assertEquals(
+          "<table class=\"t\"></table><div>x</div>"
+              + "a&lt;/script&gt;&lt;svg onload&#61;x&gt;btail",
+          out, c);
+      assertEquals(out, p.sanitize(out), c);
+      assertEquals(out, p.sanitize(input, ignore, null), c);
+    }
+  }
+
+  /**
    * A link pushed out of a table is closed when the table resumes, and is
    * not written again around another link or inside one: nested links do
    * not survive a browser's parse.  Text is pushed out likewise, and needs

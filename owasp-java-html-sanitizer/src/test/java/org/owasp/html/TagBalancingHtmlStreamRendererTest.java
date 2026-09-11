@@ -335,6 +335,41 @@ class TagBalancingHtmlStreamRendererTest {
         "<table></table><div><p>x</p></div>", htmlOutputBuffer.toString());
   }
 
+  /** Implied table structure never opens past a small nesting limit. */
+  @Test
+  void testPushedOutTableImpliedElementsRespectSmallNestingLimits() {
+    String[] expected = {
+        "xytail",
+        "<table></table>x<table></table>ytail",
+        "<table></table><div>x</div>"
+            + "<table><tbody></tbody></table>ytail",
+        "<table></table><div>x</div>"
+            + "<table><tbody><tr></tr></tbody></table>ytail",
+    };
+    for (int limit = 0; limit < expected.length; ++limit) {
+      StringBuilder out = new StringBuilder();
+      TagBalancingHtmlStreamEventReceiver limited =
+          new TagBalancingHtmlStreamEventReceiver(
+              HtmlStreamRenderer.create(
+                  out, x -> fail("Unexpected renderer error: " + x)));
+      limited.setNestingLimit(limit);
+      limited.openDocument();
+      limited.openTag("table", j8().listOf());
+      limited.openTag("div", j8().listOf());
+      limited.text("x");
+      limited.openTag("tr", j8().listOf());
+      limited.openTag("td", j8().listOf());
+      limited.text("y");
+      limited.closeTag("td");
+      limited.closeTag("tr");
+      limited.closeTag("table");
+      limited.text("tail");
+      limited.closeDocument();
+
+      assertEquals(expected[limit], out.toString(), "limit " + limit);
+    }
+  }
+
   @Test
   void testNestingLimits() {
     // Some browsers can be DoSed by deeply nested structures.
