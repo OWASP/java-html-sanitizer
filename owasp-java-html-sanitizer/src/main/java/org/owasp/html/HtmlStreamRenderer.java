@@ -407,6 +407,15 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
             int start = i + 1;
             if (start + 1 < n && sb.charAt(start) == '/') {
               ++start;
+              // The end tag of an element that a browser reads as raw text
+              // while the sanitizer treats it as a container would end that
+              // element for the browser, wherever this content sits, and
+              // hand it whatever follows as markup (CVE-2025-66021).  The
+              // policy strips such tags; this catches what reaches the
+              // renderer by any other route.
+              for (String container : CONTAINERS_RAW_TEXT_TO_BROWSERS) {
+                if (isTagNameAt(sb, start, container)) { return i; }
+              }
             } else if (innerStart < 0) {
               break;
             }
@@ -538,6 +547,24 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       | (1L << ' ')
       | (1L << '/')
       | (1L << '>');
+
+  /**
+   * Elements the sanitizer treats as ordinary containers but that browsers
+   * read as raw text: {@code noscript} with scripting on, and
+   * {@code noframes} and {@code noembed} always.
+   */
+  private static final String[] CONTAINERS_RAW_TEXT_TO_BROWSERS = {
+    "noscript", "noframes", "noembed",
+  };
+
+  /** True if {@code name} sits at {@code start} in {@code sb} as a tag name. */
+  private static boolean isTagNameAt(
+      StringBuilder sb, int start, String name) {
+    int end = start + name.length();
+    return end <= sb.length()
+        && Strings.regionMatchesIgnoreCase(sb, start, name, 0, name.length())
+        && (end == sb.length() || isTagEnd(sb.charAt(end)));
+  }
 
   private static boolean isTagEnd(char ch) {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));

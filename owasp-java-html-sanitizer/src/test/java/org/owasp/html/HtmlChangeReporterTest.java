@@ -361,6 +361,17 @@ class HtmlChangeReporterTest {
         "style{<div>x</div>} style{</noscript>} ", result.log);
   }
 
+  /** The filter also reports brackets removed to prevent assembled tags. */
+  @Test
+  void testPolicyReportsLiteralTextBackstopDropsExactly() {
+    Result result = sanitizeVerbose(
+        scriptAndStyleWithText(),
+        "<style>a<</noscript>b<</style>");
+
+    assertEquals("<style>ab</style>", result.html);
+    assertEquals("style{<</noscript>} style{<} ", result.log);
+  }
+
   /** Policy and renderer drops are both reported, without overlap. */
   @Test
   void testPolicyAndRendererTextDropsAreBothReported() {
