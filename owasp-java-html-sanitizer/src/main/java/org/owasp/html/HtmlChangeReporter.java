@@ -28,11 +28,13 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 
 import javax.annotation.Nullable;
 
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy;
 
 /**
  * Sits between the HTML parser, the policy, and the renderer so that it
@@ -110,10 +112,23 @@ public final class HtmlChangeReporter<T> {
         @Nullable HtmlStreamRenderer.DroppedTextListener listener);
   }
 
+  /** Receives exact input attributes rejected by an attribute policy. */
+  interface DiscardedAttributeListener {
+    void discardedAttribute(String name, String value);
+  }
+
+  /** Implemented by a policy that can identify attribute-policy rejections. */
+  interface DiscardedAttributeSource {
+    /** Sends rejections to {@code listener}, or to nobody when null. */
+    void reportDiscardedAttributesTo(
+        @Nullable DiscardedAttributeListener listener);
+  }
+
   private static final class InputChannel<T>
       implements HtmlSanitizer.Policy,
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
                  TextSuppressionPolicy,
+                 OpenTagOutputPolicy,
                  HtmlStreamRenderer.DroppedTextListener {
     HtmlStreamEventReceiver policy;
     final OutputChannel output;
@@ -121,6 +136,8 @@ public final class HtmlChangeReporter<T> {
     final HtmlChangeListener<? super T> listener;
     /** Alternating element names and text, gathered before user callbacks. */
     final List<String> pendingDroppedText = new ArrayList<>();
+    /** Output name produced in response to the most recent input start tag. */
+    private @Nullable String outputElementNameForLastOpenTag;
 
     InputChannel(
         OutputChannel output, HtmlChangeListener<? super T> listener,
@@ -160,11 +177,20 @@ public final class HtmlChangeReporter<T> {
       pendingDroppedText.add(text);
     }
 
+    public @Nullable String outputElementNameForLastOpenTag() {
+      return outputElementNameForLastOpenTag;
+    }
+
     public void openDocument() {
       pendingDroppedText.clear();
+      outputElementNameForLastOpenTag = null;
       policy.openDocument();
       if (policy instanceof DroppedTextSource) {
         ((DroppedTextSource) policy).reportDroppedTextTo(this);
+      }
+      if (policy instanceof DiscardedAttributeSource) {
+        ((DiscardedAttributeSource) policy)
+            .reportDiscardedAttributesTo(output);
       }
       // The renderer decides on its own to drop literal content it cannot
       // emit, so it has to tell us; any other receiver keeps that to itself.
@@ -181,16 +207,19 @@ public final class HtmlChangeReporter<T> {
       if (policy instanceof DroppedTextSource) {
         ((DroppedTextSource) policy).reportDroppedTextTo(null);
       }
+      if (policy instanceof DiscardedAttributeSource) {
+        ((DiscardedAttributeSource) policy)
+            .reportDiscardedAttributesTo(null);
+      }
       output.listenForDroppedText(null);
       dispatchDroppedText();
     }
 
     public void openTag(String elementName, List<String> attrs) {
       output.openedElementName = null;
-      output.expectedAttrs.clear();
       // Copied before the policy runs: it removes rejected attributes from
       // attrs in place, and their values are wanted for the report.
-      output.expectedAttrs.addAll(attrs);
+      output.expectAttributes(attrs);
       policy.openTag(elementName, attrs);
       {
         // Gather the notification details to avoid any problems with the
@@ -201,6 +230,7 @@ public final class HtmlChangeReporter<T> {
         // name is not compared with the input name: an ElementPolicy may
         // rename the element, and a renamed element was kept, not dropped.
         boolean discarded = output.openedElementName == null;
+        outputElementNameForLastOpenTag = output.openedElementName;
         output.openedElementName = null;
         // Attributes go unreported with a tag the policy rejected: the tag
         // report covers them.  Not so when the policy allowed the element and
@@ -210,13 +240,11 @@ public final class HtmlChangeReporter<T> {
             || (policy instanceof AttributelessSkipPolicy
                 && ((AttributelessSkipPolicy) policy)
                     .skippedLastTagAsAttributeless());
-        int nDiscarded = attrsRejectedOnTheirOwn
-            ? output.expectedAttrs.size() / 2
-            : 0;
-        String[] discardedAttrs = nDiscarded != 0
-            ? output.expectedAttrs.toArray(new String[nDiscarded * 2])
+        String[] discardedAttrs = attrsRejectedOnTheirOwn
+            ? output.discardedAttributes()
             : ZERO_STRINGS;
-        output.expectedAttrs.clear();
+        int nDiscarded = discardedAttrs.length / 2;
+        output.clearExpectedAttributes();
         // Dispatch notifications to the listener, under the input name,
         // which is the one the listener can relate to what came in.
         if (discarded) {
@@ -263,7 +291,8 @@ public final class HtmlChangeReporter<T> {
     private static final String[] ZERO_STRINGS = new String[0];
   }
 
-  private static final class OutputChannel implements HtmlStreamEventReceiver {
+  private static final class OutputChannel
+      implements HtmlStreamEventReceiver, DiscardedAttributeListener {
     private final HtmlStreamEventReceiver renderer;
     /**
      * The name of the tag the policy has opened in response to the tag being
@@ -271,18 +300,64 @@ public final class HtmlChangeReporter<T> {
      */
     String openedElementName;
     /**
-     * The attributes on the tag being opened, as name and value pairs, that
-     * have not turned up in the output yet.  A list rather than a map: a
+     * The attributes on the tag being opened, as original name and value
+     * pairs.  A list rather than a map: a
      * name repeated on one tag is two attributes, and HTML forbids that, so
      * the sanitizer keeps the first and drops the rest.  Collapsing the copies
      * here would leave the surviving one accounting for all of them, and the
      * drops would go unreported.  The values ride along so that the drops can
      * be reported with them.
      */
-    List<String> expectedAttrs = new ArrayList<>();
+    final List<String> expectedAttrs = new ArrayList<>();
+    /** Input pairs an attribute policy explicitly rejected. */
+    final BitSet rejectedAttrs = new BitSet();
+    /** Input pairs accounted for by attributes the policy emitted. */
+    final BitSet emittedAttrs = new BitSet();
 
     OutputChannel(HtmlStreamEventReceiver renderer) {
       this.renderer = renderer;
+    }
+
+    /** Starts accounting for the attributes on one input start tag. */
+    void expectAttributes(List<String> attrs) {
+      expectedAttrs.clear();
+      expectedAttrs.addAll(attrs);
+      rejectedAttrs.clear();
+      emittedAttrs.clear();
+    }
+
+    public void discardedAttribute(String name, String value) {
+      for (int i = 0, n = expectedAttrs.size() / 2; i < n; ++i) {
+        int pair = i * 2;
+        if (!rejectedAttrs.get(i) && !emittedAttrs.get(i)
+            && name.equals(expectedAttrs.get(pair))
+            && value.equals(expectedAttrs.get(pair + 1))) {
+          rejectedAttrs.set(i);
+          return;
+        }
+      }
+    }
+
+    /** Returns original pairs not accounted for by emitted attributes. */
+    String[] discardedAttributes() {
+      int n = expectedAttrs.size() / 2;
+      int nDiscarded = n - emittedAttrs.cardinality();
+      if (nDiscarded == 0) { return InputChannel.ZERO_STRINGS; }
+      String[] discarded = new String[nDiscarded * 2];
+      int out = 0;
+      for (int i = 0; i < n; ++i) {
+        if (!emittedAttrs.get(i)) {
+          discarded[out++] = expectedAttrs.get(i * 2);
+          discarded[out++] = expectedAttrs.get(i * 2 + 1);
+        }
+      }
+      return discarded;
+    }
+
+    void clearExpectedAttributes() {
+      expectedAttrs.clear();
+      rejectedAttrs.clear();
+      emittedAttrs.clear();
     }
 
     /**
@@ -315,16 +390,17 @@ public final class HtmlChangeReporter<T> {
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
         // Accounts for one copy of the name, so repeats the policy dropped
         // stay behind to be reported.
-        removeFirstNamed(expectedAttrs, attrs.get(i));
+        markFirstEmitted(attrs.get(i));
       }
       renderer.openTag(elementName, attrs);
     }
 
-    /** Removes the first pair in pairs whose name is name, if there is one. */
-    private static void removeFirstNamed(List<String> pairs, String name) {
-      for (int i = 0, n = pairs.size(); i < n; i += 2) {
-        if (name.equals(pairs.get(i))) {
-          pairs.subList(i, i + 2).clear();
+    /** Accounts for the first eligible input copy of an emitted name. */
+    private void markFirstEmitted(String name) {
+      for (int i = 0, n = expectedAttrs.size() / 2; i < n; ++i) {
+        if (!rejectedAttrs.get(i) && !emittedAttrs.get(i)
+            && name.equals(expectedAttrs.get(i * 2))) {
+          emittedAttrs.set(i);
           return;
         }
       }

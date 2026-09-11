@@ -32,6 +32,8 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import org.owasp.html.HtmlElementTables.HtmlElementNames;
 
 /**
@@ -47,12 +49,19 @@ public class TagBalancingHtmlStreamEventReceiver
   private final HtmlStreamEventReceiver underlying;
   private int nestingLimit = Integer.MAX_VALUE;
   private final IntVector openElements = new IntVector();
+  /**
+   * The element each entry in {@link #openElements} became after policy
+   * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it.
+   * When the receiver below cannot report that, the input name is used.
+   */
+  private final IntVector outputElements = new IntVector();
   private final IntVector toResumeInReverse = new IntVector();
   private static final HtmlElementTables METADATA = HtmlElementTables.get();
   private static final int UNRECOGNIZED_TAG =
       METADATA.indexForName(HtmlElementNames.CUSTOM_ELEMENT_NAME);
   private static final int A_TAG = METADATA.indexForName("a");
   private static final int BODY_TAG = METADATA.indexForName("body");
+  private static final int NO_OUTPUT_ELEMENT = -1;
   /**
    * Elements on entering which a browser puts a marker on its list of
    * active formatting elements, so that an {@code a} opened inside one of
@@ -103,6 +112,20 @@ public class TagBalancingHtmlStreamEventReceiver
      *     is suppressed rather than emitted where the element was.
      */
     boolean suppressesTextWhenDropped(String canonElementName);
+  }
+
+  /**
+   * Implemented by a policy that can identify the element, if any, emitted
+   * by its most recent {@link HtmlStreamEventReceiver#openTag} call.  The
+   * balancer uses the output name when applying the formatting-marker rule
+   * for nested links: a marker the policy dropped cannot affect how a browser
+   * parses the sanitized output.
+   */
+  interface OpenTagOutputPolicy {
+    /**
+     * @return the canonical emitted name, or null if no element was emitted.
+     */
+    @Nullable String outputElementNameForLastOpenTag();
   }
 
   /**
@@ -166,6 +189,7 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(elname);
     }
     openElements.clear();
+    outputElements.clear();
     toResumeInReverse.clear();
     underlying.closeDocument();
   }
@@ -194,6 +218,7 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.openTag(METADATA.canonNameForIndex(elIndex), attrs);
       if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         openElements.add(elIndex);
+        outputElements.add(outputElementIndexForLastOpenTag(elIndex));
       }
     } else {
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
@@ -209,12 +234,32 @@ public class TagBalancingHtmlStreamEventReceiver
    * cell leaves one outside the table alone.
    */
   private boolean hasOpenLinkInFormattingScope() {
-    for (int i = openElements.size(); --i >= 0;) {
-      int openElementIndex = openElements.get(i);
+    for (int i = outputElements.size(); --i >= 0;) {
+      int openElementIndex = outputElements.get(i);
       if (openElementIndex == A_TAG) { return true; }
-      if (FORMATTING_MARKERS.get(openElementIndex)) { return false; }
+      if (openElementIndex != NO_OUTPUT_ELEMENT
+          && FORMATTING_MARKERS.get(openElementIndex)) {
+        return false;
+      }
     }
     return false;
+  }
+
+  /**
+   * The output counterpart of an input element just sent downstream.
+   * Receivers other than the library policy cannot provide this feedback, so
+   * preserve the traditional input-based balancing for them.
+   */
+  private int outputElementIndexForLastOpenTag(int inputElementIndex) {
+    if (underlying instanceof OpenTagOutputPolicy) {
+      String outputElementName = ((OpenTagOutputPolicy) underlying)
+          .outputElementNameForLastOpenTag();
+      return outputElementName != null
+          ? METADATA.indexForName(
+              HtmlLexer.canonicalElementName(outputElementName))
+          : NO_OUTPUT_ELEMENT;
+    }
+    return inputElementIndex;
   }
 
   private void prepareForContent(int elIndex) {
@@ -242,6 +287,8 @@ public class TagBalancingHtmlStreamEventReceiver
           attrs.clear();
           underlying.openTag(impliedElName, attrs);
           openElements.add(impliedElIndex);
+          outputElements.add(
+              outputElementIndexForLastOpenTag(impliedElIndex));
           top = impliedElIndex;
           ++nOpen;
         }
@@ -261,6 +308,7 @@ public class TagBalancingHtmlStreamEventReceiver
           underlying.closeTag(METADATA.canonNameForIndex(top));
         }
         openElements.remove(--nOpen);
+        outputElements.remove(nOpen);
         if (METADATA.resumable(top) && top != elIndex) {
           toResumeInReverse.add(top);
         }
@@ -278,12 +326,15 @@ public class TagBalancingHtmlStreamEventReceiver
           || canContain(toResume, openElements.get(nOpen - 1), nOpen))
           && canContain(elIndex, toResume, nOpen)) {
         toResumeInReverse.removeLast();
+        int outputElementIndex = NO_OUTPUT_ELEMENT;
         if (openElements.size() < nestingLimit) {
           underlying.openTag(
               METADATA.canonNameForIndex(toResume),
               new ArrayList<>());
+          outputElementIndex = outputElementIndexForLastOpenTag(toResume);
         }
         openElements.add(toResume);
+        outputElements.add(outputElementIndex);
       } else {
         break;
       }
@@ -407,6 +458,7 @@ public class TagBalancingHtmlStreamEventReceiver
     // Close all the elements that cannot contain the element to open.
     while (--last > index) {
       int unclosed = openElements.remove(last);
+      outputElements.remove(last);
       if (last + 1 < nestingLimit) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
@@ -418,6 +470,7 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(METADATA.canonNameForIndex(elIndex));
     }
     openElements.remove(index);
+    outputElements.remove(index);
   }
 
   /**

@@ -2,6 +2,25 @@
 
 Most recent at top.
   * Next release
+    * The filter on text kept inside `style`, `script`, `iframe` and other
+      literal-content elements now examines a possible tag prefix before
+      looking for its closing `>`.  A long run of `<` characters before one
+      `>` made it repeatedly scan and copy the same suffix, taking quadratic
+      time.  Removing a tag now also removes every immediately preceding `<`,
+      rather than letting `<<<b>img` turn into `<img`.  Issue #476.
+    * Nested-link balancing now uses the elements that survived policy when
+      looking for the nearest formatting marker.  If a `td`, `th`, `caption`,
+      `template`, `applet`, `marquee` or `object` was dropped or renamed to a
+      non-marker, it no longer protects an outer link from a later link in the
+      output, so the sanitized HTML parses back to the structure the sanitizer
+      emitted.
+      Issue #476.
+    * `HtmlChangeListener.discardedAttribute` now reports the rejected value
+      when it precedes a surviving attribute with the same name.  The output
+      comparison used to account for the first input name regardless of which
+      copy the attribute policy rejected, so the listener could receive the
+      safe surviving URL instead of the rejected `javascript:` URL.  Issue
+      #476.
     * Two more ways past the filter on kept `style`, `script` and `iframe`
       text are closed.  A `<` that opened no tag carried everything up to
       the next `>` through as text, and that `>` could belong to an end tag

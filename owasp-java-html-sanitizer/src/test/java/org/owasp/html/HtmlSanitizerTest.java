@@ -1107,6 +1107,31 @@ class HtmlSanitizerTest {
     assertEquals(expected, out);
   }
 
+  /** Invalid tag openings must not repeatedly rescan the same long suffix. */
+  @Test
+  void testLongRunOfStrayBracketsInLiteralTextIsLinear() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("style").allowTextIn("style").toFactory();
+    int n = 1_000_000;
+    String brackets = stringRepeatedTimes("<", n);
+    final String html = "<style>" + brackets + "></style>";
+
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(html));
+    assertEquals(html, out);
+  }
+
+  /** Removing a tag must not turn preceding brackets into a new start tag. */
+  @Test
+  void testTagRemovalTakesAllAdjacentOpeningBrackets() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("style").allowTextIn("style").toFactory();
+
+    assertEquals(
+        "<style>img src=x onerror=alert(1)></style>",
+        p.sanitize("<style><<<b>img src=x onerror=alert(1)></style>"));
+  }
+
   /**
    * The filter no longer discards the rest of a chunk after a start tag with
    * no matching end tag, and keeps a {@code <} that opens no tag, so script
@@ -1225,6 +1250,70 @@ class HtmlSanitizerTest {
       assertEquals(
           parseAsBrowser(html), parseAsBrowser(p.sanitize(html)), html);
     }
+  }
+
+  /** A formatting marker matters only when the policy keeps it in output. */
+  @Test
+  void testDroppedFormattingMarkersDoNotProtectNestedLinks()
+      throws Exception {
+    String expected = "<a href=\"u\" rel=\"nofollow\"></a>"
+        + "<a href=\"v\" rel=\"nofollow\">x</a>y";
+    for (String marker : new String[] {
+            "applet", "caption", "marquee", "object", "td", "template", "th",
+         }) {
+      String input = "<a href=u><" + marker + "><a href=v>x</a></"
+          + marker + ">y</a>";
+      String out = Sanitizers.LINKS.sanitize(input);
+
+      assertEquals(expected, out, marker);
+      assertEquals(out, Sanitizers.LINKS.sanitize(out), marker);
+      assertEquals(parseAsBrowser(expected), parseAsBrowser(out), marker);
+    }
+  }
+
+  /** A marker that survives policy still permits the browser's nested links. */
+  @Test
+  void testKeptFormattingMarkerStillProtectsNestedLinks() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("a", "marquee")
+        .allowAttributes("href").onElements("a")
+        .toFactory();
+    String input = "<a href=u><marquee><a href=v>x</a></marquee>y</a>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<a href=\"u\"><marquee><a href=\"v\">x</a></marquee>y</a>",
+        out);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /** Marker scope follows an element policy's output name, not its input. */
+  @Test
+  void testRenamedElementsDetermineFormattingMarkerScope() {
+    PolicyFactory awayFromMarker = new HtmlPolicyBuilder()
+        .allowElements("a", "div")
+        .allowElements((name, attrs) -> "div", "marquee")
+        .allowAttributes("href").onElements("a")
+        .toFactory();
+    String renamedAway = awayFromMarker.sanitize(
+        "<a href=u><marquee><a href=v>x</a></marquee>y</a>");
+    assertEquals(
+        "<a href=\"u\"><div></div></a><a href=\"v\">x</a>y",
+        renamedAway);
+    assertEquals(renamedAway, awayFromMarker.sanitize(renamedAway));
+
+    PolicyFactory intoMarker = new HtmlPolicyBuilder()
+        .allowElements("a", "marquee")
+        .allowElements((name, attrs) -> "marquee", "div")
+        .allowAttributes("href").onElements("a")
+        .toFactory();
+    String renamedInto = intoMarker.sanitize(
+        "<a href=u><div><a href=v>x</a></div>y</a>");
+    assertEquals(
+        "<a href=\"u\"><marquee><a href=\"v\">x</a></marquee>y</a>",
+        renamedInto);
+    assertEquals(renamedInto, intoMarker.sanitize(renamedInto));
   }
 
   /** The tree a browser builds from html, one node per line. */

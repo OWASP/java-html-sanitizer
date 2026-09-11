@@ -183,6 +183,20 @@ class HtmlChangeReporterTest {
     assertEquals("", result.log);
   }
 
+  /** Reporter indirection preserves output-aware nested-link balancing. */
+  @Test
+  void testDroppedFormattingMarkerDoesNotProtectLinksWithAReporter() {
+    Result result = sanitize(
+        Sanitizers.LINKS,
+        "<a href=u><marquee><a href=v>x</a></marquee>y</a>");
+
+    assertEquals(
+        "<a href=\"u\" rel=\"nofollow\"></a>"
+        + "<a href=\"v\" rel=\"nofollow\">x</a>y",
+        result.html);
+    assertEquals("<marquee> ", result.log);
+  }
+
   /**
    * Renames {@code span} to {@code div}.  {@code div} is allowed as well so
    * that text inside the renamed element is kept: the policy decides whether
@@ -269,6 +283,21 @@ class HtmlChangeReporterTest {
         result.html);
     assertEquals(
         "<a href href> a.href=\"/one\" a.href=\"/two\" ", result.log);
+  }
+
+  /** A rejected first copy must not borrow a surviving duplicate's value. */
+  @Test
+  void testRejectedDuplicateReportsTheRejectedValue() {
+    Result result = sanitizeVerbose(
+        Sanitizers.LINKS,
+        "<a href=\"javascript:alert(1)\" "
+        + "href=\"https://safe.example/\">link</a>");
+
+    assertEquals(
+        "<a href=\"https://safe.example/\" rel=\"nofollow\">link</a>",
+        result.html);
+    assertEquals(
+        "<a href> a.href=\"javascript:alert(1)\" ", result.log);
   }
 
   /** The value reported is the input value after character references. */
@@ -370,6 +399,16 @@ class HtmlChangeReporterTest {
 
     assertEquals("<style>ab</style>", result.html);
     assertEquals("style{<</noscript>} style{<} ", result.log);
+  }
+
+  /** Every adjacent bracket removed with a tag belongs to the same report. */
+  @Test
+  void testPolicyReportsAllAdjacentBracketsRemovedWithATag() {
+    Result result = sanitizeVerbose(
+        scriptAndStyleWithText(), "<style><<<b>payload</style>");
+
+    assertEquals("<style>payload</style>", result.html);
+    assertEquals("style{<<<b>} ", result.log);
   }
 
   /** Policy and renderer drops are both reported, without overlap. */
