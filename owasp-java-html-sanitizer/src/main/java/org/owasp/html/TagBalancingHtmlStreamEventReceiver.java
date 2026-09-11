@@ -445,9 +445,20 @@ public class TagBalancingHtmlStreamEventReceiver
    * nearest pushed-out table, pops the pushed-out entries that cannot hold
    * the part, even by implying elements between, which for a table is all of
    * them, and writes the rest again as a new table for the part to go in.
+   * <p>
+   * Not across a boundary of table scope, such as a {@code template} in the
+   * pushed-out content: a browser looks for the table within that scope
+   * only, so the part is handled where it arrived, as it would be with no
+   * table pushed out.
    */
   private void returnToPushedOutTable(int elIndex) {
     int top = pushedOut.length() - 1;  // The nearest pushed-out entry.
+    byte tableScope = SCOPE_FOR_END_TAG[TABLE_TAG];
+    for (int i = openElements.size(); --i > top;) {
+      if ((SCOPES_BY_ELEMENT[openElements.get(i)] & tableScope) != 0) {
+        return;
+      }
+    }
     for (int i = openElements.size(); --i > top;) {
       int unclosed = openElements.remove(i);
       outputElements.remove(i);

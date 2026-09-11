@@ -1958,6 +1958,29 @@ class HtmlSanitizerTest {
         p.sanitize("<table>x<tr><td>y</td></tr></table>"));
   }
 
+  /**
+   * A browser looks for the table to return to within table scope only, so
+   * a table or row inside a {@code template} in the pushed-out content
+   * stays in the template, and the pushed-out table waits for a part
+   * arriving outside it.
+   */
+  @Test
+  void testReturnToAPushedOutTableStopsAtATableScopeBoundary() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "div", "template")
+        .toFactory();
+    String out = p.sanitize(
+        "<table><div><template><table><tr><td>y</td></tr></table></template>"
+        + "z</div>w<tr><td>v</td></tr></table>u");
+
+    assertEquals(
+        "<table></table><div><template>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table></template>z</div>w"
+        + "<table><tbody><tr><td>v</td></tr></tbody></table>u",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
   /** Pushed-out content is bounded by the nesting limit like any other. */
   @Test
   void testPushedOutContentRespectsTheNestingLimit() {
