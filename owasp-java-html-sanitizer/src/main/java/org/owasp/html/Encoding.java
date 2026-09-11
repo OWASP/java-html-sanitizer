@@ -417,6 +417,21 @@ public final class Encoding {
   }
 
   /**
+   * True if {@link #stripBannedCodeunits} may elide {@code ch}, so that the
+   * text on either side of it is joined up in the output.  A policy that reads
+   * text has to judge the text that will be emitted, not text that a later
+   * elision would join differently, so this answers true for a surrogate,
+   * which is elided when it is alone and may be when it is paired.
+   */
+  @TCB
+  static boolean isPossiblyElidedCodeunit(char ch) {
+    if (ch < 0x20) { return IS_BANNED_ASCII[ch]; }
+    return (0x7f <= ch && ch <= 0x9f)
+        || (0xd800 <= ch && ch <= 0xdfff)
+        || isNoncharacter(ch);
+  }
+
+  /**
    * Bit {@code c} is set when the BMP character U+c has a compatibility
    * decomposition (NFKD) that contains a printable, non-alphanumeric ASCII
    * character, so that a downstream normalization could turn it into an HTML

@@ -291,9 +291,13 @@ public final class HtmlChangeReporter<T> {
     private static final String[] ZERO_STRINGS = new String[0];
   }
 
+  /**
+   * Forwards to the renderer, and is one of the library's own decorators so
+   * that the policy can see the renderer behind it and know what it escapes.
+   */
   private static final class OutputChannel
-      implements HtmlStreamEventReceiver, DiscardedAttributeListener {
-    private final HtmlStreamEventReceiver renderer;
+      extends HtmlStreamEventReceiverWrapper
+      implements DiscardedAttributeListener {
     /**
      * The name of the tag the policy has opened in response to the tag being
      * opened, or null while it has opened none.
@@ -315,7 +319,7 @@ public final class HtmlChangeReporter<T> {
     final BitSet emittedAttrs = new BitSet();
 
     OutputChannel(HtmlStreamEventReceiver renderer) {
-      this.renderer = renderer;
+      super(renderer);
     }
 
     /** Starts accounting for the attributes on one input start tag. */
@@ -368,7 +372,7 @@ public final class HtmlChangeReporter<T> {
      */
     void listenForDroppedText(
         @Nullable HtmlStreamRenderer.DroppedTextListener listener) {
-      HtmlStreamEventReceiver r = renderer;
+      HtmlStreamEventReceiver r = underlying;
       while (r instanceof HtmlStreamEventReceiverWrapper) {
         r = ((HtmlStreamEventReceiverWrapper) r).underlying;
       }
@@ -377,14 +381,7 @@ public final class HtmlChangeReporter<T> {
       }
     }
 
-    public void openDocument() {
-      renderer.openDocument();
-    }
-
-    public void closeDocument() {
-      renderer.closeDocument();
-    }
-
+    @Override
     public void openTag(String elementName, List<String> attrs) {
       openedElementName = elementName;
       for (int i = 0, n = attrs.size(); i < n; i += 2) {
@@ -392,7 +389,7 @@ public final class HtmlChangeReporter<T> {
         // stay behind to be reported.
         markFirstEmitted(attrs.get(i));
       }
-      renderer.openTag(elementName, attrs);
+      underlying.openTag(elementName, attrs);
     }
 
     /** Accounts for the first eligible input copy of an emitted name. */
@@ -404,14 +401,6 @@ public final class HtmlChangeReporter<T> {
           return;
         }
       }
-    }
-
-    public void closeTag(String elementName) {
-      renderer.closeTag(elementName);
-    }
-
-    public void text(String text) {
-      renderer.text(text);
     }
   }
 }

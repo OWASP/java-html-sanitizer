@@ -2,6 +2,49 @@
 
 Most recent at top.
   * Next release
+    * Ordinary script and style text survives the filter on kept
+      literal-content elements.  A tag now needs a well-formed name -- an
+      ASCII letter and then letters, digits, `-`, `_`, `:` or `.` -- so
+      `if (a < b) { x(); } if (c > d) { y(); }` and
+      `for(i=0;i<n;i++){a[i]=b>c;}` keep the text between the brackets that
+      used to be read as a tag and removed.  Anything a browser would read as
+      a tag only where it parses markup stays, which the text of a kept
+      literal-content element never reaches; a name that a character the
+      renderer elides would otherwise hide, as in `</noscript` NUL `>`, is
+      still recognised and removed.  Issue #470.
+    * The filter keeps no record per tag, so a chunk of literal text full of
+      tags no longer costs a multiple of its own size in heap: input that used
+      to sanitize in 160 MB and needed 256 MB after the filter was reworked
+      now needs less than it ever did.  A start tag is paired with its end tag
+      from a bounded note of the start tags not yet matched, names are
+      compared where they lie instead of being copied and split with a regular
+      expression, and the ranges removed are recorded only while a listener is
+      attached.  Issue #473.
+    * Removing a tag from literal text no longer leaves what is on either side
+      of it able to open a tag.  `<style><b<svg> onmouseover=1>` emitted
+      `<b onmouseover=1>`, turning text that followed a tag into a tag with a
+      live handler, and `<style></<b>noscript>` emitted `</noscript>`, which
+      the renderer then refused but which reached a receiver handed to
+      `PolicyFactory.apply` as written.  The `<` of anything a removal, or the
+      element's own end tag, would finish into a tag now goes, while a `<` that
+      opens no tag, as in `<3` or `< b`, stays.
+    * Removing a tag from literal text no longer joins the text on either side
+      of it into a `<!--` or `-->` that the input did not hold, and a start
+      tag dropped together with its content no longer takes an enclosed `-->`
+      with it.  Either one left the element's comment delimiters unbalanced,
+      which cost the whole content: `<style>a{}-<b>->b{}</style>` and
+      `<script><!-- if (a > 0) { <b> } --> </b> f();</script>` came out empty.
+      Issue #475.
+    * The filter now runs exactly where the receiver writes text as it stands.
+      Inside `svg` and `math` a browser parses the content of every element as
+      markup, and `HtmlStreamRenderer` escapes it there, so the tags in the
+      text of a `style` or `script` element in foreign content are kept and
+      escaped rather than stripped.  A receiver handed to
+      `PolicyFactory.apply` does not rename `xmp`, `listing` and `plaintext`
+      to `pre` as the renderer does, and so used to receive the text of those
+      elements with its tags intact, a `</noscript>` among them; the text of
+      every element the lexer reads as raw text is now filtered for any
+      receiver but the library's own renderer.  Issue #474.
     * The filter on text kept inside `style`, `script`, `iframe` and other
       literal-content elements now examines a possible tag prefix before
       looking for its closing `>`.  A long run of `<` characters before one

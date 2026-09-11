@@ -210,46 +210,30 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
       return;
     }
 
-    if (foreignContentRootElementNames.contains(elementName)) {
+    if (FOREIGN_CONTENT_ROOT_ELEMENT_NAMES.contains(elementName)) {
       foreignContentDepth += 1;
     }
 
+    boolean inForeignContent = foreignContentDepth != 0;
     HtmlTextEscapingMode tentativeEscapingMode =
         HtmlTextEscapingMode.getModeForTag(elementName);
-    decodeTextBeforeEscaping = false;
-    if (foreignContentDepth == 0) {
+    // The lexer delivers the content of a raw-text element without decoding
+    // character references, but browsers parse that content as markup inside
+    // foreign content, so decode it there before re-encoding.
+    decodeTextBeforeEscaping
+        = inForeignContent && emitsContentLiterally(elementName, false);
+    if (!inForeignContent
+        || tentativeEscapingMode == HtmlTextEscapingMode.PCDATA
+        || tentativeEscapingMode == HtmlTextEscapingMode.VOID) {
       escapingMode = tentativeEscapingMode;
     } else {
-      switch (tentativeEscapingMode) {
-        case PCDATA:
-        case VOID:
-          escapingMode = tentativeEscapingMode;
-          break;
-        case CDATA:
-        case CDATA_SOMETIMES:
-        case PLAIN_TEXT:
-          // The lexer delivers the content of these elements as raw text
-          // without decoding character references, but browsers parse it as
-          // markup inside foreign content, so decode before re-encoding.
-          decodeTextBeforeEscaping = true;
-          escapingMode = HtmlTextEscapingMode.RCDATA;
-          break;
-        default: // escape special characters but do not allow tags
-          escapingMode = HtmlTextEscapingMode.RCDATA;
-          break;
-      }
+      // Escape special characters but do not allow tags.
+      escapingMode = HtmlTextEscapingMode.RCDATA;
     }
 
-
-    switch (escapingMode) {
-      case CDATA_SOMETIMES:
-      case CDATA:
-      case PLAIN_TEXT:
-        lastTagOpened = elementName;
-        pendingUnescaped = new StringBuilder();
-        break;
-      default:
-        break;
+    if (emitsContentLiterally(elementName, inForeignContent)) {
+      lastTagOpened = elementName;
+      pendingUnescaped = new StringBuilder();
     }
 
     output.append('<').append(elementName);
@@ -312,7 +296,7 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     }
 
     if (foreignContentDepth != 0
-        && foreignContentRootElementNames.contains(elementName)) {
+        && FOREIGN_CONTENT_ROOT_ELEMENT_NAMES.contains(elementName)) {
       foreignContentDepth -= 1;
     }
     decodeTextBeforeEscaping = false;
@@ -480,6 +464,31 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
   }
 
   /**
+   * True if the content of an element named {@code canonElementName}, written
+   * where {@code inForeignContent} says, is emitted as it is instead of being
+   * escaped, so that a tag in that content would reach the browser as
+   * written.
+   * <p>
+   * This is the one place that decides it.  The renderer asks under the name
+   * it emits, which {@link #safeName} may have substituted, and
+   * {@link ElementAndAttributePolicyBasedSanitizerPolicy}, whose filter has to
+   * run exactly where nothing escapes a tag for it, asks the same question
+   * about the receiver it writes to.
+   */
+  static boolean emitsContentLiterally(
+      String canonElementName, boolean inForeignContent) {
+    if (inForeignContent) { return false; }
+    switch (HtmlTextEscapingMode.getModeForTag(canonElementName)) {
+      case CDATA:
+      case CDATA_SOMETIMES:
+      case PLAIN_TEXT:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
    * Canonicalizes the element name and possibly substitutes an alternative
    * that has more consistent semantics.
    */
@@ -570,6 +579,10 @@ public class HtmlStreamRenderer implements HtmlStreamEventReceiver {
     return ch < 63 && 0 != (TAG_ENDS & (1L << ch));
   }
 
-  private static final Set<String> foreignContentRootElementNames =
+  /**
+   * The elements that root foreign content, inside which a browser parses the
+   * content of every element as markup, so that nothing there is literal.
+   */
+  static final Set<String> FOREIGN_CONTENT_ROOT_ELEMENT_NAMES =
       j8().setOf("svg", "math");
 }
