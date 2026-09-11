@@ -56,12 +56,55 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private final IntVector outputElements = new IntVector();
   private final IntVector toResumeInReverse = new IntVector();
+  /**
+   * Bit {@code i} is set while the element at {@code i} of
+   * {@link #openElements} is closed in the output but still open here.
+   * <p>
+   * A browser keeps a table, and any row group and row open in it, on its
+   * stack when content arrives that cannot go inside a table: it puts the
+   * content in front of the table instead, foster parenting, and later table
+   * content pops that content and carries on in the same table.  The output
+   * cannot put anything in front of a tag already written, so the table is
+   * closed there and the content written after it, and the table is written
+   * again, as a new table, when its content resumes (#342).  Meanwhile its
+   * entries stay here, so that table content finds them and comes back to
+   * them, and so that they bound end tags for elements below them as they do
+   * in a browser.  Such entries are contiguous, from a {@code table} up, and
+   * are the only pushed-out entries below the content pushed out of them.
+   */
+  private final BitSet pushedOut = new BitSet();
   private static final HtmlElementTables METADATA = HtmlElementTables.get();
   private static final int UNRECOGNIZED_TAG =
       METADATA.indexForName(HtmlElementNames.CUSTOM_ELEMENT_NAME);
   private static final int A_TAG = METADATA.indexForName("a");
   private static final int BODY_TAG = METADATA.indexForName("body");
+  private static final int TABLE_TAG = METADATA.indexForName("table");
   private static final int NO_OUTPUT_ELEMENT = -1;
+  /**
+   * The elements a browser keeps open, and later clears its stack back to,
+   * when it foster-parents content that arrives inside them: a table and its
+   * row groups and rows.  Not the cell, caption or template, inside which
+   * content nests normally.
+   */
+  private static final BitSet TABLE_CONTEXT = new BitSet();
+  /**
+   * The elements whose arrival, in a browser, ends foster-parented content
+   * and returns to the table: its parts, which clear the stack back to the
+   * table, and a table itself, which pops the open table and takes its
+   * place.
+   */
+  private static final BitSet TABLE_PARTS = new BitSet();
+  static {
+    for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
+      TABLE_CONTEXT.set(METADATA.indexForName(name));
+    }
+    for (String name : new String[] {
+             "caption", "col", "colgroup", "table", "tbody", "td", "tfoot",
+             "th", "thead", "tr",
+         }) {
+      TABLE_PARTS.set(METADATA.indexForName(name));
+    }
+  }
   /**
    * Elements on entering which a browser puts a marker on its list of
    * active formatting elements, so that an {@code a} opened inside one of
@@ -184,12 +227,14 @@ public class TagBalancingHtmlStreamEventReceiver
 
   public void closeDocument() {
     for (int i = Math.min(nestingLimit, openElements.size()); --i >= 0;) {
+      if (pushedOut.get(i)) { continue; }  // Already closed in the output.
       int elIndex = openElements.get(i);
       String elname = METADATA.canonNameForIndex(elIndex);
       underlying.closeTag(elname);
     }
     openElements.clear();
     outputElements.clear();
+    pushedOut.clear();
     toResumeInReverse.clear();
     underlying.closeDocument();
   }
@@ -263,6 +308,11 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   private void prepareForContent(int elIndex) {
+    if (!pushedOut.isEmpty()
+        && elIndex != HtmlElementTables.TEXT_NODE
+        && TABLE_PARTS.get(elIndex)) {
+      returnToPushedOutTable(elIndex);
+    }
     int nOpen = openElements.size();
     {
       int top = nOpen != 0 ? openElements.get(nOpen - 1) : BODY_TAG;
@@ -299,16 +349,30 @@ public class TagBalancingHtmlStreamEventReceiver
       int top = openElements.get(nOpen - 1);
       // Close all the elements that cannot contain the content to open.
       while (true) {
+        // A link ends the link open before it, wherever that is: nested
+        // links do not survive a browser's parse, so a table between them
+        // cannot stay open either.
+        boolean linkEndsLink =
+            elIndex == A_TAG && hasOpenLinkInFormattingScope();
         boolean canContain = canContain(elIndex, top, nOpen - 1)
-            && !(elIndex == A_TAG && hasOpenLinkInFormattingScope());
+            && !linkEndsLink;
         if (canContain) {
           break;
         }
-        if (openElements.size() < nestingLimit) {
+        if (!linkEndsLink
+            && TABLE_CONTEXT.get(top) && isFosterParented(elIndex)) {
+          // A browser puts the content in front of the table and keeps the
+          // table open.  Close the table in the output, keep it here, and
+          // open the content beside it.
+          pushOutTable(nOpen - 1);
+          break;
+        }
+        if (openElements.size() < nestingLimit && !pushedOut.get(nOpen - 1)) {
           underlying.closeTag(METADATA.canonNameForIndex(top));
         }
         openElements.remove(--nOpen);
         outputElements.remove(nOpen);
+        pushedOut.clear(nOpen);
         if (METADATA.resumable(top) && top != elIndex) {
           toResumeInReverse.add(top);
         }
@@ -320,11 +384,16 @@ public class TagBalancingHtmlStreamEventReceiver
     while (!toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
       // If toResume can contain elInfo AND the top of the stack can contain
-      // toResume, then we push toResume.
+      // toResume, then we push toResume.  A link is not resumed around
+      // another link, or where one is open: a browser ends a link when the
+      // next begins, and nested links do not survive a browser's parse, so
+      // the output would not read back as written.
       nOpen = openElements.size();
       if ((nOpen == 0
           || canContain(toResume, openElements.get(nOpen - 1), nOpen))
-          && canContain(elIndex, toResume, nOpen)) {
+          && canContain(elIndex, toResume, nOpen)
+          && !(toResume == A_TAG
+               && (elIndex == A_TAG || hasOpenLinkInFormattingScope()))) {
         toResumeInReverse.removeLast();
         int outputElementIndex = NO_OUTPUT_ELEMENT;
         if (openElements.size() < nestingLimit) {
@@ -338,6 +407,88 @@ public class TagBalancingHtmlStreamEventReceiver
       } else {
         break;
       }
+    }
+  }
+
+  /**
+   * True if a browser puts content of this kind that arrives inside a table,
+   * outside a cell or caption, in front of the table rather than in it: text,
+   * and any element that is not one of a table's own parts.
+   */
+  private static boolean isFosterParented(int elIndex) {
+    return elIndex == HtmlElementTables.TEXT_NODE || !TABLE_PARTS.get(elIndex);
+  }
+
+  /**
+   * Closes in the output, innermost first, the row, row group and table that
+   * the top of the stack is in, and marks them pushed out, keeping them here.
+   * Entries already pushed out, by earlier content beside the same table, are
+   * left as they are.
+   */
+  private void pushOutTable(int topIndex) {
+    for (int i = topIndex; i >= 0; --i) {
+      int elIndex = openElements.get(i);
+      if (!TABLE_CONTEXT.get(elIndex)) { break; }
+      if (!pushedOut.get(i)) {
+        if (i < nestingLimit) {
+          underlying.closeTag(METADATA.canonNameForIndex(elIndex));
+        }
+        pushedOut.set(i);
+      }
+      if (elIndex == TABLE_TAG) { break; }
+    }
+  }
+
+  /**
+   * Handles a table part, or a table, arriving while a table is pushed out,
+   * as a browser does: closes the content that was put in front of the
+   * nearest pushed-out table, pops the pushed-out entries that cannot hold
+   * the part, even by implying elements between, which for a table is all of
+   * them, and writes the rest again as a new table for the part to go in.
+   */
+  private void returnToPushedOutTable(int elIndex) {
+    int top = pushedOut.length() - 1;  // The nearest pushed-out entry.
+    for (int i = openElements.size(); --i > top;) {
+      int unclosed = openElements.remove(i);
+      outputElements.remove(i);
+      if (i < nestingLimit) {
+        underlying.closeTag(METADATA.canonNameForIndex(unclosed));
+      }
+      if (METADATA.resumable(unclosed)) {
+        toResumeInReverse.add(unclosed);
+      }
+    }
+    while (top >= 0 && pushedOut.get(top)) {
+      int entry = openElements.get(top);
+      if (canContain(elIndex, entry, top)
+          || METADATA.impliedElements(entry, elIndex).length != 0) {
+        break;
+      }
+      openElements.remove(top);
+      outputElements.remove(top);
+      pushedOut.clear(top);
+      --top;
+    }
+    if (top < 0 || !pushedOut.get(top)) { return; }
+    int start = top;
+    while (start > 0 && pushedOut.get(start - 1)) { --start; }
+    // Pop the run and push it back, outermost first, opening each again.
+    int n = top - start + 1;
+    int[] run = new int[n];
+    for (int i = n; --i >= 0;) {
+      run[i] = openElements.remove(start + i);
+      outputElements.remove(start + i);
+      pushedOut.clear(start + i);
+    }
+    for (int i = 0; i < n; ++i) {
+      int outputElementIndex = NO_OUTPUT_ELEMENT;
+      if (openElements.size() < nestingLimit) {
+        underlying.openTag(
+            METADATA.canonNameForIndex(run[i]), new ArrayList<>());
+        outputElementIndex = outputElementIndexForLastOpenTag(run[i]);
+      }
+      openElements.add(run[i]);
+      outputElements.add(outputElementIndex);
     }
   }
 
@@ -459,16 +610,18 @@ public class TagBalancingHtmlStreamEventReceiver
     while (--last > index) {
       int unclosed = openElements.remove(last);
       outputElements.remove(last);
-      if (last + 1 < nestingLimit) {
+      if (last + 1 < nestingLimit && !pushedOut.get(last)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
+      pushedOut.clear(last);
       if (METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
     }
-    if (openElements.size() < nestingLimit) {
+    if (openElements.size() < nestingLimit && !pushedOut.get(index)) {
       underlying.closeTag(METADATA.canonNameForIndex(elIndex));
     }
+    pushedOut.clear(index);
     openElements.remove(index);
     outputElements.remove(index);
   }

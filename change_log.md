@@ -2,6 +2,20 @@
 
 Most recent at top.
   * Next release
+    * Content that cannot go inside a table, such as a `div` between its
+      rows, no longer stays open until the end of the document, taking the
+      rows and everything after the table with it (#342).  A browser puts
+      such content in front of the table and keeps the table open, so that
+      the next row pops the content and carries on in the same table.  The
+      tag balancer now keeps the table, and any row group and row, on its
+      stack while closing them in the output, closes the content when a part
+      of the table arrives, and writes the table again for that part.  The
+      output cannot put anything in front of a tag already written, so the
+      table is written twice, once empty and once with the later rows, and
+      text pushed out of a table follows it rather than preceding it as in a
+      browser; a browser reads the rest as it reads the input.  A link
+      pushed out of a table is not written again around or inside another
+      link.
     * What `HtmlStreamRenderer` leaves out now reaches an `HtmlChangeListener`
       as well as the renderer's bad-HTML handler: a start tag whose name is
       not one HTML allows, which an `ElementPolicy` can produce by renaming,
