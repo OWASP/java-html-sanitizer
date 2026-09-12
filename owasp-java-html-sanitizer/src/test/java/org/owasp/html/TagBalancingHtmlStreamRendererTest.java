@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -894,5 +895,90 @@ class TagBalancingHtmlStreamRendererTest {
     assertEquals(
         "<a href=\"u\">x</a><a href=\"v\">y</a>z",
         htmlOutputBuffer.toString());
+  }
+
+  /** Table-context returns emit a properly nested stream of receiver events. */
+  @Test
+  void testTableContextChangesHaveBalancedReceiverEvents() {
+    assertEquals(
+        "<table><tbody><tr><td><div>x</div></td></tr>"
+        + "<tr><td>y</td></tr></tbody></table>z",
+        renderBalancedEvents(20, "table", "tr", "td", "div", "#x",
+            "tr", "td", "#y", "/table", "#z"));
+    assertEquals(
+        "<div><p>x</p><table><tbody><tr><td>y</td></tr></tbody></table></div>",
+        renderBalancedEvents(20, "div", "p", "#x", "tr", "td", "#y"));
+    assertEquals(
+        "<table><colgroup><col /></colgroup><tbody><tr><td>y</td></tr>"
+        + "</tbody></table>",
+        renderBalancedEvents(20, "table", "col", "tr", "td", "#y"));
+    assertEquals(
+        "<template><table><tbody><tr><td><b>y</b></td></tr></tbody></table>"
+        + "</template>z",
+        renderBalancedEvents(20, "template", "tr", "td", "b", "#y",
+            "/template", "#z"));
+  }
+
+  /** The return walk closes every emitted element, including at the limit. */
+  @Test
+  void testTableContextReturnsRespectSmallNestingLimits() {
+    String[] expected = {
+        "xy",
+        "<table></table>x<table></table>y",
+        "<table><tbody></tbody></table>x<table><tbody></tbody></table>y",
+        "<table><tbody><tr></tr></tbody></table>x"
+        + "<table><tbody><tr></tr></tbody></table>y",
+        "<table><tbody><tr><td>x</td></tr><tr><td>y</td></tr></tbody></table>",
+        "<table><tbody><tr><td><div>x</div></td></tr>"
+        + "<tr><td>y</td></tr></tbody></table>",
+    };
+    for (int limit = 0; limit < expected.length; ++limit) {
+      assertEquals(expected[limit], renderBalancedEvents(limit,
+          "table", "tr", "td", "div", "#x", "tr", "td", "#y"),
+          "limit " + limit);
+    }
+  }
+
+  /** Checks events themselves, since the renderer can hide missing closes. */
+  private static String renderBalancedEvents(int limit, String... events) {
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    HtmlStreamEventReceiver checked = new HtmlStreamEventReceiverWrapper(
+        HtmlStreamRenderer.create(output, x -> fail(x))) {
+      @Override
+      public void openTag(String name, List<String> attrs) {
+        if (!HtmlTextEscapingMode.isVoidElement(name)) { open.add(name); }
+        assertTrue(open.size() <= limit, "nesting limit");
+        super.openTag(name, attrs);
+      }
+
+      @Override
+      public void closeTag(String name) {
+        assertFalse(open.isEmpty(), "unmatched close " + name);
+        assertEquals(open.remove(open.size() - 1), name, "close order");
+        super.closeTag(name);
+      }
+
+      @Override
+      public void closeDocument() {
+        assertTrue(open.isEmpty(), "unclosed elements " + open);
+        super.closeDocument();
+      }
+    };
+    TagBalancingHtmlStreamEventReceiver receiver =
+        new TagBalancingHtmlStreamEventReceiver(checked);
+    receiver.setNestingLimit(limit);
+    receiver.openDocument();
+    for (String event : events) {
+      if (event.startsWith("#")) {
+        receiver.text(event.substring(1));
+      } else if (event.startsWith("/")) {
+        receiver.closeTag(event.substring(1));
+      } else {
+        receiver.openTag(event, j8().listOf());
+      }
+    }
+    receiver.closeDocument();
+    return output.toString();
   }
 }
