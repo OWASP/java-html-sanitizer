@@ -18,6 +18,7 @@ extensive test suite, and has undergone
 ## Table Of Contents
 
 *  [Getting Started](#getting-started)
+*  [Repository Layout](#repository-layout)
 *  [Prepackaged Policies](#prepackaged-policies)
 *  [Crafting a policy](#crafting-a-policy)
 *  [Custom policies](#custom-policies)
@@ -32,6 +33,22 @@ extensive test suite, and has undergone
 
 [Getting Started](docs/getting_started.md) includes instructions on
 how to get started with or without Maven.
+
+## Repository Layout
+
+The project is built as one Maven reactor.  Build it from this directory with
+`./mvnw clean verify`; if you select a module with `-pl`, also use `-am` so
+Maven builds the modules it depends on.
+
+* [`owasp-java-html-sanitizer/`](owasp-java-html-sanitizer/) contains the
+  published library, its tests, and its Java module descriptor.
+* [`java8-shim/`](java8-shim/) and [`java10-shim/`](java10-shim/) implement
+  compatibility code that is bundled into the library JAR.
+* [`examples/`](examples/) contains sample policies to read and copy; it is
+  tested but not published.
+* [`empiricism/`](empiricism/) contains the browser experiments used to
+  generate the sanitizer's HTML element tables.
+* [`docs/`](docs/) contains user, security, and historical documentation.
 
 ## Prepackaged Policies
 
