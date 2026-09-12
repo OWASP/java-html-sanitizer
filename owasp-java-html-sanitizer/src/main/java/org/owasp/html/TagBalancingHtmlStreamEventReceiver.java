@@ -59,6 +59,13 @@ public class TagBalancingHtmlStreamEventReceiver
    * When the receiver below cannot report that, the input name is used.
    */
   private final IntVector outputElements = new IntVector();
+  /**
+   * Bit {@code i} is set when the open event for entry {@code i} of
+   * {@link #openElements} was sent to {@link #underlying}.  Resumed formatting
+   * and returned table entries can remain on the logical stack at or beyond
+   * the nesting limit without an open event, and the limit may later change.
+   */
+  private final BitSet sentToUnderlying = new BitSet();
   private final IntVector toResumeInReverse = new IntVector();
   /**
    * Bit {@code i} is set while the element at {@code i} of
@@ -266,14 +273,15 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   public void closeDocument() {
-    for (int i = Math.min(nestingLimit, openElements.size()); --i >= 0;) {
-      if (pushedOut.get(i)) { continue; }  // Already closed in the output.
+    for (int i = openElements.size(); --i >= 0;) {
+      if (!sentToUnderlying.get(i) || pushedOut.get(i)) { continue; }
       int elIndex = openElements.get(i);
       String elname = METADATA.canonNameForIndex(elIndex);
       underlying.closeTag(elname);
     }
     openElements.clear();
     outputElements.clear();
+    sentToUnderlying.clear();
     pushedOut.clear();
     reopenedWithoutTable.clear();
     foreignRootPendingTableReturn = null;
@@ -339,6 +347,7 @@ public class TagBalancingHtmlStreamEventReceiver
       if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         openElements.add(elIndex);
         outputElements.add(outputElementIndex);
+        sentToUnderlying.set(openElements.size() - 1);
       }
     } else {
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
@@ -498,6 +507,7 @@ public class TagBalancingHtmlStreamEventReceiver
           int outputElementIndex = openElement(impliedElIndex, attrs, true);
           openElements.add(impliedElIndex);
           outputElements.add(outputElementIndex);
+          sentToUnderlying.set(openElements.size() - 1);
           if (suppressedImpliedTable) {
             reopenedWithoutTable.set(openElements.size() - 1);
           }
@@ -527,11 +537,12 @@ public class TagBalancingHtmlStreamEventReceiver
       // it holds, from the top down.
       for (int i = openElements.size(); --i >= container;) {
         int unclosed = openElements.get(i);
-        if (i + 1 < nestingLimit && !pushedOut.get(i)) {
+        if (sentToUnderlying.get(i) && !pushedOut.get(i)) {
           underlying.closeTag(METADATA.canonNameForIndex(unclosed));
         }
         openElements.remove(i);
         outputElements.remove(i);
+        sentToUnderlying.clear(i);
         pushedOut.clear(i);
         reopenedWithoutTable.clear(i);
         if (METADATA.resumable(unclosed) && unclosed != elIndex) {
@@ -556,11 +567,13 @@ public class TagBalancingHtmlStreamEventReceiver
                && (elIndex == A_TAG || hasOpenLinkInFormattingScope()))) {
         toResumeInReverse.removeLast();
         int outputElementIndex = NO_OUTPUT_ELEMENT;
-        if (openElements.size() < nestingLimit) {
+        boolean sent = openElements.size() < nestingLimit;
+        if (sent) {
           outputElementIndex = openElement(toResume, new ArrayList<>());
         }
         openElements.add(toResume);
         outputElements.add(outputElementIndex);
+        sentToUnderlying.set(openElements.size() - 1, sent);
       } else {
         break;
       }
@@ -641,7 +654,7 @@ public class TagBalancingHtmlStreamEventReceiver
       int elIndex = openElements.get(i);
       if (!TABLE_CONTEXT.get(elIndex)) { break; }
       if (!pushedOut.get(i)) {
-        if (i < nestingLimit) {
+        if (sentToUnderlying.get(i)) {
           underlying.closeTag(METADATA.canonNameForIndex(elIndex));
         }
         pushedOut.set(i);
@@ -673,9 +686,10 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = openElements.size(); --i > top;) {
       int unclosed = openElements.remove(i);
       outputElements.remove(i);
-      if (i < nestingLimit) {
+      if (sentToUnderlying.get(i)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
+      sentToUnderlying.clear(i);
       if (METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
@@ -685,6 +699,7 @@ public class TagBalancingHtmlStreamEventReceiver
       if (canHold(elIndex, openElements.get(top), top)) { break; }
       openElements.remove(top);
       outputElements.remove(top);
+      sentToUnderlying.clear(top);
       pushedOut.clear(top);
       reopenedWithoutTable.clear(top);
       --top;
@@ -698,6 +713,7 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = n; --i >= 0;) {
       run[i] = openElements.remove(start + i);
       outputElements.remove(start + i);
+      sentToUnderlying.clear(start + i);
       pushedOut.clear(start + i);
       reopenedWithoutTable.clear(start + i);
     }
@@ -708,7 +724,8 @@ public class TagBalancingHtmlStreamEventReceiver
     PushedOutTablePolicy policy = pushedOutTablePolicy();
     for (int i = 0; i < n; ++i) {
       int outputElementIndex = NO_OUTPUT_ELEMENT;
-      if (openElements.size() < nestingLimit) {
+      boolean sent = openElements.size() < nestingLimit;
+      if (sent) {
         List<String> attrs = new ArrayList<>();
         if (run[i] == TABLE_TAG && policy != null) {
           policy.openReopenedTable(attrs);
@@ -719,6 +736,7 @@ public class TagBalancingHtmlStreamEventReceiver
       }
       openElements.add(run[i]);
       outputElements.add(outputElementIndex);
+      sentToUnderlying.set(openElements.size() - 1, sent);
       if (policy != null
           && run[i] == TABLE_TAG && outputElementIndex != TABLE_TAG) {
         reopenedWithoutTable.set(openElements.size() - 1);
@@ -877,9 +895,10 @@ public class TagBalancingHtmlStreamEventReceiver
     while (--last > index) {
       int unclosed = openElements.remove(last);
       outputElements.remove(last);
-      if (last + 1 < nestingLimit && !pushedOut.get(last)) {
+      if (sentToUnderlying.get(last) && !pushedOut.get(last)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
+      sentToUnderlying.clear(last);
       pushedOut.clear(last);
       reopenedWithoutTable.clear(last);
       if (METADATA.resumable(unclosed)) {
@@ -890,9 +909,10 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(foreignRootPendingTableReturn);
       foreignRootPendingTableReturn = null;
     }
-    if (openElements.size() < nestingLimit && !pushedOut.get(index)) {
+    if (sentToUnderlying.get(index) && !pushedOut.get(index)) {
       underlying.closeTag(METADATA.canonNameForIndex(elIndex));
     }
+    sentToUnderlying.clear(index);
     pushedOut.clear(index);
     reopenedWithoutTable.clear(index);
     openElements.remove(index);

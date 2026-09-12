@@ -44,14 +44,32 @@ class TagBalancingHtmlStreamRendererTest {
 
   StringBuilder htmlOutputBuffer;
   TagBalancingHtmlStreamEventReceiver balancer;
+  int emittedOpenElements;
+  int emittedCloseElements;
 
   @BeforeEach
   void createBalancer() {
     htmlOutputBuffer = new StringBuilder();
+    HtmlStreamEventReceiver renderer = HtmlStreamRenderer.create(
+        htmlOutputBuffer,
+        x -> fail("Unexpected renderer error: " + x));
     balancer = new TagBalancingHtmlStreamEventReceiver(
-        HtmlStreamRenderer.create(
-            htmlOutputBuffer,
-            x -> fail("Unexpected renderer error: " + x)));
+        new HtmlStreamEventReceiverWrapper(renderer) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            super.openTag(elementName, attrs);
+            if (!HtmlTextEscapingMode.isVoidElement(
+                HtmlLexer.canonicalElementName(elementName))) {
+              ++emittedOpenElements;
+            }
+          }
+
+          @Override
+          public void closeTag(String elementName) {
+            super.closeTag(elementName);
+            ++emittedCloseElements;
+          }
+        });
   }
 
   @Test
@@ -388,6 +406,91 @@ class TagBalancingHtmlStreamRendererTest {
           "<div><div><div><div><div><div><div><div><div><div>"
         + "</div></div></div></div></div></div></div></div></div></div>",
         htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /** An explicit end tag closes an element written at the nesting limit. */
+  @Test
+  void testExplicitCloseAtNestingLimit() {
+    balancer.setNestingLimit(3);
+    balancer.openDocument();
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("span", j8().listOf());
+    balancer.text("x");
+    balancer.closeTag("span");
+    balancer.openTag("p", j8().listOf());
+    balancer.text("y");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<div><div><span>x</span><p>y</p></div></div>",
+        htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /** A sibling implicitly closes an incompatible element at the limit. */
+  @Test
+  void testImplicitCloseAtNestingLimit() {
+    balancer.setNestingLimit(3);
+    balancer.openDocument();
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("textarea", j8().listOf());
+    balancer.text("x");
+    balancer.openTag("p", j8().listOf());
+    balancer.text("y");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<div><div><textarea>x</textarea><p>y</p></div></div>",
+        htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /** Closing an ancestor also closes descendants written at the limit. */
+  @Test
+  void testAncestorCloseAtNestingLimit() {
+    balancer.setNestingLimit(3);
+    balancer.openDocument();
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("span", j8().listOf());
+    balancer.text("x");
+    balancer.closeTag("div");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<div><div><span>x</span></div></div>",
+        htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /** Raising the limit must not close a resumed element that was not written. */
+  @Test
+  void testRaisedLimitDoesNotCloseUnemittedResumedElement() {
+    balancer.setNestingLimit(3);
+    balancer.openDocument();
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("caption", j8().listOf());
+    balancer.openTag("strong", j8().listOf());
+    balancer.closeTag("caption");
+    balancer.text("x");
+    balancer.openTag("strong", j8().listOf());
+    balancer.openTag("caption", j8().listOf());
+    balancer.closeTag("caption");
+    balancer.openTag("strong", j8().listOf());
+    balancer.openTag("span", j8().listOf());
+    balancer.setNestingLimit(4);
+    balancer.closeTag("table");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<table><caption><strong></strong></caption></table>"
+            + "x<strong></strong><table><caption></caption></table>"
+            + "<strong><strong></strong></strong>",
+        htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
   }
 
   @Test

@@ -2,6 +2,12 @@
 
 Most recent at top.
   * Next release
+    * Elements written at the configured nesting limit now receive their end
+      tags when they close explicitly, implicitly, or with an ancestor.  The
+      previous close checks were one level too strict and could leave the
+      sanitized output unbalanced.  Close decisions for stacked elements also
+      continue to match what was written if the limit changes mid-document
+      (#485).
     * Content that cannot go inside a table, such as a `div` between its
       rows, no longer stays open until the end of the document, taking the
       rows and everything after the table with it (#342).  A browser puts
