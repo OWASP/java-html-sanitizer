@@ -82,6 +82,21 @@ class HtmlSanitizerTest {
     assertEquals(256, deep.split("</div>", -1).length - 1);
   }
 
+  /** The element at the 256th level is emitted and must also be closed. */
+  @Test
+  void testElementAtDefaultNestingLimitRoundTrips() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("div", "span", "p")
+        .allowWithoutAttributes("span")
+        .toFactory();
+    String input = nest("<span>x</span><p>y</p>", 255);
+    String out = p.sanitize(input);
+
+    assertEquals(input, out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+  }
+
   /**
    * Issue #205.  Text kept past the limit is still text: it is escaped on the
    * way out and cannot reintroduce markup.
