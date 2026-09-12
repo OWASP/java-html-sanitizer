@@ -9,16 +9,23 @@ as part of the reactor but is not published, so applications should not import
 
 ## Included examples
 
-* `EbayPolicyExample.java` demonstrates a broad, attribute-aware policy and
-  streaming input and output.
-* `SlashdotPolicyExample.java` demonstrates a smaller policy, custom element
-  handling, and normalized attributes.
-* `UrlTextExample.java` demonstrates a postprocessor that appends a URL's
+* [EbayPolicyExample.java](src/main/java/org/owasp/html/examples/EbayPolicyExample.java)
+  demonstrates a rich-text policy with CSS and attribute rules.
+* [SlashdotPolicyExample.java](src/main/java/org/owasp/html/examples/SlashdotPolicyExample.java)
+  demonstrates a smaller policy, custom element names, and normalized attributes.
+* [UrlTextExample.java](src/main/java/org/owasp/html/examples/UrlTextExample.java)
+  demonstrates a postprocessor that appends a URL's
   authority as visible text after links and images.
 
-The tests under `src/test/java/` exercise both accepted markup and hostile
-input.  Run them from the repository root so Maven also builds the sanitizer
-and shim modules:
+The eBay and Slashdot programs read UTF-8 HTML from standard input and write
+sanitized HTML to standard output; each buffers the complete input before
+sanitizing.  `UrlTextExample` accepts HTML as command-line arguments.
+
+## Build and test
+
+The [tests](src/test/java/org/owasp/html/examples/) exercise both accepted
+markup and hostile input.  With JDK 11 or newer, run them from the repository
+root so Maven also builds the sanitizer and shim modules:
 
 ```sh
 ./mvnw -pl examples -am test

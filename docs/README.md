@@ -15,8 +15,8 @@ example and links to the current Javadoc.
 * [Why sanitize when you can validate?](html-validation.md) explains why the
   library returns normalized, sanitized output instead of declaring arbitrary
   input safe.
-* [Client-side templates](client-side-templates.md) records interactions
-  between sanitized HTML and template-language syntax.
+* [Examples](../examples/README.md) introduces the sample policies and their
+  tests.
 
 ## Security
 
@@ -25,14 +25,18 @@ example and links to the current Javadoc.
 * [Attack review ground rules](attack_review_ground_rules.md) defines the
   scope for adversarial testing and links to the private reporting process.
 * [CVE-2011-4457](cve20114457.md) and
-  [CVE-2021-42575](cve202142575.md) provide historical details for those
+  [CVE-2021-42575](cve202142575.md) provide historical notes for those
   issues.
 
 Do not open a public issue for a suspected sanitizer bypass.  Follow the
 repository's [security policy](../SECURITY.md) so maintainers can coordinate a
 fix and disclosure.
 
-## Project history
+## Research and project history
+
+The [client-side template notes](client-side-templates.md) collect research
+on template-language syntax, including open questions and examples from
+other sanitizers.
 
 The [credits](credits.md) recognize project contributors.  Release-by-release
 changes are recorded in the repository [change log](../change_log.md).

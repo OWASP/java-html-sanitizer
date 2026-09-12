@@ -36,19 +36,26 @@ how to get started with or without Maven.
 
 ## Repository Layout
 
-The project is built as one Maven reactor.  Build it from this directory with
-`./mvnw clean verify`; if you select a module with `-pl`, also use `-am` so
-Maven builds the modules it depends on.
+Building requires JDK 11 or newer.  From the repository root, build all Maven
+modules and run their tests with:
 
-* [`owasp-java-html-sanitizer/`](owasp-java-html-sanitizer/) contains the
+```sh
+./mvnw clean verify
+```
+
+The Maven wrapper pins the required Maven version.  If you select a module
+with `-pl`, also use `-am` so Maven builds the modules it depends on.
+
+* [owasp-java-html-sanitizer/](owasp-java-html-sanitizer/README.md) contains the
   published library, its tests, and its Java module descriptor.
-* [`java8-shim/`](java8-shim/) and [`java10-shim/`](java10-shim/) implement
+* [java8-shim/](java8-shim/README.md) and
+  [java10-shim/](java10-shim/README.md) implement
   compatibility code that is bundled into the library JAR.
-* [`examples/`](examples/) contains sample policies to read and copy; it is
-  tested but not published.
-* [`empiricism/`](empiricism/) contains the browser experiments used to
-  generate the sanitizer's HTML element tables.
-* [`docs/`](docs/) contains user, security, and historical documentation.
+* [examples/](examples/README.md) contains sample policies to read and copy;
+  it is tested but not published.
+* [empiricism/](empiricism/README.md) contains the browser experiments used
+  to generate the sanitizer's HTML element tables.
+* [docs/](docs/README.md) contains user, security, and historical documentation.
 
 ## Prepackaged Policies
 
