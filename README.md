@@ -18,6 +18,7 @@ extensive test suite, and has undergone
 ## Table Of Contents
 
 *  [Getting Started](#getting-started)
+*  [Repository Layout](#repository-layout)
 *  [Prepackaged Policies](#prepackaged-policies)
 *  [Crafting a policy](#crafting-a-policy)
 *  [Custom policies](#custom-policies)
@@ -32,6 +33,29 @@ extensive test suite, and has undergone
 
 [Getting Started](docs/getting_started.md) includes instructions on
 how to get started with or without Maven.
+
+## Repository Layout
+
+Building requires JDK 11 or newer.  From the repository root, build all Maven
+modules and run their tests with:
+
+```sh
+./mvnw clean verify
+```
+
+The Maven wrapper pins the required Maven version.  If you select a module
+with `-pl`, also use `-am` so Maven builds the modules it depends on.
+
+* [owasp-java-html-sanitizer/](owasp-java-html-sanitizer/README.md) contains the
+  published library, its tests, and its Java module descriptor.
+* [java8-shim/](java8-shim/README.md) and
+  [java10-shim/](java10-shim/README.md) implement
+  compatibility code that is bundled into the library JAR.
+* [examples/](examples/README.md) contains sample policies to read and copy;
+  it is tested but not published.
+* [empiricism/](empiricism/README.md) contains the browser experiments used
+  to generate the sanitizer's HTML element tables.
+* [docs/](docs/README.md) contains user, security, and historical documentation.
 
 ## Prepackaged Policies
 

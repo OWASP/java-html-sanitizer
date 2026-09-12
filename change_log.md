@@ -2,6 +2,8 @@
 
 Most recent at top.
   * Next release
+    * Docs: Add focused README files for each Maven module and an index for
+      supporting documentation, including safe build and regeneration steps.
     * Table parts inside cell content now return to the existing table, and a
       row after a column closes the column group before continuing the table.
       When an orphan table part needs an implied table, that table closes a
