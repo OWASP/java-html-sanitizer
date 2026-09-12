@@ -2,6 +2,12 @@
 
 Most recent at top.
   * Next release
+    * Table parts inside cell content now return to the existing table, and a
+      row after a column closes the column group before continuing the table.
+      When an orphan table part needs an implied table, that table closes a
+      containing paragraph before opening.  A template end tag closes table
+      structure inside the template and keeps its formatting from resuming
+      outside the template (#483).
     * Elements written at the configured nesting limit now receive their end
       tags when they close explicitly, implicitly, or with an ancestor.  The
       previous close checks were one level too strict and could leave the

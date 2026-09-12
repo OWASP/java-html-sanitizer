@@ -97,6 +97,7 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final int A_TAG = METADATA.indexForName("a");
   private static final int BODY_TAG = METADATA.indexForName("body");
   private static final int TABLE_TAG = METADATA.indexForName("table");
+  private static final int TEMPLATE_TAG = METADATA.indexForName("template");
   private static final int NO_OUTPUT_ELEMENT = -1;
   /**
    * The elements a browser keeps open, and later clears its stack back to,
@@ -472,6 +473,20 @@ public class TagBalancingHtmlStreamEventReceiver
         && TABLE_PARTS.get(elIndex)) {
       returnToPushedOutTable(elIndex);
     }
+    if (elIndex != HtmlElementTables.TEXT_NODE
+        && elIndex != TABLE_TAG && TABLE_PARTS.get(elIndex)) {
+      if (returnToTableContext(elIndex)) {
+        int container = containerIndex();
+        int top = container >= 0 ? openElements.get(container) : BODY_TAG;
+        int[] implied = METADATA.impliedElements(top, elIndex);
+        if (implied.length != 0 && implied[0] == TABLE_TAG
+            && (container < 0 || !canHold(elIndex, top, container))) {
+          // An orphan table part still needs its table wrapper, but that table
+          // must close containers such as p before any of its structure opens.
+          prepareForContent(TABLE_TAG);
+        }
+      }
+    }
     // Push an open table out of the way before anything below asks what
     // contains the content: a browser puts content a table cannot hold in
     // front of the table, so what contains the table contains the content,
@@ -578,6 +593,46 @@ public class TagBalancingHtmlStreamEventReceiver
         break;
       }
     }
+  }
+
+  /**
+   * Returns a table part to the nearest table in table scope before implying
+   * wrappers.  A row inside a cell's div ends the cell and row; it does not
+   * start a second table in the div.  A template starts a separate context.
+   *
+   * @return false if the nearest logical table was not emitted as a table,
+   *     in which case the caller preserves the older implied-element path
+   */
+  private boolean returnToTableContext(int elIndex) {
+    int table = -1;
+    int tableScope = SCOPE_FOR_END_TAG[TABLE_TAG];
+    for (int i = openElements.size(); --i >= 0;) {
+      int openElementIndex = openElements.get(i);
+      if (openElementIndex == TABLE_TAG) {
+        // A table that policy dropped or renamed does not establish table
+        // context in the output.  Keep the older implied-table path for its
+        // parts so the output does not acquire bare adjacent row groups.
+        if (outputElements.get(i) != TABLE_TAG) { return false; }
+        table = i;
+        break;
+      }
+      if ((SCOPES_BY_ELEMENT[openElementIndex] & tableScope) != 0) {
+        return true;
+      }
+    }
+    if (table < 0) { return true; }
+    for (int i = openElements.size(); --i > table;) {
+      if (canHold(elIndex, openElements.get(i), i)) { break; }
+      int unclosed = openElements.remove(i);
+      outputElements.remove(i);
+      if (sentToUnderlying.get(i) && !pushedOut.get(i)) {
+        underlying.closeTag(METADATA.canonNameForIndex(unclosed));
+      }
+      sentToUnderlying.clear(i);
+      pushedOut.clear(i);
+      reopenedWithoutTable.clear(i);
+    }
+    return true;
   }
 
   /** Whether a browser would foster-parent this token out of an open table. */
@@ -890,6 +945,10 @@ public class TagBalancingHtmlStreamEventReceiver
       return;  // Don't close unopened tags.
     }
 
+    if (elIndex == TEMPLATE_TAG) {
+      // Formatting inside template content must not resume outside it.
+      toResumeInReverse.clear();
+    }
     int last = openElements.size();
     // Close all the elements that cannot contain the element to open.
     while (--last > index) {
@@ -901,7 +960,7 @@ public class TagBalancingHtmlStreamEventReceiver
       sentToUnderlying.clear(last);
       pushedOut.clear(last);
       reopenedWithoutTable.clear(last);
-      if (METADATA.resumable(unclosed)) {
+      if (elIndex != TEMPLATE_TAG && METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
     }
@@ -1021,8 +1080,9 @@ public class TagBalancingHtmlStreamEventReceiver
     final byte LIST_ITEM = 4;
     final byte TABLE = 8;
     final byte SELECT = 16;
+    final byte NOFEATURE = 32;
 
-    ALL_SCOPES = IN | BUTTON | LIST_ITEM | TABLE | SELECT;
+    ALL_SCOPES = IN | BUTTON | LIST_ITEM | TABLE | SELECT | NOFEATURE;
 
     SCOPES_BY_ELEMENT = new byte[METADATA.nElementTypes()];
 
@@ -1124,6 +1184,10 @@ public class TagBalancingHtmlStreamEventReceiver
     SCOPE_FOR_END_TAG[METADATA.indexForName("select")] = SELECT;
     SCOPE_FOR_END_TAG[METADATA.indexForName("p")] = BUTTON;  // really.
     SCOPE_FOR_END_TAG[METADATA.indexForName("li")] = LIST_ITEM;
+    // The in-head rule for </template> searches through table structure, but
+    // a nofeature element remains a deliberate barrier so text its policy
+    // suppresses cannot escape when a template end tag appears inside it.
+    SCOPE_FOR_END_TAG[TEMPLATE_TAG] = NOFEATURE;
   }
 
   private void dumpState(String msg) {

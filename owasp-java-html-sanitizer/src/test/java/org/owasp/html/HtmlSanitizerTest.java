@@ -2185,9 +2185,8 @@ class HtmlSanitizerTest {
    * Text that follows a pushed-out table reaches the output even where the
    * element holding the table cannot hold text: that element closes, as it
    * would for text arriving anywhere else, rather than the text going into
-   * it and being dropped.  The table inside the {@code colgroup} here is a
-   * separate, older mis-implication (#483); what this pins is that
-   * {@code tail} survives.
+   * it and being dropped.  The row after a column closes the colgroup and
+   * continues in the existing table (#483), and {@code tail} survives.
    */
   @Test
   void testTextAfterAPushedOutTableSurvivesAContainerThatCannotHoldIt() {
@@ -2197,10 +2196,10 @@ class HtmlSanitizerTest {
     String out = p.sanitize("<table><col><tr><td>a</td></tr>tail</table>");
 
     assertEquals(
-        "<table><colgroup><col />"
-        + "<table><tbody><tr><td>a</td></tr></tbody></table>"
-        + "</colgroup></table>tail",
+        "<table><colgroup><col /></colgroup>"
+        + "<tbody><tr><td>a</td></tr></tbody></table>tail",
         out);
+    assertEquals(out, p.sanitize(out));
   }
 
   /**
@@ -2304,6 +2303,197 @@ class HtmlSanitizerTest {
         .allowAttributes("class").onElements("table", "div")
         .allowWithoutAttributes("span")
         .toFactory();
+  }
+
+  /** Issue #483: table parts clear back to the table before implying tags. */
+  @Test
+  void testTablePartsInsideCellContentReturnToTheOpenTable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "caption", "colgroup", "col", "thead", "tbody",
+            "tfoot", "tr", "td", "th", "div", "b")
+        .toFactory();
+    String prefix = "<table><tr><td><div><b>x";
+    String closedCell = "<table><tbody><tr><td><div><b>x</b></div></td>";
+    String[][] cases = {
+        { "<tr><td>y</td></tr></table>",
+          closedCell + "</tr><tr><td>y</td></tr></tbody></table>" },
+        { "<td>y</td></tr></table>",
+          closedCell + "<td>y</td></tr></tbody></table>" },
+        { "<th>y</th></tr></table>",
+          closedCell + "<th>y</th></tr></tbody></table>" },
+        { "<caption>y</caption></table>",
+          closedCell + "</tr></tbody><caption>y</caption></table>" },
+        { "<col></table>",
+          closedCell + "</tr></tbody><colgroup><col /></colgroup></table>" },
+        { "<colgroup><col></colgroup></table>",
+          closedCell + "</tr></tbody><colgroup><col /></colgroup></table>" },
+        { "<thead><tr><td>y</td></tr></thead></table>",
+          closedCell + "</tr></tbody><thead><tr><td>y</td></tr></thead></table>" },
+        { "<tbody><tr><td>y</td></tr></tbody></table>",
+          closedCell + "</tr></tbody><tbody><tr><td>y</td></tr></tbody></table>" },
+        { "<tfoot><tr><td>y</td></tr></tfoot></table>",
+          closedCell + "</tr></tbody><tfoot><tr><td>y</td></tr></tfoot></table>" },
+    };
+    for (String[] c : cases) {
+      String input = prefix + c[0];
+      String out = p.sanitize(input);
+      assertEquals(c[1], out, input);
+      assertEquals(out, p.sanitize(out), input);
+      assertEquals(parseAsBrowser(input), parseAsBrowser(out), input);
+    }
+  }
+
+  @Test
+  void testRowAfterColumnUsesTheExistingTable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "colgroup", "col", "tbody", "tr", "td")
+        .toFactory();
+    String input = "<table><col><tr><td>y</td></tr></table>";
+    String out = p.sanitize(input);
+    assertEquals(
+        "<table><colgroup><col /></colgroup>"
+        + "<tbody><tr><td>y</td></tr></tbody></table>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+  }
+
+  /** An explicit table in a cell stays nested, and owns its later rows. */
+  @Test
+  void testTablePartReturnsToTheNearestNestedTable() throws Exception {
+    PolicyFactory p = tablePolicy();
+    String input = "<table><tr><td><table><tr><td><div>x"
+        + "<tr><td>y</td></tr></table>z</td></tr></table>";
+    String out = p.sanitize(input);
+    assertEquals(
+        "<table><tbody><tr><td><table><tbody><tr><td><div>x</div></td></tr>"
+        + "<tr><td>y</td></tr></tbody></table>z</td></tr></tbody></table>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+  }
+
+  /** The existing orphan-part wrapper must obey the containment of p. */
+  @Test
+  void testImpliedTableClosesParagraphBeforeItsPartsOpen() throws Exception {
+    PolicyFactory p = tablePolicy();
+    String out = p.sanitize("<div><p>x<tr><td>y</td></tr>");
+    String expected = "<div><p>x</p><table><tbody><tr><td>y</td></tr>"
+        + "</tbody></table></div>";
+    assertEquals(expected, out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(expected), parseAsBrowser(out));
+
+    // The balancer still supplies the wrapper needed when an orphan part is
+    // embedded in an unknown context; the explicit table is the equivalent
+    // browser input, since a body parser drops the bare tr and td tags.
+    assertEquals(out, p.sanitize("<div><p>x<table><tr><td>y</td></tr>"));
+  }
+
+  /** Balancing never exempts table parts or their implied tags from policy. */
+  @Test
+  void testMisnestedTablePartsStillApplyElementAndAttributePolicies() {
+    PolicyFactory p = tablePolicy();
+    String out = p.sanitize(
+        "<table onclick=blocked><tr><td><div data-denied=blocked>x"
+        + "<tr onclick=blocked><td>y<script>blocked</script></table>");
+    assertEquals(
+        "<table><tbody><tr><td><div>x</div></td></tr>"
+        + "<tr><td>y</td></tr></tbody></table>", out);
+    assertEquals(out, p.sanitize(out));
+
+    PolicyFactory textOnly = new HtmlPolicyBuilder().allowElements("p")
+        .toFactory();
+    String text = textOnly.sanitize("<p>x<tr onclick=blocked><td>y</td></tr>");
+    assertEquals("<p>x</p>y", text);
+    assertEquals(text, textOnly.sanitize(text));
+  }
+
+  /** A logical table omitted by policy does not establish output context. */
+  @Test
+  void testTableContextReturnStopsAtDroppedTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("tbody", "tr", "td", "div")
+        .toFactory();
+    String input = "<table><tr><td><table><tr><td><div>x"
+        + "<tr><td>y</table>z</table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<tbody><tr><td><tbody><tr><td><div>x"
+        + "<tbody><tr><td>y</td></tr></tbody>z</div></td></tr></tbody>"
+        + "</td></tr></tbody>",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /** A template bounds table scope and its end tag closes all its content. */
+  @Test
+  void testTemplateEndsThroughItsTableStructure() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("template", "table", "tbody", "tr", "td", "div", "b")
+        .toFactory();
+    String[][] cases = {
+        { "<template><tr><td>y</td></tr></template>z",
+          "<template><table><tbody><tr><td>y</td></tr></tbody></table>"
+          + "</template>z" },
+        { "<template><table><tr><td><b>y</template>z",
+          "<template><table><tbody><tr><td><b>y</b></td></tr></tbody>"
+          + "</table></template>z" },
+        { "<template><div><b>x</div></template>y",
+          "<template><div><b>x</b></div></template>y" },
+        { "<template><template><tr><td>x</template>y</template>z",
+          "<template><template><table><tbody><tr><td>x</td></tr></tbody>"
+          + "</table></template>y</template>z" },
+        { "<table><tr><td><template><tr><td>x</template>y<tr><td>z</table>w",
+          "<table><tbody><tr><td><template><table><tbody><tr><td>x</td></tr>"
+          + "</tbody></table></template>y</td></tr><tr><td>z</td></tr>"
+          + "</tbody></table>w" },
+        { "<table><div><template><tr><td>x</template>y<tr><td>z</table>w",
+          "<table></table><div><template><table><tbody><tr><td>x</td></tr>"
+          + "</tbody></table></template>y</div><table><tbody><tr><td>z</td>"
+          + "</tr></tbody></table>w" },
+        { "<table><tr><td>x</template>y</td></tr></table>z",
+          "<table><tbody><tr><td>xy</td></tr></tbody></table>z" },
+        { "<template><noscript>x</template>y</noscript>z",
+          "<template>z</template>" },
+        { "<template><noembed>x</template>y</noembed>z",
+          "<template>z</template>" },
+        { "<template><noframes>x</template>y</noframes>z",
+          "<template>z</template>" },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+  }
+
+  /** Foreign table names remain foreign; integration points use HTML rules. */
+  @Test
+  void testTablePartsInForeignCellContentKeepTheirContext() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "svg", "math",
+            "foreignObject", "mtext")
+        .toFactory();
+    for (String[] names : new String[][] {
+        { "svg", "foreignObject" }, { "math", "mtext" },
+    }) {
+      String foreign = "<" + names[0] + "><tr><td>x</td></tr></" + names[0] + ">";
+      String input = "<table><tr><td>" + foreign + "<tr><td>y</table>";
+      String out = p.sanitize(input);
+      assertEquals("<table><tbody><tr><td>" + foreign
+          + "</td></tr><tr><td>y</td></tr></tbody></table>", out);
+      assertEquals(out, p.sanitize(out));
+      assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+
+      input = "<table><tr><td><" + names[0] + "><" + names[1]
+          + "><tr><td>x</table>";
+      out = p.sanitize(input);
+      assertEquals("<table><tbody><tr><td><" + names[0] + "><" + names[1]
+          + "></" + names[1] + "></" + names[0]
+          + "></td></tr><tr><td>x</td></tr></tbody></table>", out);
+      assertEquals(out, p.sanitize(out));
+      assertEquals(parseAsBrowser(input), parseAsBrowser(out));
+    }
   }
 
   /** The tree a browser builds from html, one node per line. */
