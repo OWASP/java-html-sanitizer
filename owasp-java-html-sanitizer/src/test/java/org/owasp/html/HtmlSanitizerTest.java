@@ -2295,6 +2295,844 @@ class HtmlSanitizerTest {
     assertEquals(out, p.sanitize(out));
   }
 
+  /** Issue #484: a form inserted by the table modes is popped at once. */
+  @Test
+  void testFormStartIsPoppedInTableModes() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<table><form><tr><td>y</td></tr></table>",
+          "<table><form></form><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><thead><form><tr><td>y</td></tr></thead></table>",
+          "<table><thead><form></form><tr><td>y</td></tr></thead></table>",
+        },
+        {
+          "<table><tbody><form><tr><td>y</td></tr></tbody></table>",
+          "<table><tbody><form></form><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><tfoot><form><tr><td>y</td></tr></tfoot></table>",
+          "<table><tfoot><form></form><tr><td>y</td></tr></tfoot></table>",
+        },
+        {
+          "<table><tr><form><td>y</td></tr></table>",
+          "<table><tbody><tr><form></form><td>y</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /** The reported text and row are not children of the table-mode form. */
+  @Test
+  void testTableFormDoesNotContainFollowingContent() {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><form id=f>x<tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table><form id=\"f\"></form></table>x"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    assertEquals(out, p.sanitize(input, ignore, null));
+  }
+
+  /** Cells and captions use in-body form nesting; templates bound the scope. */
+  @Test
+  void testFormsInCellsCaptionsAndTemplates() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<table><tr><td><form>x</form>y</td></tr></table>",
+          "<table><tbody><tr><td><form>x</form>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><caption><form>x</form>y</caption></table>",
+          "<table><caption><form>x</form>y</caption></table>",
+        },
+        {
+          "<template><form>x</form></template>",
+          "<template><form>x</form></template>",
+        },
+        {
+          "<template><table><form><tr><td>y</td></tr></table></template>",
+          "<template><table><form></form><tbody><tr><td>y</td></tr></tbody>"
+          + "</table></template>",
+        },
+        {
+          "<table><template><form>x</form></template>"
+          + "<tr><td>y</td></tr></table>",
+          "<table><template><form>x</form></template>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /** The input form pointer stays set until an input end tag clears it. */
+  @Test
+  void testTableFormsKeepBrowserFormPointerSemantics() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<table><form id=a><form id=b><tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><tbody><tr><td>y</td></tr></tbody>"
+          + "</table>",
+        },
+        {
+          "<table><form id=a></form><form id=b><tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><form id=\"b\"></form>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><form id=a></table><form id=b>x",
+          "<table><form id=\"a\"></form></table>x",
+        },
+        {
+          "<form id=a><table><form id=b><tr><td>y</td></tr></table>"
+          + "<form id=c>x",
+          "<form id=\"a\"><table><tbody><tr><td>y</td></tr></tbody></table>"
+          + "x</form>",
+        },
+        {
+          "<table><form id=a><template></template><form id=b>"
+          + "<tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><template></template>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><form id=a><template></template></form><form id=b>"
+          + "<tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><template></template>"
+          + "<form id=\"b\"></form>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<form id=a><table></form><form id=b>"
+          + "<tr><td>y</td></tr></table>",
+          "<form id=\"a\"><table><form></form><form id=\"b\"></form>"
+          + "<tbody><tr><td>y</td></tr></tbody></table></form>",
+        },
+        {
+          "<form id=a><table></form></table><div><form id=b>x",
+          "<form id=\"a\"><table><form></form></table><div>"
+          + "<form id=\"b\">x</form></div></form>",
+        },
+      };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /** A form end inside template contents does not clear an outer pointer. */
+  @Test
+  void testFormEndInsideTemplateDoesNotClearOuterPointer() {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><form id=a><template></form></template><form id=b>"
+        + "<tr><td>y</td></tr></table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table><form id=\"a\"></form><template></template>"
+        + "<tbody><tr><td>y</td></tr></tbody></table>",
+        out);
+    assertEquals(out, p.sanitize(out));
+    // validator.nu 1.4 does not model template contents closely enough for
+    // this form-pointer comparison; the current tree-construction rule keeps
+    // the outer pointer set because the end tag is inside template contents.
+  }
+
+  /** A form in content foster-parented out of a table is also popped at once. */
+  @Test
+  void testFormInPushedOutTableContentIsPopped() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><div><form>x<tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><div><form></form>x</div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+  }
+
+  /** A pushed-out table cannot leave its outer output form pointer stale. */
+  @Test
+  void testLaterFormAfterPushedOutTableIsIdempotent() {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<form id=a><table><div></form></table><div><form id=b>x",
+          "<form id=\"a\"><table></table><div></div><div></div></form>"
+          + "<form id=\"b\">x</form>",
+        },
+        {
+          "<form id=a><strong><table><div></form></table>"
+          + "<div><form id=b>x",
+          "<form id=\"a\"><strong><table></table><div></div><div></div>"
+          + "</strong></form><form id=\"b\"><strong>x</strong></form>",
+        },
+        {
+          "<form id=a><a><table><div></form></table><div><form id=b>x",
+          "<form id=\"a\"><table></table><div></div><div></div></form>"
+          + "<form id=\"b\">x</form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+
+  }
+
+  /** Dropping an empty table-mode form does not leave a policy stack entry. */
+  @Test
+  void testDroppedTableModeForm() {
+    PolicyFactory p = tableFormReplacementPolicy(null);
+    String[][] cases = {
+        {
+          "<table><form>F<tr><td>R</td></tr></table>T",
+          "<table></table>F<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<table><tbody><form>F<tr><td>R</td></tr></tbody></table>T",
+          "<table><tbody></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<table><tr><form>F<td>R</td></tr></table>T",
+          "<table><tbody><tr></tr></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>PF</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<template><table><form>F<tr><td>R</td></tr></table></template>T",
+          "<template><table></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table></template>T",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+  }
+
+  /** Table-mode detection follows the table and template policy emitted. */
+  @Test
+  void testTableModeFormUsesEmittedTableContext() {
+    PolicyFactory droppedTable = new HtmlPolicyBuilder()
+        .allowElements("tbody", "form")
+        .toFactory();
+    String noTable = droppedTable.sanitize(
+        "<table><tbody><form></form></table><form>x");
+    assertEquals("<tbody><form></form></tbody><form>x</form>", noTable);
+    assertEquals(noTable, droppedTable.sanitize(noTable));
+
+    PolicyFactory droppedTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .toFactory();
+    String noTemplate = droppedTemplate.sanitize(
+        "<table><template><form>x");
+    assertEquals("<table><form></form></table>", noTemplate);
+    assertEquals(noTemplate, droppedTemplate.sanitize(noTemplate));
+  }
+
+  /** Content after a form cannot remain in a policy-produced output table. */
+  @Test
+  void testFormInPolicyProducedTableIsRoundTripStable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "template")
+        .allowElements(
+            "form", "table", "tbody", "tr", "td", "div", "strong")
+        .allowTextIn("form", "td", "div", "strong")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<template><form>x",
+          "<table><form></form></table>x",
+        },
+        {
+          "<form><table></form></table><template><form>x",
+          "<form><table><form></form></table>"
+          + "<table><form></form></table>x</form>",
+        },
+        {
+          "<template><form></form><tbody><tr><td>x</td></tr></tbody>",
+          "<table><form></form></table>x",
+        },
+        {
+          "<template><form></form><table><tr><td>x</td></tr></table>",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+        {
+          "<template><form></form><form>x</form>",
+          "<table><form></form></table><form>x</form>",
+        },
+        {
+          "<template><form></form><strong>x</strong>",
+          "<table><form></form></table><strong>x</strong>",
+        },
+        {
+          "<form><table><div></form><template><form>x</form></template>"
+          + "<div><form>y</form></div></table>",
+          "<form><table></table><div><table></table>"
+          + "x<div>y</div></div></form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      String again = p.sanitize(out);
+      assertEquals(out, again, c[0]);
+      assertEquals(parseAsBrowser(out), parseAsBrowser(again), c[0]);
+    }
+  }
+
+  /** Foreign input names renamed to an HTML table use its output form rules. */
+  @Test
+  void testFormInForeignElementRenamedToTableIsRoundTripStable() {
+    String[][] cases = {
+        { "svg", "<svg><form>x", "<table><form></form></table>x" },
+        { "math", "<math><form>x", "<table><form></form></table>x" },
+        {
+          "foreignObject", "<svg><foreignObject><form>x",
+          "<svg><table><form></form></table>x</svg>",
+        },
+        {
+          "g", "<svg><g><form>x",
+          "<svg><table><form></form></table>x</svg>",
+        },
+        {
+          "textArea", "<svg><textArea><form>x",
+          "<svg><table><form></form></table>x</svg>",
+        },
+    };
+    for (String[] c : cases) {
+      HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+          .allowElements((name, attrs) -> "table", c[0])
+          .allowElements("form", "table")
+          .allowTextIn("form");
+      if (!"svg".equals(c[0])) { b.allowElements("svg"); }
+      PolicyFactory p = b.toFactory();
+      String out = p.sanitize(c[1]);
+      assertEquals(c[2], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+
+    PolicyFactory mappedSvg = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "svg")
+        .allowElements(
+            "form", "table", "template", "foreignObject", "g", "textArea")
+        .allowTextIn("form")
+        .toFactory();
+    String[][] nestedSvgCases = {
+        {
+          "<svg><foreignObject><form>x",
+          "<table><foreignObject><form></form></foreignObject></table>x",
+        },
+        {
+          "<svg><g><form>x",
+          "<table><g><form></form></g></table>x",
+        },
+        {
+          "<svg><textArea><form>x",
+          "<table><textArea><form></form></textArea></table>x",
+        },
+        {
+          "<template><svg><form>x",
+          "<template><table><form></form></table>x</template>",
+        },
+    };
+    for (String[] c : nestedSvgCases) {
+      String out = mappedSvg.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, mappedSvg.sanitize(out), c[0]);
+    }
+
+    PolicyFactory suppressMappedDescendantText = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "svg")
+        .allowElements("form", "table", "foreignObject")
+        .allowTextIn("form")
+        .disallowTextIn("foreignObject")
+        .toFactory();
+    String suppressedInput =
+        "<svg><foreignObject><form>x</form>after</foreignObject>tail";
+    String suppressed = suppressMappedDescendantText.sanitize(suppressedInput);
+    assertEquals(
+        "<table><foreignObject><form></form></foreignObject></table>tail",
+        suppressed);
+    assertEquals(
+        suppressed, suppressMappedDescendantText.sanitize(suppressed));
+
+    PolicyFactory mappedMath = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "math")
+        .allowElements("form", "table", "template", "mrow", "mtext")
+        .allowTextIn("form")
+        .toFactory();
+    String[][] nestedMathCases = {
+        {
+          "<math><mrow><form>x",
+          "<table><mrow><form></form></mrow></table>x",
+        },
+        {
+          "<math><mtext><form>x",
+          "<table><mtext><form></form></mtext></table>x",
+        },
+        {
+          "<template><math><form>x",
+          "<template><table><form></form></table>x</template>",
+        },
+    };
+    for (String[] c : nestedMathCases) {
+      String out = mappedMath.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, mappedMath.sanitize(out), c[0]);
+    }
+  }
+
+  /** A foreign form beside a pushed-out table keeps its text. */
+  @Test
+  void testForeignFormDoesNotUsePushedOutHtmlTableRules() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><svg><form>x</form></svg>"
+        + "<tr><td>y</td></tr></table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><svg><form>x</form></svg>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+  }
+
+  /** A form introduced by policy can make a later table form start ignored. */
+  @Test
+  void testPolicyProducedFormPointerBlocksTableForm() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "form", "div")
+        .allowElements(
+            "form", "table", "strong", "template", "svg", "g", "math",
+            "mrow")
+        .allowTextIn("form", "div", "strong")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<div><table><form>x",
+          "<form><table></table>x</form>",
+        },
+        {
+          "<div><table><strong><form>x",
+          "<form><table></table><strong>x</strong></form>",
+        },
+        {
+          "<table><div><form>x",
+          "<table></table><form>x</form>",
+        },
+        {
+          "<form><table></form></table><div><form>x",
+          "<form><table><form></form></table><form>x</form></form>",
+        },
+        {
+          "<form><table></form></table><div><table><form>x",
+          "<form><table><form></form></table>"
+          + "<form><table></table>x</form></form>",
+        },
+        {
+          "<form><table><div></form></table>"
+          + "<template><div><table><strong><form>x",
+          "<form><table></table><template><form><table></table>"
+          + "<strong><form></form>x</strong></form></template></form>",
+        },
+        {
+          "<form><table></form></table><svg><g><div><form>x",
+          "<form><table><form></form></table><svg><g>"
+          + "<form><form>x</form></form></g></svg></form>",
+        },
+        {
+          "<form><table></form></table><math><mrow><div><form>x",
+          "<form><table><form></form></table><math><mrow>"
+          + "<form><form>x</form></form></mrow></math></form>",
+        },
+        {
+          "<form><table><div></form></table><svg><g><div><form>x",
+          "<form><table></table><svg><g>"
+          + "<form><form>x</form></form></g></svg></form>",
+        },
+        {
+          "<form><table><div></form></table><math><mrow><div><form>x",
+          "<form><table></table><math><mrow>"
+          + "<form><form>x</form></form></mrow></math></form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    assertEquals(cases[1][1], p.sanitize(cases[1][0], ignore, null));
+  }
+
+  /** Policy-produced form starts obey output pointer and namespace rules. */
+  @Test
+  void testPolicyProducedFormStartUsesOutputContext() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "form", "div")
+        .allowElements("form", "template", "svg")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String[][] cases = {
+        { "<form><div>x", "<form>x</form>" },
+        {
+          "<template><form><div>x",
+          "<template><form><form>x</form></form></template>",
+        },
+        {
+          "<svg><form><div>x",
+          "<svg><form><form>x</form></form></svg>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+  }
+
+  /** A pointer-reset pair requires a table in the policy's output scope. */
+  @Test
+  void testFormPointerResetRequiresEmittedTable() {
+    PolicyFactory droppedTable = new HtmlPolicyBuilder()
+        .allowElements("form")
+        .allowTextIn("form")
+        .toFactory();
+    String dropped = droppedTable.sanitize(
+        "<form><table></form></table>x");
+    assertEquals("<form>x</form>", dropped);
+    assertEquals(dropped, droppedTable.sanitize(dropped));
+
+    PolicyFactory renamedTable = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "div", "table")
+        .allowElements("form", "div")
+        .allowTextIn("form")
+        .toFactory();
+    String renamed = renamedTable.sanitize(
+        "<form><table></form></table>x");
+    assertEquals("<form><div></div>x</form>", renamed);
+    assertEquals(renamed, renamedTable.sanitize(renamed));
+  }
+
+  /** A later emitted form retires a pointer that no output table could clear. */
+  @Test
+  void testDeferredFormPointerRetirementFollowsPolicyOutput() {
+    String input = "<form><table></form></table><div>q<form>x";
+
+    PolicyFactory droppedTable = new HtmlPolicyBuilder()
+        .allowElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String dropped = droppedTable.sanitize(input);
+    assertEquals("<form><div>q</div></form><form>x</form>", dropped);
+    assertEquals(dropped, droppedTable.sanitize(dropped));
+
+    PolicyFactory renamedTable = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "div", "table")
+        .allowElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String renamed = renamedTable.sanitize(input);
+    assertEquals(
+        "<form><div></div><div>q</div></form><form>x</form>", renamed);
+    assertEquals(renamed, renamedTable.sanitize(renamed));
+  }
+
+  /** A dropped or renamed later form does not shorten the outer form. */
+  @Test
+  void testDeferredFormPointerRetirementRequiresOutputForm() {
+    String input = "<form id=a><table></form></table>"
+        + "<div>q<form id=b>x";
+
+    PolicyFactory droppedForm = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> hasId(attrs, "b") ? null : name, "form")
+        .allowElements("div")
+        .allowAttributes("id").onElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String dropped = droppedForm.sanitize(input);
+    assertEquals("<form id=\"a\"><div>qx</div></form>", dropped);
+    assertEquals(dropped, droppedForm.sanitize(dropped));
+
+    PolicyFactory renamedForm = new HtmlPolicyBuilder()
+        .allowElements(
+            (name, attrs) -> hasId(attrs, "b") ? "div" : name, "form")
+        .allowElements("div")
+        .allowAttributes("id").onElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String renamed = renamedForm.sanitize(input);
+    assertEquals(
+        "<form id=\"a\"><div>q<div id=\"b\">x</div></div></form>",
+        renamed);
+    assertEquals(renamed, renamedForm.sanitize(renamed));
+  }
+
+  /** Dropping an input template makes its form ordinary in the output. */
+  @Test
+  void testDroppedTemplateDoesNotHideOutputFormPointer() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("form", "table", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String input = "<form><table></form></table>"
+        + "<template><form>x</form></template>"
+        + "<div><form>y</form></div>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<form><table><form></form></table>"
+        + "<form>x</form><div><form>y</form></div></form>",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /** A renamed table-mode form is closed under its emitted output name. */
+  @Test
+  void testRenamedTableModeFormIsEmpty() {
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    String[][] cases = {
+        {
+          "style", "<table><form>F<tr><td>R</td></tr></table>T",
+          "<table><style></style></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "div", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<div></div>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "textarea", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<textarea></textarea>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "svg", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<svg></svg>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "math", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<math></math>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "tbody", "<table><form>F<tr><td>R</td></tr></table>T",
+          "<table><tbody></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "tr", "<table><tbody><form>F<tr><td>R</td></tr></tbody></table>T",
+          "<table><tbody><tr></tr></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+    };
+    for (String[] c : cases) {
+      PolicyFactory p = tableFormReplacementPolicy(c[0]);
+      String out = p.sanitize(c[1]);
+      assertEquals(c[2], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(out, p.sanitize(c[1], ignore, null), c[0]);
+    }
+  }
+
+  /** Literal and foreign content after a table form remains separate from it. */
+  @Test
+  void testTableFormBeforeLiteralAndForeignContent() {
+    PolicyFactory p = formTablePolicy();
+    String literal = "<table><form><style>x{}</style><script>f()</script>"
+        + "<textarea>&lt;b&gt;</textarea><noscript><b>n</b></noscript>"
+        + "<tr><td>y</td></tr></table>";
+    String literalOut = p.sanitize(literal);
+    assertEquals(
+        "<table><form></form><style>x{}</style><script>f()</script></table>"
+        + "<textarea>&lt;b&gt;</textarea><noscript><b>n</b></noscript>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        literalOut);
+    assertEquals(literalOut, p.sanitize(literalOut));
+
+    String foreign = "<table><form><svg><g>s</g></svg>"
+        + "<math><mrow>m</mrow></math><tr><td>y</td></tr></table>";
+    String foreignOut = p.sanitize(foreign);
+    assertEquals(
+        "<table><form></form></table><svg><g>s</g></svg>"
+        + "<math><mrow>m</mrow></math>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        foreignOut);
+    assertEquals(foreignOut, p.sanitize(foreignOut));
+  }
+
+  /** The balanced policy event stream contains an empty form. */
+  @Test
+  void testTableFormOpenAndCloseEventsAreBalanced() {
+    final List<String> events = new ArrayList<>();
+    HtmlSanitizer.Policy recorder = new HtmlSanitizer.Policy() {
+      public void openDocument() { events.add("openDocument"); }
+      public void closeDocument() { events.add("closeDocument"); }
+      public void openTag(String elementName, List<String> attrs) {
+        events.add("open " + elementName + " " + attrs);
+      }
+      public void closeTag(String elementName) {
+        events.add("close " + elementName);
+      }
+      public void text(String text) { events.add("text " + text); }
+    };
+
+    HtmlSanitizer.sanitize(
+        "<table><form id=f><tr><td>y</td></tr></table>", recorder);
+
+    assertEquals(
+        Arrays.asList(
+            "openDocument", "open table []", "open form [id, f]", "close form",
+            "open tbody []", "open tr []", "open td []", "text y", "close td",
+            "close tr", "close tbody", "close table", "closeDocument"),
+        events);
+  }
+
+  /** The synthetic pointer reset is balanced through the reporter wrapper. */
+  @Test
+  void testTableFormPointerResetEventsAreBalanced() {
+    StringBuilder html = new StringBuilder();
+    final int[] counts = new int[2];
+    HtmlStreamEventReceiver renderer = HtmlStreamRenderer.create(
+        html, x -> fail("Unexpected renderer error: " + x));
+    HtmlStreamEventReceiver counter = new HtmlStreamEventReceiverWrapper(
+        renderer) {
+      @Override
+      public void openTag(String elementName, List<String> attrs) {
+        super.openTag(elementName, attrs);
+        if (!HtmlTextEscapingMode.isVoidElement(elementName)) { ++counts[0]; }
+      }
+
+      @Override
+      public void closeTag(String elementName) {
+        super.closeTag(elementName);
+        ++counts[1];
+      }
+    };
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    HtmlSanitizer.Policy policy = formTablePolicy().apply(
+        counter, ignore, null);
+
+    HtmlSanitizer.sanitize(
+        "<form id=a><table></form><form id=b>"
+        + "<tr><td>y</td></tr></table>",
+        policy);
+
+    assertEquals(
+        "<form id=\"a\"><table><form></form><form id=\"b\"></form>"
+        + "<tbody><tr><td>y</td></tr></tbody></table></form>",
+        html.toString());
+    assertEquals(counts[0], counts[1]);
+  }
+
+  private static PolicyFactory formTablePolicy() {
+    return new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th",
+            "form", "div", "template", "style", "script", "textarea",
+            "noscript", "b", "strong", "a", "svg", "g", "foreignObject",
+            "math", "mrow", "mtext")
+        .allowAttributes("id").onElements("form")
+        .allowTextIn("style", "script", "noscript")
+        .toFactory();
+  }
+
+  private static boolean hasId(List<String> attrs, String value) {
+    for (int i = 0; i + 1 < attrs.size(); i += 2) {
+      if ("id".equals(attrs.get(i)) && value.equals(attrs.get(i + 1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static PolicyFactory tableFormReplacementPolicy(
+      @Nullable final String replacement) {
+    return new HtmlPolicyBuilder()
+        .allowElements((elementName, attrs) -> replacement, "form")
+        .allowElements(
+            "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th",
+            "div", "template", "style", "script", "textarea", "noscript",
+            "svg", "math")
+        .allowTextIn("form", "style", "script", "noscript")
+        .toFactory();
+  }
+
   private static PolicyFactory tablePolicy() {
     return new HtmlPolicyBuilder()
         .allowElements(

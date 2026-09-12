@@ -66,6 +66,27 @@ public class TagBalancingHtmlStreamEventReceiver
    * the nesting limit without an open event, and the limit may later change.
    */
   private final BitSet sentToUnderlying = new BitSet();
+  /**
+   * Bit {@code i} is set when the input element at {@code i} was inserted
+   * using SVG or MathML rules.  Local names such as {@code form} and
+   * {@code table} do not have their HTML scope behavior there.
+   */
+  private final BitSet inputElementsInForeignContent = new BitSet();
+  /** The corresponding namespace information for the element policy emitted. */
+  private final BitSet outputElementsInForeignContent = new BitSet();
+  /**
+   * Marks the stacked HTML form, if any, that the input form pointer names.
+   * A form inserted directly in table structure is popped at once and has no
+   * marked stack entry even though the pointer remains set.
+   */
+  private final BitSet formPointerTargets = new BitSet();
+  /** Stacked output forms whose form pointer was cleared without popping. */
+  private final BitSet clearedFormPointerTargets = new BitSet();
+  /**
+   * A subset of {@link #clearedFormPointerTargets} whose corresponding output
+   * pointer could not yet be cleared without changing the output tree.
+   */
+  private final BitSet staleOutputFormPointerTargets = new BitSet();
   private final IntVector toResumeInReverse = new IntVector();
   /**
    * Bit {@code i} is set while the element at {@code i} of
@@ -85,20 +106,24 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private final BitSet pushedOut = new BitSet();
   /**
-   * Bit {@code i} is set when the policy did not emit a synthetic table while
-   * returning from {@link #pushedOut}.  Its table-structure descendants cannot
-   * be emitted in that output context without changing when a browser reparses
-   * them.
+   * Bit {@code i} is set when no output table remains for a logical entry
+   * whose descendants still use table rules.  This happens when policy does
+   * not emit a synthetic table while returning from {@link #pushedOut}, or
+   * when an element renamed to table has to close before foster-parented
+   * content.  Table-structure descendants cannot be emitted in that output
+   * context without changing when a browser reparses them.
    */
-  private final BitSet reopenedWithoutTable = new BitSet();
+  private final BitSet outputTableUnavailable = new BitSet();
   private static final HtmlElementTables METADATA = HtmlElementTables.get();
   private static final int UNRECOGNIZED_TAG =
       METADATA.indexForName(HtmlElementNames.CUSTOM_ELEMENT_NAME);
   private static final int A_TAG = METADATA.indexForName("a");
   private static final int BODY_TAG = METADATA.indexForName("body");
+  private static final int FORM_TAG = METADATA.indexForName("form");
   private static final int TABLE_TAG = METADATA.indexForName("table");
   private static final int TEMPLATE_TAG = METADATA.indexForName("template");
   private static final int NO_OUTPUT_ELEMENT = -1;
+  private static final int POLICY_ONLY_TABLE_CONTEXT = -2;
   /**
    * The elements a browser keeps open, and later clears its stack back to,
    * when it foster-parents content that arrives inside them: a table and its
@@ -117,6 +142,8 @@ public class TagBalancingHtmlStreamEventReceiver
    * written out separately because that one is not initialized yet here.
    */
   private static final BitSet TABLE_PARTS = new BitSet();
+  /** Elements that bound the table context used for the special form rule. */
+  private static final BitSet TABLE_FORM_SCOPE_BOUNDARIES = new BitSet();
   static {
     for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
       TABLE_CONTEXT.set(METADATA.indexForName(name));
@@ -126,6 +153,11 @@ public class TagBalancingHtmlStreamEventReceiver
              "th", "thead", "tr",
          }) {
       TABLE_PARTS.set(METADATA.indexForName(name));
+    }
+    for (String name : new String[] {
+             "caption", "select", "td", "template", "th",
+         }) {
+      TABLE_FORM_SCOPE_BOUNDARIES.set(METADATA.indexForName(name));
     }
   }
   /**
@@ -192,6 +224,9 @@ public class TagBalancingHtmlStreamEventReceiver
      * @return the canonical emitted name, or null if no element was emitted.
      */
     @Nullable String outputElementNameForLastOpenTag();
+
+    /** Whether that output element was inserted using SVG or MathML rules. */
+    boolean outputElementForLastOpenTagUsedForeignContentRules();
   }
 
   /**
@@ -215,6 +250,33 @@ public class TagBalancingHtmlStreamEventReceiver
 
     boolean outputStartTagUsesForeignContentRules(
         String elementName, List<String> attrs);
+  }
+
+  /** Optional normalization for the HTML form-element pointer. */
+  interface FormPointerPolicy {
+    /** Whether the policy output is in a table mode that pops a form at once. */
+    boolean formStartTagUsesTableRules();
+
+    /** Whether the policy output already has a non-null form pointer. */
+    boolean outputFormElementPointerIsSet();
+
+    /**
+     * Prepares the next form open and reports whether it will emit an HTML
+     * form.  The following open call consumes the prepared policy result.
+     */
+    boolean prepareForFormStart(List<String> attrs);
+
+    /** Discards a prepared form result when the output ignores its start. */
+    void discardPreparedFormStart();
+
+    /**
+     * Clears an output form pointer while table scope keeps its form element
+     * on the browser stack, using a balanced pair whose start is ignored.
+     */
+    boolean clearFormPointerWithBalancedPair();
+
+    /** Closes a top policy-produced table absent from the input stack. */
+    boolean retirePolicyProducedTableForForm();
   }
 
   /**
@@ -283,8 +345,13 @@ public class TagBalancingHtmlStreamEventReceiver
     openElements.clear();
     outputElements.clear();
     sentToUnderlying.clear();
+    inputElementsInForeignContent.clear();
+    outputElementsInForeignContent.clear();
+    formPointerTargets.clear();
+    clearedFormPointerTargets.clear();
+    staleOutputFormPointerTargets.clear();
     pushedOut.clear();
-    reopenedWithoutTable.clear();
+    outputTableUnavailable.clear();
     foreignRootPendingTableReturn = null;
     toResumeInReverse.clear();
     underlying.closeDocument();
@@ -297,6 +364,10 @@ public class TagBalancingHtmlStreamEventReceiver
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
+    boolean parsingTemplateContents =
+        elIndex == FORM_TAG && hasOpenTemplateElement();
+    boolean formElementPointerWasSet =
+        elIndex == FORM_TAG && foreignContent.formElementPointerIsSet();
     String foreignRootBefore = foreignContent.outermostForeignElementName();
     String outputForeignRootBefore = outputForeignContentRootName();
     boolean outputUsesForeignContentRules =
@@ -304,6 +375,19 @@ public class TagBalancingHtmlStreamEventReceiver
     foreignContent.processStartTag(canonElementName, attrs, false);
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
+    if (elIndex == FORM_TAG
+        && !usesForeignContentRules
+        && !parsingTemplateContents) {
+      if (formElementPointerWasSet) {
+        // Outside template contents, a browser ignores another form start
+        // while its form element pointer is set.
+        return;
+      }
+      // ForeignContentContext may have become unknown while retaining the
+      // independently knowable pointer state, so keep that state synchronized
+      // here for forms accepted after the unknown region.
+      foreignContent.markFormElementPointerSet();
+    }
     if (!pushedOut.isEmpty()
         && foreignRootBefore != null
         && !usesForeignContentRules
@@ -341,19 +425,153 @@ public class TagBalancingHtmlStreamEventReceiver
       return;
     }
 
-    prepareForContent(elIndex);
+    int formTableContext = elIndex == FORM_TAG
+        ? formStartTagTableContext(
+            usesForeignContentRules, outputUsesForeignContentRules)
+        : -1;
+    if (elIndex != FORM_TAG || !usesForeignContentRules) {
+      prepareForContent(elIndex);
+    }
 
     if (openElements.size() < nestingLimit) {
+      boolean formStartPrepared = false;
+      boolean preparedFormWillEmitAsHtml = false;
+      if (elIndex == FORM_TAG
+          && formTableContext != -1
+          && underlying instanceof FormPointerPolicy) {
+        FormPointerPolicy formPolicy = (FormPointerPolicy) underlying;
+        if (formPolicy.outputFormElementPointerIsSet()) {
+          preparedFormWillEmitAsHtml = formPolicy.prepareForFormStart(attrs);
+          formStartPrepared = true;
+        }
+        if (preparedFormWillEmitAsHtml) {
+          // The output parser ignores this start because its pointer is set.
+          // Do not send an end tag either: it would clear the existing pointer.
+          formPolicy.discardPreparedFormStart();
+          retireOutputTableForForm(formTableContext);
+          return;
+        }
+      }
+      if (elIndex == FORM_TAG
+          && !clearedFormPointerTargets.isEmpty()
+          && (formStartPrepared
+              ? preparedFormWillEmitAsHtml : formWillEmitAsHtml(attrs))) {
+        retireClearedOutputFormPointer();
+        formTableContext = formStartTagTableContext(
+            usesForeignContentRules, outputUsesForeignContentRules);
+      }
       int outputElementIndex = openElement(elIndex, attrs);
-      if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
+      boolean outputElementIsForeign =
+          lastOutputElementUsedForeignContentRules();
+      if (formTableContext != -1) {
+        // The in-table rule inserts the form and immediately pops it.  Send a
+        // balanced empty element downstream, but leave the input form pointer
+        // set until an actual </form> arrives.
+        underlying.closeTag(canonElementName);
+        retireOutputTableForForm(formTableContext);
+      } else if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
+        int stackIndex = openElements.size();
         openElements.add(elIndex);
         outputElements.add(outputElementIndex);
-        sentToUnderlying.set(openElements.size() - 1);
+        sentToUnderlying.set(stackIndex);
+        inputElementsInForeignContent.set(stackIndex, usesForeignContentRules);
+        outputElementsInForeignContent.set(
+            stackIndex, outputElementIsForeign);
+        clearedFormPointerTargets.clear(stackIndex);
+        staleOutputFormPointerTargets.clear(stackIndex);
+        if (elIndex == FORM_TAG
+            && !usesForeignContentRules
+            && !parsingTemplateContents) {
+          formPointerTargets.clear();
+          formPointerTargets.set(stackIndex);
+        }
       }
     } else {
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
       reportDroppedByNestingLimit(METADATA.canonNameForIndex(elIndex));
     }
+  }
+
+  /** Whether an HTML form start is handled by the special in-table rule. */
+  private int formStartTagTableContext(
+      boolean inputUsesForeignContentRules,
+      boolean outputUsesForeignContentRules) {
+    if (inputUsesForeignContentRules) {
+      return !outputUsesForeignContentRules
+          ? policyOnlyFormTableContext() : -1;
+    }
+    for (int i = openElements.size(); --i >= 0;) {
+      int inputElement = openElements.get(i);
+      int outputElement = outputElements.get(i);
+      if (outputTableUnavailable.get(i)) { return -1; }
+      if (inputElement == TABLE_TAG) {
+        // A table that policy dropped or renamed cannot put the sanitized
+        // output in a table insertion mode.  Following that output context
+        // keeps a second sanitization from changing the form's extent.
+        return outputElement == TABLE_TAG
+            && !outputElementsInForeignContent.get(i) ? i : -1;
+      }
+      if (outputElement != NO_OUTPUT_ELEMENT
+          && TABLE_FORM_SCOPE_BOUNDARIES.get(outputElement)) {
+        return policyOnlyFormTableContext();
+      }
+      if (outputElement == TABLE_TAG
+          && !outputElementsInForeignContent.get(i)) {
+        return i;
+      }
+    }
+    return openElements.isEmpty() ? policyOnlyFormTableContext() : -1;
+  }
+
+  /** Table context known only to the policy's more complete output stack. */
+  private int policyOnlyFormTableContext() {
+    return underlying instanceof FormPointerPolicy
+        && ((FormPointerPolicy) underlying).formStartTagUsesTableRules()
+        ? POLICY_ONLY_TABLE_CONTEXT : -1;
+  }
+
+  /** Retires a mapped table represented on either available output stack. */
+  private void retireOutputTableForForm(int tableContext) {
+    if (tableContext == POLICY_ONLY_TABLE_CONTEXT) {
+      ((FormPointerPolicy) underlying).retirePolicyProducedTableForForm();
+    } else {
+      retireMappedOutputTable(tableContext);
+    }
+  }
+
+  /**
+   * Closes a policy-produced table whose logical input element must remain
+   * open.  Content after an in-table form is foster-parented out of that table
+   * when the output is parsed, so it must be serialized after the table on
+   * the first pass too.
+   */
+  private void retireMappedOutputTable(int tableContext) {
+    if (tableContext < 0
+        || tableContext >= openElements.size()
+        || tableContext + 1 != openElements.size()
+        || openElements.get(tableContext) == TABLE_TAG
+        || outputElements.get(tableContext) != TABLE_TAG
+        || !sentToUnderlying.get(tableContext)
+        || pushedOut.get(tableContext)
+        || outputElementsInForeignContent.get(tableContext)) {
+      return;
+    }
+    // The mapped table that triggers this rule is outside any row, cell or
+    // caption context.  Closing by the input name keeps the policy's own
+    // input/output stack synchronized.
+    underlying.closeTag(
+        METADATA.canonNameForIndex(openElements.get(tableContext)));
+    sentToUnderlying.clear(tableContext);
+    outputElementsInForeignContent.clear(tableContext);
+    outputTableUnavailable.set(tableContext);
+  }
+
+  /** Whether the parser is currently processing template contents. */
+  private boolean hasOpenTemplateElement() {
+    for (int i = openElements.size(); --i >= 0;) {
+      if (openElements.get(i) == TEMPLATE_TAG) { return true; }
+    }
+    return false;
   }
 
   /**
@@ -390,6 +608,13 @@ public class TagBalancingHtmlStreamEventReceiver
           : NO_OUTPUT_ELEMENT;
     }
     return inputElementIndex;
+  }
+
+  /** Whether the most recently emitted element is in SVG or MathML. */
+  private boolean lastOutputElementUsedForeignContentRules() {
+    return underlying instanceof OpenTagOutputPolicy
+        && ((OpenTagOutputPolicy) underlying)
+            .outputElementForLastOpenTagUsedForeignContentRules();
   }
 
   /**
@@ -460,8 +685,9 @@ public class TagBalancingHtmlStreamEventReceiver
       return false;
     }
     for (int i = openElements.size(); --i >= 0;) {
+      if (outputTableUnavailable.get(i)) { return true; }
       if (openElements.get(i) == TABLE_TAG) {
-        return reopenedWithoutTable.get(i);
+        return false;
       }
     }
     return false;
@@ -520,11 +746,20 @@ public class TagBalancingHtmlStreamEventReceiver
           boolean suppressedImpliedTable = impliedElIndex == TABLE_TAG
               && shouldSuppressTablePart(impliedElIndex, true);
           int outputElementIndex = openElement(impliedElIndex, attrs, true);
+          boolean outputElementIsForeign =
+              lastOutputElementUsedForeignContentRules();
+          int stackIndex = openElements.size();
           openElements.add(impliedElIndex);
           outputElements.add(outputElementIndex);
-          sentToUnderlying.set(openElements.size() - 1);
+          sentToUnderlying.set(stackIndex);
+          inputElementsInForeignContent.clear(stackIndex);
+          outputElementsInForeignContent.set(
+              stackIndex, outputElementIsForeign);
+          formPointerTargets.clear(stackIndex);
+          clearedFormPointerTargets.clear(stackIndex);
+          staleOutputFormPointerTargets.clear(stackIndex);
           if (suppressedImpliedTable) {
-            reopenedWithoutTable.set(openElements.size() - 1);
+            outputTableUnavailable.set(stackIndex);
           }
         }
       }
@@ -558,8 +793,13 @@ public class TagBalancingHtmlStreamEventReceiver
         openElements.remove(i);
         outputElements.remove(i);
         sentToUnderlying.clear(i);
+        inputElementsInForeignContent.clear(i);
+        outputElementsInForeignContent.clear(i);
+        formPointerTargets.clear(i);
+        clearedFormPointerTargets.clear(i);
+        staleOutputFormPointerTargets.clear(i);
         pushedOut.clear(i);
-        reopenedWithoutTable.clear(i);
+        outputTableUnavailable.clear(i);
         if (METADATA.resumable(unclosed) && unclosed != elIndex) {
           toResumeInReverse.add(unclosed);
         }
@@ -586,9 +826,18 @@ public class TagBalancingHtmlStreamEventReceiver
         if (sent) {
           outputElementIndex = openElement(toResume, new ArrayList<>());
         }
+        boolean outputElementIsForeign = sent
+            && lastOutputElementUsedForeignContentRules();
+        int stackIndex = openElements.size();
         openElements.add(toResume);
         outputElements.add(outputElementIndex);
-        sentToUnderlying.set(openElements.size() - 1, sent);
+        sentToUnderlying.set(stackIndex, sent);
+        inputElementsInForeignContent.clear(stackIndex);
+        outputElementsInForeignContent.set(
+            stackIndex, outputElementIsForeign);
+        formPointerTargets.clear(stackIndex);
+        clearedFormPointerTargets.clear(stackIndex);
+        staleOutputFormPointerTargets.clear(stackIndex);
       } else {
         break;
       }
@@ -629,8 +878,13 @@ public class TagBalancingHtmlStreamEventReceiver
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
       sentToUnderlying.clear(i);
+      inputElementsInForeignContent.clear(i);
+      outputElementsInForeignContent.clear(i);
+      formPointerTargets.clear(i);
+      clearedFormPointerTargets.clear(i);
+      staleOutputFormPointerTargets.clear(i);
       pushedOut.clear(i);
-      reopenedWithoutTable.clear(i);
+      outputTableUnavailable.clear(i);
     }
     return true;
   }
@@ -745,18 +999,28 @@ public class TagBalancingHtmlStreamEventReceiver
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
       sentToUnderlying.clear(i);
+      inputElementsInForeignContent.clear(i);
+      outputElementsInForeignContent.clear(i);
+      formPointerTargets.clear(i);
+      clearedFormPointerTargets.clear(i);
+      staleOutputFormPointerTargets.clear(i);
       if (METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
-      reopenedWithoutTable.clear(i);
+      outputTableUnavailable.clear(i);
     }
     while (top >= 0 && pushedOut.get(top)) {
       if (canHold(elIndex, openElements.get(top), top)) { break; }
       openElements.remove(top);
       outputElements.remove(top);
       sentToUnderlying.clear(top);
+      inputElementsInForeignContent.clear(top);
+      outputElementsInForeignContent.clear(top);
+      formPointerTargets.clear(top);
+      clearedFormPointerTargets.clear(top);
+      staleOutputFormPointerTargets.clear(top);
       pushedOut.clear(top);
-      reopenedWithoutTable.clear(top);
+      outputTableUnavailable.clear(top);
       --top;
     }
     if (top < 0 || !pushedOut.get(top)) { return; }
@@ -765,12 +1029,27 @@ public class TagBalancingHtmlStreamEventReceiver
     // Pop the run and push it back, outermost first, opening each again.
     int n = top - start + 1;
     int[] run = new int[n];
+    boolean[] runInputForeign = new boolean[n];
+    boolean[] runFormPointerTarget = new boolean[n];
+    boolean[] runClearedFormPointerTarget = new boolean[n];
+    boolean[] runStaleOutputFormPointerTarget = new boolean[n];
     for (int i = n; --i >= 0;) {
+      runInputForeign[i] = inputElementsInForeignContent.get(start + i);
+      runFormPointerTarget[i] = formPointerTargets.get(start + i);
+      runClearedFormPointerTarget[i] =
+          clearedFormPointerTargets.get(start + i);
+      runStaleOutputFormPointerTarget[i] =
+          staleOutputFormPointerTargets.get(start + i);
       run[i] = openElements.remove(start + i);
       outputElements.remove(start + i);
       sentToUnderlying.clear(start + i);
+      inputElementsInForeignContent.clear(start + i);
+      outputElementsInForeignContent.clear(start + i);
+      formPointerTargets.clear(start + i);
+      clearedFormPointerTargets.clear(start + i);
+      staleOutputFormPointerTargets.clear(start + i);
       pushedOut.clear(start + i);
-      reopenedWithoutTable.clear(start + i);
+      outputTableUnavailable.clear(start + i);
     }
     if (foreignRootPendingTableReturn != null) {
       underlying.closeTag(foreignRootPendingTableReturn);
@@ -789,12 +1068,23 @@ public class TagBalancingHtmlStreamEventReceiver
           outputElementIndex = openElement(run[i], attrs);
         }
       }
+      boolean outputElementIsForeign = sent
+          && lastOutputElementUsedForeignContentRules();
+      int stackIndex = openElements.size();
       openElements.add(run[i]);
       outputElements.add(outputElementIndex);
-      sentToUnderlying.set(openElements.size() - 1, sent);
+      sentToUnderlying.set(stackIndex, sent);
+      inputElementsInForeignContent.set(stackIndex, runInputForeign[i]);
+      outputElementsInForeignContent.set(
+          stackIndex, outputElementIsForeign);
+      formPointerTargets.set(stackIndex, runFormPointerTarget[i]);
+      clearedFormPointerTargets.set(
+          stackIndex, runClearedFormPointerTarget[i]);
+      staleOutputFormPointerTargets.set(
+          stackIndex, runStaleOutputFormPointerTarget[i]);
       if (policy != null
           && run[i] == TABLE_TAG && outputElementIndex != TABLE_TAG) {
-        reopenedWithoutTable.set(openElements.size() - 1);
+        outputTableUnavailable.set(stackIndex);
       }
     }
   }
@@ -835,6 +1125,18 @@ public class TagBalancingHtmlStreamEventReceiver
         }
       }
     }
+    if (child == FORM_TAG) {
+      if (container == FORM_TAG
+          && (hasOpenHtmlOutputTemplate()
+              || (clearedFormPointerTargets.get(containerIndexOnStack)
+                  && !staleOutputFormPointerTargets.get(
+                      containerIndexOnStack)))) {
+        // Template contents do not use the form pointer, and an out-of-scope
+        // form end can clear the pointer without removing its old target.  In
+        // either case a browser can insert this form inside the earlier one.
+        return true;
+      }
+    }
     int anc = container;
     int ancIndexOnStack = containerIndexOnStack;
     while (true) {
@@ -859,6 +1161,10 @@ public class TagBalancingHtmlStreamEventReceiver
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
+    boolean parsingTemplateContents =
+        elIndex == FORM_TAG && hasOpenTemplateElement();
+    boolean formElementPointerWasSet =
+        elIndex == FORM_TAG && foreignContent.formElementPointerIsSet();
     String foreignRootBefore = foreignContent.outermostForeignElementName();
     String outputForeignRootBefore = outputForeignContentRootName();
     if (!pushedOut.isEmpty()
@@ -876,6 +1182,11 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
+    if (elIndex == FORM_TAG
+        && !usesForeignContentRules
+        && !parsingTemplateContents) {
+      foreignContent.clearFormElementPointer();
+    }
     if (!pushedOut.isEmpty()
         && foreignRootBefore != null
         && !usesForeignContentRules
@@ -910,8 +1221,30 @@ public class TagBalancingHtmlStreamEventReceiver
     int blockingScopes = SCOPE_FOR_END_TAG[elIndex];
 
     int index = -1;
+    int pointerTarget = -1;
+    boolean formEndUsesPointer = elIndex == FORM_TAG
+        && !usesForeignContentRules
+        && !parsingTemplateContents;
     {
-      if (isHeaderElementName(canonElementName)) {
+      if (formEndUsesPointer) {
+        if (!formElementPointerWasSet) {
+          return;
+        }
+        pointerTarget = formPointerTargets.previousSetBit(
+            openElements.size() - 1);
+        if (pointerTarget >= 0) {
+          boolean inScope = true;
+          for (int i = openElements.size(); --i > pointerTarget;) {
+            if (!inputElementsInForeignContent.get(i)
+                && (SCOPES_BY_ELEMENT[openElements.get(i)]
+                    & blockingScopes) != 0) {
+              inScope = false;
+              break;
+            }
+          }
+          if (inScope) { index = pointerTarget; }
+        }
+      } else if (isHeaderElementName(canonElementName)) {
         // Let any of </h1>, </h2>, ... close other header tags.
         for (int i = openElements.size(); -- i >= 0;) {
           int openElementIndex = openElements.get(i);
@@ -942,15 +1275,36 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     if (index < 0) {
+      if (formEndUsesPointer && pointerTarget >= 0) {
+        formPointerTargets.clear(pointerTarget);
+        boolean outputFormOwnsPointer = sentToUnderlying.get(pointerTarget)
+            && outputElements.get(pointerTarget) == FORM_TAG
+            && !outputElementsInForeignContent.get(pointerTarget);
+        if (outputFormOwnsPointer) {
+          clearedFormPointerTargets.set(pointerTarget);
+          boolean paired = hasOpenHtmlOutputTableAbove(pointerTarget)
+              && clearFormPointerWithBalancedPair();
+          if (!paired) {
+            // Keep the form's extent unchanged unless a later output form
+            // actually needs the pointer.  At that point the stale form is
+            // closed immediately before the new one is emitted.
+            staleOutputFormPointerTargets.set(pointerTarget);
+          }
+        }
+      }
       return;  // Don't close unopened tags.
     }
 
-    if (elIndex == TEMPLATE_TAG) {
+    closeStackFrom(index, elIndex);
+  }
+
+  /** Closes and removes {@code index} and every logical descendant. */
+  private void closeStackFrom(int index, int closedElement) {
+    if (closedElement == TEMPLATE_TAG) {
       // Formatting inside template content must not resume outside it.
       toResumeInReverse.clear();
     }
     int last = openElements.size();
-    // Close all the elements that cannot contain the element to open.
     while (--last > index) {
       int unclosed = openElements.remove(last);
       outputElements.remove(last);
@@ -958,9 +1312,14 @@ public class TagBalancingHtmlStreamEventReceiver
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
       sentToUnderlying.clear(last);
+      inputElementsInForeignContent.clear(last);
+      outputElementsInForeignContent.clear(last);
+      formPointerTargets.clear(last);
+      clearedFormPointerTargets.clear(last);
+      staleOutputFormPointerTargets.clear(last);
       pushedOut.clear(last);
-      reopenedWithoutTable.clear(last);
-      if (elIndex != TEMPLATE_TAG && METADATA.resumable(unclosed)) {
+      outputTableUnavailable.clear(last);
+      if (closedElement != TEMPLATE_TAG && METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
     }
@@ -969,13 +1328,184 @@ public class TagBalancingHtmlStreamEventReceiver
       foreignRootPendingTableReturn = null;
     }
     if (sentToUnderlying.get(index) && !pushedOut.get(index)) {
-      underlying.closeTag(METADATA.canonNameForIndex(elIndex));
+      underlying.closeTag(METADATA.canonNameForIndex(closedElement));
     }
     sentToUnderlying.clear(index);
+    inputElementsInForeignContent.clear(index);
+    outputElementsInForeignContent.clear(index);
+    formPointerTargets.clear(index);
+    clearedFormPointerTargets.clear(index);
+    staleOutputFormPointerTargets.clear(index);
     pushedOut.clear(index);
-    reopenedWithoutTable.clear(index);
+    outputTableUnavailable.clear(index);
     openElements.remove(index);
     outputElements.remove(index);
+  }
+
+  /** Whether the policy will emit this input form as an HTML form. */
+  private boolean formWillEmitAsHtml(List<String> attrs) {
+    if (underlying instanceof FormPointerPolicy) {
+      return ((FormPointerPolicy) underlying).prepareForFormStart(attrs);
+    }
+    // Without policy feedback, names pass through unchanged.
+    return !(underlying instanceof OpenTagOutputPolicy);
+  }
+
+  /** Emits the ignored start and pointer-clearing end as a balanced pair. */
+  private boolean clearFormPointerWithBalancedPair() {
+    if (underlying instanceof FormPointerPolicy) {
+      return ((FormPointerPolicy) underlying)
+          .clearFormPointerWithBalancedPair();
+    }
+    if (underlying instanceof OpenTagOutputPolicy) { return false; }
+    List<String> noAttrs = new ArrayList<>();
+    underlying.openTag("form", noAttrs);
+    underlying.closeTag("form");
+    return true;
+  }
+
+  /** Makes a later emitted HTML form stable against another sanitization. */
+  private void retireClearedOutputFormPointer() {
+    int index = clearedFormPointerTargets.previousSetBit(
+        openElements.size() - 1);
+    if (index < 0) { return; }
+    if (!staleOutputFormPointerTargets.get(index)) {
+      // The serialized reset pair already clears this pointer.  Keep the old
+      // form open: a browser can insert the new form inside it, and the marker
+      // remains useful after that new form closes.
+      return;
+    }
+    if (hasOpenHtmlOutputTableAbove(index)) {
+      if (!clearFormPointerWithBalancedPair()) {
+        closeStackFrom(index, FORM_TAG);
+      } else {
+        staleOutputFormPointerTargets.clear(index);
+      }
+      return;
+    }
+    retireOutputFormKeepingLogicalDescendants(index);
+  }
+
+  /**
+   * Closes a form and its output descendants while retaining their logical
+   * input entries.  An input template or foreign element still determines
+   * how later input end tags are interpreted even when the policy dropped it
+   * or the output stack had to be retired first.
+   */
+  private void retireOutputFormKeepingLogicalDescendants(int formIndex) {
+    int oldSize = openElements.size();
+    int descendantCount = oldSize - formIndex - 1;
+    int[] descendants = new int[descendantCount];
+    int[] descendantOutputs = new int[descendantCount];
+    boolean[] descendantsAreForeign = new boolean[descendantCount];
+    boolean[] descendantOutputsAreForeign = new boolean[descendantCount];
+    boolean[] descendantsWereSent = new boolean[descendantCount];
+    boolean[] descendantFormPointerTargets = new boolean[descendantCount];
+    boolean[] descendantClearedFormPointerTargets =
+        new boolean[descendantCount];
+    boolean[] descendantStaleFormPointerTargets =
+        new boolean[descendantCount];
+    boolean[] descendantsArePushedOut = new boolean[descendantCount];
+    boolean[] descendantOutputTablesWereUnavailable =
+        new boolean[descendantCount];
+    for (int i = 0; i < descendantCount; ++i) {
+      int stackIndex = formIndex + 1 + i;
+      descendants[i] = openElements.get(stackIndex);
+      descendantOutputs[i] = outputElements.get(stackIndex);
+      descendantsAreForeign[i] = inputElementsInForeignContent.get(stackIndex);
+      descendantOutputsAreForeign[i] =
+          outputElementsInForeignContent.get(stackIndex);
+      descendantsWereSent[i] = sentToUnderlying.get(stackIndex);
+      descendantFormPointerTargets[i] = formPointerTargets.get(stackIndex);
+      descendantClearedFormPointerTargets[i] =
+          clearedFormPointerTargets.get(stackIndex);
+      descendantStaleFormPointerTargets[i] =
+          staleOutputFormPointerTargets.get(stackIndex);
+      descendantsArePushedOut[i] = pushedOut.get(stackIndex);
+      descendantOutputTablesWereUnavailable[i] =
+          outputTableUnavailable.get(stackIndex);
+    }
+    // Close the output suffix explicitly.  The library policy would do this
+    // itself when it sees </form>, but an arbitrary receiver only sees the
+    // events we send it and must receive a balanced close for every open.
+    for (int i = oldSize; --i > formIndex;) {
+      if (sentToUnderlying.get(i) && !pushedOut.get(i)) {
+        underlying.closeTag(METADATA.canonNameForIndex(openElements.get(i)));
+      }
+    }
+    if (sentToUnderlying.get(formIndex) && !pushedOut.get(formIndex)) {
+      underlying.closeTag("form");
+    }
+    for (int i = oldSize; --i >= formIndex;) {
+      openElements.remove(i);
+      outputElements.remove(i);
+      sentToUnderlying.clear(i);
+      inputElementsInForeignContent.clear(i);
+      outputElementsInForeignContent.clear(i);
+      formPointerTargets.clear(i);
+      clearedFormPointerTargets.clear(i);
+      staleOutputFormPointerTargets.clear(i);
+      pushedOut.clear(i);
+      outputTableUnavailable.clear(i);
+    }
+    for (int i = descendantCount; --i >= 0;) {
+      if (METADATA.resumable(descendants[i])) {
+        toResumeInReverse.add(descendants[i]);
+      }
+    }
+    for (int i = 0; i < descendantCount; ++i) {
+      if (METADATA.resumable(descendants[i])) { continue; }
+      int stackIndex = openElements.size();
+      openElements.add(descendants[i]);
+      outputElements.add(descendantOutputs[i]);
+      sentToUnderlying.set(
+          stackIndex, descendantsArePushedOut[i] && descendantsWereSent[i]);
+      inputElementsInForeignContent.set(
+          stackIndex, descendantsAreForeign[i]);
+      outputElementsInForeignContent.set(
+          stackIndex, descendantOutputsAreForeign[i]);
+      formPointerTargets.set(
+          stackIndex, descendantFormPointerTargets[i]);
+      clearedFormPointerTargets.set(
+          stackIndex, descendantClearedFormPointerTargets[i]);
+      staleOutputFormPointerTargets.set(
+          stackIndex, descendantStaleFormPointerTargets[i]);
+      pushedOut.set(stackIndex, descendantsArePushedOut[i]);
+      outputTableUnavailable.set(
+          stackIndex, descendantOutputTablesWereUnavailable[i]);
+    }
+  }
+
+  /**
+   * Whether an emitted HTML table is still physically open above the form,
+   * with no emitted HTML template changing the form-end-tag rules.
+   */
+  private boolean hasOpenHtmlOutputTableAbove(int formIndex) {
+    boolean sawTable = false;
+    for (int i = formIndex + 1, n = openElements.size(); i < n; ++i) {
+      if (!sentToUnderlying.get(i)
+          || pushedOut.get(i)
+          || outputElementsInForeignContent.get(i)) {
+        continue;
+      }
+      int outputElement = outputElements.get(i);
+      if (outputElement == TEMPLATE_TAG) { return false; }
+      if (outputElement == TABLE_TAG) { sawTable = true; }
+    }
+    return sawTable;
+  }
+
+  /** Whether an emitted HTML template is open on the logical output stack. */
+  private boolean hasOpenHtmlOutputTemplate() {
+    for (int i = openElements.size(); --i >= 0;) {
+      if (sentToUnderlying.get(i)
+          && !pushedOut.get(i)
+          && !outputElementsInForeignContent.get(i)
+          && outputElements.get(i) == TEMPLATE_TAG) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Whether {@code elIndex} occurs before its end-tag scope is bounded. */

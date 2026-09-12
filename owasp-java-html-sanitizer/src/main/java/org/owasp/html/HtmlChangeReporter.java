@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.PushedOutTablePolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.FormPointerPolicy;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
 
 /**
@@ -130,6 +131,7 @@ public final class HtmlChangeReporter<T> {
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
                  OpenTagOutputPolicy,
                  PushedOutTablePolicy,
+                 FormPointerPolicy,
                  TextSuppressionPolicy,
                  HtmlStreamRenderer.DropListener {
     HtmlStreamEventReceiver policy;
@@ -140,6 +142,8 @@ public final class HtmlChangeReporter<T> {
     final List<String> pendingDroppedText = new ArrayList<>();
     /** Output name produced in response to the most recent input start tag. */
     private @Nullable String outputElementNameForLastOpenTag;
+    /** Attributes whose policy result was prepared before closing a stale form. */
+    private @Nullable List<String> preparedFormAttrs;
 
     private enum OpenTagMode {
       NORMAL,
@@ -209,6 +213,12 @@ public final class HtmlChangeReporter<T> {
       return outputElementNameForLastOpenTag;
     }
 
+    public boolean outputElementForLastOpenTagUsedForeignContentRules() {
+      return policy instanceof OpenTagOutputPolicy
+          && ((OpenTagOutputPolicy) policy)
+              .outputElementForLastOpenTagUsedForeignContentRules();
+    }
+
     public boolean supportsPushedOutTableOperations() {
       PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
       return tablePolicy != null
@@ -239,9 +249,50 @@ public final class HtmlChangeReporter<T> {
           ? (PushedOutTablePolicy) policy : null;
     }
 
+    public boolean formStartTagUsesTableRules() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).formStartTagUsesTableRules();
+    }
+
+    public boolean outputFormElementPointerIsSet() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).outputFormElementPointerIsSet();
+    }
+
+    public boolean clearFormPointerWithBalancedPair() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).clearFormPointerWithBalancedPair();
+    }
+
+    public boolean retirePolicyProducedTableForForm() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy)
+              .retirePolicyProducedTableForForm();
+    }
+
+    public boolean prepareForFormStart(List<String> attrs) {
+      if (!(policy instanceof FormPointerPolicy)) { return false; }
+      if (preparedFormAttrs != null) {
+        throw new IllegalStateException("A form start is already prepared");
+      }
+      // Attribute policies run during preparation.  Snapshot first so the
+      // later open call reports the attributes they removed exactly once.
+      output.expectAttributes(attrs);
+      preparedFormAttrs = attrs;
+      return ((FormPointerPolicy) policy).prepareForFormStart(attrs);
+    }
+
+    public void discardPreparedFormStart() {
+      preparedFormAttrs = null;
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).discardPreparedFormStart();
+      }
+    }
+
     public void openDocument() {
       pendingDroppedText.clear();
       outputElementNameForLastOpenTag = null;
+      preparedFormAttrs = null;
       policy.openDocument();
       if (policy instanceof DroppedTextSource) {
         ((DroppedTextSource) policy).reportDroppedTextTo(this);
@@ -272,6 +323,7 @@ public final class HtmlChangeReporter<T> {
       }
       output.listenForDrops(null);
       dispatchDroppedText();
+      preparedFormAttrs = null;
     }
 
     public void openTag(String elementName, List<String> attrs) {
@@ -292,7 +344,12 @@ public final class HtmlChangeReporter<T> {
       output.openedElementName = null;
       // Copied before the policy runs: it removes rejected attributes from
       // attrs in place, and their values are wanted for the report.
-      output.expectAttributes(attrs);
+      boolean usesPreparedForm = mode == OpenTagMode.NORMAL
+          && "form".equals(elementName) && attrs == preparedFormAttrs;
+      if (preparedFormAttrs != null && !usesPreparedForm) {
+        throw new IllegalStateException("Prepared form start was not consumed");
+      }
+      if (!usesPreparedForm) { output.expectAttributes(attrs); }
       if (mode == OpenTagMode.REOPENED_TABLE) {
         PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
         if (tablePolicy == null
@@ -341,6 +398,7 @@ public final class HtmlChangeReporter<T> {
             : ZERO_STRINGS;
         int nDiscarded = discardedAttrs.length / 2;
         output.clearExpectedAttributes();
+        if (usesPreparedForm) { preparedFormAttrs = null; }
         // Dispatch notifications to the listener, under the input name,
         // which is the one the listener can relate to what came in.
         if (discarded) {

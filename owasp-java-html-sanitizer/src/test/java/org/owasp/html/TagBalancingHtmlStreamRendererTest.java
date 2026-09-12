@@ -389,6 +389,69 @@ class TagBalancingHtmlStreamRendererTest {
     }
   }
 
+  /** An empty table-mode form does not consume nesting depth. */
+  @Test
+  void testTableFormRespectsSmallNestingLimits() {
+    String[] expected = {
+        "xy",
+        "<table></table>x<table></table>y",
+        "<table><form></form></table>x<table><tbody></tbody></table>y",
+        "<table><form></form></table>x"
+            + "<table><tbody><tr></tr></tbody></table>y",
+        "<table><form></form></table>x"
+            + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+    };
+    for (int limit = 0; limit < expected.length; ++limit) {
+      StringBuilder out = new StringBuilder();
+      TagBalancingHtmlStreamEventReceiver limited =
+          new TagBalancingHtmlStreamEventReceiver(
+              HtmlStreamRenderer.create(
+                  out, x -> fail("Unexpected renderer error: " + x)));
+      limited.setNestingLimit(limit);
+      limited.openDocument();
+      limited.openTag("table", j8().listOf());
+      limited.openTag("form", j8().listOf());
+      limited.text("x");
+      limited.openTag("tr", j8().listOf());
+      limited.openTag("td", j8().listOf());
+      limited.text("y");
+      limited.closeDocument();
+
+      assertEquals(expected[limit], out.toString(), "limit " + limit);
+    }
+  }
+
+  /** Retiring a stale form closes every emitted descendant at a small limit. */
+  @Test
+  void testDeferredFormRetirementKeepsRawEventsBalanced() {
+    balancer.setNestingLimit(3);
+    balancer.openDocument();
+    balancer.openTag("form", j8().listOf());
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("form", j8().listOf());
+    balancer.text("x");
+    balancer.closeTag("form");
+    balancer.openTag("tr", j8().listOf());
+    balancer.openTag("td", j8().listOf());
+    balancer.text("y");
+    balancer.closeTag("td");
+    balancer.closeTag("tr");
+    balancer.closeTag("table");
+    balancer.openTag("div", j8().listOf());
+    balancer.openTag("form", j8().listOf());
+    balancer.text("z");
+    balancer.closeTag("form");
+    balancer.closeTag("div");
+    balancer.closeTag("form");
+    balancer.closeDocument();
+
+    assertEquals(
+        "<form><table></table>x<table><tbody></tbody></table>y"
+        + "<div></div></form><form>z</form>",
+        htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
   @Test
   void testNestingLimits() {
     // Some browsers can be DoSed by deeply nested structures.

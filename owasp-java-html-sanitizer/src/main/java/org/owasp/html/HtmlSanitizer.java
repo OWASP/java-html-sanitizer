@@ -264,6 +264,22 @@ public final class HtmlSanitizer {
     /** The form pointer's target, when that element is in the tracked region. */
     private @Nullable OpenElement trackedFormElement;
 
+    /** Whether the known HTML context has a non-null form element pointer. */
+    boolean formElementPointerIsSet() {
+      return formElementPointerSet;
+    }
+
+    /** Records a form pointer whose target may be outside the tracked region. */
+    void markFormElementPointerSet() {
+      formElementPointerSet = true;
+    }
+
+    /** Clears the form pointer and any target that is still tracked. */
+    void clearFormElementPointer() {
+      formElementPointerSet = false;
+      trackedFormElement = null;
+    }
+
     /** A table inserted in known in-body mode, before any child tag. */
     private @Nullable OpenElement simpleTable;
 
@@ -903,7 +919,10 @@ public final class HtmlSanitizer {
 
     private void becomeUnknown() {
       openElements.clear();
-      formElementPointerSet = false;
+      // Whether the browser has a form pointer does not become unknowable with
+      // the stack.  Keep the bit so the balancer can apply the form start rule
+      // after an unmodeled context such as template contents.  Its target can
+      // no longer be located within this bounded stack.
       trackedFormElement = null;
       simpleTable = null;
       untrackedTables.clear();
