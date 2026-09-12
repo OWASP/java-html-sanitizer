@@ -722,8 +722,8 @@ class HtmlChangeReporterTest {
 
   /**
    * A tag arriving inside literal content the renderer is writing is dropped
-   * as content that cannot appear there, which a policy that renames an
-   * element into {@code style} brings about.  Reported under the input name.
+   * before its attributes are judged, which a policy that renames an element
+   * into {@code style} brings about.  Reported under the input name.
    */
   @Test
   void testTagInsideRenamedLiteralContentElementIsReported() {
@@ -732,7 +732,8 @@ class HtmlChangeReporterTest {
         .allowElements("b")
         .allowTextIn("style")
         .toFactory();
-    Result result = sanitizeVerbose(policy, "<div>a<b>bold</b>c</div>");
+    Result result = sanitizeVerbose(
+        policy, "<div>a<b onclick=alert(1)>bold</b>c</div>");
 
     assertEquals("<style>aboldc</style>", result.html);
     assertEquals("<b> ", result.log);
