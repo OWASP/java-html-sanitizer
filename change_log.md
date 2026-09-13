@@ -2,6 +2,10 @@
 
 Most recent at top.
   * Next release
+    * A nested element inside one renamed to a literal-content element no
+      longer opens its own text gate.  Its text now follows the outer element's
+      gate, so it cannot reach `style` or similar content where text was not
+      allowed (#482).
     * Docs: Add focused README files for each Maven module and an index for
       supporting documentation, including safe build and regeneration steps.
     * Table parts inside cell content now return to the existing table, and a

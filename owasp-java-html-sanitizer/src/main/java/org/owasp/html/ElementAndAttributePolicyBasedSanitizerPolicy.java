@@ -86,6 +86,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   transient boolean skipText = true;
   /**
+   * True while an emitted element whose content the renderer writes literally
+   * is open.  A nested start tag cannot be emitted in that context, so it must
+   * be treated as dropped before it can become a text container in the policy.
+   */
+  private boolean inKeptLiteralElement;
+  /**
    * True while a kept element whose text the renderer emits unescaped, such
    * as {@code <style>}, {@code <script>} or {@code <iframe>}, is open as an
    * allowed text container, so {@link #text} knows to strip the tags the
@@ -129,6 +135,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * {@code k} elements restores it.
    */
   private final BitSet skipTextBeforeOpen = new BitSet();
+  /** The same for {@link #inKeptLiteralElement}. */
+  private final BitSet inKeptLiteralBeforeOpen = new BitSet();
   /** The same for {@link #inKeptCdataElement}. */
   private final BitSet inKeptCdataBeforeOpen = new BitSet();
   /** The same for {@link #inForeignContent}. */
@@ -188,6 +196,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public void openDocument() {
     skipText = false;
+    inKeptLiteralElement = false;
     inKeptCdataElement = false;
     keptCdataElementName = null;
     inForeignContent = false;
@@ -199,6 +208,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     skippedLastTagAsAttributeless = false;
     openElementStack.clear();
     skipTextBeforeOpen.clear();
+    inKeptLiteralBeforeOpen.clear();
     inKeptCdataBeforeOpen.clear();
     inForeignContentBeforeOpen.clear();
     keptCdataNameBeforeOpen.clear();
@@ -215,10 +225,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
     openElementStack.clear();
     skipTextBeforeOpen.clear();
+    inKeptLiteralBeforeOpen.clear();
     inKeptCdataBeforeOpen.clear();
     inForeignContentBeforeOpen.clear();
     keptCdataNameBeforeOpen.clear();
     skipText = true;
+    inKeptLiteralElement = false;
     inKeptCdataElement = false;
     keptCdataElementName = null;
     inForeignContent = false;
@@ -798,6 +810,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private void openTag(
       String elementName, List<String> attrs, OpenTagMode mode) {
     outputElementNameForLastOpenTag = null;
+    if (inKeptLiteralElement) {
+      skippedLastTagAsAttributeless = false;
+      deferOpenTag(elementName);
+      return;
+    }
     ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
     String adjustedElementName = applyPolicies(elementName, attrs, policies);
     skippedLastTagAsAttributeless = false;
@@ -902,6 +919,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         }
         openElementStack.subList(i, n).clear();
         skipText = skipTextBeforeOpen.get(i / 2);
+        inKeptLiteralElement = inKeptLiteralBeforeOpen.get(i / 2);
         inKeptCdataElement = inKeptCdataBeforeOpen.get(i / 2);
         inForeignContent = inForeignContentBeforeOpen.get(i / 2);
         keptCdataElementName = keptCdataNameBeforeOpen.get(i / 2);
@@ -962,6 +980,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       keptCdataElementName = adjustedElementName;
       literalTextTail = "";
     }
+    inKeptLiteralElement = inKeptLiteralElement || literal;
     inKeptCdataElement = inKeptCdataElement || enteringKeptCdata;
     // Judged before this element is in foreign content itself: a browser
     // parses the content of an svg or math element as markup, but the
@@ -989,6 +1008,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private void push(String elementName, @Nullable String adjustedElementName) {
     int depth = openElementStack.size() / 2;
     skipTextBeforeOpen.set(depth, skipText);
+    inKeptLiteralBeforeOpen.set(depth, inKeptLiteralElement);
     inKeptCdataBeforeOpen.set(depth, inKeptCdataElement);
     inForeignContentBeforeOpen.set(depth, inForeignContent);
     keptCdataNameBeforeOpen.add(keptCdataElementName);

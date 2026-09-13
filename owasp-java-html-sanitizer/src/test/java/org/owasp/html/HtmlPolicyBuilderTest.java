@@ -2059,6 +2059,20 @@ class HtmlPolicyBuilderTest {
         apply(divToStyle.allowTextIn("style"), "<div>a{b:c}</div>"));
   }
 
+  /** A nested kept element does not override a literal element's text gate. */
+  @Test
+  void testNestedElementInsideRenamedLiteralContentUsesOuterTextGate() {
+    HtmlPolicyBuilder divToStyle = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "style", "div")
+        .allowElements("b", "style");
+    String html = "<div>a<b>bold</b>c</div><b>after</b>";
+
+    assertEquals("<style></style><b>after</b>", apply(divToStyle, html));
+    assertEquals(
+        "<style>aboldc</style><b>after</b>",
+        apply(divToStyle.allowTextIn("style"), html));
+  }
+
   /**
    * A void element renamed to one that is not void is closed at once (#450).
    * The lexer never produces a close tag for {@code br}, and the balancer,
