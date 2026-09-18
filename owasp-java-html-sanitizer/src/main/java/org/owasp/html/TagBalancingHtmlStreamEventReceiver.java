@@ -1376,6 +1376,7 @@ public class TagBalancingHtmlStreamEventReceiver
     droppedSuppressedOptionDepth = 0;
     droppedSuppressedOptionOwnsPolicyEntry = false;
     droppedSuppressedOptionStackDepth = -1;
+    droppedSuppressedOptionPassthroughDepth = -1;
     droppedSuppressedOptionResumeDepth = -1;
     suppressedMappedForeignTableResumeDepth = -1;
   }

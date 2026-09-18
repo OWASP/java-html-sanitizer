@@ -241,6 +241,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputContainerElementName = null;
     clearPreparedFormStart();
     skippedLastTagAsAttributeless = false;
+    reopenedTableWasRenamed = false;
     openElementStack.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
@@ -280,6 +281,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputContainerElementName = null;
     outputContainerBeforeOpen.clear();
     clearPreparedFormStart();
+    reopenedTableWasRenamed = false;
     outputTemplateForeignContents.clear();
     outputTemplateForeignContentDepths.clear();
     out.closeDocument();
