@@ -3536,6 +3536,66 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * An SVG or MathML root that HTML rules insert is put where it arrives,
+   * except in a table insertion mode, where a browser foster-parents it.
+   * The containment metadata has no entry for it, and consulting it anyway
+   * implied a list item around a root in a list, and around one in a select
+   * a list item that the next pass wrapped in a list again, without end.
+   */
+  @Test
+  void testForeignRootIsNotWrappedOutsideTableModes() throws Exception {
+    String[] names = {
+        "ul", "li", "select", "option", "svg", "math", "mi", "table", "tbody",
+        "tr", "td", "colgroup", "col", "b",
+    };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] browserAgrees = {
+        { "<ul><svg></svg></ul>", "<ul><svg></svg></ul>" },
+        { "<ul><math></math></ul>", "<ul><math></math></ul>" },
+        {
+          "<ul><li><math><mi>x</mi></math></li></ul>",
+          "<ul><li><math><mi>x</mi></math></li></ul>",
+        },
+        { "<b>x<svg>y</svg></b>", "<b>x<svg>y</svg></b>" },
+    };
+    for (String[] c : browserAgrees) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // In a table mode the root is foster-parented in front of the table,
+    // popping an open column group first.  Content pushed out of a table is
+    // serialized after the table it was pushed out of, as for text since
+    // #481, so these compare the output with its own reparse only.
+    String[][] fosterParented = {
+        {
+          "<table><svg>x</svg><tr><td>y",
+          "<table></table><svg>x</svg>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><colgroup><svg>x</svg><tr><td>y",
+          "<table><colgroup></colgroup></table><svg>x</svg>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><tr><svg>x</svg><td>y",
+          "<table><tbody><tr></tr></tbody></table><svg>x</svg>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : fosterParented) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // A browser drops an svg inside a select, so these too are compared with
+    // their own reparse only; the point is that they no longer grow.
+    assertRoundTripAndBalanced(
+        p, "<select><svg>", "<select><svg></svg></select>");
+    assertRoundTripAndBalanced(
+        p, "<select><math>", "<select><math></math></select>");
+  }
+
+  /**
    * After an HTML breakout pops a nested foreign root, its end tag reaches
    * the outer foreign root, as in a browser, rather than the nearest element
    * that happens to share its name.

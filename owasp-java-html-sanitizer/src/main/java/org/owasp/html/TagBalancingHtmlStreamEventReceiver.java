@@ -663,11 +663,13 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     boolean mayOpenAtNestingLimit = true;
     if (isForeignContentRoot(canonElementName)
-        && !usesForeignContentRules) {
-      // SVG and MathML start tags use normal HTML containment, including
-      // column-group recovery and foster parenting, when HTML rules insert
-      // their roots.  They are absent from the legacy containment metadata,
-      // so handle them before the unrecognized-tag fast path below.
+        && !usesForeignContentRules
+        && foreignRootArrivesInTableMode()) {
+      // An SVG or MathML root that HTML rules insert in a table insertion
+      // mode is foster-parented like any other content there, after an open
+      // column group is popped.  Anywhere else a browser inserts it where it
+      // is, so the containment metadata, which has no entry for it and would
+      // imply a list item or select wrapper around it, is not consulted.
       mayOpenAtNestingLimit = prepareForContent(elIndex);
     }
     if ((usesForeignContentRules
@@ -795,11 +797,16 @@ public class TagBalancingHtmlStreamEventReceiver
               }
               int preparedOutputIndex = METADATA.indexForName(
                   HtmlLexer.canonicalElementName(preparedOutputName));
+              // A foreign root the policy emits is prepared like one the
+              // input wrote: only where a browser foster-parents it.
+              boolean preparedForeignRootInTableMode =
+                  isForeignContentRoot(preparedOutputName)
+                  && foreignRootArrivesInTableMode();
               if (!suppressPreparedOutput
                   && (!canonElementName.equals(preparedOutputName)
-                      || isForeignContentRoot(preparedOutputName))
+                      || preparedForeignRootInTableMode)
                   && (preparedOutputIndex != UNRECOGNIZED_TAG
-                      || isForeignContentRoot(preparedOutputName))) {
+                      || preparedForeignRootInTableMode)) {
                 mayOpenAtNestingLimit &=
                     prepareForContent(preparedOutputIndex, false);
               }
@@ -2578,6 +2585,18 @@ public class TagBalancingHtmlStreamEventReceiver
     return tableIndex >= 0
         && TABLE_CONTEXT.get(openElements.get(tableIndex))
         && !canHold(elIndex, openElements.get(tableIndex), tableIndex);
+  }
+
+  /**
+   * Whether an SVG or MathML root arriving under HTML rules is in a table
+   * insertion mode: directly in a table, row group, row or column group,
+   * where a browser foster-parents it in front of the table.
+   */
+  private boolean foreignRootArrivesInTableMode() {
+    int container = containerIndex();
+    if (container < 0) { return false; }
+    int top = openElements.get(container);
+    return TABLE_CONTEXT.get(top) || top == COLGROUP_TAG;
   }
 
   /**
