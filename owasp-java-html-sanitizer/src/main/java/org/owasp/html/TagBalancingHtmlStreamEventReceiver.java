@@ -409,6 +409,9 @@ public class TagBalancingHtmlStreamEventReceiver
   /** Logical depth below descendants of a policy-only suppressed option. */
   private int droppedSuppressedOptionStackDepth = -1;
 
+  /** Forwarded elements open before a policy-only suppressed option. */
+  private int droppedSuppressedOptionPassthroughDepth = -1;
+
   /** Formatting entries queued before a policy-only suppressed option. */
   private int droppedSuppressedOptionResumeDepth = -1;
 
@@ -469,6 +472,7 @@ public class TagBalancingHtmlStreamEventReceiver
     droppedSuppressedOptionDepth = 0;
     droppedSuppressedOptionOwnsPolicyEntry = false;
     droppedSuppressedOptionStackDepth = -1;
+    droppedSuppressedOptionPassthroughDepth = -1;
     droppedSuppressedOptionResumeDepth = -1;
     droppedSuppressedTableDepth = 0;
     suppressedMappedForeignTableResumeDepth = -1;
@@ -529,6 +533,7 @@ public class TagBalancingHtmlStreamEventReceiver
     droppedSuppressedOptionDepth = 0;
     droppedSuppressedOptionOwnsPolicyEntry = false;
     droppedSuppressedOptionStackDepth = -1;
+    droppedSuppressedOptionPassthroughDepth = -1;
     droppedSuppressedOptionResumeDepth = -1;
     toResumeInReverse.clear();
     underlying.closeDocument();
@@ -587,6 +592,7 @@ public class TagBalancingHtmlStreamEventReceiver
               elementName, attrs);
           droppedSuppressedOptionOwnsPolicyEntry = true;
           droppedSuppressedOptionStackDepth = openElements.size();
+          droppedSuppressedOptionPassthroughDepth = passthroughNames.size();
           droppedSuppressedOptionResumeDepth = toResumeInReverse.size();
         } else {
           droppedSuppressedOptionStackDepth = openElements.size();
@@ -1323,7 +1329,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (droppedSuppressedOptionOwnsPolicyEntry
         && droppedSuppressedOptionStackDepth >= 0) {
       discardStackSuffix(droppedSuppressedOptionStackDepth);
-      closePassthroughsInside(droppedSuppressedOptionStackDepth - 1, false);
+      popPassthroughsForwardedSince(droppedSuppressedOptionPassthroughDepth);
     }
     if (droppedSuppressedOptionResumeDepth >= 0) {
       while (toResumeInReverse.size()
@@ -1334,6 +1340,7 @@ public class TagBalancingHtmlStreamEventReceiver
     droppedSuppressedOptionDepth = 0;
     droppedSuppressedOptionOwnsPolicyEntry = false;
     droppedSuppressedOptionStackDepth = -1;
+    droppedSuppressedOptionPassthroughDepth = -1;
     droppedSuppressedOptionResumeDepth = -1;
   }
 
@@ -3156,8 +3163,8 @@ public class TagBalancingHtmlStreamEventReceiver
         if (droppedSuppressedOptionDepth == 0) {
           if (droppedSuppressedOptionOwnsPolicyEntry) {
             discardStackSuffix(droppedSuppressedOptionStackDepth);
-            closePassthroughsInside(
-                droppedSuppressedOptionStackDepth - 1, false);
+            popPassthroughsForwardedSince(
+                droppedSuppressedOptionPassthroughDepth);
             underlying.closeTag(canonElementName);
           }
           resetDroppedSuppressedOption();
@@ -3405,6 +3412,16 @@ public class TagBalancingHtmlStreamEventReceiver
         && foreignRootPendingTableReturn.equals(
             HtmlLexer.canonicalElementName(elementName))) {
       foreignRootPendingTableReturn = null;
+    }
+  }
+
+  /**
+   * Forgets, without sending anything, the forwarded elements recorded after
+   * the first {@code count}: the receiver below has already popped them.
+   */
+  private void popPassthroughsForwardedSince(int count) {
+    while (count >= 0 && passthroughNames.size() > count) {
+      popPassthrough(false);
     }
   }
 
