@@ -2664,8 +2664,46 @@ class HtmlSanitizerTest {
         .toFactory();
     String noTemplate = droppedTemplate.sanitize(
         "<table><template><form>x");
-    assertEquals("<table><form></form></table>", noTemplate);
+    // The dropped template changes the insertion mode, so the table is
+    // closed for the content after the form; that content is kept.
+    assertEquals("<table><form></form></table>x", noTemplate);
     assertEquals(noTemplate, droppedTemplate.sanitize(noTemplate));
+  }
+
+  /**
+   * Text after a table-mode form is foster-parented out of the table, and a
+   * table part the policy dropped between them does not change that.  When
+   * the output table is closed for it, the text lands beside the table; it
+   * used to be judged as if still inside the table and silently dropped.
+   * The same held for text in a dropped caption or cell of a kept table.
+   */
+  @Test
+  void testTextAfterRetiredOutputTableIsKept() throws Exception {
+    PolicyFactory tableAndForm = new HtmlPolicyBuilder()
+        .allowElements("table", "form").toFactory();
+    String[][] tableAndFormCases = {
+        { "<tbody><form>B", "<table><form></form></table>B" },
+        { "<tbody><form>B</form>C", "<table><form></form></table>BC" },
+        { "<tr><form>B", "<table><form></form></table>B" },
+        { "<table><tbody><form>B</form>C", "<table><form></form></table>BC" },
+    };
+    for (String[] c : tableAndFormCases) {
+      assertRoundTripAndBalanced(tableAndForm, c[0], c[1]);
+    }
+    PolicyFactory tableOnly = new HtmlPolicyBuilder()
+        .allowElements("table").toFactory();
+    String[][] tableOnlyCases = {
+        { "<table><caption>E", "<table></table>E" },
+        { "<td>E", "<table></table>E" },
+        { "<caption>E", "<table></table>E" },
+    };
+    for (String[] c : tableOnlyCases) {
+      assertRoundTripAndBalanced(tableOnly, c[0], c[1]);
+    }
+    PolicyFactory tableAndList = new HtmlPolicyBuilder()
+        .allowElements("table", "ul", "li").toFactory();
+    assertRoundTripAndBalanced(
+        tableAndList, "<ul><caption>E", "<ul><li></li></ul><table></table>E");
   }
 
   /**

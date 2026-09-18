@@ -398,8 +398,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     int tableDepth = tableInputIndex / 2;
     int descendantDepth = tableDepth + 1;
     boolean hasDescendant = tableInputIndex + 2 < n;
-    boolean tableSkipText = hasDescendant
-        ? skipTextBeforeOpen.get(descendantDepth) : skipText;
+    // The table's output closes here and its entry stays as a dropped
+    // element, so text that then arrives inside that entry lands beside the
+    // table in the output.  The gate in force before the table decides, as
+    // for any dropped element.  The table's own gate, which never admits
+    // text, silently deleted that text.
+    boolean tableSkipText = skipTextBeforeOpen.get(tableDepth)
+        || suppressesTextWhenDropped(openElementStack.get(tableInputIndex));
     boolean tableSuppressOutputAndContent = hasDescendant
         ? suppressOutputAndContentBeforeOpen.get(descendantDepth)
         : suppressOutputAndContent;
@@ -424,6 +429,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputElementInForeignContent.clear(tableDepth, n / 2);
     skipText = tableSkipText;
     suppressOutputAndContent = tableSuppressOutputAndContent;
+    if (suppressOutputAndContent) { skipText = true; }
     suppressOutputAndContentBeforeOpen.clear(descendantDepth, n / 2);
     inKeptLiteralElement = tableInKeptLiteral;
     inKeptLiteralBeforeOpen.clear(descendantDepth, n / 2);
