@@ -3415,6 +3415,30 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * A long run of unrecognized tags the policy drops must not make each later
+   * end tag rescan every one of them.  Forwarded elements count toward the
+   * nesting limit, which bounds that list, so this is linear in the input.
+   * The old scan took 5 seconds for 32,000 repeats and quadrupled per
+   * doubling; both runs below are well over a minute on it.
+   */
+  @Test
+  void testRunOfUnrecognizedTagsIsLinear() {
+    PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
+    final String unrecognizedEnds =
+        stringRepeatedTimes("<foo></div>", 100_000);
+    final String recognizedEnds = stringRepeatedTimes("<x-y></b>", 100_000);
+    assertEquals(
+        "",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(unrecognizedEnds)));
+    assertEquals(
+        "",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(recognizedEnds)));
+  }
+
+  /**
    * After an HTML breakout pops a nested foreign root, its end tag reaches
    * the outer foreign root, as in a browser, rather than the nearest element
    * that happens to share its name.

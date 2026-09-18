@@ -105,8 +105,15 @@ public class TagBalancingHtmlStreamEventReceiver
    * the tree-construction node its start tag pushed, or zero.  An end tag is
    * forwarded only for an element still listed here, after everything inside
    * it has been closed, and a stray end tag closes nothing.
+   * <p>
+   * These count toward the nesting limit like the entries in
+   * {@link #openElements}, which bounds this list and so the work an end tag
+   * does to find its element here.  The canonical name of each is kept
+   * alongside the name as forwarded, so that lookup compares names without
+   * canonicalizing every entry again.
    */
   private final List<String> passthroughNames = new ArrayList<>();
+  private final List<String> passthroughCanonNames = new ArrayList<>();
   private final IntVector passthroughDepths = new IntVector();
   private final IntVector passthroughSerials = new IntVector();
   /**
@@ -465,9 +472,13 @@ public class TagBalancingHtmlStreamEventReceiver
     this.nestingLimit = limit;
   }
 
-  /** Includes policy-produced containers that have no input-stack entry. */
+  /**
+   * Includes elements forwarded without an input-stack entry, which the
+   * receiver below keeps open, and policy-produced containers that have no
+   * input-stack entry.
+   */
   private int effectiveNestingDepth() {
-    int depth = openElements.size();
+    int depth = openElements.size() + passthroughNames.size();
     if (underlying instanceof OpenTagOutputPolicy) {
       depth = Math.max(
           depth, ((OpenTagOutputPolicy) underlying).outputNestingDepth());
@@ -494,6 +505,7 @@ public class TagBalancingHtmlStreamEventReceiver
     outputlessTablePartsOpenedAtEvent = -1;
     openTagEvent = 0;
     passthroughNames.clear();
+    passthroughCanonNames.clear();
     passthroughDepths.clear();
     passthroughSerials.clear();
     outputlessTablesWithEmittedParts.clear();
@@ -3392,15 +3404,15 @@ public class TagBalancingHtmlStreamEventReceiver
   /** Records an element forwarded below with no entry in openElements. */
   private void pushPassthrough(String elementName, int serial) {
     passthroughNames.add(elementName);
+    passthroughCanonNames.add(HtmlLexer.canonicalElementName(elementName));
     passthroughDepths.add(openElements.size());
     passthroughSerials.add(serial);
   }
 
   /** The innermost forwarded element with this canonical name, or -1. */
   private int indexOfPassthroughNamed(String canonElementName) {
-    for (int i = passthroughNames.size(); --i >= 0;) {
-      if (canonElementName.equals(
-              HtmlLexer.canonicalElementName(passthroughNames.get(i)))) {
+    for (int i = passthroughCanonNames.size(); --i >= 0;) {
+      if (canonElementName.equals(passthroughCanonNames.get(i))) {
         return i;
       }
     }
@@ -3433,14 +3445,14 @@ public class TagBalancingHtmlStreamEventReceiver
   private void popPassthrough(boolean emitCloseTag) {
     int last = passthroughNames.size() - 1;
     String elementName = passthroughNames.remove(last);
+    String canonElementName = passthroughCanonNames.remove(last);
     passthroughDepths.removeLast();
     passthroughSerials.removeLast();
     if (emitCloseTag) {
       underlying.closeTag(elementName);
     }
     if (foreignRootPendingTableReturn != null
-        && foreignRootPendingTableReturn.equals(
-            HtmlLexer.canonicalElementName(elementName))) {
+        && foreignRootPendingTableReturn.equals(canonElementName)) {
       foreignRootPendingTableReturn = null;
     }
   }

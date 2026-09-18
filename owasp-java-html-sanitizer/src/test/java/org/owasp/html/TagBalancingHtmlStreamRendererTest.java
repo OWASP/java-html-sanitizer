@@ -1395,6 +1395,26 @@ class TagBalancingHtmlStreamRendererTest {
             256, "svg", "desc", "b", "#x", "/desc", "hr", "#y", "/svg"));
   }
 
+  /**
+   * Elements forwarded without a stack entry count toward the nesting limit
+   * like any other open element.  Otherwise a run of them is unbounded, both
+   * in the depth the receiver below sees and in the list the balancer scans
+   * on every end tag, which made a long run of unrecognized tags quadratic.
+   */
+  @Test
+  void testForwardedElementsCountTowardTheNestingLimit() {
+    assertEquals(
+        "<foo><foo>xy</foo></foo>",
+        renderBalancedEvents(2, "foo", "foo", "foo", "#x", "b", "#y"));
+    assertEquals(
+        "<svg>x</svg>",
+        renderBalancedEvents(1, "svg", "path", "#x", "/path", "/svg"));
+    // Closing a forwarded element frees its depth again.
+    assertEquals(
+        "<foo></foo><bar></bar>",
+        renderBalancedEvents(1, "foo", "bar", "/foo", "bar"));
+  }
+
   /** A root dropped at the limit owns nothing below for its end tag to close. */
   @Test
   void testDroppedForeignRootEndTagIsNotForwardedAfterLimitIncreases() {
