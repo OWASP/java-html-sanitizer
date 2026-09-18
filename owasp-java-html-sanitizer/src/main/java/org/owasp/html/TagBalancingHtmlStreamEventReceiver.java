@@ -1325,6 +1325,8 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /** The table whose policy-produced foreign select suppresses its contents. */
   private int suppressedMappedForeignTableIndex() {
+    // Asked on every event, and the scan can only find a marked table.
+    if (suppressedMappedForeignSubtrees.isEmpty()) { return -1; }
     for (int i = openElements.size(); --i >= 0;) {
       if (openElements.get(i) == TABLE_TAG
           && suppressedMappedForeignSubtrees.get(i)) {
@@ -1877,13 +1879,15 @@ public class TagBalancingHtmlStreamEventReceiver
     impliedTableEscapesSyntheticSelect |=
         elIndex == COL_TAG
         && isInSyntheticSelectListItemContext();
+    // The flags and the marked-table checks are cheap and usually false; the
+    // scan of the whole stack for an output scope boundary comes last.
     if (elIndex != HtmlElementTables.TEXT_NODE
         && TABLE_PARTS.get(elIndex)
-        && outputAllowsImplicitTableReturn()
         && ((outputlessTablePartsMayBeOpen
                 && outputlessTablePartsOpenedAtEvent != openTagEvent)
             || hasPushedOutputlessTableWithEmittedParts()
-            || hasNestedOutputlessTableInCaptionWithEmittedParts())) {
+            || hasNestedOutputlessTableInCaptionWithEmittedParts())
+        && outputAllowsImplicitTableReturn()) {
       retiredFormattingForImplicitOutputTable =
           retireFormattingAboveImplicitOutputTable();
     }
@@ -2420,6 +2424,7 @@ public class TagBalancingHtmlStreamEventReceiver
    * opened after the nested table cannot remain around that part.
    */
   private boolean hasNestedOutputlessTableInCaptionWithEmittedParts() {
+    if (outputlessTablesWithEmittedParts.isEmpty()) { return false; }
     int innerTable = -1;
     for (int i = openElements.size(); --i >= 0;) {
       int openElement = openElements.get(i);
@@ -2454,6 +2459,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /** Whether a marked outputless table is pushed out in table scope. */
   private boolean hasPushedOutputlessTableWithEmittedParts() {
+    if (outputlessTablesWithEmittedParts.isEmpty()) { return false; }
     int tableScope = SCOPE_FOR_END_TAG[TABLE_TAG];
     for (int i = openElements.size(); --i >= 0;) {
       int openElement = openElements.get(i);
@@ -2467,6 +2473,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /** Whether a nested missing table hides parts emitted for an outer one. */
   private boolean hasNestedUnavailableTableAboveEmittedOutputlessTable() {
+    if (outputlessTablesWithEmittedParts.isEmpty()) { return false; }
     boolean sawUnavailableTable = false;
     for (int i = openElements.size(); --i >= 0;) {
       if (openElements.get(i) != TABLE_TAG) { continue; }
