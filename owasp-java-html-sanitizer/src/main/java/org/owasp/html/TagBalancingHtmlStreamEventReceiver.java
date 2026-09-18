@@ -1471,7 +1471,7 @@ public class TagBalancingHtmlStreamEventReceiver
           && !pushedOut.get(tableContext)
           && outputElements.get(tableContext) == TABLE_TAG
           && !outputElementsInForeignContent.get(tableContext)
-          && !outputSuffixMatchesInput(tableContext)
+          && outputSuffixChangesTableInsertionMode(tableContext)
           && underlying instanceof FormPointerPolicy
           && ((FormPointerPolicy) underlying)
               .retireOutputTableForForm(true)) {
@@ -1479,7 +1479,10 @@ public class TagBalancingHtmlStreamEventReceiver
         // above a physical output table.  Content after an output-ignored form
         // would be foster-parented from that table even though the logical
         // template contains it, so close the table now as the text path would
-        // if the dropped boundary were absent.
+        // if the dropped boundary were absent.  A dropped row group or row is
+        // no such boundary: the output parser implies it again, the form is
+        // inserted in the row and popped, and the table stays open for the
+        // cells that follow.
         markRetiredTableDescendants(tableContext);
         pushedOut.set(tableContext);
         outputTableUnavailable.set(tableContext);
@@ -1501,6 +1504,33 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     return true;
+  }
+
+  /**
+   * Whether the output between this table and the current position parses
+   * in a different table insertion mode than the input did.  A row group or
+   * row the policy dropped does not change it: the output parser implies
+   * that element again.  Anything else missing or renamed, such as a
+   * dropped template, does.
+   */
+  private boolean outputSuffixChangesTableInsertionMode(int tableContext) {
+    for (int i = tableContext + 1, n = openElements.size(); i < n; ++i) {
+      int inputElement = openElements.get(i);
+      if (outputElements.get(i) == NO_OUTPUT_ELEMENT
+          && !pushedOut.get(i)
+          && inputElement != TABLE_TAG
+          && TABLE_CONTEXT.get(inputElement)) {
+        continue;
+      }
+      if (!sentToUnderlying.get(i)
+          || pushedOut.get(i)
+          || outputElements.get(i) != inputElement
+          || outputElementsInForeignContent.get(i)
+              != inputElementsInForeignContent.get(i)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Mirrors descendants that the policy retained without output elements. */

@@ -2668,6 +2668,49 @@ class HtmlSanitizerTest {
     assertEquals(noTemplate, droppedTemplate.sanitize(noTemplate));
   }
 
+  /**
+   * A row group or row the policy drops does not change the table insertion
+   * mode: the output parser implies it again.  The in-table form rule used
+   * to retire the output table for any such mismatch, so a form in a row
+   * whose tbody was dropped split the table in two, with the cells before
+   * and after it in different tables.  Only a dropped boundary that changes
+   * the mode, such as a template, still retires the table.
+   */
+  @Test
+  void testTableModeFormWithDroppedRowGroupKeepsOneTable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tr", "td", "form")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    String[][] browserAgrees = {
+        {
+          "<table><tr><form id=f><td>c</td></tr></table>",
+          "<table><tr><form id=\"f\"></form><td>c</td></tr></table>",
+        },
+        {
+          "<table><tr><td>a</td><form id=f><td>b</td></tr></table>",
+          "<table><tr><td>a</td><form id=\"f\"></form><td>b</td></tr></table>",
+        },
+    };
+    for (String[] c : browserAgrees) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+    // With the form directly in the dropped tbody, the output parser implies
+    // the tbody only at the row, so the form becomes a child of the table
+    // rather than of the row group.  The table is still one table, as on
+    // main; the output is compared with its own reparse.
+    String input =
+        "<table><tbody><form id=f><tr><td>c</td></tr></tbody></table>";
+    String out = p.sanitize(input);
+    assertEquals(
+        "<table><form id=\"f\"></form><tr><td>c</td></tr></table>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(out), parseAsBrowser(p.sanitize(out)));
+  }
+
   /** Content after a form cannot remain in a policy-produced output table. */
   @Test
   void testFormInPolicyProducedTableIsRoundTripStable() throws Exception {
