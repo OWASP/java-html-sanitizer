@@ -54,6 +54,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
                HtmlChangeReporter.AttributelessSkipPolicy,
                HtmlChangeReporter.DroppedTextSource,
                HtmlChangeReporter.DiscardedAttributeSource {
+  private static final HtmlElementTables METADATA = HtmlElementTables.get();
   final Map<String, ElementAndAttributePolicies> elAndAttrPolicies;
   final Set<String> allowedTextContainers;
   /**
@@ -116,6 +117,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /** Browser tree-construction context for the tags actually emitted. */
   private HtmlSanitizer.ForeignContentContext outputForeignContent
       = new HtmlSanitizer.ForeignContentContext();
+  /** Exact contexts inside retained, emitted HTML template elements. */
+  private final List<HtmlSanitizer.ForeignContentContext>
+      outputTemplateForeignContents = new ArrayList<>();
+  /** Output depth at each corresponding retained HTML template start. */
+  private final IntVector outputTemplateForeignContentDepths = new IntVector();
   /**
    * The last few characters emitted for the kept literal-content element that
    * is open.  Text arrives in chunks, and {@link #stripTags} needs them to see
@@ -138,6 +144,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private final BitSet skipTextBeforeOpen = new BitSet();
   /** The same for {@link #inKeptLiteralElement}. */
   private final BitSet inKeptLiteralBeforeOpen = new BitSet();
+  /** The value of {@link #suppressOutputAndContent} before each open. */
+  private final BitSet suppressOutputAndContentBeforeOpen = new BitSet();
+  /** True inside a subtree the balancer cannot serialize safely. */
+  private transient boolean suppressOutputAndContent;
   /** The same for {@link #inKeptCdataElement}. */
   private final BitSet inKeptCdataBeforeOpen = new BitSet();
   /** The same for {@link #inForeignContent}. */
@@ -162,11 +172,22 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private transient @Nullable String outputElementNameForLastOpenTag;
   /** Whether that element was inserted using SVG or MathML rules. */
   private transient boolean outputElementForLastOpenTagUsedForeignContentRules;
-  /** Policy result prepared so a stale output form can be retired first. */
-  private transient @Nullable List<String> preparedFormAttrs;
-  private transient @Nullable ElementAndAttributePolicies preparedFormPolicies;
-  private transient @Nullable String preparedFormAdjustedElementName;
-  private transient boolean preparedFormSkippedAsAttributeless;
+  /** Number of non-void elements currently open in the emitted event stream. */
+  private transient int outputNestingDepth;
+  /** Innermost non-void element currently open in the emitted event stream. */
+  private transient @Nullable String outputContainerElementName;
+  /** Input/output pairs for HTML output closed by the most recent end tag. */
+  private final List<String> outputStackEntriesClosedByLastEndTag =
+      new ArrayList<>();
+  /** Output container before each logical entry on {@link #openElementStack}. */
+  private final List<String> outputContainerBeforeOpen = new ArrayList<>();
+  private transient boolean reopenedTableWasRenamed;
+  /** Policy result prepared so output table context can be balanced first. */
+  private transient @Nullable String preparedElementName;
+  private transient @Nullable List<String> preparedElementAttrs;
+  private transient @Nullable ElementAndAttributePolicies preparedPolicies;
+  private transient @Nullable String preparedAdjustedElementName;
+  private transient boolean preparedSkippedAsAttributeless;
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
@@ -207,23 +228,30 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   public void openDocument() {
     skipText = false;
     inKeptLiteralElement = false;
+    suppressOutputAndContent = false;
     inKeptCdataElement = false;
     keptCdataElementName = null;
     inForeignContent = false;
     outputForeignContent = new HtmlSanitizer.ForeignContentContext();
+    outputTemplateForeignContents.clear();
+    outputTemplateForeignContentDepths.clear();
     literalTextTail = "";
     droppedTextListener = null;
     discardedAttributeListener = null;
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputNestingDepth = 0;
+    outputContainerElementName = null;
     clearPreparedFormStart();
     skippedLastTagAsAttributeless = false;
     openElementStack.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
+    suppressOutputAndContentBeforeOpen.clear();
     inKeptCdataBeforeOpen.clear();
     inForeignContentBeforeOpen.clear();
     outputElementInForeignContent.clear();
+    outputContainerBeforeOpen.clear();
     keptCdataNameBeforeOpen.clear();
     out.openDocument();
   }
@@ -238,18 +266,25 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     openElementStack.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
+    suppressOutputAndContentBeforeOpen.clear();
     inKeptCdataBeforeOpen.clear();
     inForeignContentBeforeOpen.clear();
     outputElementInForeignContent.clear();
     keptCdataNameBeforeOpen.clear();
     skipText = true;
     inKeptLiteralElement = false;
+    suppressOutputAndContent = false;
     inKeptCdataElement = false;
     keptCdataElementName = null;
     inForeignContent = false;
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputNestingDepth = 0;
+    outputContainerElementName = null;
+    outputContainerBeforeOpen.clear();
     clearPreparedFormStart();
+    outputTemplateForeignContents.clear();
+    outputTemplateForeignContentDepths.clear();
     out.closeDocument();
   }
 
@@ -269,6 +304,16 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public boolean outputElementForLastOpenTagUsedForeignContentRules() {
     return outputElementForLastOpenTagUsedForeignContentRules;
+  }
+
+  public int outputNestingDepth() {
+    return suppressOutputAndContent
+        ? Math.max(outputNestingDepth, openElementStack.size() / 2)
+        : outputNestingDepth;
+  }
+
+  public @Nullable String outputContainerElementName() {
+    return outputContainerElementName;
   }
 
   public boolean supportsPushedOutTableOperations() { return true; }
@@ -296,13 +341,27 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     return outputForeignContent.formElementPointerIsSet();
   }
 
-  public boolean retirePolicyProducedTableForForm() {
+  public boolean retireOutputSelectKeepingLogicalDescendants() {
+    for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
+      if (!outputElementInForeignContent.get(i / 2)
+          && "select".equals(openElementStack.get(i))) {
+        retireOutputSuffixKeepingLogical(i - 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public boolean retireOutputTableForForm(boolean allowInputTable) {
     int n = openElementStack.size();
     int tableInputIndex = -1;
     for (int i = n - 1; i > 0; i -= 2) {
       String adjustedElementName = openElementStack.get(i);
       if ("table".equals(adjustedElementName)) {
-        if ("table".equals(openElementStack.get(i - 1))) { return false; }
+        if (!allowInputTable
+            && "table".equals(openElementStack.get(i - 1))) {
+          return false;
+        }
         tableInputIndex = i - 1;
         break;
       }
@@ -318,34 +377,102 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
     if (tableInputIndex < 0) { return false; }
     List<String> logicalDescendants = new ArrayList<>();
+    List<Boolean> descendantSuppression = new ArrayList<>();
     for (int i = tableInputIndex + 2; i < n; i += 2) {
       logicalDescendants.add(openElementStack.get(i));
+      descendantSuppression.add(suppressionAfterOpen(i / 2, n / 2));
     }
-    closeTag(openElementStack.get(tableInputIndex));
-    for (String descendant : logicalDescendants) {
-      deferOpenTag(descendant);
+    if ("table".equals(openElementStack.get(tableInputIndex))) {
+      retireInputTableAtIndex(tableInputIndex);
+    } else {
+      closeStackFromInputIndex(tableInputIndex);
+    }
+    for (int i = 0; i < logicalDescendants.size(); ++i) {
+      deferOpenTag(logicalDescendants.get(i));
+      suppressOutputAndContent = descendantSuppression.get(i);
+      if (suppressOutputAndContent) { skipText = true; }
     }
     return true;
   }
 
-  public boolean prepareForFormStart(List<String> attrs) {
-    if (preparedFormAttrs != null) {
-      throw new IllegalStateException("A form start is already prepared");
+  /** Closes an input table's output while keeping a dropped logical entry. */
+  private void retireInputTableAtIndex(int tableInputIndex) {
+    int n = openElementStack.size();
+    int tableDepth = tableInputIndex / 2;
+    int descendantDepth = tableDepth + 1;
+    boolean hasDescendant = tableInputIndex + 2 < n;
+    boolean tableSkipText = hasDescendant
+        ? skipTextBeforeOpen.get(descendantDepth) : skipText;
+    boolean tableSuppressOutputAndContent = hasDescendant
+        ? suppressOutputAndContentBeforeOpen.get(descendantDepth)
+        : suppressOutputAndContent;
+    boolean tableInKeptLiteral = hasDescendant
+        ? inKeptLiteralBeforeOpen.get(descendantDepth)
+        : inKeptLiteralElement;
+    boolean tableInKeptCdata = hasDescendant
+        ? inKeptCdataBeforeOpen.get(descendantDepth) : inKeptCdataElement;
+    boolean tableInForeignContent = hasDescendant
+        ? inForeignContentBeforeOpen.get(descendantDepth) : inForeignContent;
+    @Nullable String tableKeptCdataName = hasDescendant
+        ? keptCdataNameBeforeOpen.get(descendantDepth)
+        : keptCdataElementName;
+    for (int j = n - 1; j > tableInputIndex; j -= 2) {
+      String tagNameToClose = openElementStack.get(j);
+      if (tagNameToClose != null) {
+        closeOutputElement(tagNameToClose, j);
+      }
     }
-    ElementAndAttributePolicies policies = elAndAttrPolicies.get("form");
-    String adjustedElementName = applyPolicies("form", attrs, policies);
+    openElementStack.subList(tableInputIndex + 2, n).clear();
+    openElementStack.set(tableInputIndex + 1, null);
+    outputElementInForeignContent.clear(tableDepth, n / 2);
+    skipText = tableSkipText;
+    suppressOutputAndContent = tableSuppressOutputAndContent;
+    suppressOutputAndContentBeforeOpen.clear(descendantDepth, n / 2);
+    inKeptLiteralElement = tableInKeptLiteral;
+    inKeptLiteralBeforeOpen.clear(descendantDepth, n / 2);
+    inKeptCdataElement = tableInKeptCdata;
+    inForeignContent = tableInForeignContent;
+    keptCdataElementName = tableKeptCdataName;
+    outputContainerElementName = outputContainerBeforeOpen.get(tableDepth);
+    outputContainerBeforeOpen.subList(
+        descendantDepth, outputContainerBeforeOpen.size()).clear();
+    keptCdataNameBeforeOpen.subList(
+        descendantDepth, keptCdataNameBeforeOpen.size()).clear();
+  }
+
+  public boolean prepareForFormStart(List<String> attrs) {
+    prepareForStartTag("form", attrs);
+    return preparedFormStartWillEmitAsHtml();
+  }
+
+  public boolean isInKeptLiteralElement() {
+    return inKeptLiteralElement;
+  }
+
+  public boolean preparedFormStartWillEmitAsHtml() {
+    return "form".equals(preparedAdjustedElementName)
+        && !preparedSkippedAsAttributeless
+        && !outputForeignContent.startTagUsesForeignContentRules(
+            preparedAdjustedElementName, preparedElementAttrs)
+        && !hasOpenOutputTemplateBelow(openElementStack.size());
+  }
+
+  public @Nullable String prepareForStartTag(
+      String elementName, List<String> attrs) {
+    if (preparedElementAttrs != null) {
+      throw new IllegalStateException("A start tag is already prepared");
+    }
+    ElementAndAttributePolicies policies = elAndAttrPolicies.get(elementName);
+    String adjustedElementName = applyPolicies(elementName, attrs, policies);
     boolean skippedAsAttributeless = adjustedElementName != null
         && attrs.isEmpty()
         && policies.htmlTagSkipType.skipAvailability();
-    preparedFormAttrs = attrs;
-    preparedFormPolicies = policies;
-    preparedFormAdjustedElementName = adjustedElementName;
-    preparedFormSkippedAsAttributeless = skippedAsAttributeless;
-    return "form".equals(adjustedElementName)
-        && !skippedAsAttributeless
-        && !outputForeignContent.startTagUsesForeignContentRules(
-            adjustedElementName, attrs)
-        && !hasOpenOutputTemplateBelow(openElementStack.size());
+    preparedElementName = elementName;
+    preparedElementAttrs = attrs;
+    preparedPolicies = policies;
+    preparedAdjustedElementName = adjustedElementName;
+    preparedSkippedAsAttributeless = skippedAsAttributeless;
+    return !skippedAsAttributeless ? adjustedElementName : null;
   }
 
   public void discardPreparedFormStart() {
@@ -363,9 +490,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     // clears that pointer without removing the form below the table from the
     // browser's stack.  Sending both events keeps arbitrary output receivers
     // balanced, and no new DOM element is created.
-    outputForeignContent.processStartTag("form", noAttrs, false);
+    processOutputStartTag("form", noAttrs, false);
     out.openTag("form", noAttrs);
-    outputForeignContent.processEndTag("form");
+    processOutputEndTag("form");
     out.closeTag("form");
     outputForeignContent.clearFormElementPointer();
     return true;
@@ -385,8 +512,91 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         elementName, attrs);
   }
 
+  /** Whether this start would be foreign in retained HTML template contents. */
+  public boolean outputTemplateStartTagUsesForeignContentRules(
+      String elementName, List<String> attrs) {
+    HtmlSanitizer.ForeignContentContext context =
+        currentOutputTemplateForeignContent();
+    return context != null
+        && context.startTagUsesForeignContentRules(elementName, attrs);
+  }
+
+  private @Nullable HtmlSanitizer.ForeignContentContext
+      currentOutputTemplateForeignContent() {
+    int n = outputTemplateForeignContents.size();
+    return n != 0 ? outputTemplateForeignContents.get(n - 1) : null;
+  }
+
+  /** Whether a retained input template starts an actual HTML template. */
+  private boolean opensHtmlOutputTemplate(
+      String inputElementName, String adjustedElementName,
+      List<String> attrs) {
+    if (!"template".equals(inputElementName)
+        || !"template".equals(adjustedElementName)) {
+      return false;
+    }
+    HtmlSanitizer.ForeignContentContext templateContext =
+        currentOutputTemplateForeignContent();
+    HtmlSanitizer.ForeignContentContext parent = templateContext != null
+        ? templateContext : outputForeignContent;
+    return !parent.startTagUsesForeignContentRules(
+        adjustedElementName, attrs);
+  }
+
+  private void processOutputStartTag(
+      String elementName, List<String> attrs, boolean selfClosing) {
+    outputForeignContent.processStartTag(elementName, attrs, selfClosing);
+    HtmlSanitizer.ForeignContentContext templateContext =
+        currentOutputTemplateForeignContent();
+    if (templateContext != null) {
+      templateContext.processStartTag(elementName, attrs, selfClosing);
+    }
+  }
+
+  private void processOutputEndTag(String elementName) {
+    outputForeignContent.processEndTag(elementName);
+    HtmlSanitizer.ForeignContentContext templateContext =
+        currentOutputTemplateForeignContent();
+    if (templateContext != null) {
+      templateContext.processEndTag(elementName);
+    }
+  }
+
+  private void pushOutputTemplateForeignContent() {
+    outputTemplateForeignContents.add(
+        new HtmlSanitizer.ForeignContentContext());
+    outputTemplateForeignContentDepths.add(outputNestingDepth);
+  }
+
+  private boolean closesActiveHtmlOutputTemplate(
+      String adjustedElementName, boolean elementIsForeign) {
+    return "template".equals(adjustedElementName)
+        && !elementIsForeign
+        && !outputTemplateForeignContentDepths.isEmpty()
+        && outputTemplateForeignContentDepths.getLast() == outputNestingDepth;
+  }
+
+  private void popOutputTemplateForeignContent() {
+    outputTemplateForeignContents.remove(
+        outputTemplateForeignContents.size() - 1);
+    outputTemplateForeignContentDepths.removeLast();
+  }
+
+  public boolean outputStartTagUsesHtmlIntegrationPointRules(
+      String elementName, List<String> attrs) {
+    return outputForeignContent.isInForeignContent()
+        && !outputForeignContent.startTagUsesForeignContentRules(
+            elementName, attrs)
+        && outputForeignContent.foreignElementsPoppedByStartTag(
+            elementName, attrs) == 0;
+  }
+
+  public List<String> outputStackEntriesClosedByLastEndTag() {
+    return outputStackEntriesClosedByLastEndTag;
+  }
+
   public void text(String textChunk) {
-    if (!skipText) {
+    if (!skipText && !suppressOutputAndContent) {
       // The renderer emits the text of a kept literal-content element as it
       // is, so a tag in it would reach the browser as written.  stripTags
       // says why none may.
@@ -920,33 +1130,64 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     openTag(elementName, attrs, OpenTagMode.SUPPRESS);
   }
 
+  public void openTagWithoutOutputOrContent(
+      String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.SUPPRESS_SUBTREE);
+  }
+
+  public void openTagWithSuppressedContent(
+      String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.EMIT_SUPPRESS_SUBTREE);
+  }
+
+  public boolean isSuppressingOutputAndContent() {
+    return suppressOutputAndContent;
+  }
+
   public void openReopenedTable(List<String> attrs) {
     openTag("table", attrs, OpenTagMode.REOPENED_TABLE);
+  }
+
+  public boolean reopenedTableWasRenamed() {
+    return reopenedTableWasRenamed;
   }
 
   private void openTag(
       String elementName, List<String> attrs, OpenTagMode mode) {
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
-    boolean usesPreparedForm = mode == OpenTagMode.NORMAL
-        && "form".equals(elementName) && attrs == preparedFormAttrs;
+    reopenedTableWasRenamed = false;
+    boolean usesPreparedStart = mode != OpenTagMode.REOPENED_TABLE
+        && elementName.equals(preparedElementName)
+        && attrs == preparedElementAttrs;
     if (inKeptLiteralElement) {
       skippedLastTagAsAttributeless = false;
-      if (usesPreparedForm) { clearPreparedFormStart(); }
+      if (usesPreparedStart) { clearPreparedFormStart(); }
       deferOpenTag(elementName);
       return;
     }
     ElementAndAttributePolicies policies;
     String adjustedElementName;
-    if (usesPreparedForm) {
-      policies = preparedFormPolicies;
-      adjustedElementName = preparedFormAdjustedElementName;
-      skippedLastTagAsAttributeless = preparedFormSkippedAsAttributeless;
+    if (usesPreparedStart) {
+      policies = preparedPolicies;
+      adjustedElementName = preparedAdjustedElementName;
+      skippedLastTagAsAttributeless = preparedSkippedAsAttributeless;
       clearPreparedFormStart();
     } else {
       policies = elAndAttrPolicies.get(elementName);
       adjustedElementName = applyPolicies(elementName, attrs, policies);
       skippedLastTagAsAttributeless = false;
+    }
+    reopenedTableWasRenamed = mode == OpenTagMode.REOPENED_TABLE
+        && adjustedElementName != null
+        && !"table".equals(adjustedElementName);
+    if (suppressOutputAndContent || mode == OpenTagMode.SUPPRESS_SUBTREE) {
+      if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
+        push(elementName, null);
+        suppressOutputAndContent = true;
+        skipText = true;
+      }
+      return;
     }
     if (adjustedElementName != null) {
       if (!skippedLastTagAsAttributeless
@@ -961,10 +1202,23 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           deferOpenTag(elementName);
           return;
         }
+        if (mode == OpenTagMode.REOPENED_TABLE
+            && "table".equals(adjustedElementName)
+            && !outputForeignContent.startTagUsesForeignContentRules(
+                adjustedElementName, attrs)
+            && !(inForeignContent
+                 && !outputForeignContent.isInForeignContent())) {
+          prepareOutputForHtmlStart(adjustedElementName, attrs);
+        }
         if (mode == OpenTagMode.NORMAL
+            || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE
             || (mode == OpenTagMode.REOPENED_TABLE
                 && "table".equals(adjustedElementName))) {
           writeOpenTag(policies, adjustedElementName, attrs);
+          if (mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
+            suppressOutputAndContent = true;
+            skipText = true;
+          }
         } else if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
           push(elementName, null);
           skipText = !allowedTextContainers.contains(elementName)
@@ -984,6 +1238,94 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     deferOpenTag(elementName);
   }
 
+  /**
+   * Closes an output container that a browser would close before inserting
+   * {@code adjustedElementName}, while retaining its input names as dropped
+   * logical entries for later end tags and text-policy state.
+   */
+  public void prepareOutputForHtmlStart(
+      String adjustedElementName, List<String> attrs) {
+    int foreignElementsToClose =
+        outputForeignContent.foreignElementsPoppedByStartTag(
+            adjustedElementName, attrs);
+    if (foreignElementsToClose != 0) {
+      int inputIndex = openElementStack.size();
+      while (inputIndex > 0 && foreignElementsToClose != 0) {
+        inputIndex -= 2;
+        if (openElementStack.get(inputIndex + 1) != null) {
+          --foreignElementsToClose;
+        }
+      }
+      if (foreignElementsToClose == 0) {
+        retireOutputSuffixKeepingLogical(inputIndex);
+      }
+    }
+    if ("form".equals(adjustedElementName)) {
+      for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
+        if (outputElementInForeignContent.get(i / 2)) { continue; }
+        String outputName = openElementStack.get(i);
+        if ("p".equals(outputName)) {
+          retireOutputSuffixKeepingLogical(i - 1);
+          break;
+        }
+        if (isButtonScopeBoundary(outputName)) { break; }
+      }
+    }
+    int child = METADATA.indexForName(adjustedElementName);
+    while (true) {
+      int parentAdjustedIndex = -1;
+      for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
+        if (openElementStack.get(i) != null) {
+          parentAdjustedIndex = i;
+          break;
+        }
+      }
+      if (parentAdjustedIndex < 0) { return; }
+      String parentName = openElementStack.get(parentAdjustedIndex);
+      int parent = METADATA.indexForName(parentName);
+      if (METADATA.canContain(parent, child)) { return; }
+      retireOutputSuffixKeepingLogical(parentAdjustedIndex - 1);
+    }
+  }
+
+  /** Whether an HTML element bounds the scope in which a paragraph can end. */
+  private static boolean isButtonScopeBoundary(@Nullable String name) {
+    return "applet".equals(name)
+        || "button".equals(name)
+        || "caption".equals(name)
+        || "html".equals(name)
+        || "marquee".equals(name)
+        || "object".equals(name)
+        || "table".equals(name)
+        || "td".equals(name)
+        || "template".equals(name)
+        || "th".equals(name);
+  }
+
+  /** Retires an output suffix without consuming its logical input entries. */
+  private void retireOutputSuffixKeepingLogical(int inputNameIndex) {
+    int n = openElementStack.size();
+    List<String> logicalSuffix = new ArrayList<>();
+    List<Boolean> suffixSuppression = new ArrayList<>();
+    for (int i = inputNameIndex; i < n; i += 2) {
+      logicalSuffix.add(openElementStack.get(i));
+      suffixSuppression.add(suppressionAfterOpen(i / 2, n / 2));
+    }
+    closeStackFromInputIndex(inputNameIndex);
+    for (int i = 0; i < logicalSuffix.size(); ++i) {
+      deferOpenTag(logicalSuffix.get(i));
+      suppressOutputAndContent = suffixSuppression.get(i);
+      if (suppressOutputAndContent) { skipText = true; }
+    }
+  }
+
+  /** The suppression state immediately after the open at {@code depth}. */
+  private boolean suppressionAfterOpen(int depth, int depthCount) {
+    return depth + 1 < depthCount
+        ? suppressOutputAndContentBeforeOpen.get(depth + 1)
+        : suppressOutputAndContent;
+  }
+
   /** Whether the browser would ignore this policy-produced form start. */
   private boolean outputFormStartWouldBeIgnored(
       String adjustedElementName, List<String> attrs) {
@@ -995,16 +1337,19 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   private void clearPreparedFormStart() {
-    preparedFormAttrs = null;
-    preparedFormPolicies = null;
-    preparedFormAdjustedElementName = null;
-    preparedFormSkippedAsAttributeless = false;
+    preparedElementName = null;
+    preparedElementAttrs = null;
+    preparedPolicies = null;
+    preparedAdjustedElementName = null;
+    preparedSkippedAsAttributeless = false;
   }
 
   private enum OpenTagMode {
     NORMAL,
     REOPENED_TABLE,
     SUPPRESS,
+    SUPPRESS_SUBTREE,
+    EMIT_SUPPRESS_SUBTREE,
   }
 
   public boolean skippedLastTagAsAttributeless() {
@@ -1063,29 +1408,57 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void closeTag(String elementName) {
+    outputStackEntriesClosedByLastEndTag.clear();
     int n = openElementStack.size();
     for (int i = n; i > 0;) {
       i -= 2;
       String openElementName = openElementStack.get(i);
       if (elementName.equals(openElementName)) {
         for (int j = n - 1; j > i; j -= 2) {
-          String tagNameToClose = openElementStack.get(j);
-          if (tagNameToClose != null) {
-            closeOutputElement(tagNameToClose, j);
+          String inputName = openElementStack.get(j - 1);
+          String outputName = openElementStack.get(j);
+          boolean outputlessListItem = outputName == null
+              && "li".equals(inputName);
+          if (outputlessListItem
+              || (outputName != null
+                  && !outputElementInForeignContent.get(j / 2))) {
+            outputStackEntriesClosedByLastEndTag.add(inputName);
+            outputStackEntriesClosedByLastEndTag.add(
+                outputName != null ? outputName : "");
           }
         }
-        openElementStack.subList(i, n).clear();
-        outputElementInForeignContent.clear(i / 2, n / 2);
-        skipText = skipTextBeforeOpen.get(i / 2);
-        inKeptLiteralElement = inKeptLiteralBeforeOpen.get(i / 2);
-        inKeptCdataElement = inKeptCdataBeforeOpen.get(i / 2);
-        inForeignContent = inForeignContentBeforeOpen.get(i / 2);
-        keptCdataElementName = keptCdataNameBeforeOpen.get(i / 2);
-        keptCdataNameBeforeOpen.subList(
-            i / 2, keptCdataNameBeforeOpen.size()).clear();
+        closeStackFromInputIndex(i);
         break;
       }
     }
+  }
+
+  /** Closes the output suffix for the exact input-name stack entry. */
+  private void closeStackFromInputIndex(int inputNameIndex) {
+    int n = openElementStack.size();
+    for (int j = n - 1; j > inputNameIndex; j -= 2) {
+      String tagNameToClose = openElementStack.get(j);
+      if (tagNameToClose != null) {
+        closeOutputElement(tagNameToClose, j);
+      }
+    }
+    openElementStack.subList(inputNameIndex, n).clear();
+    int depth = inputNameIndex / 2;
+    outputElementInForeignContent.clear(depth, n / 2);
+    skipText = skipTextBeforeOpen.get(depth);
+    suppressOutputAndContent =
+        suppressOutputAndContentBeforeOpen.get(depth);
+    suppressOutputAndContentBeforeOpen.clear(depth, n / 2);
+    inKeptLiteralElement = inKeptLiteralBeforeOpen.get(depth);
+    inKeptLiteralBeforeOpen.clear(depth, n / 2);
+    inKeptCdataElement = inKeptCdataBeforeOpen.get(depth);
+    inForeignContent = inForeignContentBeforeOpen.get(depth);
+    keptCdataElementName = keptCdataNameBeforeOpen.get(depth);
+    outputContainerElementName = outputContainerBeforeOpen.get(depth);
+    outputContainerBeforeOpen.subList(
+        depth, outputContainerBeforeOpen.size()).clear();
+    keptCdataNameBeforeOpen.subList(
+        depth, keptCdataNameBeforeOpen.size()).clear();
   }
 
   void writeOpenTag(
@@ -1100,8 +1473,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     if (HtmlTextEscapingMode.isVoidElement(elementName)) {
       boolean adjustedIsVoid =
           HtmlTextEscapingMode.isVoidElement(adjustedElementName);
-      outputForeignContent.processStartTag(
-          adjustedElementName, attrs, adjustedIsVoid);
+      processOutputStartTag(adjustedElementName, attrs, adjustedIsVoid);
       outputElementForLastOpenTagUsedForeignContentRules =
           outputForeignContent.lastTagUsedForeignContentRules();
       out.openTag(adjustedElementName, attrs);
@@ -1113,7 +1485,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
             && !hasOpenOutputTemplateBelow(openElementStack.size())) {
           outputForeignContent.markFormElementPointerSet();
         }
-        outputForeignContent.processEndTag(adjustedElementName);
+        processOutputEndTag(adjustedElementName);
         out.closeTag(adjustedElementName);
         if ("form".equals(adjustedElementName)
             && !outputElementForLastOpenTagUsedForeignContentRules
@@ -1130,7 +1502,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       // a dropped element.
       push(elementName, null);
       skipText = skipText || suppressesTextWhenDropped(elementName);
-      outputForeignContent.processStartTag(adjustedElementName, attrs, true);
+      processOutputStartTag(adjustedElementName, attrs, true);
       outputElementForLastOpenTagUsedForeignContentRules =
           outputForeignContent.lastTagUsedForeignContentRules();
       out.openTag(adjustedElementName, attrs);
@@ -1160,13 +1532,26 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     inForeignContent = inForeignContent
         || HtmlStreamRenderer.FOREIGN_CONTENT_ROOT_ELEMENT_NAMES.contains(
                adjustedElementName);
-    outputForeignContent.processStartTag(adjustedElementName, attrs, false);
+    boolean opensHtmlTemplate = opensHtmlOutputTemplate(
+        elementName, adjustedElementName, attrs);
+    if (opensHtmlTemplate) {
+      // Preserve the legacy conservative tracker at the template boundary,
+      // while freezing any parent template context for later restoration.
+      outputForeignContent.processStartTag(adjustedElementName, attrs, false);
+    } else {
+      processOutputStartTag(adjustedElementName, attrs, false);
+    }
     outputElementForLastOpenTagUsedForeignContentRules =
         outputForeignContent.lastTagUsedForeignContentRules();
     outputElementInForeignContent.set(
         openElementStack.size() / 2 - 1,
         outputElementForLastOpenTagUsedForeignContentRules);
     out.openTag(adjustedElementName, attrs);
+    ++outputNestingDepth;
+    outputContainerElementName = adjustedElementName;
+    if (opensHtmlTemplate) {
+      pushOutputTemplateForeignContent();
+    }
     if ("form".equals(adjustedElementName)
         && !outputElementForLastOpenTagUsedForeignContentRules
         && !hasOpenOutputTemplateBelow(openElementStack.size() - 1)) {
@@ -1178,8 +1563,18 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private void closeOutputElement(String adjustedElementName, int stackIndex) {
     boolean elementIsForeign =
         outputElementInForeignContent.get(stackIndex / 2);
-    outputForeignContent.processEndTag(adjustedElementName);
+    boolean closesHtmlTemplate = closesActiveHtmlOutputTemplate(
+        adjustedElementName, elementIsForeign);
+    if (closesHtmlTemplate) {
+      outputForeignContent.processEndTag(adjustedElementName);
+    } else {
+      processOutputEndTag(adjustedElementName);
+    }
     out.closeTag(adjustedElementName);
+    --outputNestingDepth;
+    if (closesHtmlTemplate) {
+      popOutputTemplateForeignContent();
+    }
     if ("form".equals(adjustedElementName)
         && !elementIsForeign
         && !hasOpenOutputTemplateBelow(stackIndex)) {
@@ -1230,9 +1625,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     int depth = openElementStack.size() / 2;
     skipTextBeforeOpen.set(depth, skipText);
     inKeptLiteralBeforeOpen.set(depth, inKeptLiteralElement);
+    suppressOutputAndContentBeforeOpen.set(
+        depth, suppressOutputAndContent);
     inKeptCdataBeforeOpen.set(depth, inKeptCdataElement);
     inForeignContentBeforeOpen.set(depth, inForeignContent);
     keptCdataNameBeforeOpen.add(keptCdataElementName);
+    outputContainerBeforeOpen.add(outputContainerElementName);
     outputElementInForeignContent.clear(depth);
     openElementStack.add(elementName);
     openElementStack.add(adjustedElementName);

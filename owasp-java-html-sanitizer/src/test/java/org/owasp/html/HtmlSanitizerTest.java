@@ -2592,7 +2592,8 @@ class HtmlSanitizerTest {
         },
         {
           "<template><form></form><tbody><tr><td>x</td></tr></tbody>",
-          "<table><form></form></table>x",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
         },
         {
           "<template><form></form><table><tr><td>x</td></tr></table>",
@@ -2610,8 +2611,7 @@ class HtmlSanitizerTest {
         {
           "<form><table><div></form><template><form>x</form></template>"
           + "<div><form>y</form></div></table>",
-          "<form><table></table><div><table></table>"
-          + "x<div>y</div></div></form>",
+          "<form><table></table><div>x<div>y</div></div></form>",
         },
     };
     for (String[] c : cases) {
@@ -2631,15 +2631,15 @@ class HtmlSanitizerTest {
         { "math", "<math><form>x", "<table><form></form></table>x" },
         {
           "foreignObject", "<svg><foreignObject><form>x",
-          "<svg><table><form></form></table>x</svg>",
+          "<svg></svg><table><form></form></table>x",
         },
         {
           "g", "<svg><g><form>x",
-          "<svg><table><form></form></table>x</svg>",
+          "<svg></svg><table><form></form></table>x",
         },
         {
           "textArea", "<svg><textArea><form>x",
-          "<svg><table><form></form></table>x</svg>",
+          "<svg></svg><table><form></form></table>x",
         },
     };
     for (String[] c : cases) {
@@ -2663,19 +2663,19 @@ class HtmlSanitizerTest {
     String[][] nestedSvgCases = {
         {
           "<svg><foreignObject><form>x",
-          "<table><foreignObject><form></form></foreignObject></table>x",
+          "<table></table><foreignObject><form>x</form></foreignObject>",
         },
         {
           "<svg><g><form>x",
-          "<table><g><form></form></g></table>x",
+          "<table></table><g><form>x</form></g>",
         },
         {
           "<svg><textArea><form>x",
-          "<table><textArea><form></form></textArea></table>x",
+          "<table></table><textArea><form>x</form></textArea>",
         },
         {
           "<template><svg><form>x",
-          "<template><table><form></form></table>x</template>",
+          "<template><form>x</form></template>",
         },
     };
     for (String[] c : nestedSvgCases) {
@@ -2694,7 +2694,7 @@ class HtmlSanitizerTest {
         "<svg><foreignObject><form>x</form>after</foreignObject>tail";
     String suppressed = suppressMappedDescendantText.sanitize(suppressedInput);
     assertEquals(
-        "<table><foreignObject><form></form></foreignObject></table>tail",
+        "<table></table><foreignObject><form>x</form></foreignObject>tail",
         suppressed);
     assertEquals(
         suppressed, suppressMappedDescendantText.sanitize(suppressed));
@@ -2707,15 +2707,15 @@ class HtmlSanitizerTest {
     String[][] nestedMathCases = {
         {
           "<math><mrow><form>x",
-          "<table><mrow><form></form></mrow></table>x",
+          "<table></table><mrow><form>x</form></mrow>",
         },
         {
           "<math><mtext><form>x",
-          "<table><mtext><form></form></mtext></table>x",
+          "<table></table><mtext><form>x</form></mtext>",
         },
         {
           "<template><math><form>x",
-          "<template><table><form></form></table>x</template>",
+          "<template><form>x</form></template>",
         },
     };
     for (String[] c : nestedMathCases) {
@@ -3098,6 +3098,250 @@ class HtmlSanitizerTest {
         + "<tbody><tr><td>y</td></tr></tbody></table></form>",
         html.toString());
     assertEquals(counts[0], counts[1]);
+  }
+
+  /**
+   * An HTML table renamed to a foreign select cannot safely preserve its
+   * table-shaped contents.  Keep the renamed element, but fail closed for the
+   * subtree so a second browser parse cannot rearrange it.
+   */
+  @Test
+  void testForeignSelectRenamedFromTableHasStableEmptyContents()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "select", "table", "select");
+    String[][] cases = {
+        {
+          "<svg><table><td><option><tr></option> ",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><td><select><div></div><tr><i><tr>",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><td><tbody><b><caption><th></caption><option>",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><td><style>a{b:c}</style><script>alert(1)</script>"
+          + "<textarea>&lt;b&gt;</textarea><noscript><b>x</b></noscript>"
+          + "<textArea>y</textArea></table></svg>",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><tr><td>a</td></tr></table><g>kept</g>"
+          + "<table><caption>b</caption></table></svg>",
+          "<svg><select></select><g>kept</g><select></select></svg>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+  }
+
+  /** A literal replacement closes before a part of its implied table returns. */
+  @Test
+  void testImpliedTableRenamedToLiteralDoesNotCaptureDeferredTablePart()
+      throws Exception {
+    String input = "<tfoot><form><svg><th><table><caption>";
+    for (String literal : new String[] { "style", "script", "iframe" }) {
+      PolicyFactory p = tableMutationPolicy(
+          "table", literal, "table", literal);
+      assertRoundTripAndBalanced(
+          p, input, "<" + literal + "></" + literal + ">");
+    }
+  }
+
+  /** An explicit literal table owner must not hide a later orphan option. */
+  @Test
+  void testExplicitTableRenamedToLiteralStillPreparesFollowingTablePart()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "style", "table", "style");
+    assertRoundTripAndBalanced(
+        p,
+        "<table><colgroup><option>",
+        "<style></style><select><option></option></select>");
+  }
+
+  /** Retained template contents have their own foreign-content context. */
+  @Test
+  void testForeignSelectRenamedFromTableInsideRetainedTemplateIsStable()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "select", "table", "select");
+    String[][] cases = {
+        {
+          "<template><svg><table><style>x{}</style>"
+          + "<script>alert(1)</script><textarea>&lt;b&gt;</textarea>"
+          + "<noscript><b>x</b></noscript><b>after</b></table></svg>"
+          + "</template><i>tail</i>",
+          "<template><svg><select></select></svg></template><i>tail</i>",
+        },
+        {
+          "<template><math><mtext><svg><table><style>x{}</style></table>"
+          + "</svg></mtext></math></template><i>tail</i>",
+          "<template><math><mtext><svg><select></select></svg></mtext>"
+          + "</math></template><i>tail</i>",
+        },
+        {
+          "<template><svg><foreignObject><template><svg><table>"
+          + "<noscript><b>x</b></noscript><b>first</b></table></svg>"
+          + "</template><svg><table><b>second</b></table></svg>"
+          + "</foreignObject></svg></template><i>tail</i>",
+          "<template><svg><foreignObject><template><svg><select></select>"
+          + "</svg></template><svg><select></select></svg></foreignObject>"
+          + "</svg></template><i>tail</i>",
+        },
+        {
+          "<template><svg><textArea><svg><table><textarea>x</textarea>"
+          + "<b>after</b></table></svg></textArea></svg></template>"
+          + "<i>tail</i>",
+          "<template><svg><textArea><svg><select></select></svg></textArea>"
+          + "</svg></template><i>tail</i>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+  }
+
+  /** A policy close can clear the form pointer below a synthetic table. */
+  @Test
+  void testPolicyCloseReconcilesTheMatchingFormPointer() throws Exception {
+    PolicyFactory p = tableMutationPolicy("svg", "div", "p", "table");
+    assertRoundTripAndBalanced(
+        p,
+        "<form><thead></form><form>;"
+        + "<foreignObject></form><form></foreignObject><col>",
+        "<form><table><thead><form></form><form></form></thead></table>;"
+        + "<foreignObject><form></form></foreignObject>"
+        + "<table><colgroup><col /></colgroup></table></form>");
+  }
+
+  /** A policy-produced template cannot leak an implied table from a select. */
+  @Test
+  void testImpliedTableEscapingSelectStaysSuppressedThroughPolicyRename()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "template", "template", "div");
+    assertRoundTripAndBalanced(
+        p, "<select><strong><col>",
+        "<select><strong></strong></select>");
+  }
+
+  /** A dropped implied list item cannot remain on the balancer's stack. */
+  @Test
+  void testDroppedImpliedListItemDoesNotOutliveForeignSelect()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy("div", "svg", "svg", null);
+    assertRoundTripAndBalanced(
+        p,
+        "<select><mtext><tr><math><select><bar>;<b><tr>",
+        "<select><mtext><table><tbody><tr></tr></tbody></table>"
+        + "<math><select><bar>;<b></b></bar></select></math>"
+        + "<table><tbody><tr></tr></tbody></table></mtext></select>");
+  }
+
+  /** A table section cannot be pushed out after losing its owning table. */
+  @Test
+  void testOrphanTableSectionIsClosedInsteadOfPushedOut() throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "template", "div", "foo", "foo");
+    assertRoundTripAndBalanced(
+        p,
+        "<tr><math><template><foreignObject><em><thead>"
+        + "</foreignObject>><tr>",
+        "<table><tbody><tr></tr></tbody></table><math></math><div>&gt;"
+        + "<table><tbody><tr></tr></tbody></table></div>");
+  }
+
+  private static void assertRoundTripAndBalanced(
+      PolicyFactory p, String input, String expected) throws Exception {
+    String out = p.sanitize(input);
+    assertEquals(expected, out, input);
+    String again = p.sanitize(out);
+    assertEquals(out, again, input);
+    assertEquals(parseAsBrowser(out), parseAsBrowser(again), input);
+
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    assertEquals(out, p.sanitize(input, ignore, null), input);
+    assertBalancedPolicyEvents(p, input);
+    assertBalancedPolicyEvents(p, out);
+  }
+
+  private static void assertBalancedPolicyEvents(
+      PolicyFactory p, String input) {
+    final List<String> open = new ArrayList<>();
+    final int[] counts = new int[2];
+    HtmlStreamEventReceiver checked = new HtmlStreamEventReceiver() {
+      public void openDocument() {
+        assertTrue(open.isEmpty());
+      }
+
+      public void closeDocument() {
+        assertTrue(open.isEmpty(), "unclosed elements " + open);
+        assertEquals(counts[0], counts[1]);
+      }
+
+      public void openTag(String elementName, List<String> attrs) {
+        String canonName = HtmlLexer.canonicalElementName(elementName);
+        if (!HtmlTextEscapingMode.isVoidElement(canonName)) {
+          open.add(canonName);
+          ++counts[0];
+        }
+      }
+
+      public void closeTag(String elementName) {
+        String canonName = HtmlLexer.canonicalElementName(elementName);
+        assertFalse(open.isEmpty(), "unmatched close " + canonName);
+        assertEquals(
+            open.remove(open.size() - 1), canonName, "close order");
+        ++counts[1];
+      }
+
+      public void text(String text) {
+        // Only event balance is under test.
+      }
+    };
+    HtmlSanitizer.sanitize(input, p.apply(checked));
+  }
+
+  private static PolicyFactory tableMutationPolicy(
+      String firstInput, final @Nullable String firstOutput,
+      String secondInput, final @Nullable String secondOutput) {
+    String[] all = {
+        "table", "caption", "colgroup", "col", "thead", "tbody", "tfoot",
+        "tr", "td", "th", "form", "template", "div", "p", "span", "b",
+        "strong", "i", "select", "option", "svg", "g", "foreignObject",
+        "textArea", "math", "mrow", "mtext", "style", "script",
+        "textarea", "noscript", "title", "xmp", "iframe", "foo", "bar",
+    };
+    List<String> unchanged = new ArrayList<>(Arrays.asList(all));
+    unchanged.remove(firstInput);
+    if (!secondInput.equals(firstInput)) { unchanged.remove(secondInput); }
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements(unchanged.toArray(new String[unchanged.size()]))
+        .allowElements((name, attrs) -> firstOutput, firstInput);
+    if (!secondInput.equals(firstInput)) {
+      b.allowElements((name, attrs) -> secondOutput, secondInput);
+    }
+    return b.allowTextIn(
+            "form", "td", "th", "div", "p", "span", "b", "strong", "i",
+            "style", "script", "textarea", "noscript", "title", "xmp",
+            "iframe")
+        .allowWithoutAttributes(all)
+        .toFactory();
   }
 
   private static PolicyFactory formTablePolicy() {

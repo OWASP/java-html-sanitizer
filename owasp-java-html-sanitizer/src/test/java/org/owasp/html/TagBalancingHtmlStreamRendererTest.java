@@ -421,6 +421,38 @@ class TagBalancingHtmlStreamRendererTest {
     }
   }
 
+  /** The form-pointer reset pair also stays within the nesting limit. */
+  @Test
+  void testFormPointerResetPairRespectsTheNestingLimit() {
+    assertEquals(
+        "<form><table><tbody></tbody></table></form>",
+        renderBalancedEvents(3, "form", "table", "tbody", "/form"));
+
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements("form", "table", "tbody")
+        .allowTextIn("form", "table", "tbody")
+        .allowWithoutAttributes("form", "table", "tbody")
+        .toFactory();
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    int[] eventCounts = new int[3];
+    TagBalancingHtmlStreamEventReceiver limited =
+        new TagBalancingHtmlStreamEventReceiver(
+            factory.apply(strictRenderer(output, open, eventCounts)));
+    limited.setNestingLimit(3);
+    limited.openDocument();
+    limited.openTag("form", j8().listOf());
+    limited.openTag("table", j8().listOf());
+    limited.openTag("tbody", j8().listOf());
+    limited.closeTag("form");
+    limited.closeDocument();
+
+    assertEquals(
+        "<form><table><tbody></tbody></table></form>", output.toString());
+    assertEquals(eventCounts[0], eventCounts[1]);
+    assertEquals(3, eventCounts[2]);
+  }
+
   /** Retiring a stale form closes every emitted descendant at a small limit. */
   @Test
   void testDeferredFormRetirementKeepsRawEventsBalanced() {
@@ -1000,6 +1032,309 @@ class TagBalancingHtmlStreamRendererTest {
           "table", "tr", "td", "div", "#x", "tr", "td", "#y"),
           "limit " + limit);
     }
+  }
+
+  /** A suppressed option run at the limit uses bounded policy state. */
+  @Test
+  void testMappedForeignSelectOptionsAtNestingLimitAreBoundedAndReported() {
+    final int optionCount = 10_000;
+    for (int limit : new int[] { 2, 5 }) {
+      final int[] optionPolicyCalls = new int[1];
+      final int[] discarded = new int[2];
+      PolicyFactory factory = new HtmlPolicyBuilder()
+          .allowElements(
+              "svg", "table", "tbody", "tr", "td", "option", "span")
+          .allowElements((name, attrs) -> "select", "table")
+          .allowElements((name, attrs) -> {
+            ++optionPolicyCalls[0];
+            return "option";
+          }, "option")
+          .allowTextIn(
+              "svg", "table", "tbody", "tr", "td", "option", "span")
+          .allowWithoutAttributes(
+              "svg", "table", "tbody", "tr", "td", "option", "span")
+          .toFactory();
+
+      StringBuilder output = new StringBuilder();
+      List<String> open = new ArrayList<>();
+      int[] eventCounts = new int[3];
+      HtmlStreamEventReceiver checked = strictRenderer(
+          output, open, eventCounts);
+      HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+        public void discardedTag(Object context, String elementName) {
+          if ("option".equals(elementName)) {
+            ++discarded[0];
+          } else {
+            ++discarded[1];
+          }
+        }
+
+        public void discardedAttributes(
+            Object context, String tagName, String... attributeNames) {
+          fail("Unexpected discarded attributes on " + tagName);
+        }
+      };
+      TagBalancingHtmlStreamEventReceiver limited =
+          new TagBalancingHtmlStreamEventReceiver(
+              factory.apply(checked, listener, null));
+      limited.setNestingLimit(limit);
+      limited.openDocument();
+      limited.openTag("svg", j8().listOf());
+      limited.openTag("table", j8().listOf());
+      limited.openTag("tr", j8().listOf());
+      limited.openTag("td", j8().listOf());
+      for (int i = 0; i < optionCount; ++i) {
+        limited.openTag("option", j8().listOf());
+      }
+
+      // Re-applying the limit proves the untracked run did not grow the
+      // balancer's effective stack depth.
+      limited.setNestingLimit(limit);
+      for (int i = 0; i < optionCount; ++i) {
+        limited.closeTag("option");
+      }
+      limited.closeTag("td");
+      limited.closeTag("tr");
+      limited.closeTag("table");
+      limited.closeTag("svg");
+      limited.closeDocument();
+
+      assertEquals(
+          "<svg><select></select></svg>",
+          output.toString(), "limit " + limit);
+      assertEquals(limit == 2 ? 0 : 1, optionPolicyCalls[0], "limit " + limit);
+      assertEquals(optionCount, discarded[0], "limit " + limit);
+      assertEquals(2, discarded[1], "limit " + limit);
+      assertEquals(eventCounts[0], eventCounts[1], "limit " + limit);
+      assertTrue(eventCounts[2] <= limit, "limit " + limit);
+    }
+  }
+
+  /** Suppressed unrecognized starts still count toward the nesting limit. */
+  @Test
+  void testMappedForeignSelectUnknownChildrenAreBoundedAndReported() {
+    final int childCount = 10_000;
+    for (int limit : new int[] { 2, 3 }) {
+      final int[] policyCalls = new int[1];
+      final int[] discarded = new int[1];
+      PolicyFactory factory = new HtmlPolicyBuilder()
+          .allowElements("svg")
+          .allowElements((name, attrs) -> "select", "table")
+          .allowElements((name, attrs) -> {
+            ++policyCalls[0];
+            return "foo";
+          }, "foo")
+          .allowTextIn("svg", "table", "foo")
+          .allowWithoutAttributes("svg", "table", "foo")
+          .toFactory();
+      HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+        public void discardedTag(Object context, String elementName) {
+          assertEquals("foo", elementName);
+          ++discarded[0];
+        }
+
+        public void discardedAttributes(
+            Object context, String tagName, String... attributeNames) {
+          fail("Unexpected discarded attributes on " + tagName);
+        }
+      };
+      StringBuilder output = new StringBuilder();
+      List<String> open = new ArrayList<>();
+      int[] eventCounts = new int[3];
+      TagBalancingHtmlStreamEventReceiver limited =
+          new TagBalancingHtmlStreamEventReceiver(
+              factory.apply(
+                  strictRenderer(output, open, eventCounts), listener, null));
+      limited.setNestingLimit(limit);
+      limited.openDocument();
+      limited.openTag("svg", j8().listOf());
+      limited.openTag("table", j8().listOf());
+      for (int i = 0; i < childCount; ++i) {
+        limited.openTag("foo", j8().listOf());
+      }
+      limited.setNestingLimit(limit);
+      limited.closeDocument();
+
+      assertEquals("<svg><select></select></svg>", output.toString());
+      assertEquals(limit == 2 ? 0 : 1, policyCalls[0], "limit " + limit);
+      assertEquals(childCount, discarded[0], "limit " + limit);
+      assertEquals(eventCounts[0], eventCounts[1], "limit " + limit);
+      assertTrue(eventCounts[2] <= limit, "limit " + limit);
+    }
+  }
+
+  /** A cap-dropped nested table end cannot close the suppression owner. */
+  @Test
+  void testMappedForeignSelectShadowsNestedTablesAtTheLimit() {
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@2", "svg", "table", "table", "/table",
+            "b", "#must-drop", "/b", "/table", "/svg"));
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@3", "svg", "table", "b", "table", "/table",
+            "i", "#must-drop", "/i", "/b", "/table", "/svg"));
+    assertEquals(
+        "<template><svg><select></select></svg></template>",
+        renderMappedSelectPolicyEvents(
+            "@3", "template", "svg", "table", "b", "#must-drop", "/b",
+            "/table", "/svg", "/template"));
+  }
+
+  /** Closing a suppressed option discards policy-only descendants. */
+  @Test
+  void testSuppressedOptionAllowsNestingLimitToBeLoweredAfterClose() {
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "table", "tbody", "tr", "td", "option", "span")
+        .allowElements((name, attrs) -> "select", "table")
+        .allowTextIn(
+            "svg", "table", "tbody", "tr", "td", "option", "span")
+        .allowWithoutAttributes(
+            "svg", "table", "tbody", "tr", "td", "option", "span")
+        .toFactory();
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    int[] eventCounts = new int[3];
+    TagBalancingHtmlStreamEventReceiver limited =
+        new TagBalancingHtmlStreamEventReceiver(
+            factory.apply(strictRenderer(output, open, eventCounts)));
+
+    limited.setNestingLimit(5);
+    limited.openDocument();
+    limited.openTag("svg", j8().listOf());
+    limited.openTag("table", j8().listOf());
+    limited.openTag("tr", j8().listOf());
+    limited.openTag("td", j8().listOf());
+    limited.openTag("option", j8().listOf());
+    limited.setNestingLimit(100);
+    for (int i = 0; i < 90; ++i) {
+      limited.openTag("span", j8().listOf());
+    }
+    limited.closeTag("option");
+
+    // This throws if the descendants removed with the suppressed option
+    // remain on either stack.
+    limited.setNestingLimit(5);
+    limited.closeDocument();
+
+    assertEquals(
+        "<svg><select></select></svg>",
+        output.toString());
+    assertEquals(eventCounts[0], eventCounts[1]);
+    assertEquals(2, eventCounts[2]);
+  }
+
+  /** Formatting queued inside a suppressed option cannot resume after it. */
+  @Test
+  void testSuppressedOptionDiscardsItsFormattingResumeEntries() {
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@5", "svg", "table", "tr", "td", "option", "@30",
+            "form", "a", "/form", "/option", "div", "#after", "/div"));
+
+    // The policy may end the suppressed option implicitly.  The next start
+    // observes that and must discard the same queued formatting suffix.
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@5", "svg", "table", "tr", "td", "option", "@30",
+            "i", "em", "/tbody", "div", "#after", "/div"));
+
+    // A formatting entry queued before the virtual option still resumes.
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@5", "svg", "table", "tr", "td", "@30", "form", "a",
+            "/form", "@5", "option", "/option", "@30", "div", "#after",
+            "/div"));
+
+    // If an ancestor end makes the policy end suppression first, the next
+    // event also retires every logical descendant of the virtual option.
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@5", "svg", "table", "tr", "td", "option", "@30", "a",
+            "em", "/svg", "@5"));
+
+    // A template bounds the table-to-select lookup, so the inner option is
+    // tracked normally and its end must not consume the outer option counter.
+    assertEquals(
+        "<svg><select></select></svg>",
+        renderMappedSelectPolicyEvents(
+            "@2", "svg", "table", "option", "@10", "template", "option",
+            "/option", "/template", "/option", "div", "#after", "/div"));
+  }
+
+  private static String renderMappedSelectPolicyEvents(String... events) {
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "table", "tbody", "tr", "td", "option", "form", "a",
+            "div", "i", "em", "template")
+        .allowElements((name, attrs) -> "select", "table")
+        .allowTextIn(
+            "svg", "table", "tbody", "tr", "td", "option", "form", "a",
+            "div", "i", "em", "template")
+        .allowWithoutAttributes(
+            "svg", "table", "tbody", "tr", "td", "option", "form", "a",
+            "div", "i", "em", "template")
+        .toFactory();
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    int[] eventCounts = new int[3];
+    TagBalancingHtmlStreamEventReceiver receiver =
+        new TagBalancingHtmlStreamEventReceiver(
+            factory.apply(strictRenderer(output, open, eventCounts)));
+    receiver.openDocument();
+    for (String event : events) {
+      if (event.startsWith("@")) {
+        receiver.setNestingLimit(Integer.parseInt(event.substring(1)));
+      } else if (event.startsWith("#")) {
+        receiver.text(event.substring(1));
+      } else if (event.startsWith("/")) {
+        receiver.closeTag(event.substring(1));
+      } else {
+        receiver.openTag(event, j8().listOf());
+      }
+    }
+    receiver.closeDocument();
+    assertEquals(eventCounts[0], eventCounts[1]);
+    return output.toString();
+  }
+
+  private static HtmlStreamEventReceiver strictRenderer(
+      StringBuilder output, final List<String> open, final int[] counts) {
+    return new HtmlStreamEventReceiverWrapper(
+        HtmlStreamRenderer.create(output, x -> fail(x))) {
+      @Override
+      public void openTag(String name, List<String> attrs) {
+        String canonName = HtmlLexer.canonicalElementName(name);
+        if (!HtmlTextEscapingMode.isVoidElement(canonName)) {
+          open.add(canonName);
+          ++counts[0];
+          counts[2] = Math.max(counts[2], open.size());
+        }
+        super.openTag(name, attrs);
+      }
+
+      @Override
+      public void closeTag(String name) {
+        String canonName = HtmlLexer.canonicalElementName(name);
+        assertFalse(open.isEmpty(), "unmatched close " + canonName);
+        assertEquals(open.remove(open.size() - 1), canonName, "close order");
+        ++counts[1];
+        super.closeTag(name);
+      }
+
+      @Override
+      public void closeDocument() {
+        assertTrue(open.isEmpty(), "unclosed elements " + open);
+        super.closeDocument();
+      }
+    };
   }
 
   /** Checks events themselves, since the renderer can hide missing closes. */
