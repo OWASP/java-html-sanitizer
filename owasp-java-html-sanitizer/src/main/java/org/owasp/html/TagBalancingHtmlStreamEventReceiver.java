@@ -589,6 +589,15 @@ public class TagBalancingHtmlStreamEventReceiver
     foreignContent.processStartTag(canonElementName, attrs, false);
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
+    // The HTML form-pointer rules apply to an HTML form outside template
+    // contents.  When the input tracker can no longer tell HTML from foreign
+    // content, follow the output: a browser parsing it consults the pointer
+    // only outside SVG and MathML, so a form emitted inside a foreign root
+    // must not be dropped, or latch the pointer, as if it were HTML.
+    boolean formUsesHtmlPointerRules = elIndex == FORM_TAG
+        && !usesForeignContentRules
+        && !parsingTemplateContents
+        && !(foreignContent.isUnknown() && outputForeignRootBefore != null);
     int startSerial = foreignContent.lastStartTagPushedSerial();
     PushedOutTablePolicy tablePolicyAtStart = pushedOutTablePolicy();
     boolean suppressingPolicySubtree = tablePolicyAtStart != null
@@ -634,9 +643,7 @@ public class TagBalancingHtmlStreamEventReceiver
       }
       return;
     }
-    if (elIndex == FORM_TAG
-        && !usesForeignContentRules
-        && !parsingTemplateContents) {
+    if (formUsesHtmlPointerRules) {
       if (formElementPointerWasSet) {
         // Outside template contents, a browser ignores another form start
         // while its form element pointer is set.
@@ -966,6 +973,12 @@ public class TagBalancingHtmlStreamEventReceiver
           || effectiveNestingDepth() >= nestingLimit) {
         retireContainerForUnemittedListChild(elIndex);
         if (formPolicy != null) { formPolicy.discardPreparedFormStart(); }
+        if (formUsesHtmlPointerRules) {
+          // The pointer was set for this form above.  The form is not in
+          // the output, so the output parser's pointer stays null, and a
+          // later form must not be ignored on its account.
+          foreignContent.clearFormElementPointer();
+        }
         if (contentIsSkippable(canonElementName)) {
           ++droppedSkippableDepth;
         }
@@ -1064,9 +1077,7 @@ public class TagBalancingHtmlStreamEventReceiver
             && !outputElementsStartForeignContent.get(stackIndex)) {
           outputTableUnavailable.set(stackIndex);
         }
-        if (elIndex == FORM_TAG
-            && !usesForeignContentRules
-            && !parsingTemplateContents) {
+        if (formUsesHtmlPointerRules) {
           formPointerTargets.clear();
           formPointerTargets.set(stackIndex);
         }
@@ -1075,6 +1086,10 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     } else {
       retireContainerForUnemittedListChild(elIndex);
+      if (formUsesHtmlPointerRules) {
+        // Dropped at the limit, as above: not in the output, so no pointer.
+        foreignContent.clearFormElementPointer();
+      }
       if (elIndex == TABLE_TAG
           && suppressingPolicySubtree
           && suppressedMappedForeignTableIndex() >= 0
@@ -3177,9 +3192,12 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
-    if (elIndex == FORM_TAG
+    // As for a start tag: judged by the output once the tracker is unknown.
+    boolean formUsesHtmlPointerRules = elIndex == FORM_TAG
         && !usesForeignContentRules
-        && !parsingTemplateContents) {
+        && !parsingTemplateContents
+        && !(foreignContent.isUnknown() && outputForeignRootBefore != null);
+    if (formUsesHtmlPointerRules) {
       foreignContent.clearFormElementPointer();
     }
     if (elIndex == TABLE_TAG
@@ -3248,9 +3266,7 @@ public class TagBalancingHtmlStreamEventReceiver
 
     int index = -1;
     int pointerTarget = -1;
-    boolean formEndUsesPointer = elIndex == FORM_TAG
-        && !usesForeignContentRules
-        && !parsingTemplateContents;
+    boolean formEndUsesPointer = formUsesHtmlPointerRules;
     {
       if (formEndUsesPointer) {
         if (!formElementPointerWasSet) {

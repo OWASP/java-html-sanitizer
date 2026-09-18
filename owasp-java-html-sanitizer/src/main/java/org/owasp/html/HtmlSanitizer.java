@@ -269,6 +269,15 @@ public final class HtmlSanitizer {
       return formElementPointerSet;
     }
 
+    /**
+     * True once the browser's context can no longer be derived from the
+     * tracked elements, after which tags are judged under the legacy HTML
+     * rules whatever namespace the browser is really in.
+     */
+    boolean isUnknown() {
+      return unknown;
+    }
+
     /** Records a form pointer whose target may be outside the tracked region. */
     void markFormElementPointerSet() {
       formElementPointerSet = true;

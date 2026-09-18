@@ -2484,6 +2484,69 @@ class HtmlSanitizerTest {
     }
   }
 
+  /**
+   * A form the nesting limit drops is not in the output, so it must not
+   * latch the form pointer: the output parser's pointer stays null, and a
+   * later form is inserted.  The pointer used to stay set, which silently
+   * discarded every form for the rest of the document.
+   */
+  @Test
+  void testFormDroppedAtNestingLimitDoesNotLatchThePointer() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("form", "div")
+        .allowWithoutAttributes("form", "div")
+        .toFactory();
+    for (int depth : new int[] { 256, 300 }) {
+      String out = p.sanitize(
+          stringRepeatedTimes("<div>", depth) + "<form>a"
+          + stringRepeatedTimes("</div>", depth) + "<form>b</form>");
+      assertEquals(
+          stringRepeatedTimes("<div>", 256) + "a"
+          + stringRepeatedTimes("</div>", 256) + "<form>b</form>",
+          out, "depth " + depth);
+      assertEquals(out, p.sanitize(out), "depth " + depth);
+    }
+  }
+
+  /**
+   * A stray table end tag inside SVG makes the input tracker give up on the
+   * namespace.  The forms that follow are still SVG elements, which a browser
+   * inserts without consulting the form pointer, so they are all kept, as
+   * they are when the output is parsed.  Applying the HTML rule dropped the
+   * second form and merged its text into the first.
+   */
+  @Test
+  void testForeignFormsAfterUnknownContextAreNotDroppedByThePointer()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("svg", "form", "b")
+        .allowWithoutAttributes("svg", "form", "b")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<svg></tr><form><form>",
+          "<svg><form></form><form></form></svg>",
+        },
+        {
+          "<svg></tr><form><b></b><form>x</form></form>",
+          "<svg><form><b></b></form><form>x</form></svg>",
+        },
+        // Once the foreign root is closed the output is HTML again, and the
+        // pointer rule applies: the second form is ignored.
+        {
+          "<svg></tr></svg><form><form>x",
+          "<svg></svg><form>x</form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          parseAsBrowser(out), parseAsBrowser(p.sanitize(out)), c[0]);
+    }
+  }
+
   /** A form end inside template contents does not clear an outer pointer. */
   @Test
   void testFormEndInsideTemplateDoesNotClearOuterPointer() {
