@@ -212,8 +212,16 @@ public final class HtmlChangeReporter<T> {
       output.attributeLeftOff(name, value);
     }
 
+    /**
+     * The balancer mirrors the policy's own stack, so this answers from the
+     * policy when it can say, not from what reached the renderer: a
+     * postprocessor between them can filter that, and attaching a listener
+     * must not change how the output is balanced.
+     */
     public @Nullable String outputElementNameForLastOpenTag() {
-      return outputElementNameForLastOpenTag;
+      return policy instanceof OpenTagOutputPolicy
+          ? ((OpenTagOutputPolicy) policy).outputElementNameForLastOpenTag()
+          : outputElementNameForLastOpenTag;
     }
 
     public boolean outputElementForLastOpenTagUsedForeignContentRules() {

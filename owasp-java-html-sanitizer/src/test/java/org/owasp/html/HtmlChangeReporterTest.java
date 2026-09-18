@@ -484,6 +484,41 @@ class HtmlChangeReporterTest {
   }
 
   /**
+   * The balancer asks this channel what the policy emitted, and the channel
+   * used to answer from what reached the renderer.  Behind a postprocessor
+   * that drops an element the two differ, so merely attaching a listener
+   * changed the sanitized output.  An audit listener must never do that.
+   */
+  @Test
+  void testListenerDoesNotChangeOutputBehindAPostprocessor() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "colgroup", "col", "ul", "li", "div", "textarea", "tr",
+            "td")
+        .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            if (!"div".equals(elementName)) {
+              underlying.openTag(elementName, attrs);
+            }
+          }
+
+          @Override
+          public void closeTag(String elementName) {
+            if (!"div".equals(elementName)) {
+              underlying.closeTag(elementName);
+            }
+          }
+        })
+        .toFactory();
+    String input = "<table><col><li><div></tr><textarea><foreignObject>";
+    String plain = policy.sanitize(input);
+    Result result = sanitizeVerbose(policy, input);
+
+    assertEquals(plain, result.html);
+  }
+
+  /**
    * The reported container is the literal name emitted by an element policy.
    */
   @Test
