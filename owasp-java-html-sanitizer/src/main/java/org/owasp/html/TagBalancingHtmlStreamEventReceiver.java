@@ -627,7 +627,8 @@ public class TagBalancingHtmlStreamEventReceiver
         }
         droppedSuppressedOptionDepth = 1;
       } else {
-        tablePolicyAtStart.openTagWithoutOutputOrContent(elementName, attrs);
+        tablePolicyAtStart.openTagWithoutOutputOrContent(
+            canonElementName, attrs);
         stackElementWithoutOutput(
             elIndex, usesForeignContentRules, startSerial);
       }
@@ -676,11 +677,14 @@ public class TagBalancingHtmlStreamEventReceiver
         reportDroppedByNestingLimit(elementName);
         return;
       }
-      underlying.openTag(elementName, attrs);
-      pushPassthrough(elementName, startSerial);
+      underlying.openTag(canonElementName, attrs);
+      pushPassthrough(canonElementName, startSerial);
       return;
     }
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
+    // They go below under their canonical name, like recognized tags: the
+    // policy prepares its result under that name, and a preprocessor can
+    // hand this receiver a name in a case the lexer would not.
     if (elIndex == UNRECOGNIZED_TAG) {
       if (mayOpenAtNestingLimit && effectiveNestingDepth() < nestingLimit) {
         FormPointerPolicy policy = underlying instanceof FormPointerPolicy
@@ -810,14 +814,15 @@ public class TagBalancingHtmlStreamEventReceiver
               || (preparedOutputName != null
                   && "template".equals(HtmlLexer.canonicalElementName(
                       preparedOutputName)))) {
-            tablePolicy.openTagWithoutOutputOrContent(elementName, attrs);
+            tablePolicy.openTagWithoutOutputOrContent(
+                canonElementName, attrs);
           } else {
-            tablePolicy.openTagWithoutOutput(elementName, attrs);
+            tablePolicy.openTagWithoutOutput(canonElementName, attrs);
           }
-          pushPassthrough(elementName, startSerial);
+          pushPassthrough(canonElementName, startSerial);
         } else {
-          underlying.openTag(elementName, attrs);
-          pushPassthrough(elementName, startSerial);
+          underlying.openTag(canonElementName, attrs);
+          pushPassthrough(canonElementName, startSerial);
           if (leaveHtmlTextElementPending
               && underlying instanceof OpenTagOutputPolicy
               && preparedOutputName.equals(

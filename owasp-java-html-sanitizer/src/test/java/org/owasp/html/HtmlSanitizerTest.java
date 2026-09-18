@@ -1064,6 +1064,40 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * A preprocessor can hand the balancer a name in a case the lexer would
+   * not, such as {@code CusTom}.  The policy prepares its result under the
+   * canonical name, so the start has to be forwarded under it too.  Forwarded
+   * as written, the prepared result was never consumed, the policy was
+   * applied to the tag a second time, and the next start tag threw
+   * {@code IllegalStateException} out of {@code sanitize}.
+   */
+  @Test
+  void testPreprocessorMayRecaseAnUnrecognizedTag() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("custom", "p")
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            underlying.openTag(recase(elementName), attrs);
+          }
+
+          @Override
+          public void closeTag(String elementName) {
+            underlying.closeTag(recase(elementName));
+          }
+
+          private String recase(String elementName) {
+            return "custom".equals(elementName) ? "CusTom" : elementName;
+          }
+        })
+        .toFactory();
+    String out = p.sanitize("<custom><p>x</p></custom><custom>y</custom>");
+    assertEquals("<custom><p>x</p></custom><custom>y</custom>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(out), parseAsBrowser(p.sanitize(out)));
+  }
+
+  /**
    * Test #16:
    * The renderer itself refuses literal content holding the end tag of an
    * element that a browser reads as raw text, so a policy that never runs
