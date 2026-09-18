@@ -1387,6 +1387,12 @@ class TagBalancingHtmlStreamRendererTest {
         "<svg><desc><b>x</b></desc>y</svg><b>w</b>",
         renderBalancedEvents(
             256, "svg", "desc", "b", "#x", "/desc", "#y", "/svg", "#w"));
+    // A void breakout element adds no empty formatting element in front of
+    // it; the text after it, now in HTML content, resumes the formatting.
+    assertEquals(
+        "<svg><desc><b>x</b></desc><hr /><b>y</b></svg>",
+        renderBalancedEvents(
+            256, "svg", "desc", "b", "#x", "/desc", "hr", "#y", "/svg"));
   }
 
   /** A root dropped at the limit owns nothing below for its end tag to close. */

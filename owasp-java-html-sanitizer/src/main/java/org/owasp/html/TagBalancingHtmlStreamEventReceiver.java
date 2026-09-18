@@ -570,12 +570,14 @@ public class TagBalancingHtmlStreamEventReceiver
         outputStartTagUsesForeignContentRules(canonElementName, attrs);
     boolean outputUsesHtmlIntegrationPointRules =
         outputStartTagUsesHtmlIntegrationPointRules(canonElementName, attrs);
+    // Judged before this tag: queued formatting is resumed in front of it,
+    // and a tag that breaks out of foreign content is still inserted after
+    // the browser pops the foreign nodes, not before.
+    insertionPointIsInForeignContent = textIsInForeignContent();
     foreignContent.processStartTag(canonElementName, attrs, false);
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
     int startSerial = foreignContent.lastStartTagPushedSerial();
-    insertionPointIsInForeignContent = pushedOutTablePolicy() != null
-        ? outputUsesForeignContentRules : usesForeignContentRules;
     PushedOutTablePolicy tablePolicyAtStart = pushedOutTablePolicy();
     boolean suppressingPolicySubtree = tablePolicyAtStart != null
         && tablePolicyAtStart.isSuppressingOutputAndContent();
@@ -1616,10 +1618,10 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
-   * Whether text would be inserted under SVG or MathML rules: the current
+   * Whether the insertion point is under SVG or MathML rules: the current
    * node below is foreign and not an integration point.  Asked as a start
    * tag for {@code a}, a name that does not break out of foreign content, so
-   * the answer describes the insertion point rather than the tag.
+   * the answer describes the insertion point rather than any particular tag.
    */
   private boolean textIsInForeignContent() {
     List<String> noAttrs = new ArrayList<>();

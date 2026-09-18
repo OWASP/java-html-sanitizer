@@ -3442,7 +3442,7 @@ class HtmlSanitizerTest {
   void testFormattingIsNotResumedInForeignContent() throws Exception {
     String[] names = {
         "svg", "desc", "foreignObject", "g", "math", "mtext", "mrow", "b",
-        "i",
+        "i", "p",
     };
     PolicyFactory p = new HtmlPolicyBuilder()
         .allowElements(names).allowWithoutAttributes(names).toFactory();
@@ -3463,6 +3463,13 @@ class HtmlSanitizerTest {
           "<svg><desc><b>x</desc><foreignObject>y</foreignObject></svg>",
           "<svg><desc><b>x</b></desc><foreignObject><b>y</b></foreignObject>"
           + "</svg>",
+        },
+        // A tag that breaks out of foreign content is inserted after the
+        // browser pops the foreign nodes, so the formatting resumes for the
+        // text inside it rather than in front of it.
+        {
+          "<svg><desc><b>x</desc><p>z</p></svg>",
+          "<svg><desc><b>x</b></desc><p><b>z</b></p></svg>",
         },
     };
     for (String[] c : cases) {
