@@ -2365,7 +2365,7 @@ class HtmlSanitizerTest {
 
   /** The reported text and row are not children of the table-mode form. */
   @Test
-  void testTableFormDoesNotContainFollowingContent() {
+  void testTableFormDoesNotContainFollowingContent() throws Exception {
     PolicyFactory p = formTablePolicy();
     String input = "<table><form id=f>x<tr><td>y</td></tr></table>tail";
     String out = p.sanitize(input);
@@ -2375,6 +2375,24 @@ class HtmlSanitizerTest {
         + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
         out);
     assertEquals(out, p.sanitize(out));
+    // A browser foster-parents "x" in front of the table it arrives in.  The
+    // sanitizer serializes content pushed out of a table after the table it
+    // was pushed out of, as it has for text since #481, so the browser's tree
+    // of the output is not the tree of the input: the table is split around
+    // "x".  What must agree is that the form has no children and that nothing
+    // is lost or reordered.
+    assertEquals(
+        "<table>\n"
+        + "  <form id=f>\n"
+        + "\"x\"\n"
+        + "<table>\n"
+        + "  <tbody>\n"
+        + "    <tr>\n"
+        + "      <td>\n"
+        + "        \"y\"\n"
+        + "\"tail\"\n",
+        parseAsBrowser(out));
+    assertEquals(textOf(parseAsBrowser(input)), textOf(parseAsBrowser(out)));
 
     HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
       public void discardedTag(Object context, String elementName) {
@@ -2611,9 +2629,13 @@ class HtmlSanitizerTest {
 
   }
 
-  /** Dropping an empty table-mode form does not leave a policy stack entry. */
+  /**
+   * Dropping an empty table-mode form does not leave a policy stack entry.
+   * The text around it is pushed out of the table as a browser foster-parents
+   * it, and none of it is lost.
+   */
   @Test
-  void testDroppedTableModeForm() {
+  void testDroppedTableModeForm() throws Exception {
     PolicyFactory p = tableFormReplacementPolicy(null);
     String[][] cases = {
         {
@@ -2645,6 +2667,8 @@ class HtmlSanitizerTest {
       String out = p.sanitize(c[0]);
       assertEquals(c[1], out, c[0]);
       assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          textOf(parseAsBrowser(c[0])), textOf(parseAsBrowser(out)), c[0]);
     }
   }
 
@@ -4062,6 +4086,22 @@ class HtmlSanitizerTest {
   }
 
   /** The tree a browser builds from html, one node per line. */
+  /**
+   * The text of a browser tree from {@link #parseAsBrowser}, in document
+   * order with the markup removed: what a reader sees, whatever the elements
+   * around it became.
+   */
+  private static String textOf(String browserTree) {
+    StringBuilder sb = new StringBuilder();
+    for (String line : browserTree.split("\n")) {
+      String node = line.trim();
+      if (node.length() >= 2 && node.startsWith("\"") && node.endsWith("\"")) {
+        sb.append(node, 1, node.length() - 1);
+      }
+    }
+    return sb.toString();
+  }
+
   private static String parseAsBrowser(String html) throws Exception {
     Node fragment = new HtmlDocumentBuilder().parseFragment(
         new InputSource(new StringReader(html)), "body");

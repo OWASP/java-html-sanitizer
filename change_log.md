@@ -11,7 +11,10 @@ Most recent at top.
       custom elements and foreign names, are balanced against what was
       forwarded: what was opened inside one closes before it, a stray end tag
       closes nothing, and formatting closed that way resumes as a browser
-      reconstructs it.
+      reconstructs it.  Such elements count toward the nesting limit like any
+      other open element.  Text that a browser foster-parents out of a table
+      whose parts the policy dropped is kept beside the table rather than
+      dropped.
     * A nested element inside one renamed to a literal-content element no
       longer opens its own text gate.  Its text now follows the outer element's
       gate, so it cannot reach `style` or similar content where text was not
