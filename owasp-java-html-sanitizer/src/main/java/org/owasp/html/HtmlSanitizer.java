@@ -358,6 +358,30 @@ public final class HtmlSanitizer {
     }
 
     /**
+     * Pops the node with this identity and every node above it.  The
+     * balancer calls this after it has sent an end tag for a forwarded
+     * element that these rules ignored, so that this context keeps
+     * describing the output actually written rather than the tree a browser
+     * builds from the input, which the output no longer reproduces there.
+     */
+    void popNodeWithSerial(int serial) {
+      if (unknown || serial == 0) { return; }
+      for (int i = openElements.size(); --i >= 0;) {
+        if (openElements.get(i).serial != serial) { continue; }
+        for (int j = i, n = openElements.size(); j < n; ++j) {
+          OpenElement popped = openElements.get(j);
+          if (popped == trackedFormElement) { trackedFormElement = null; }
+          if (popped == simpleTable) {
+            simpleTable = null;
+            htmlInsertionMode = simpleTableReturnMode;
+          }
+        }
+        openElements.subList(i, openElements.size()).clear();
+        return;
+      }
+    }
+
+    /**
      * Foreign element names popped by the most recent end tag, inner first,
      * ending with the end tag's own target.  Empty unless
      * {@link #lastTagUsedForeignContentRules} is true.

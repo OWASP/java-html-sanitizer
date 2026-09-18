@@ -3432,6 +3432,45 @@ class HtmlSanitizerTest {
     assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
   }
 
+  /**
+   * Formatting closed by the end tag of an integration point stays queued
+   * while content is inserted under SVG or MathML rules, where a browser
+   * neither reconstructs it nor keeps a formatting start tag inside the
+   * foreign root, and resumes where HTML content is inserted again.
+   */
+  @Test
+  void testFormattingIsNotResumedInForeignContent() throws Exception {
+    String[] names = {
+        "svg", "desc", "foreignObject", "g", "math", "mtext", "mrow", "b",
+        "i",
+    };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    // validator.nu closes desc and mtext on their end tags, which is the
+    // tree these expectations follow; a browser treating them as special
+    // ignores the end tag instead, and neither ever resumes the formatting
+    // inside the foreign root.
+    String[][] cases = {
+        {
+          "<svg><desc><b>x</desc><g>z</g></svg>w",
+          "<svg><desc><b>x</b></desc><g>z</g></svg><b>w</b>",
+        },
+        {
+          "<math><mtext><i>x</mtext><mrow>z</mrow></math>w",
+          "<math><mtext><i>x</i></mtext><mrow>z</mrow></math><i>w</i>",
+        },
+        {
+          "<svg><desc><b>x</desc><foreignObject>y</foreignObject></svg>",
+          "<svg><desc><b>x</b></desc><foreignObject><b>y</b></foreignObject>"
+          + "</svg>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+  }
+
   private static void assertRoundTripAndBalanced(
       PolicyFactory p, String input, String expected) throws Exception {
     String out = p.sanitize(input);

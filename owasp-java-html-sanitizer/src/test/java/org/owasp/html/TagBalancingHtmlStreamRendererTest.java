@@ -1375,10 +1375,18 @@ class TagBalancingHtmlStreamRendererTest {
         "<foo><foo><foo>x</foo></foo></foo>",
         renderBalancedEvents(
             256, "foo", "foo", "foo", "#x", "/foo", "/foo", "/foo"));
-    // A table part clears a browser's stack back to the table context.
+    // A table part clears a browser's stack back to the table context.  The
+    // balancer does not foster-parent the unrecognized element out of the
+    // table, so it is written inside the table rather than in front of it.
     assertEquals(
         "<table><foo></foo><tbody><tr><td>x</td></tr></tbody></table>",
         renderBalancedEvents(256, "table", "foo", "tr", "td", "#x"));
+    // Formatting closed with an integration point is not resumed while
+    // content is inserted under SVG rules.
+    assertEquals(
+        "<svg><desc><b>x</b></desc>y</svg><b>w</b>",
+        renderBalancedEvents(
+            256, "svg", "desc", "b", "#x", "/desc", "#y", "/svg", "#w"));
   }
 
   /** A root dropped at the limit owns nothing below for its end tag to close. */

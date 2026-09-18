@@ -64,6 +64,14 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean policyOnlyTableMayBeOpen;
   /** Prevents nested balancing from replacing a prepared policy result. */
   private boolean preparingPreparedPolicyStart;
+  /**
+   * Whether the tag or text being balanced is inserted under SVG or MathML
+   * rules below.  A browser reconstructs its active formatting elements only
+   * where it inserts HTML content, and an HTML formatting start tag in
+   * foreign content would instead pop the foreign root, so no queued
+   * formatting is resumed there.
+   */
+  private boolean insertionPointIsInForeignContent;
   /** Whether emitted bare parts may keep a browser-implied table open. */
   private boolean outputlessTablePartsMayBeOpen;
   /** Public open-tag event in which detached state first became true. */
@@ -481,6 +489,7 @@ public class TagBalancingHtmlStreamEventReceiver
     pendingUnrecognizedHtmlTextElement = null;
     policyOnlyTableMayBeOpen = false;
     preparingPreparedPolicyStart = false;
+    insertionPointIsInForeignContent = false;
     outputlessTablePartsMayBeOpen = false;
     outputlessTablePartsOpenedAtEvent = -1;
     openTagEvent = 0;
@@ -523,6 +532,7 @@ public class TagBalancingHtmlStreamEventReceiver
     pendingUnrecognizedHtmlTextElement = null;
     policyOnlyTableMayBeOpen = false;
     preparingPreparedPolicyStart = false;
+    insertionPointIsInForeignContent = false;
     outputlessTablePartsMayBeOpen = false;
     outputlessTablePartsOpenedAtEvent = -1;
     outputlessTablesWithEmittedParts.clear();
@@ -564,6 +574,8 @@ public class TagBalancingHtmlStreamEventReceiver
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
     int startSerial = foreignContent.lastStartTagPushedSerial();
+    insertionPointIsInForeignContent = pushedOutTablePolicy() != null
+        ? outputUsesForeignContentRules : usesForeignContentRules;
     PushedOutTablePolicy tablePolicyAtStart = pushedOutTablePolicy();
     boolean suppressingPolicySubtree = tablePolicyAtStart != null
         && tablePolicyAtStart.isSuppressingOutputAndContent();
@@ -1603,6 +1615,20 @@ public class TagBalancingHtmlStreamEventReceiver
     return policy != null && policy.isOutputInForeignContent();
   }
 
+  /**
+   * Whether text would be inserted under SVG or MathML rules: the current
+   * node below is foreign and not an integration point.  Asked as a start
+   * tag for {@code a}, a name that does not break out of foreign content, so
+   * the answer describes the insertion point rather than the tag.
+   */
+  private boolean textIsInForeignContent() {
+    List<String> noAttrs = new ArrayList<>();
+    PushedOutTablePolicy policy = pushedOutTablePolicy();
+    return policy != null
+        ? policy.outputStartTagUsesForeignContentRules("a", noAttrs)
+        : foreignContent.startTagUsesForeignContentRules("a", noAttrs);
+  }
+
   /** The outermost foreign root the policy has actually emitted, if known. */
   private @Nullable String outputForeignContentRootName() {
     PushedOutTablePolicy policy = pushedOutTablePolicy();
@@ -2066,7 +2092,9 @@ public class TagBalancingHtmlStreamEventReceiver
       resumeFormatting = false;
     }
     boolean resumed = false;
-    while (resumeFormatting && !toResumeInReverse.isEmpty()) {
+    while (resumeFormatting
+        && !insertionPointIsInForeignContent
+        && !toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
       int nOpen;
       // If toResume can contain elInfo AND the top of the stack can contain
@@ -3189,7 +3217,7 @@ public class TagBalancingHtmlStreamEventReceiver
       // Forwarded only for an element the receiver below still has open,
       // after everything opened inside it.  A stray end tag closes nothing.
       int passthrough = indexOfPassthroughNamed(canonElementName);
-      if (passthrough >= 0) { closePassthrough(passthrough, true); }
+      if (passthrough >= 0) { closePassthroughByName(passthrough); }
       return;
     }
 
@@ -3296,7 +3324,7 @@ public class TagBalancingHtmlStreamEventReceiver
       int passthrough = indexOfPassthroughNamed(canonElementName);
       if (passthrough >= 0
           && (index < 0 || passthroughDepths.get(passthrough) > index)) {
-        closePassthrough(passthrough, true);
+        closePassthroughByName(passthrough);
         return;
       }
     }
@@ -3423,6 +3451,19 @@ public class TagBalancingHtmlStreamEventReceiver
     while (count >= 0 && passthroughNames.size() > count) {
       popPassthrough(false);
     }
+  }
+
+  /**
+   * Closes a forwarded element whose end tag the foreign tracker did not
+   * treat as popping it, either because HTML content was open inside an
+   * integration point, where a browser ignores the end tag, or because the
+   * tracker never knew the element.  The receiver below honors the end tag,
+   * so the tracker follows what was written.
+   */
+  private void closePassthroughByName(int passthrough) {
+    int serial = passthroughSerials.get(passthrough);
+    closePassthrough(passthrough, true);
+    foreignContent.popNodeWithSerial(serial);
   }
 
   /**
@@ -3859,6 +3900,7 @@ public class TagBalancingHtmlStreamEventReceiver
         }
       }
     } else if (!suppressingPolicySubtree) {
+      insertionPointIsInForeignContent = textIsInForeignContent();
       prepareForContent(HtmlElementTables.TEXT_NODE);
       if (mayHavePhysicalOutputTable()) {
         int outputTableContext = outputTableContextForStart();
