@@ -2514,6 +2514,17 @@ class HtmlSanitizerTest {
         .allowElements("form", "div")
         .allowWithoutAttributes("form", "div")
         .toFactory();
+    // At depth 255 the form fits, sets the pointer as a browser would, and
+    // the later form is ignored for it.  From 256 on the form is dropped at
+    // the limit, so the pointer stays clear and the later form is kept.
+    String fits = p.sanitize(
+        stringRepeatedTimes("<div>", 255) + "<form>a"
+        + stringRepeatedTimes("</div>", 255) + "<form>b</form>");
+    assertEquals(
+        stringRepeatedTimes("<div>", 255) + "<form>a</form>"
+        + stringRepeatedTimes("</div>", 255) + "b",
+        fits);
+    assertEquals(fits, p.sanitize(fits));
     for (int depth : new int[] { 256, 300 }) {
       String out = p.sanitize(
           stringRepeatedTimes("<div>", depth) + "<form>a"
@@ -2554,6 +2565,43 @@ class HtmlSanitizerTest {
         {
           "<svg></tr></svg><form><form>x",
           "<svg></svg><form>x</form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          parseAsBrowser(out), parseAsBrowser(p.sanitize(out)), c[0]);
+    }
+  }
+
+  /**
+   * A form in an HTML integration point sets the pointer under HTML rules.
+   * If the tracker then gives up, its end tag arrives while the output is
+   * still inside the foreign root, and judging the end tag by the output
+   * alone called it foreign, left the pointer set, and dropped every form
+   * after it.  The end tag closes the form its start was judged by.
+   */
+  @Test
+  void testFormEndInIntegrationPointClearsThePointerWhenTrackerIsUnknown()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("svg", "foreignObject", "form", "div")
+        .allowWithoutAttributes("svg", "foreignObject", "form", "div")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<svg><foreignObject><form>a</tr></form></foreignObject></svg>"
+          + "<form>b</form>",
+          "<svg><foreignObject><form>a</form></foreignObject></svg>"
+          + "<form>b</form>",
+        },
+        {
+          "<svg><foreignObject><form>a</tr></form></foreignObject></svg>"
+          + "<div><form>b</form></div>",
+          "<svg><foreignObject><form>a</form></foreignObject></svg>"
+          + "<div><form>b</form></div>",
         },
     };
     for (String[] c : cases) {
@@ -2771,6 +2819,37 @@ class HtmlSanitizerTest {
         "<table><form id=\"f\"></form><tr><td>c</td></tr></table>", out);
     assertEquals(out, p.sanitize(out));
     assertEquals(parseAsBrowser(out), parseAsBrowser(p.sanitize(out)));
+  }
+
+  /**
+   * A dropped thead or tfoot is not what the output parser implies again: it
+   * implies a tbody in its place, and a policy that keeps tbody emits one on
+   * the next pass.  So the table is still retired for the form there, as it
+   * is for a dropped template, and the output is a fixed point.
+   */
+  @Test
+  void testTableModeFormWithDroppedHeaderGroupStillRetiresTheTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .allowWithoutAttributes("table", "tbody", "tr", "td", "form")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<table><thead><form><tr><td>x",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+        {
+          "<table><tfoot><form><tr><td>x",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
   }
 
   /** Content after a form cannot remain in a policy-produced output table. */

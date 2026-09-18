@@ -205,6 +205,8 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final int TD_TAG = METADATA.indexForName("td");
   private static final int TH_TAG = METADATA.indexForName("th");
   private static final int TEMPLATE_TAG = METADATA.indexForName("template");
+  private static final int TBODY_TAG = METADATA.indexForName("tbody");
+  private static final int TR_TAG = METADATA.indexForName("tr");
   private static final int NO_OUTPUT_ELEMENT = -1;
   private static final int POLICY_ONLY_TABLE_CONTEXT = -2;
   private static final int INPUT_ONLY_TABLE_CONTEXT = -3;
@@ -1533,18 +1535,20 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /**
    * Whether the output between this table and the current position parses
-   * in a different table insertion mode than the input did.  A row group or
-   * row the policy dropped does not change it: the output parser implies
-   * that element again.  Anything else missing or renamed, such as a
-   * dropped template, does.
+   * in a different table insertion mode than the input did.  A {@code tbody}
+   * or {@code tr} the policy dropped does not change it: those are exactly
+   * what the output parser implies again for the row or cell that follows.
+   * A dropped {@code thead} or {@code tfoot} does, since the parser implies a
+   * {@code tbody} in its place and a policy that keeps tbody then emits one
+   * on the next pass.  Anything else missing or renamed, such as a dropped
+   * template, does too.
    */
   private boolean outputSuffixChangesTableInsertionMode(int tableContext) {
     for (int i = tableContext + 1, n = openElements.size(); i < n; ++i) {
       int inputElement = openElements.get(i);
       if (outputElements.get(i) == NO_OUTPUT_ELEMENT
           && !pushedOut.get(i)
-          && inputElement != TABLE_TAG
-          && TABLE_CONTEXT.get(inputElement)) {
+          && (inputElement == TBODY_TAG || inputElement == TR_TAG)) {
         continue;
       }
       if (!sentToUnderlying.get(i)
@@ -3271,11 +3275,18 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
-    // As for a start tag: judged by the output once the tracker is unknown.
+    // As for a start tag, judged by the output once the tracker is unknown,
+    // unless the form that holds the pointer is still open: this end tag then
+    // closes it under the HTML rules its start was judged by, whatever the
+    // output namespace is now, and the pointer goes with it.  Judging the end
+    // afresh left the pointer set when a form in an integration point closed
+    // after the tracker gave up, and every later form was dropped for it.
     boolean formUsesHtmlPointerRules = elIndex == FORM_TAG
         && !usesForeignContentRules
         && !parsingTemplateContents
-        && !(foreignContent.isUnknown() && outputForeignRootBefore != null);
+        && (!(foreignContent.isUnknown() && outputForeignRootBefore != null)
+            || formPointerTargets.previousSetBit(openElements.size() - 1)
+                >= 0);
     if (formUsesHtmlPointerRules) {
       foreignContent.clearFormElementPointer();
     }
