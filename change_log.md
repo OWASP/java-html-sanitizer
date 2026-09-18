@@ -11,8 +11,10 @@ Most recent at top.
       custom elements and foreign names, are balanced against what was
       forwarded: what was opened inside one closes before it, a stray end tag
       closes nothing, and formatting closed that way resumes as a browser
-      reconstructs it.  Such elements count toward the nesting limit like any
-      other open element.  Text that a browser foster-parents out of a table
+      reconstructs it.  They are indexed by name, so an end tag finds the one
+      it closes in constant time however many are open, and a receiver with no
+      policy to ask counts them toward its nesting limit, which it did not
+      bound before.  Text that a browser foster-parents out of a table
       whose parts the policy dropped is kept beside the table rather than
       dropped.
     * A nested element inside one renamed to a literal-content element no

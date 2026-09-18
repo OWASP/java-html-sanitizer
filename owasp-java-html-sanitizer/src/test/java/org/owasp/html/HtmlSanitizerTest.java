@@ -3618,26 +3618,63 @@ class HtmlSanitizerTest {
 
   /**
    * A long run of unrecognized tags the policy drops must not make each later
-   * end tag rescan every one of them.  Forwarded elements count toward the
-   * nesting limit, which bounds that list, so this is linear in the input.
-   * The old scan took 5 seconds for 32,000 repeats and quadrupled per
-   * doubling; both runs below are well over a minute on it.
+   * end tag rescan every one of them.  They are indexed by name, so finding
+   * the element an end tag closes takes constant time however many are open,
+   * and the run is linear in the input.  The old scan took 5 seconds for
+   * 32,000 repeats and quadrupled per doubling; both runs below are well over
+   * a minute on it.
+   * <p>
+   * Each case keeps a control suffix, so a regression that emitted nothing at
+   * all, or that let the run exhaust the nesting limit, fails here instead of
+   * passing with an empty result.
    */
   @Test
   void testRunOfUnrecognizedTagsIsLinear() {
     PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
         .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
-    final String unrecognizedEnds =
-        stringRepeatedTimes("<foo></div>", 100_000);
-    final String recognizedEnds = stringRepeatedTimes("<x-y></b>", 100_000);
+    final String tail = "<p>kept <b>text</b></p>";
+    for (String unit : new String[] { "<foo></div>", "<x-y></b>" }) {
+      final String html = stringRepeatedTimes(unit, 100_000) + tail;
+      assertEquals(
+          tail,
+          assertTimeoutPreemptively(
+              Duration.ofSeconds(20), () -> p.sanitize(html)),
+          unit);
+    }
+  }
+
+  /**
+   * Nothing is emitted for an unknown tag the policy drops, so it nests
+   * nothing and must not consume the output nesting budget.  Counting them
+   * made a run of such tags strip the rest of the document: pasted word
+   * processor markup opens a run of {@code o:p} elements, and 256 of them
+   * silently deleted everything that followed.
+   */
+  @Test
+  void testDroppedUnknownTagsDoNotConsumeTheNestingLimit() {
+    PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
+    String tail = "<p>Hello <b>world</b></p>";
+    for (int n : new int[] { 255, 256, 300, 1000 }) {
+      assertEquals(
+          tail, p.sanitize(stringRepeatedTimes("<o:p>", n) + tail),
+          n + " dropped unknown tags");
+    }
     assertEquals(
-        "",
-        assertTimeoutPreemptively(
-            Duration.ofSeconds(20), () -> p.sanitize(unrecognizedEnds)));
-    assertEquals(
-        "",
-        assertTimeoutPreemptively(
-            Duration.ofSeconds(20), () -> p.sanitize(recognizedEnds)));
+        "<p>para</p><a href=\"http://x/\" rel=\"nofollow\">link</a>"
+        + "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        p.sanitize(
+            stringRepeatedTimes("<my-widget>", 256)
+            + "<p>para</p><a href=\"http://x/\">link</a>"
+            + "<table><tr><td>c"));
+    // The elements the policy keeps are still bounded by the limit.
+    String deep = p.sanitize(stringRepeatedTimes("<div>", 300) + "x");
+    int divs = 0;
+    for (int i = deep.indexOf("<div>"); i >= 0;
+         i = deep.indexOf("<div>", i + 1)) {
+      ++divs;
+    }
+    assertEquals(256, divs, "kept elements are still bounded");
   }
 
   /**

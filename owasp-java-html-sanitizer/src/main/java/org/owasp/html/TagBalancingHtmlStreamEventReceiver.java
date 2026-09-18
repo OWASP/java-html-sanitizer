@@ -30,7 +30,9 @@ package org.owasp.html;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -106,14 +108,18 @@ public class TagBalancingHtmlStreamEventReceiver
    * forwarded only for an element still listed here, after everything inside
    * it has been closed, and a stray end tag closes nothing.
    * <p>
-   * These count toward the nesting limit like the entries in
-   * {@link #openElements}, which bounds this list and so the work an end tag
-   * does to find its element here.  The canonical name of each is kept
-   * alongside the name as forwarded, so that lookup compares names without
-   * canonicalizing every entry again.
+   * Every name here is canonical: each is forwarded under the name the
+   * policy is asked about.  {@link #passthroughIndicesByName} indexes them,
+   * so an end tag finds its element without scanning the list, which a long
+   * run of forwarded elements would otherwise make quadratic.
+   * <p>
+   * A forwarded element counts toward the nesting limit only where it is
+   * known to nest the output: see {@link #effectiveNestingDepth}.
    */
   private final List<String> passthroughNames = new ArrayList<>();
-  private final List<String> passthroughCanonNames = new ArrayList<>();
+  /** Indices into {@link #passthroughNames}, innermost last, by name. */
+  private final Map<String, IntVector> passthroughIndicesByName =
+      new HashMap<>();
   private final IntVector passthroughDepths = new IntVector();
   private final IntVector passthroughSerials = new IntVector();
   /**
@@ -479,15 +485,22 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
-   * Includes elements forwarded without an input-stack entry, which the
-   * receiver below keeps open, and policy-produced containers that have no
-   * input-stack entry.
+   * How deep the output nests, which is what the limit bounds.
+   * <p>
+   * A policy counts every element it has open, the forwarded ones it emitted
+   * included, so its own depth already covers them.  One it dropped nests
+   * nothing and must not consume the budget: counting those made a run of
+   * unknown tags a policy drops, such as the {@code o:p} of pasted word
+   * processor markup, strip everything after it.  With no policy to ask,
+   * every forwarded element reached the receiver below and nests there.
    */
   private int effectiveNestingDepth() {
-    int depth = openElements.size() + passthroughNames.size();
+    int depth = openElements.size();
     if (underlying instanceof OpenTagOutputPolicy) {
       depth = Math.max(
           depth, ((OpenTagOutputPolicy) underlying).outputNestingDepth());
+    } else {
+      depth += passthroughNames.size();
     }
     return depth;
   }
@@ -511,7 +524,7 @@ public class TagBalancingHtmlStreamEventReceiver
     outputlessTablePartsOpenedAtEvent = -1;
     openTagEvent = 0;
     passthroughNames.clear();
-    passthroughCanonNames.clear();
+    passthroughIndicesByName.clear();
     passthroughDepths.clear();
     passthroughSerials.clear();
     outputlessTablesWithEmittedParts.clear();
@@ -3489,21 +3502,22 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /** Records an element forwarded below with no entry in openElements. */
-  private void pushPassthrough(String elementName, int serial) {
-    passthroughNames.add(elementName);
-    passthroughCanonNames.add(HtmlLexer.canonicalElementName(elementName));
+  private void pushPassthrough(String canonElementName, int serial) {
+    IntVector indices = passthroughIndicesByName.get(canonElementName);
+    if (indices == null) {
+      indices = new IntVector();
+      passthroughIndicesByName.put(canonElementName, indices);
+    }
+    indices.add(passthroughNames.size());
+    passthroughNames.add(canonElementName);
     passthroughDepths.add(openElements.size());
     passthroughSerials.add(serial);
   }
 
   /** The innermost forwarded element with this canonical name, or -1. */
   private int indexOfPassthroughNamed(String canonElementName) {
-    for (int i = passthroughCanonNames.size(); --i >= 0;) {
-      if (canonElementName.equals(passthroughCanonNames.get(i))) {
-        return i;
-      }
-    }
-    return -1;
+    IntVector indices = passthroughIndicesByName.get(canonElementName);
+    return indices == null || indices.isEmpty() ? -1 : indices.getLast();
   }
 
   /** The forwarded element whose start pushed the node with this identity. */
@@ -3531,12 +3545,16 @@ public class TagBalancingHtmlStreamEventReceiver
   /** Closes the innermost forwarded element, sending its end tag if asked. */
   private void popPassthrough(boolean emitCloseTag) {
     int last = passthroughNames.size() - 1;
-    String elementName = passthroughNames.remove(last);
-    String canonElementName = passthroughCanonNames.remove(last);
+    String canonElementName = passthroughNames.remove(last);
+    IntVector indices = passthroughIndicesByName.get(canonElementName);
+    indices.removeLast();
+    if (indices.isEmpty()) {
+      passthroughIndicesByName.remove(canonElementName);
+    }
     passthroughDepths.removeLast();
     passthroughSerials.removeLast();
     if (emitCloseTag) {
-      underlying.closeTag(elementName);
+      underlying.closeTag(canonElementName);
     }
     if (foreignRootPendingTableReturn != null
         && foreignRootPendingTableReturn.equals(canonElementName)) {

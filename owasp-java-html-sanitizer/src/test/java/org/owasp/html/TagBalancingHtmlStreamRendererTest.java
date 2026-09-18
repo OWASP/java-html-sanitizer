@@ -1396,10 +1396,12 @@ class TagBalancingHtmlStreamRendererTest {
   }
 
   /**
-   * Elements forwarded without a stack entry count toward the nesting limit
-   * like any other open element.  Otherwise a run of them is unbounded, both
-   * in the depth the receiver below sees and in the list the balancer scans
-   * on every end tag, which made a long run of unrecognized tags quadratic.
+   * With no policy to report what it emitted, every element forwarded without
+   * a stack entry reaches the receiver below and nests there, so it counts
+   * toward the nesting limit like any other open element.  Otherwise the
+   * limit is not a bound at all for unrecognized names.  Behind a policy the
+   * policy's own output depth covers the ones it emitted, and the ones it
+   * dropped nest nothing.
    */
   @Test
   void testForwardedElementsCountTowardTheNestingLimit() {
