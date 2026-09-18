@@ -3257,6 +3257,181 @@ class HtmlSanitizerTest {
         + "<table><tbody><tr></tr></tbody></table></div>");
   }
 
+  /** An implied wrapper under a policy-produced select must not recurse. */
+  @Test
+  void testImpliedWrapperUnderMappedSelectDoesNotRecurse() throws Exception {
+    // Input select is allowed so the policy accepts its own emitted names.
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "select", "table")
+        .allowElements("select", "form", "noscript")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        p, "<table><form><noscript></form><form><col>",
+        "<select><form><noscript></noscript></form><form></form></select>");
+
+    // The same shape recursed with the table mapped to a list.  A list can
+    // hold a form only through an item on the next pass, so that pass is
+    // checked for balance rather than for exact idempotence.
+    for (String list : new String[] { "ul", "ol" }) {
+      PolicyFactory q = new HtmlPolicyBuilder()
+          .allowElements((name, attrs) -> list, "table")
+          .allowElements(list, "li", "form", "noscript")
+          .toFactory();
+      String input = "<table><form><noscript></form><form><col>";
+      String out = q.sanitize(input);
+      assertEquals(
+          "<" + list + "><form><noscript></noscript></form><form></form>"
+          + "<li></li></" + list + ">",
+          out, list);
+      assertBalancedPolicyEvents(q, input);
+      assertBalancedPolicyEvents(q, out);
+      assertBalancedPolicyEvents(q, q.sanitize(out));
+    }
+  }
+
+  /** A foreign end tag must not close an older HTML element of its name. */
+  @Test
+  void testForeignEndTagDoesNotReachOlderHtmlAncestor() throws Exception {
+    String[] names = { "noscript", "td", "svg", "tr", "table", "tbody" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowTextIn("noscript").toFactory();
+    // A browser drops the raw td and tr, which are outside any table, so the
+    // output is compared with its own reparse only.
+    assertRoundTripAndBalanced(
+        p, "<noscript><td><svg><noscript></svg><tr>",
+        "<noscript><table><tbody><tr><td><svg><noscript></noscript></svg>"
+        + "</td></tr><tr></tr></tbody></table></noscript>");
+
+    // Content after the foreign close belongs to the outer noscript, and its
+    // end tag still finds that element.
+    String input = "<noscript><svg><noscript></svg>x</noscript>y";
+    String expected = "<noscript><svg><noscript></noscript></svg>x</noscript>y";
+    assertRoundTripAndBalanced(p, input, expected);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
+  }
+
+  /** A wrapper the policy already closed cannot alias an older wrapper. */
+  @Test
+  void testPolicyClosedSyntheticWrapperDoesNotAliasOlderWrapper()
+      throws Exception {
+    String[] names = { "select", "textArea", "foreignObject", "form", "table" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    // A browser reads the mixed-case name outside SVG as an HTML textarea and
+    // its contents as text, so the output is compared with its own reparse.
+    assertRoundTripAndBalanced(
+        p, "<select><textArea><select><foreignObject><form></textArea><table>",
+        "<select><textArea><select><foreignObject><form></form>"
+        + "</foreignObject></select></textArea><table></table></select>");
+  }
+
+  /**
+   * A foreign end tag pops nodes by identity.  A node the nesting limit
+   * dropped or the policy already closed matches nothing, so it cannot reach
+   * an older element with the same local name.
+   */
+  @Test
+  void testForeignEndTagClosesPoppedElementsByIdentity() throws Exception {
+    String[] names = {
+        "svg", "g", "path", "noscript", "select", "foreignObject", "td",
+        "textArea",
+    };
+    PolicyFactory keep = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowTextIn("noscript").toFactory();
+    String[][] browserAgrees = {
+        {
+          "<svg><noscript><noscript>x</noscript>y</noscript>z</svg>w",
+          "<svg><noscript><noscript>x</noscript>y</noscript>z</svg>w",
+        },
+        {
+          "<svg><noscript><g><noscript></g></noscript><path></path></svg>",
+          "<svg><noscript><g><noscript></noscript></g></noscript>"
+          + "<path></path></svg>",
+        },
+        // Table parts forwarded directly into foreign output have no entry
+        // on the balancer's stack, so their end tags are forwarded for them.
+        {
+          "<svg><td><noscript></td>x</svg>",
+          "<svg><td><noscript></noscript></td>x</svg>",
+        },
+        {
+          "<svg><textArea><noscript></textArea>x</svg>",
+          "<svg><textArea><noscript></noscript></textArea>x</svg>",
+        },
+    };
+    for (String[] c : browserAgrees) {
+      assertRoundTripAndBalanced(keep, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+
+    // The policy closes the inner mapped select at </g>.  That entry must not
+    // be mistaken for the outer one, which </noscript> then closes, so the
+    // path follows the outer select instead of nesting inside it.
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("svg", "select", "foreignObject", "path")
+        .allowElements((name, attrs) -> "select", "noscript")
+        .allowElements((name, attrs) -> "foreignObject", "g")
+        .allowWithoutAttributes(
+            "svg", "select", "foreignObject", "path", "noscript", "g")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed,
+        "<svg><noscript><g><noscript></g></noscript><path></path></svg>",
+        "<svg><select><foreignObject><select></select></foreignObject>"
+        + "</select><path></path></svg>");
+  }
+
+  /**
+   * An unrecognized end tag closes the policy's stack down to its target.
+   * The balancer mirrors exactly the entries closed there, so no stale entry
+   * can later close an older element with the same name, and formatting
+   * closed that way resumes as a browser reconstructs it.
+   */
+  @Test
+  void testUnrecognizedEndTagMirrorsPolicyStack() throws Exception {
+    String[] names = { "foo", "b", "i", "template" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] browserAgrees = {
+        { "<foo><b>x</foo>y", "<foo><b>x</b></foo><b>y</b>" },
+        { "<b><foo><b>x</foo>y</b>z", "<b><foo><b>x</b></foo><b>y</b>z</b>" },
+        {
+          "<foo><i><b>x</foo>y",
+          "<foo><i><b>x</b></i></foo><i><b>y</b></i>",
+        },
+    };
+    for (String[] c : browserAgrees) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // Formatting inside template contents does not resume outside them.  A
+    // browser ignores this end tag at the template boundary, so the output
+    // is compared with its own reparse only.
+    assertRoundTripAndBalanced(
+        p, "<foo><template><b>x</foo>y",
+        "<foo><template><b>x</b></template></foo>y");
+  }
+
+  /**
+   * After an HTML breakout pops a nested foreign root, its end tag reaches
+   * the outer foreign root, as in a browser, rather than the nearest element
+   * that happens to share its name.
+   */
+  @Test
+  void testForeignEndTagAfterBreakoutReachesOuterRoot() throws Exception {
+    String[] names = { "svg", "foreignObject", "i", "b" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String input =
+        "<svg><foreignObject><svg><i></i></svg><b>x</b></foreignObject></svg>y";
+    String expected =
+        "<svg><foreignObject><svg><i></i></svg></foreignObject></svg><b>x</b>y";
+    assertRoundTripAndBalanced(p, input, expected);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
+  }
+
   private static void assertRoundTripAndBalanced(
       PolicyFactory p, String input, String expected) throws Exception {
     String out = p.sanitize(input);
@@ -3971,6 +4146,9 @@ class HtmlSanitizerTest {
     };
     HtmlSanitizer.sanitize(
         "<svg><path d=\"M0 0\"/>x</svg><path/>y", recorder);
+    // The self-closing flag is honored in SVG, so the first path closes at
+    // once.  HTML ignores it, so the second path stays open around the text
+    // and is closed only with everything else at the end of the document.
     assertEquals(
         Arrays.asList(
             "openDocument",
@@ -3981,6 +4159,7 @@ class HtmlSanitizerTest {
             "closeTag svg",
             "openTag path []",
             "text y",
+            "closeTag path",
             "closeDocument"),
         events);
   }

@@ -176,9 +176,6 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private transient int outputNestingDepth;
   /** Innermost non-void element currently open in the emitted event stream. */
   private transient @Nullable String outputContainerElementName;
-  /** Input/output pairs for HTML output closed by the most recent end tag. */
-  private final List<String> outputStackEntriesClosedByLastEndTag =
-      new ArrayList<>();
   /** Output container before each logical entry on {@link #openElementStack}. */
   private final List<String> outputContainerBeforeOpen = new ArrayList<>();
   private transient boolean reopenedTableWasRenamed;
@@ -589,10 +586,6 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
             elementName, attrs)
         && outputForeignContent.foreignElementsPoppedByStartTag(
             elementName, attrs) == 0;
-  }
-
-  public List<String> outputStackEntriesClosedByLastEndTag() {
-    return outputStackEntriesClosedByLastEndTag;
   }
 
   public void text(String textChunk) {
@@ -1408,25 +1401,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void closeTag(String elementName) {
-    outputStackEntriesClosedByLastEndTag.clear();
     int n = openElementStack.size();
     for (int i = n; i > 0;) {
       i -= 2;
       String openElementName = openElementStack.get(i);
       if (elementName.equals(openElementName)) {
-        for (int j = n - 1; j > i; j -= 2) {
-          String inputName = openElementStack.get(j - 1);
-          String outputName = openElementStack.get(j);
-          boolean outputlessListItem = outputName == null
-              && "li".equals(inputName);
-          if (outputlessListItem
-              || (outputName != null
-                  && !outputElementInForeignContent.get(j / 2))) {
-            outputStackEntriesClosedByLastEndTag.add(inputName);
-            outputStackEntriesClosedByLastEndTag.add(
-                outputName != null ? outputName : "");
-          }
-        }
         closeStackFromInputIndex(i);
         break;
       }

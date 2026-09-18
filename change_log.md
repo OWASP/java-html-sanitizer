@@ -3,7 +3,15 @@
 Most recent at top.
   * Next release
     * Fix balancing of a form start tag directly in table structure so that it
-      does not contain following text or rows (#484).
+      does not contain following text or rows (#484).  The tag balancer now
+      closes the elements popped by an SVG or MathML end tag by identity rather
+      than by local name, so an element dropped at the nesting limit or already
+      closed by the policy cannot make that end tag close an older element of
+      the same name.  Elements outside its containment metadata, such as
+      custom elements and foreign names, are balanced against what was
+      forwarded: what was opened inside one closes before it, a stray end tag
+      closes nothing, and formatting closed that way resumes as a browser
+      reconstructs it.
     * A nested element inside one renamed to a literal-content element no
       longer opens its own text gate.  Its text now follows the outer element's
       gate, so it cannot reach `style` or similar content where text was not

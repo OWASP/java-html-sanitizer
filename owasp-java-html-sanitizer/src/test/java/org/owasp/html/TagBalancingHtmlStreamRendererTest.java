@@ -1337,6 +1337,166 @@ class TagBalancingHtmlStreamRendererTest {
     };
   }
 
+  /** A foreign end tag closes the entries it pops before it is forwarded. */
+  @Test
+  void testForeignEndTagClosesPoppedEntriesForPlainReceiver() {
+    assertEquals(
+        "<svg><noscript></noscript></svg>x",
+        renderBalancedEvents(256, "svg", "noscript", "/svg", "#x"));
+    assertEquals(
+        "<svg><noscript><noscript></noscript></noscript></svg>",
+        renderBalancedEvents(256, "svg", "noscript", "noscript", "/svg"));
+    // The inner end tag closes only the inner element.
+    assertEquals(
+        "<svg><noscript><noscript></noscript><path></path></noscript></svg>",
+        renderBalancedEvents(
+            256, "svg", "noscript", "noscript", "/noscript", "path",
+            "/path", "/svg"));
+  }
+
+  /**
+   * Elements outside the containment metadata are forwarded as written, so
+   * their end tags are balanced against what was forwarded: everything opened
+   * inside one closes first, a stray end tag closes nothing, and whatever is
+   * still open ends with the document.
+   */
+  @Test
+  void testUnrecognizedElementsAreBalancedForPlainReceiver() {
+    assertEquals(
+        "<foo><b>x</b></foo><b>y</b>",
+        renderBalancedEvents(256, "foo", "b", "#x", "/foo", "#y"));
+    assertEquals(
+        "<b>x</b>",
+        renderBalancedEvents(256, "/foo", "b", "#x"));
+    assertEquals(
+        "<foo><bar>x</bar></foo>",
+        renderBalancedEvents(256, "foo", "bar", "#x"));
+    assertEquals(
+        "<foo><foo><foo>x</foo></foo></foo>",
+        renderBalancedEvents(
+            256, "foo", "foo", "foo", "#x", "/foo", "/foo", "/foo"));
+    // A table part clears a browser's stack back to the table context.
+    assertEquals(
+        "<table><foo></foo><tbody><tr><td>x</td></tr></tbody></table>",
+        renderBalancedEvents(256, "table", "foo", "tr", "td", "#x"));
+  }
+
+  /** A root dropped at the limit owns nothing below for its end tag to close. */
+  @Test
+  void testDroppedForeignRootEndTagIsNotForwardedAfterLimitIncreases() {
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    int[] eventCounts = new int[3];
+    TagBalancingHtmlStreamEventReceiver limited =
+        new TagBalancingHtmlStreamEventReceiver(
+            strictRenderer(output, open, eventCounts));
+    limited.setNestingLimit(0);
+    limited.openDocument();
+    limited.openTag("svg", j8().listOf());
+    limited.setNestingLimit(2);
+    limited.openTag("noscript", j8().listOf());
+    limited.closeTag("svg");
+    limited.openTag("path", j8().listOf());
+    limited.closeTag("path");
+    limited.closeDocument();
+
+    assertEquals("<noscript></noscript><path></path>", output.toString());
+    assertEquals(eventCounts[0], eventCounts[1]);
+
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements("svg", "path", "select")
+        .allowElements((name, attrs) -> "select", "noscript")
+        .allowWithoutAttributes("svg", "path", "select", "noscript")
+        .toFactory();
+    assertEquals(
+        "<select></select><path></path>",
+        renderPolicyEvents(
+            factory, "@0", "svg", "@2", "noscript", "/svg", "path", "/path"));
+  }
+
+  /** A node dropped at the limit cannot alias an older node with its name. */
+  @Test
+  void testDroppedForeignElementDoesNotAliasOlderElementAtNestingLimit() {
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("svg", "g", "path", "select")
+        .allowElements((name, attrs) -> "select", "noscript")
+        .allowWithoutAttributes("svg", "g", "path", "select", "noscript")
+        .toFactory();
+    assertEquals(
+        "<svg><select><g></g></select><path></path></svg>",
+        renderPolicyEvents(
+            renamed, "@3", "svg", "noscript", "g", "noscript", "/g",
+            "/noscript", "path", "/path", "/svg"));
+
+    // Without a rename, the limit drops the inner noscript.  Its end tag
+    // must leave the outer one open for the path once the limit allows it.
+    PolicyFactory keep = new HtmlPolicyBuilder()
+        .allowElements("svg", "noscript", "path")
+        .allowWithoutAttributes("svg", "noscript", "path")
+        .toFactory();
+    assertEquals(
+        "<svg><noscript><path></path></noscript></svg>",
+        renderPolicyEvents(
+            keep, "@2", "svg", "noscript", "noscript", "/noscript", "@3",
+            "path", "/path", "/svg"));
+    assertEquals(
+        "<svg><noscript><noscript></noscript><path></path></noscript></svg>",
+        renderPolicyEvents(
+            keep, "@3", "svg", "noscript", "noscript", "/noscript", "path",
+            "/path", "/svg"));
+  }
+
+  /**
+   * Runs events through a balancer over the policy, both directly and through
+   * the change reporter, checking that the emitted events stay balanced.
+   */
+  private static String renderPolicyEvents(
+      PolicyFactory factory, String... events) {
+    String direct = null;
+    for (boolean reported : new boolean[] { false, true }) {
+      StringBuilder output = new StringBuilder();
+      List<String> open = new ArrayList<>();
+      int[] eventCounts = new int[3];
+      HtmlStreamEventReceiver checked = strictRenderer(
+          output, open, eventCounts);
+      HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+        public void discardedTag(Object context, String elementName) {
+          // Output through the reporter decorator is under test.
+        }
+
+        public void discardedAttributes(
+            Object context, String tagName, String... attributeNames) {
+          // Output through the reporter decorator is under test.
+        }
+      };
+      TagBalancingHtmlStreamEventReceiver receiver =
+          new TagBalancingHtmlStreamEventReceiver(
+              reported
+              ? factory.apply(checked, ignore, null)
+              : factory.apply(checked));
+      receiver.openDocument();
+      for (String event : events) {
+        if (event.startsWith("@")) {
+          receiver.setNestingLimit(Integer.parseInt(event.substring(1)));
+        } else if (event.startsWith("#")) {
+          receiver.text(event.substring(1));
+        } else if (event.startsWith("/")) {
+          receiver.closeTag(event.substring(1));
+        } else {
+          receiver.openTag(event, j8().listOf());
+        }
+      }
+      receiver.closeDocument();
+      assertEquals(eventCounts[0], eventCounts[1]);
+      if (reported) {
+        assertEquals(direct, output.toString(), "reporter parity");
+      } else {
+        direct = output.toString();
+      }
+    }
+    return direct;
+  }
+
   /** Checks events themselves, since the renderer can hide missing closes. */
   private static String renderBalancedEvents(int limit, String... events) {
     StringBuilder output = new StringBuilder();

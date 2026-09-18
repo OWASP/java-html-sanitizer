@@ -311,14 +311,11 @@ public final class HtmlSanitizer {
     /** Whether the most recently processed tag used foreign-content rules. */
     private boolean lastTagUsedForeignContentRules;
 
-    /** Whether the target of the last foreign end tag had no output start. */
-    private boolean lastForeignEndTagTargetWasDroppedByNestingLimit;
-
     /** Whether the most recent foreign start pushed a tracked element. */
     private boolean lastForeignStartTagPushedElement;
 
-    /** Opaque identity of the most recent foreign start, or zero. */
-    private int lastForeignStartTagSerial;
+    /** Opaque identity of the node pushed by the most recent start, or zero. */
+    private int lastStartTagPushedSerial;
 
     /** Next opaque identity assigned to a tracked tree-construction node. */
     private int nextElementSerial = 1;
@@ -329,10 +326,6 @@ public final class HtmlSanitizer {
 
     /** Identities parallel to {@link #foreignElementsPoppedByLastEndTag}. */
     private final List<Integer> foreignElementSerialsPoppedByLastEndTag
-        = new ArrayList<>();
-
-    /** Whether each popped element still owns a downstream input-stack entry. */
-    private final List<Boolean> foreignElementEntriesOpenByLastEndTag
         = new ArrayList<>();
 
     /**
@@ -354,45 +347,21 @@ public final class HtmlSanitizer {
           && (current.mathTextIntegrationPoint || current.htmlIntegrationPoint);
     }
 
-    /** Opaque identity of the foreign node pushed by the last start tag. */
-    int lastForeignStartTagSerial() {
-      return lastForeignStartTagSerial;
+    /**
+     * Opaque identity of the tree-construction node pushed by the most recent
+     * start tag, in any namespace, or zero if that tag pushed nothing that is
+     * still tracked.  The balancer stores it with the logical entry it stacks
+     * for the same tag so a later foreign end tag can find that exact entry.
+     */
+    int lastStartTagPushedSerial() {
+      return lastStartTagPushedSerial;
     }
 
-    /** Marks the last pushed foreign element as omitted by the balancer. */
-    void markLastForeignStartTagDroppedByNestingLimit(String elementName) {
-      if (lastTagUsedForeignContentRules
-          && lastForeignStartTagPushedElement
-          && !openElements.isEmpty()
-          && asciiEqualsIgnoreCase(
-              openElements.get(openElements.size() - 1).elementName,
-              elementName)) {
-        openElements.get(openElements.size() - 1)
-            .droppedByNestingLimit = true;
-        openElements.get(openElements.size() - 1)
-            .downstreamEntryOpen = false;
-      }
-    }
-
-    /** Records that the last foreign start was closed synthetically. */
-    void markLastForeignStartTagClosedDownstream(String elementName) {
-      if (lastTagUsedForeignContentRules
-          && lastForeignStartTagPushedElement
-          && !openElements.isEmpty()
-          && asciiEqualsIgnoreCase(
-              openElements.get(openElements.size() - 1).elementName,
-              elementName)) {
-        openElements.get(openElements.size() - 1)
-            .downstreamEntryOpen = false;
-      }
-    }
-
-    /** Whether the exact foreign end-tag target was omitted by the balancer. */
-    boolean lastForeignEndTagTargetWasDroppedByNestingLimit() {
-      return lastForeignEndTagTargetWasDroppedByNestingLimit;
-    }
-
-    /** Foreign element names popped by the most recent end tag, inner first. */
+    /**
+     * Foreign element names popped by the most recent end tag, inner first,
+     * ending with the end tag's own target.  Empty unless
+     * {@link #lastTagUsedForeignContentRules} is true.
+     */
     List<String> foreignElementsPoppedByLastEndTag() {
       return foreignElementsPoppedByLastEndTag;
     }
@@ -400,11 +369,6 @@ public final class HtmlSanitizer {
     /** Opaque identity of the foreign element popped at {@code index}. */
     int foreignElementSerialPoppedByLastEndTag(int index) {
       return foreignElementSerialsPoppedByLastEndTag.get(index);
-    }
-
-    /** Whether that popped element still needs a downstream close event. */
-    boolean foreignElementEntryOpenByLastEndTag(int index) {
-      return foreignElementEntriesOpenByLastEndTag.get(index);
     }
 
     /** Whether a known current node is in SVG or MathML. */
@@ -469,7 +433,6 @@ public final class HtmlSanitizer {
       lastTagUsedForeignContentRules = false;
       foreignElementsPoppedByLastEndTag.clear();
       foreignElementSerialsPoppedByLastEndTag.clear();
-      foreignElementEntriesOpenByLastEndTag.clear();
     }
 
     /**
@@ -480,10 +443,9 @@ public final class HtmlSanitizer {
         String elementName, List<String> attrs, boolean selfClosing) {
       lastTagUsedForeignContentRules = false;
       lastForeignStartTagPushedElement = false;
-      lastForeignStartTagSerial = 0;
+      lastStartTagPushedSerial = 0;
       foreignElementsPoppedByLastEndTag.clear();
       foreignElementSerialsPoppedByLastEndTag.clear();
-      foreignElementEntriesOpenByLastEndTag.clear();
       if (unknown) {
         return selfClosing && isForeignContentRoot(elementName);
       }
@@ -509,9 +471,6 @@ public final class HtmlSanitizer {
         push(opened);
         lastForeignStartTagPushedElement = !unknown
             && currentElement() == opened;
-        if (lastForeignStartTagPushedElement) {
-          lastForeignStartTagSerial = opened.serial;
-        }
       }
       return selfClosing;
     }
@@ -519,10 +478,8 @@ public final class HtmlSanitizer {
     /** Updates the context using the foreign-content or HTML end-tag rules. */
     void processEndTag(String elementName) {
       lastTagUsedForeignContentRules = false;
-      lastForeignEndTagTargetWasDroppedByNestingLimit = false;
       foreignElementsPoppedByLastEndTag.clear();
       foreignElementSerialsPoppedByLastEndTag.clear();
-      foreignElementEntriesOpenByLastEndTag.clear();
       if (unknown) { return; }
       if (openElements.isEmpty()) {
         if ("form".equals(elementName)) {
@@ -553,14 +510,10 @@ public final class HtmlSanitizer {
         if (open.namespace == Namespace.HTML) { break; }
         if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
           lastTagUsedForeignContentRules = true;
-          lastForeignEndTagTargetWasDroppedByNestingLimit =
-              open.droppedByNestingLimit;
           for (int j = openElements.size(); --j >= i;) {
             OpenElement popped = openElements.get(j);
             foreignElementsPoppedByLastEndTag.add(popped.elementName);
             foreignElementSerialsPoppedByLastEndTag.add(popped.serial);
-            foreignElementEntriesOpenByLastEndTag.add(
-                popped.downstreamEntryOpen);
           }
           openElements.subList(i, openElements.size()).clear();
           return;
@@ -1085,6 +1038,7 @@ public final class HtmlSanitizer {
       } else {
         element.serial = nextElementSerial++;
         if (nextElementSerial == 0) { nextElementSerial = 1; }
+        lastStartTagPushedSerial = element.serial;
         openElements.add(element);
       }
     }
@@ -1131,12 +1085,8 @@ public final class HtmlSanitizer {
     final boolean htmlIntegrationPoint;
     /** In the special category, which bounds every scope. */
     final boolean special;
-    /** This logical foreign element had no corresponding output start. */
-    boolean droppedByNestingLimit;
     /** Opaque identity assigned when this node enters the tracked stack. */
     int serial;
-    /** Whether its input start still owns an entry in the downstream stack. */
-    boolean downstreamEntryOpen = true;
 
     OpenElement(
         String elementName, Namespace namespace, List<String> attrs) {

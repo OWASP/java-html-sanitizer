@@ -79,6 +79,29 @@ public class TagBalancingHtmlStreamEventReceiver
   private int suppressedMappedForeignTableResumeDepth = -1;
   private final IntVector openElements = new IntVector();
   /**
+   * For each entry in {@link #openElements}, the opaque identity that
+   * {@link #foreignContent} gave the browser tree-construction node pushed by
+   * the same start tag, or zero for an entry that was implied, resumed, or
+   * not tracked there.  A foreign end tag pops nodes, and the entries it
+   * closes are found by this identity rather than by local name, which a
+   * dropped or already closed element with the same name could alias.
+   */
+  private final IntVector inputElementSerials = new IntVector();
+  /**
+   * Elements forwarded to the receiver below with no entry in
+   * {@link #openElements}: names outside the containment metadata, such as
+   * {@code svg} or a custom element, and table parts forwarded directly into
+   * SVG or MathML output.  The receiver keeps each open until its end tag.
+   * Each records the size of {@link #openElements} when it was forwarded, so
+   * every entry added after it is known to be inside it, and the identity of
+   * the tree-construction node its start tag pushed, or zero.  An end tag is
+   * forwarded only for an element still listed here, after everything inside
+   * it has been closed, and a stray end tag closes nothing.
+   */
+  private final List<String> passthroughNames = new ArrayList<>();
+  private final IntVector passthroughDepths = new IntVector();
+  private final IntVector passthroughSerials = new IntVector();
+  /**
    * The element each entry in {@link #openElements} became after policy
    * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it.
    * When the receiver below cannot report that, the input name is used.
@@ -319,12 +342,6 @@ public class TagBalancingHtmlStreamEventReceiver
     boolean outputStartTagUsesHtmlIntegrationPointRules(
         String elementName, List<String> attrs);
 
-    /**
-     * Input/output-name pairs for HTML output entries closed by the last end
-     * tag, ordered innermost first.  An empty output name denotes a retained
-     * policy-stack entry that emitted no element.
-     */
-    List<String> outputStackEntriesClosedByLastEndTag();
   }
 
   /** Optional normalization for the HTML form-element pointer. */
@@ -463,6 +480,9 @@ public class TagBalancingHtmlStreamEventReceiver
     outputlessTablePartsMayBeOpen = false;
     outputlessTablePartsOpenedAtEvent = -1;
     openTagEvent = 0;
+    passthroughNames.clear();
+    passthroughDepths.clear();
+    passthroughSerials.clear();
     outputlessTablesWithEmittedParts.clear();
     pushedMappedTemplateOutputOpen.clear();
     suppressedMappedForeignSubtrees.clear();
@@ -475,12 +495,15 @@ public class TagBalancingHtmlStreamEventReceiver
     resetDroppedSuppressedTableIfPolicyEnded();
     resetDroppedSuppressedOptionIfPolicyEnded();
     for (int i = openElements.size(); --i >= 0;) {
+      closePassthroughsInside(i, true);
       if (!shouldSendClose(i)) { continue; }
       int elIndex = openElements.get(i);
       String elname = METADATA.canonNameForIndex(elIndex);
       underlying.closeTag(elname);
     }
+    while (!passthroughNames.isEmpty()) { popPassthrough(true); }
     openElements.clear();
+    inputElementSerials.clear();
     outputElements.clear();
     sentToUnderlying.clear();
     inputElementsInForeignContent.clear();
@@ -535,6 +558,7 @@ public class TagBalancingHtmlStreamEventReceiver
     foreignContent.processStartTag(canonElementName, attrs, false);
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
+    int startSerial = foreignContent.lastStartTagPushedSerial();
     PushedOutTablePolicy tablePolicyAtStart = pushedOutTablePolicy();
     boolean suppressingPolicySubtree = tablePolicyAtStart != null
         && tablePolicyAtStart.isSuppressingOutputAndContent();
@@ -557,6 +581,8 @@ public class TagBalancingHtmlStreamEventReceiver
         reportDroppedByNestingLimit(elementName);
       } else if (effectiveNestingDepth() >= nestingLimit) {
         if (!suppressingPolicySubtree) {
+          // The policy-only suppression entry owns a stack entry below even
+          // though nothing is emitted for it.
           tablePolicyAtStart.openTagWithoutOutputOrContent(
               elementName, attrs);
           droppedSuppressedOptionOwnsPolicyEntry = true;
@@ -568,13 +594,10 @@ public class TagBalancingHtmlStreamEventReceiver
           reportDroppedByNestingLimit(elementName);
         }
         droppedSuppressedOptionDepth = 1;
-        if (usesForeignContentRules) {
-          foreignContent.markLastForeignStartTagDroppedByNestingLimit(
-              canonElementName);
-        }
       } else {
         tablePolicyAtStart.openTagWithoutOutputOrContent(elementName, attrs);
-        stackElementWithoutOutput(elIndex, usesForeignContentRules);
+        stackElementWithoutOutput(
+            elIndex, usesForeignContentRules, startSerial);
       }
       return;
     }
@@ -618,23 +641,11 @@ public class TagBalancingHtmlStreamEventReceiver
       // An HTML integration point makes ForeignContentContext report HTML
       // rules and deliberately does not take this path.
       if (effectiveNestingDepth() >= nestingLimit) {
-        // If this is a same-name descendant of a tracked collision part,
-        // leave the older output element for the foreign root to close.  Its
-        // matching end tag belongs to the dropped descendant, not to the
-        // older logical entry.
-        untrackTopForeignTablePartForDroppedDescendant(elIndex);
-        foreignContent.markLastForeignStartTagDroppedByNestingLimit(
-            canonElementName);
         reportDroppedByNestingLimit(elementName);
         return;
       }
-      boolean endTagCouldCloseHtmlContentContainer =
-          FORMATTING_MARKERS.get(elIndex)
-          && hasOpenHtmlInputElementNamed(elIndex);
       underlying.openTag(elementName, attrs);
-      if (endTagCouldCloseHtmlContentContainer) {
-        stackForeignTablePart(elIndex, canonElementName);
-      }
+      pushPassthrough(elementName, startSerial);
       return;
     }
     // Treat unrecognized tags as void, but emit closing tags in closeTag().
@@ -771,8 +782,10 @@ public class TagBalancingHtmlStreamEventReceiver
           } else {
             tablePolicy.openTagWithoutOutput(elementName, attrs);
           }
+          pushPassthrough(elementName, startSerial);
         } else {
           underlying.openTag(elementName, attrs);
+          pushPassthrough(elementName, startSerial);
           if (leaveHtmlTextElementPending
               && underlying instanceof OpenTagOutputPolicy
               && preparedOutputName.equals(
@@ -937,7 +950,7 @@ public class TagBalancingHtmlStreamEventReceiver
             formPolicy.discardPreparedFormStart();
             retireOutputTableForForm(formTableContext);
             if (usesForeignContentRules) {
-              stackForeignFormWithoutOutput();
+              stackForeignFormWithoutOutput(startSerial);
             }
             return;
           }
@@ -978,11 +991,12 @@ public class TagBalancingHtmlStreamEventReceiver
         underlying.closeTag(canonElementName);
         retireOutputTableForForm(formTableContext);
         if (usesForeignContentRules) {
-          stackForeignFormWithoutOutput();
+          stackForeignFormWithoutOutput(startSerial);
         }
       } else if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         int stackIndex = openElements.size();
         openElements.add(elIndex);
+        inputElementSerials.add(startSerial);
         outputElements.add(outputElementIndex);
         outputlessTablesWithEmittedParts.clear(stackIndex);
         pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -1033,68 +1047,6 @@ public class TagBalancingHtmlStreamEventReceiver
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
       reportDroppedByNestingLimit(METADATA.canonNameForIndex(elIndex));
     }
-  }
-
-  /** Untracks an older foreign part shadowed by a cap-dropped descendant. */
-  private void untrackTopForeignTablePartForDroppedDescendant(int element) {
-    int i = openElements.size() - 1;
-    if (i < 0 || openElements.get(i) != element
-        || !inputElementsInForeignContent.get(i)) {
-      return;
-    }
-    // The policy still has this emitted foreign element.  It will close it
-    // when the surrounding foreign root ends; only the balancer's logical
-    // shadow must go away so the dropped descendant's end cannot close it.
-    openElements.remove(i);
-    outputElements.remove(i);
-    sentToUnderlying.clear(i);
-    inputElementsInForeignContent.clear(i);
-    outputElementsInForeignContent.clear(i);
-    outputElementsStartForeignContent.clear(i);
-    formPointerTargets.clear(i);
-    clearedFormPointerTargets.clear(i);
-    staleOutputFormPointerTargets.clear(i);
-    pushedOut.clear(i);
-    impliedInputTables.clear(i);
-    outputTableUnavailable.clear(i);
-    outputlessTablesWithEmittedParts.clear(i);
-    pushedMappedTemplateOutputOpen.clear(i);
-    suppressedMappedForeignSubtrees.clear(i);
-  }
-
-  /** Whether a foreign end tag could be mistaken for an open HTML element. */
-  private boolean hasOpenHtmlInputElementNamed(int element) {
-    for (int i = openElements.size(); --i >= 0;) {
-      if (openElements.get(i) == element
-          && !inputElementsInForeignContent.get(i)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /** Tracks a foreign table part whose end tag needs an exact stack target. */
-  private void stackForeignTablePart(int inputElement, String inputElementName) {
-    int outputElement = outputElementIndexForLastOpenTag(inputElement);
-    int stackIndex = openElements.size();
-    openElements.add(inputElement);
-    outputElements.add(outputElement);
-    sentToUnderlying.set(stackIndex);
-    inputElementsInForeignContent.set(stackIndex);
-    outputElementsInForeignContent.set(
-        stackIndex, lastOutputElementUsedForeignContentRules());
-    outputElementsStartForeignContent.set(
-        stackIndex, outputElement != NO_OUTPUT_ELEMENT
-            && lastOutputElementStartsForeignContent(inputElementName));
-    formPointerTargets.clear(stackIndex);
-    clearedFormPointerTargets.clear(stackIndex);
-    staleOutputFormPointerTargets.clear(stackIndex);
-    pushedOut.clear(stackIndex);
-    impliedInputTables.clear(stackIndex);
-    outputTableUnavailable.clear(stackIndex);
-    outputlessTablesWithEmittedParts.clear(stackIndex);
-    pushedMappedTemplateOutputOpen.clear(stackIndex);
-    suppressedMappedForeignSubtrees.clear(stackIndex);
   }
 
   /** Whether a policy rename lacks enough input structure to balance safely. */
@@ -1246,9 +1198,10 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /** Keeps an input foreign form from closing an older HTML form on its end. */
-  private void stackForeignFormWithoutOutput() {
+  private void stackForeignFormWithoutOutput(int serial) {
     int stackIndex = openElements.size();
     openElements.add(FORM_TAG);
+    inputElementSerials.add(serial);
     outputElements.add(NO_OUTPUT_ELEMENT);
     outputlessTablesWithEmittedParts.clear(stackIndex);
     pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -1267,9 +1220,10 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /** Keeps a deliberately suppressed start available for its matching end. */
   private void stackElementWithoutOutput(
-      int element, boolean inputUsesForeignContentRules) {
+      int element, boolean inputUsesForeignContentRules, int serial) {
     int stackIndex = openElements.size();
     openElements.add(element);
+    inputElementSerials.add(serial);
     outputElements.add(NO_OUTPUT_ELEMENT);
     sentToUnderlying.set(stackIndex);
     inputElementsInForeignContent.set(
@@ -1290,7 +1244,9 @@ public class TagBalancingHtmlStreamEventReceiver
   /** Removes shadow entries whose policy-stack counterparts already closed. */
   private void discardStackSuffix(int fromIndex) {
     for (int i = openElements.size(); --i >= fromIndex;) {
+      closePassthroughsInside(i, false);
       openElements.remove(i);
+      inputElementSerials.remove(i);
       outputElements.remove(i);
       sentToUnderlying.clear(i);
       inputElementsInForeignContent.clear(i);
@@ -1367,6 +1323,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (droppedSuppressedOptionOwnsPolicyEntry
         && droppedSuppressedOptionStackDepth >= 0) {
       discardStackSuffix(droppedSuppressedOptionStackDepth);
+      closePassthroughsInside(droppedSuppressedOptionStackDepth - 1, false);
     }
     if (droppedSuppressedOptionResumeDepth >= 0) {
       while (toResumeInReverse.size()
@@ -1705,13 +1662,8 @@ public class TagBalancingHtmlStreamEventReceiver
     String pending = pendingUnrecognizedHtmlTextElement;
     if (pending == null) { return; }
     pendingUnrecognizedHtmlTextElement = null;
-    underlying.closeTag(pending);
-    PushedOutTablePolicy policy = pushedOutTablePolicy();
-    if (policy != null) {
-      reconcilePolicyClosedOutputElements(
-          policy.outputStackEntriesClosedByLastEndTag());
-    }
-    removeForeignElementsClosedByLastEndTag();
+    int passthrough = indexOfPassthroughNamed(pending);
+    if (passthrough >= 0) { closePassthrough(passthrough, true); }
   }
 
   /** Opens one logical element, suppressing unsafe table structure if needed. */
@@ -1842,6 +1794,15 @@ public class TagBalancingHtmlStreamEventReceiver
           hasNestedUnavailableTableAboveEmittedOutputlessTable();
       returnToTableContext(elIndex);
       int container = containerIndex();
+      if (container >= 0
+          && TABLE_CONTEXT.get(openElements.get(container))
+          && !hasUnavailableInputTableInScope()) {
+        // A table part clears a browser's stack back to the table context,
+        // which pops any element forwarded inside it that has no entry here.
+        // A table the policy dropped or renamed establishes no such context
+        // in the output, and its logical parts keep the older path.
+        closePassthroughsInside(container, true);
+      }
       int top = effectiveContainer(elIndex, container);
       int[] implied = METADATA.impliedElements(top, elIndex);
       if (!preserveOuterOutputlessTableParts
@@ -2004,6 +1965,7 @@ public class TagBalancingHtmlStreamEventReceiver
               lastOutputElementUsedForeignContentRules();
           int stackIndex = openElements.size();
           openElements.add(impliedElIndex);
+          inputElementSerials.add(0);
           outputElements.add(outputElementIndex);
           outputlessTablesWithEmittedParts.clear(stackIndex);
           pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -2057,11 +2019,13 @@ public class TagBalancingHtmlStreamEventReceiver
           container < stackDepthBeforeImpliedElements;
       for (int i = openElements.size(); --i >= container;) {
         int unclosed = openElements.get(i);
+        closePassthroughsInside(i, true);
         if (shouldSendClose(i)) {
           underlying.closeTag(METADATA.canonNameForIndex(unclosed));
         }
         detachOutputlessTableWithEmittedParts(i);
         openElements.remove(i);
+        inputElementSerials.remove(i);
         outputElements.remove(i);
         sentToUnderlying.clear(i);
         inputElementsInForeignContent.clear(i);
@@ -2125,6 +2089,7 @@ public class TagBalancingHtmlStreamEventReceiver
             && lastOutputElementUsedForeignContentRules();
         int stackIndex = openElements.size();
         openElements.add(toResume);
+        inputElementSerials.add(0);
         outputElements.add(outputElementIndex);
         outputlessTablesWithEmittedParts.clear(stackIndex);
         pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -2513,7 +2478,9 @@ public class TagBalancingHtmlStreamEventReceiver
       if (canHold(elIndex, openElements.get(i), i)) { break; }
       int unclosed = openElements.get(i);
       boolean sendClose = shouldSendClose(i);
+      closePassthroughsInside(i, true);
       openElements.remove(i);
+      inputElementSerials.remove(i);
       outputElements.remove(i);
       if (sendClose) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
@@ -2533,14 +2500,6 @@ public class TagBalancingHtmlStreamEventReceiver
       suppressedMappedForeignSubtrees.clear(i);
     }
     return true;
-  }
-
-  /** Mirrors a table suffix that an unrepresented input end closed below. */
-  private void markPolicyClosedOutputTable(int table) {
-    for (int i = table, n = openElements.size(); i < n; ++i) {
-      if (!TABLE_CONTEXT.get(openElements.get(i))) { break; }
-      pushedOut.set(i);
-    }
   }
 
   /** Whether a browser would foster-parent this token out of an open table. */
@@ -2844,6 +2803,7 @@ public class TagBalancingHtmlStreamEventReceiver
             && !outputElementsInForeignContent.get(i)
             && hasOutputlessTemplateBelow(i);
         if (sentToUnderlying.get(i) && !leaveMappedTemplateOpen) {
+          closePassthroughsInside(i, true);
           underlying.closeTag(METADATA.canonNameForIndex(elIndex));
         }
         pushedOut.set(i);
@@ -2882,7 +2842,9 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     for (int i = openElements.size(); --i > top;) {
+      closePassthroughsInside(i, true);
       int unclosed = openElements.remove(i);
+      inputElementSerials.remove(i);
       outputElements.remove(i);
       if (sentToUnderlying.get(i)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
@@ -2905,12 +2867,14 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     while (top >= 0 && pushedOut.get(top)) {
       if (canHold(elIndex, openElements.get(top), top)) { break; }
+      closePassthroughsInside(top, true);
       if (isRetiredInputTable(top)
           || pushedMappedTemplateOutputOpen.get(top)) {
         underlying.closeTag("table");
       }
       detachOutputlessTableWithEmittedParts(top);
       openElements.remove(top);
+      inputElementSerials.remove(top);
       outputElements.remove(top);
       sentToUnderlying.clear(top);
       inputElementsInForeignContent.clear(top);
@@ -2929,9 +2893,27 @@ public class TagBalancingHtmlStreamEventReceiver
     if (top < 0 || !pushedOut.get(top)) { return; }
     int start = top;
     while (start > 0 && pushedOut.get(start - 1)) { --start; }
+    if (pushedTable >= 0
+        && outputElements.get(pushedTable) == TABLE_TAG
+        && !outputTableUnavailable.get(pushedTable)
+        && !outputElementsInForeignContent.get(pushedTable)) {
+      // A browser clears its stack back to the table context before it
+      // reprocesses the part, so elements forwarded in front of the table
+      // are closed before the table reopens.
+      closePassthroughsInside(start, true);
+    } else {
+      // No table reopens in the output, so the elements forwarded in front
+      // of the logical table stay open below and now precede its reopened
+      // entries.
+      for (int i = passthroughDepths.size();
+           --i >= 0 && passthroughDepths.get(i) > start;) {
+        passthroughDepths.set(i, start);
+      }
+    }
     // Pop the run and push it back, outermost first, opening each again.
     int n = top - start + 1;
     int[] run = new int[n];
+    int[] runSerials = new int[n];
     boolean[] runInputForeign = new boolean[n];
     boolean[] runFormPointerTarget = new boolean[n];
     boolean[] runClearedFormPointerTarget = new boolean[n];
@@ -2964,7 +2946,9 @@ public class TagBalancingHtmlStreamEventReceiver
       if (isRetiredInputTable(start + i)) {
         underlying.closeTag("table");
       }
+      runSerials[i] = inputElementSerials.get(start + i);
       run[i] = openElements.remove(start + i);
+      inputElementSerials.remove(start + i);
       outputElements.remove(start + i);
       sentToUnderlying.clear(start + i);
       inputElementsInForeignContent.clear(start + i);
@@ -2980,10 +2964,7 @@ public class TagBalancingHtmlStreamEventReceiver
       pushedMappedTemplateOutputOpen.clear(start + i);
       suppressedMappedForeignSubtrees.clear(start + i);
     }
-    if (foreignRootPendingTableReturn != null) {
-      underlying.closeTag(foreignRootPendingTableReturn);
-      foreignRootPendingTableReturn = null;
-    }
+    foreignRootPendingTableReturn = null;
     PushedOutTablePolicy policy = pushedOutTablePolicy();
     for (int i = 0; i < n; ++i) {
       boolean mappedTemplateStillOpen = runMappedTemplateOutputOpen[i];
@@ -3005,6 +2986,7 @@ public class TagBalancingHtmlStreamEventReceiver
           : sent && lastOutputElementUsedForeignContentRules();
       int stackIndex = openElements.size();
       openElements.add(run[i]);
+      inputElementSerials.add(runSerials[i]);
       outputElements.add(outputElementIndex);
       sentToUnderlying.set(stackIndex, sent);
       inputElementsInForeignContent.set(stackIndex, runInputForeign[i]);
@@ -3174,6 +3156,8 @@ public class TagBalancingHtmlStreamEventReceiver
         if (droppedSuppressedOptionDepth == 0) {
           if (droppedSuppressedOptionOwnsPolicyEntry) {
             discardStackSuffix(droppedSuppressedOptionStackDepth);
+            closePassthroughsInside(
+                droppedSuppressedOptionStackDepth - 1, false);
             underlying.closeTag(canonElementName);
           }
           resetDroppedSuppressedOption();
@@ -3185,34 +3169,20 @@ public class TagBalancingHtmlStreamEventReceiver
       --droppedSkippableDepth;
     }
 
-    if (usesForeignContentRules
-        && TABLE_PARTS.get(elIndex)
-        && isOutputInForeignContent()) {
-      for (int i = openElements.size(); --i >= 0;) {
-        if (openElements.get(i) == elIndex
-            && inputElementsInForeignContent.get(i)) {
-          closeStackFrom(i, elIndex);
-          return;
-        }
-      }
-      if (!foreignContent.lastForeignEndTagTargetWasDroppedByNestingLimit()) {
-        underlying.closeTag(elementName);
-      }
+    if (usesForeignContentRules) {
+      // The end tag matched a foreign node, and a browser pops that node and
+      // every node above it.  Close the entries for the popped nodes by
+      // identity, innermost first.  Local names are never searched: a node
+      // dropped at the nesting limit, or already closed, matches nothing and
+      // so cannot reach an older element with the same name.
+      closeForeignElementsPoppedByLastEndTag();
       return;
     }
-    if (elIndex == UNRECOGNIZED_TAG) {  // Allow unrecognized end tags through.
-      if (openElements.size() < nestingLimit) {
-        underlying.closeTag(elementName);
-        PushedOutTablePolicy policy = pushedOutTablePolicy();
-        if (policy != null) {
-          reconcilePolicyClosedOutputElements(
-              policy.outputStackEntriesClosedByLastEndTag());
-        }
-        removeForeignElementsClosedByLastEndTag();
-      }
-      if (canonElementName.equals(foreignRootPendingTableReturn)) {
-        foreignRootPendingTableReturn = null;
-      }
+    if (elIndex == UNRECOGNIZED_TAG) {
+      // Forwarded only for an element the receiver below still has open,
+      // after everything opened inside it.  A stray end tag closes nothing.
+      int passthrough = indexOfPassthroughNamed(canonElementName);
+      if (passthrough >= 0) { closePassthrough(passthrough, true); }
       return;
     }
 
@@ -3311,6 +3281,18 @@ public class TagBalancingHtmlStreamEventReceiver
         }
       }
     }
+    {
+      // A table part forwarded directly into foreign output is closed by name
+      // when the foreign tracker no longer knows it, as after an HTML
+      // breakout.  It is the innermost element of this name if it was
+      // forwarded after the entry found above.
+      int passthrough = indexOfPassthroughNamed(canonElementName);
+      if (passthrough >= 0
+          && (index < 0 || passthroughDepths.get(passthrough) > index)) {
+        closePassthrough(passthrough, true);
+        return;
+      }
+    }
     if (index < 0) {
       if (formEndUsesPointer && pointerTarget >= 0) {
         formPointerTargets.clear(pointerTarget);
@@ -3335,108 +3317,140 @@ public class TagBalancingHtmlStreamEventReceiver
     closeStackFrom(index, elIndex);
   }
 
-  /** Mirrors structural output elements closed by an unrepresented input end. */
-  private void reconcilePolicyClosedOutputElements(
-      List<String> closedOutputStackEntries) {
-    for (int j = 0; j + 1 < closedOutputStackEntries.size(); j += 2) {
-      int inputElement = METADATA.indexForName(HtmlLexer.canonicalElementName(
-          closedOutputStackEntries.get(j)));
-      String outputName = closedOutputStackEntries.get(j + 1);
-      int outputElement = outputName.isEmpty()
-          ? NO_OUTPUT_ELEMENT
-          : METADATA.indexForName(HtmlLexer.canonicalElementName(outputName));
-      boolean outputlessListItem = inputElement == LI_TAG
-          && outputElement == NO_OUTPUT_ELEMENT;
-      boolean retainOutputlessListItem = false;
-      if (outputlessListItem) {
-        for (int k = 0; k + 1 < closedOutputStackEntries.size();
-             k += 2) {
-          String closedOutputName = HtmlLexer.canonicalElementName(
-              closedOutputStackEntries.get(k + 1));
-          if ("select".equals(closedOutputName)
-              || "table".equals(closedOutputName)) {
-            retainOutputlessListItem = true;
-            break;
-          }
-        }
-        for (String popped
-            : foreignContent.foreignElementsPoppedByLastEndTag()) {
-          if ("select".equals(HtmlLexer.canonicalElementName(popped))) {
-            retainOutputlessListItem = true;
-            break;
-          }
-        }
-      }
-      if (inputElement == UNRECOGNIZED_TAG
-          || outputElement == UNRECOGNIZED_TAG
-          || (!outputlessListItem
-              && !TABLE_PARTS.get(outputElement)
-              && outputElement != SELECT_TAG
-              && outputElement != TEMPLATE_TAG
-              && outputElement != FORM_TAG)) {
+  /**
+   * Closes, innermost first, the entries for the foreign nodes that the last
+   * end tag popped, found by the identity of each node.  A popped node
+   * whose entry is gone, or was never made because the nesting limit dropped
+   * it, matches nothing and is never mistaken for an older node of the same
+   * local name.  A popped node listed in {@link #passthroughNames} has its
+   * end tag forwarded after everything inside it is closed; the end tag of
+   * a popped node with an entry in {@link #openElements} is sent for that
+   * entry as usual.
+   */
+  private void closeForeignElementsPoppedByLastEndTag() {
+    int n = foreignContent.foreignElementsPoppedByLastEndTag().size();
+    for (int j = 0; j < n; ++j) {
+      int serial = foreignContent.foreignElementSerialPoppedByLastEndTag(j);
+      int index = indexOfInputElementSerial(serial);
+      if (index >= 0) {
+        closeStackFrom(index, openElements.get(index));
         continue;
       }
-      int target = -1;
-      for (int i = openElements.size(); --i >= 0;) {
-        if (!sentToUnderlying.get(i)
-            || pushedOut.get(i)
-            || outputElementsInForeignContent.get(i)
-            || openElements.get(i) != inputElement
-            || outputElements.get(i) != outputElement) {
-          continue;
-        }
-        if (outputlessListItem
-            && (i == 0
-                || openElements.get(i - 1) != SELECT_TAG)) {
-          continue;
-        }
-        target = i;
-        break;
-      }
-      if (target < 0) { continue; }
-      if (outputlessListItem
-          && (retainOutputlessListItem
-              || (!inputElementsInForeignContent.get(target - 1)
-                  && !outputElementsInForeignContent.get(target - 1)))) {
-        // The policy has already consumed this synthetic input entry.  Keep
-        // the HTML select's logical wrapper, which still guides containment,
-        // but do not send its close later and accidentally reach an older li.
-        sentToUnderlying.clear(target);
-        continue;
-      }
-      if (outputElement == FORM_TAG
-          && clearedFormPointerTargets.previousSetBit(target - 1) < 0) {
-        continue;
-      }
-      if (outputElement == TABLE_TAG) {
-        if (TABLE_CONTEXT.get(inputElement)) {
-          markPolicyClosedOutputTable(target);
-        } else {
-          closeStackFrom(target, inputElement, false);
-        }
-      } else {
-        closeStackFrom(target, inputElement, false);
+      int passthrough = indexOfPassthroughSerial(serial);
+      if (passthrough >= 0) {
+        closePassthrough(passthrough, true);
       }
     }
   }
 
-  /** Mirrors recognized foreign entries popped by an unrecognized end tag. */
-  private void removeForeignElementsClosedByLastEndTag() {
-    for (String elementName
-        : foreignContent.foreignElementsPoppedByLastEndTag()) {
-      int element = METADATA.indexForName(elementName);
-      if (element == UNRECOGNIZED_TAG) { continue; }
-      for (int i = openElements.size(); --i >= 0;) {
-        if (!inputElementsInForeignContent.get(i)) { continue; }
-        if (openElements.get(i) == element) {
-          // The unrecognized end tag was already sent to the policy, whose
-          // input-name stack closed this foreign suffix.  Remove the matching
-          // logical entries without sending a second close: the repeated
-          // same-name close could otherwise reach an older HTML ancestor.
-          closeStackFrom(i, element, false);
-          break;
-        }
+  /** The entry whose start tag pushed the node with this identity, or -1. */
+  private int indexOfInputElementSerial(int serial) {
+    if (serial == 0) { return -1; }
+    for (int i = openElements.size(); --i >= 0;) {
+      if (inputElementSerials.get(i) == serial) { return i; }
+    }
+    return -1;
+  }
+
+  /** Records an element forwarded below with no entry in openElements. */
+  private void pushPassthrough(String elementName, int serial) {
+    passthroughNames.add(elementName);
+    passthroughDepths.add(openElements.size());
+    passthroughSerials.add(serial);
+  }
+
+  /** The innermost forwarded element with this canonical name, or -1. */
+  private int indexOfPassthroughNamed(String canonElementName) {
+    for (int i = passthroughNames.size(); --i >= 0;) {
+      if (canonElementName.equals(
+              HtmlLexer.canonicalElementName(passthroughNames.get(i)))) {
+        return i;
       }
+    }
+    return -1;
+  }
+
+  /** The forwarded element whose start pushed the node with this identity. */
+  private int indexOfPassthroughSerial(int serial) {
+    if (serial == 0) { return -1; }
+    for (int i = passthroughSerials.size(); --i >= 0;) {
+      if (passthroughSerials.get(i) == serial) { return i; }
+    }
+    return -1;
+  }
+
+  /**
+   * Closes, innermost first, the forwarded elements opened inside the entry
+   * at {@code stackIndex}: those forwarded after it was added.  Called
+   * before that entry's own close is sent, or before it is removed because
+   * the receiver below already closed it, in which case nothing is sent.
+   */
+  private void closePassthroughsInside(int stackIndex, boolean emitCloseTags) {
+    while (!passthroughDepths.isEmpty()
+        && passthroughDepths.getLast() > stackIndex) {
+      popPassthrough(emitCloseTags);
+    }
+  }
+
+  /** Closes the innermost forwarded element, sending its end tag if asked. */
+  private void popPassthrough(boolean emitCloseTag) {
+    int last = passthroughNames.size() - 1;
+    String elementName = passthroughNames.remove(last);
+    passthroughDepths.removeLast();
+    passthroughSerials.removeLast();
+    if (emitCloseTag) {
+      underlying.closeTag(elementName);
+    }
+    if (foreignRootPendingTableReturn != null
+        && foreignRootPendingTableReturn.equals(
+            HtmlLexer.canonicalElementName(elementName))) {
+      foreignRootPendingTableReturn = null;
+    }
+  }
+
+  /**
+   * Closes the forwarded element at {@code passthrough}, after every entry
+   * and forwarded element opened inside it, innermost first.  The entries
+   * inside it are closed implicitly, so formatting among them resumes
+   * around later content as a browser reconstructs it.
+   */
+  private void closePassthrough(int passthrough, boolean emitCloseTags) {
+    int depth = passthroughDepths.get(passthrough);
+    if (depth < openElements.size()) {
+      closeStackEntriesFrom(depth, emitCloseTags);
+    }
+    while (passthroughNames.size() - 1 > passthrough) {
+      popPassthrough(emitCloseTags);
+    }
+    popPassthrough(emitCloseTags);
+  }
+
+  /**
+   * Implicitly closes every entry from {@code fromIndex} up, innermost
+   * first, along with the forwarded elements inside each, as the descendants
+   * of an explicitly closed element are closed in {@link #closeStackFrom}.
+   */
+  private void closeStackEntriesFrom(int fromIndex, boolean emitCloseTags) {
+    boolean closesTemplate = false;
+    for (int i = fromIndex, n = openElements.size(); i < n; ++i) {
+      if (openElements.get(i) == TEMPLATE_TAG) { closesTemplate = true; }
+    }
+    if (closesTemplate) {
+      // Formatting inside template content must not resume outside it.
+      toResumeInReverse.clear();
+    }
+    for (int i = openElements.size(); --i >= fromIndex;) {
+      int unclosed = openElements.get(i);
+      closePassthroughsInside(i, emitCloseTags);
+      if (emitCloseTags && shouldSendClose(i)) {
+        underlying.closeTag(METADATA.canonNameForIndex(unclosed));
+      }
+      if (unclosed == TEMPLATE_TAG) {
+        closesTemplate = false;
+      } else if (!closesTemplate && METADATA.resumable(unclosed)) {
+        toResumeInReverse.add(unclosed);
+      }
+      discardStackSuffix(i);
     }
   }
 
@@ -3492,7 +3506,9 @@ public class TagBalancingHtmlStreamEventReceiver
     while (--last > index) {
       int unclosed = openElements.get(last);
       boolean sendClose = emitCloseTags && shouldSendClose(last);
+      closePassthroughsInside(last, emitCloseTags);
       openElements.remove(last);
+      inputElementSerials.remove(last);
       outputElements.remove(last);
       if (sendClose) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
@@ -3514,11 +3530,7 @@ public class TagBalancingHtmlStreamEventReceiver
         toResumeInReverse.add(unclosed);
       }
     }
-    if (emitCloseTags
-        && pushedOut.get(index) && foreignRootPendingTableReturn != null) {
-      underlying.closeTag(foreignRootPendingTableReturn);
-      foreignRootPendingTableReturn = null;
-    }
+    closePassthroughsInside(index, emitCloseTags);
     if (emitCloseTags && shouldSendClose(index)) {
       underlying.closeTag(METADATA.canonNameForIndex(closedElement));
     }
@@ -3536,6 +3548,7 @@ public class TagBalancingHtmlStreamEventReceiver
     pushedMappedTemplateOutputOpen.clear(index);
     suppressedMappedForeignSubtrees.clear(index);
     openElements.remove(index);
+    inputElementSerials.remove(index);
     outputElements.remove(index);
   }
 
@@ -3594,6 +3607,7 @@ public class TagBalancingHtmlStreamEventReceiver
     int oldSize = openElements.size();
     int descendantCount = oldSize - formIndex - 1;
     int[] descendants = new int[descendantCount];
+    int[] descendantSerials = new int[descendantCount];
     int[] descendantOutputs = new int[descendantCount];
     boolean[] descendantsAreForeign = new boolean[descendantCount];
     boolean[] descendantOutputsAreForeign = new boolean[descendantCount];
@@ -3616,6 +3630,7 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = 0; i < descendantCount; ++i) {
       int stackIndex = formIndex + 1 + i;
       descendants[i] = openElements.get(stackIndex);
+      descendantSerials[i] = inputElementSerials.get(stackIndex);
       descendantOutputs[i] = outputElements.get(stackIndex);
       descendantsAreForeign[i] = inputElementsInForeignContent.get(stackIndex);
       descendantOutputsAreForeign[i] =
@@ -3642,15 +3657,18 @@ public class TagBalancingHtmlStreamEventReceiver
     // itself when it sees </form>, but an arbitrary receiver only sees the
     // events we send it and must receive a balanced close for every open.
     for (int i = oldSize; --i > formIndex;) {
+      closePassthroughsInside(i, true);
       if (shouldSendClose(i)) {
         underlying.closeTag(METADATA.canonNameForIndex(openElements.get(i)));
       }
     }
+    closePassthroughsInside(formIndex, true);
     if (sentToUnderlying.get(formIndex) && !pushedOut.get(formIndex)) {
       underlying.closeTag("form");
     }
     for (int i = oldSize; --i >= formIndex;) {
       openElements.remove(i);
+      inputElementSerials.remove(i);
       outputElements.remove(i);
       sentToUnderlying.clear(i);
       inputElementsInForeignContent.clear(i);
@@ -3675,6 +3693,7 @@ public class TagBalancingHtmlStreamEventReceiver
       if (METADATA.resumable(descendants[i])) { continue; }
       int stackIndex = openElements.size();
       openElements.add(descendants[i]);
+      inputElementSerials.add(descendantSerials[i]);
       outputElements.add(descendantOutputs[i]);
       sentToUnderlying.set(
           stackIndex, descendantsArePushedOut[i] && descendantsWereSent[i]);
@@ -4010,11 +4029,18 @@ public class TagBalancingHtmlStreamEventReceiver
           + METADATA.canonNameForIndex(idx) + "->"
           + (out == NO_OUTPUT_ELEMENT ? "-"
               : METADATA.canonNameForIndex(out))
+          + " serial=" + inputElementSerials.get(i)
           + " sent=" + sentToUnderlying.get(i)
           + " pushed=" + pushedOut.get(i)
           + " unavailable=" + outputTableUnavailable.get(i)
           + " inputForeign=" + inputElementsInForeignContent.get(i)
           + " outputForeign=" + outputElementsInForeignContent.get(i));
+    }
+    System.err.println("\tpassthroughs");
+    for (int i = 0, n = passthroughNames.size(); i < n; ++i) {
+      System.err.println("\t\t" + passthroughNames.get(i)
+          + " depth=" + passthroughDepths.get(i)
+          + " serial=" + passthroughSerials.get(i));
     }
     System.err.println("\tresumable");
     for (int i = 0, n = toResumeInReverse.size(); i < n; ++i) {

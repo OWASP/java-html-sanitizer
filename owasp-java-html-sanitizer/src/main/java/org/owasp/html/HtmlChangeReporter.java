@@ -273,13 +273,6 @@ public final class HtmlChangeReporter<T> {
               elementName, attrs);
     }
 
-    public List<String> outputStackEntriesClosedByLastEndTag() {
-      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
-      return tablePolicy != null
-          ? tablePolicy.outputStackEntriesClosedByLastEndTag()
-          : java.util.Collections.<String>emptyList();
-    }
-
     private @Nullable PushedOutTablePolicy pushedOutTablePolicy() {
       return policy instanceof PushedOutTablePolicy
           ? (PushedOutTablePolicy) policy : null;
