@@ -165,7 +165,8 @@ public final class HtmlChangeReporter<T> {
     /**
      * The tag balancer sits upstream of this channel, so a tag it drops for
      * exceeding the nesting limit never reaches the policy and would otherwise
-     * go unreported.  It tells us directly instead.
+     * go unreported.  It tells us directly instead.  The same goes for a form
+     * start it ignores because the browser's form element pointer is set.
      */
     public void nestingLimitReached(String elementName) {
       listener.discardedTag(context, elementName);

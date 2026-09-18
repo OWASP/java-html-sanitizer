@@ -256,8 +256,9 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final boolean DEBUG = false;
 
   /**
-   * Receives notice of tags dropped because the output would otherwise nest
-   * deeper than {@link #setNestingLimit}.
+   * Receives notice of start tags this receiver drops: those that would nest
+   * the output deeper than {@link #setNestingLimit}, and a form start a
+   * browser ignores while its form element pointer is set.
    *
    * <p>This exists because the tag balancer runs upstream of the policy, and
    * so upstream of {@link HtmlChangeReporter}, which notices a discarded tag
@@ -443,7 +444,12 @@ public class TagBalancingHtmlStreamEventReceiver
             .suppressesTextWhenDropped(canonElementName);
   }
 
-  private void reportDroppedByNestingLimit(String elementName) {
+  /**
+   * Tells the listener, if any, of a start tag dropped here, which the
+   * policy therefore never sees: one the nesting limit drops, or a form
+   * start a browser ignores while its form element pointer is set.
+   */
+  private void reportDroppedStartTag(String elementName) {
     if (underlying instanceof NestingLimitListener) {
       ((NestingLimitListener) underlying).nestingLimitReached(elementName);
     }
@@ -618,7 +624,7 @@ public class TagBalancingHtmlStreamEventReceiver
         if (droppedSuppressedOptionDepth != Integer.MAX_VALUE) {
           ++droppedSuppressedOptionDepth;
         }
-        reportDroppedByNestingLimit(elementName);
+        reportDroppedStartTag(elementName);
       } else if (effectiveNestingDepth() >= nestingLimit) {
         if (!suppressingPolicySubtree) {
           // The policy-only suppression entry owns a stack entry below even
@@ -632,7 +638,7 @@ public class TagBalancingHtmlStreamEventReceiver
         } else {
           droppedSuppressedOptionStackDepth = openElements.size();
           droppedSuppressedOptionResumeDepth = -1;
-          reportDroppedByNestingLimit(elementName);
+          reportDroppedStartTag(elementName);
         }
         droppedSuppressedOptionDepth = 1;
       } else {
@@ -646,7 +652,10 @@ public class TagBalancingHtmlStreamEventReceiver
     if (formUsesHtmlPointerRules) {
       if (formElementPointerWasSet) {
         // Outside template contents, a browser ignores another form start
-        // while its form element pointer is set.
+        // while its form element pointer is set.  It never reaches the
+        // policy, so a listener hears of it from here, as of a tag the
+        // nesting limit drops.
+        reportDroppedStartTag(elementName);
         return;
       }
       // ForeignContentContext may have become unknown while retaining the
@@ -683,7 +692,7 @@ public class TagBalancingHtmlStreamEventReceiver
       // An HTML integration point makes ForeignContentContext report HTML
       // rules and deliberately does not take this path.
       if (effectiveNestingDepth() >= nestingLimit) {
-        reportDroppedByNestingLimit(elementName);
+        reportDroppedStartTag(elementName);
         return;
       }
       underlying.openTag(canonElementName, attrs);
@@ -821,7 +830,7 @@ public class TagBalancingHtmlStreamEventReceiver
           if (contentIsSkippable(canonElementName)) {
             ++droppedSkippableDepth;
           }
-          reportDroppedByNestingLimit(elementName);
+          reportDroppedStartTag(elementName);
         } else if (suppressPreparedOutput) {
           PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
           if (suppressForeignBreakoutBesidePushedTable
@@ -851,7 +860,7 @@ public class TagBalancingHtmlStreamEventReceiver
         }
       } else {
         if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
-        reportDroppedByNestingLimit(elementName);
+        reportDroppedStartTag(elementName);
       }
       return;
     }
@@ -989,7 +998,7 @@ public class TagBalancingHtmlStreamEventReceiver
         if (contentIsSkippable(canonElementName)) {
           ++droppedSkippableDepth;
         }
-        reportDroppedByNestingLimit(METADATA.canonNameForIndex(elIndex));
+        reportDroppedStartTag(METADATA.canonNameForIndex(elIndex));
         return;
       }
       if (elIndex == FORM_TAG
@@ -1104,7 +1113,7 @@ public class TagBalancingHtmlStreamEventReceiver
         ++droppedSuppressedTableDepth;
       }
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
-      reportDroppedByNestingLimit(METADATA.canonNameForIndex(elIndex));
+      reportDroppedStartTag(METADATA.canonNameForIndex(elIndex));
     }
   }
 

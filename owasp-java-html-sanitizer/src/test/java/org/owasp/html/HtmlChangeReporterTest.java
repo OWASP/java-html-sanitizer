@@ -519,6 +519,24 @@ class HtmlChangeReporterTest {
   }
 
   /**
+   * A form start the balancer ignores because the form element pointer is
+   * already set never reaches the policy, so, as for a tag dropped at the
+   * nesting limit, the balancer reports it here itself.  It used to vanish
+   * without a notification.
+   */
+  @Test
+  void testFormStartIgnoredForTheFormPointerIsReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("form")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    Result result = sanitize(policy, "<form id=a><form id=b>x</form></form>");
+
+    assertEquals("<form id=\"a\">x</form>", result.html);
+    assertEquals("<form> ", result.log);
+  }
+
+  /**
    * The reported container is the literal name emitted by an element policy.
    */
   @Test
