@@ -10,7 +10,12 @@ Most recent at top.
       the stack for the item to close stops where the parsing algorithm's
       does, at an element in its special category other than `address`,
       `div` and `p`, so an item written inside a heading, a form, a table or
-      a template still nests as a browser nests it (#492, item 8).
+      a template still nests as a browser nests it.  A formatting element the
+      balancer resumes is no longer opened inside an element whose content
+      the lexer reads as text, such as `textarea` or `style`, where its tags
+      would have come out as that element's text; it is reconstructed around
+      that element, and for the text after it, as a browser does (#492,
+      item 8).
     * An `option` or `optgroup` under any element but a `select`, `optgroup`
       or `option` now gets its `select`, and a list item under any element
       but a list its list, whatever the container's name (a list the policy

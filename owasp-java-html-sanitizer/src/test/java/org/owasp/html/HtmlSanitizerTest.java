@@ -5873,6 +5873,40 @@ class HtmlSanitizerTest {
     for (String[] c : barriers) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
     }
+    // Formatting is not reconstructed inside an element whose content the
+    // lexer reads as text: a browser reconstructs it around that element,
+    // and a tag written inside it would come out as its text.  It resumes
+    // for the text that follows the element, as a browser reconstructs it
+    // there.
+    String[] rawNames = {
+        "ul", "li", "em", "span", "textarea", "style", "x-y", "textArea" };
+    PolicyFactory raw = new HtmlPolicyBuilder()
+        .allowElements(rawNames).allowWithoutAttributes(rawNames)
+        .allowTextIn("style", "textarea").toFactory();
+    String[][] rawText = {
+        { "<span><li><em>x<li><textarea>tail",
+          "<span><ul><li><em>x</em></li><li><em><textarea>tail</textarea>"
+          + "</em></li></ul></span>" },
+        { "<span><li><em>x<li><style>tail",
+          "<span><ul><li><em>x</em></li><li><em><style>tail</style></em>"
+          + "</li></ul></span>" },
+        { "<span><li><em>x<li><textarea>tail</textarea>after",
+          "<span><ul><li><em>x</em></li><li><em><textarea>tail</textarea>"
+          + "after</em></li></ul></span>" },
+        // One forwarded under a name this receiver does not recognize, an
+        // SVG-cased textArea, has no entry on the stack; the lexer still
+        // reads its content as text, so nothing is resumed inside it
+        // either, and, as for any unrecognized name, nothing around it.
+        { "<span><li><em>x<li><textArea>tail",
+          "<span><ul><li><em>x</em></li><li><textArea>tail</textArea></li>"
+          + "</ul></span>" },
+        { "<span><li><em>x<li><x-y><textArea>tail",
+          "<span><ul><li><em>x</em></li><li><x-y><textArea>tail</textArea>"
+          + "</x-y></li></ul></span>" },
+    };
+    for (String[] c : rawText) {
+      assertRoundTripAndBalanced(raw, c[0], c[1]);
+    }
     // The item a select keeps for content it cannot hold is none of the
     // input's, so an item written in a select is unaffected.
     String[] selectNames = { "select", "option", "ul", "li" };

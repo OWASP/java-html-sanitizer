@@ -2446,8 +2446,13 @@ public class TagBalancingHtmlStreamEventReceiver
       resumeFormatting = false;
     }
     boolean resumed = false;
+    // Formatting is not reconstructed inside an element whose content a
+    // browser reads as text, such as textarea or style: a browser
+    // reconstructs it around that element, when its start tag arrives, and
+    // a tag written inside it would come out as that element's text (#492).
     while (resumeFormatting
         && !insertionPointIsInForeignContent
+        && !contentGoesIntoRawTextElement()
         && !toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
       int nOpen;
@@ -2995,6 +3000,24 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean containerHasSpecialTextMode() {
     int container = containerIndex();
     return container >= 0 && hasSpecialTextMode(openElements.get(container));
+  }
+
+  /**
+   * Whether content arriving now goes into an element whose content this
+   * lexer reads as raw text, counting one forwarded under a name this
+   * receiver does not recognize, such as the SVG-cased {@code textArea},
+   * which has no entry on the stack.
+   */
+  private boolean contentGoesIntoRawTextElement() {
+    int last = passthroughNames.size() - 1;
+    if (last >= 0 && passthroughDepths.get(last) >= openElements.size()) {
+      int forwarded = METADATA.indexForName(
+          Strings.toLowerCase(passthroughNames.get(last)));
+      if (forwarded != UNRECOGNIZED_TAG && hasSpecialTextMode(forwarded)) {
+        return true;
+      }
+    }
+    return containerHasSpecialTextMode();
   }
 
   /**
