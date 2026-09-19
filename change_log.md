@@ -2,6 +2,17 @@
 
 Most recent at top.
   * Next release
+    * Text written after a `form` start tag inside a table part that the
+      input has without a table, such as `<tbody><form>B`, is judged by the
+      form's text gate again.  The tag balancer implies the table, the
+      in-table rule inserts and pops the form, and the text was written
+      beside the table past the gate the author set with
+      `disallowTextIn("form")`, though a browser reading that input, which
+      has no table, keeps the form open and the text is the form's.  The
+      policy now holds the form's gate, without output, until the input's
+      `</form>` or the table part closes it; the content is still written
+      beside the table, and a table the input has is unchanged (#492,
+      item 3).
     * Text and SVG or MathML children inside a foreign root no longer get the
       list item the tag balancer implies for a list's content, which landed
       inside the root and, being a breakout name, made a browser pop the root

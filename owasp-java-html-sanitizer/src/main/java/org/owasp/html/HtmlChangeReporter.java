@@ -421,6 +421,17 @@ public final class HtmlChangeReporter<T> {
       openTag(elementName, attrs, OpenTagMode.SUPPRESS_SUBTREE);
     }
 
+    public void holdTextGate(String elementName, List<String> attrs) {
+      // The element was emitted and reported when it was opened; only its
+      // text gate is held again, so there is nothing to report.
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      if (tablePolicy == null
+          || !tablePolicy.supportsPushedOutTableOperations()) {
+        throw new IllegalStateException("Policy cannot hold a text gate");
+      }
+      tablePolicy.holdTextGate(elementName, attrs);
+    }
+
     public void openTagWithSuppressedContent(
         String elementName, List<String> attrs) {
       openTag(elementName, attrs, OpenTagMode.EMIT_SUPPRESS_SUBTREE);

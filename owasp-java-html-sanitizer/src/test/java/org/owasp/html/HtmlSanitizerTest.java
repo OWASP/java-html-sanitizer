@@ -5462,6 +5462,92 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 3 of #492.  A form written directly in a table part that the input
+   * has without a table: the balancer implies the table, the in-table rule
+   * inserts and pops the form, and the text after it was foster-parented out
+   * of the table and judged by the gate around the table, though a browser
+   * reading the input, which has no table, keeps the form open and the text
+   * is the form's, so {@code disallowTextIn("form")} was bypassed.  The
+   * policy now holds the form's gate without output until the input's end
+   * tag, or the table part, closes it; content is still written beside the
+   * table.  A table the input has is unchanged: a browser foster-parents
+   * that text out of the form too.
+   */
+  @Test
+  void testDisallowedTextInFormRetiredInImpliedTable() throws Exception {
+    PolicyFactory noFormText = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .disallowTextIn("form")
+        .toFactory();
+    String[][] cases = {
+        { "<tbody><form>B", "<table><tbody><form></form></tbody></table>" },
+        { "<tr><form>B",
+          "<table><tbody><tr><form></form></tr></tbody></table>" },
+        { "<colgroup><form>B", "<table><form></form></table>" },
+        { "<p><tbody><form>B", "<table><tbody><form></form></tbody></table>" },
+        // The end tag ends the form: text after it is not the form's.
+        { "<tbody><form>B</form>C",
+          "<table><tbody><form></form></tbody></table>C" },
+        // An element the policy drops between changes nothing.
+        { "<tbody><form><p>B", "<table><tbody><form></form></tbody></table>" },
+        // A table the input has: a browser puts the text in front of the
+        // table, outside the form, and so does the output.
+        { "<table><form>B", "<table><form></form></table>B" },
+        { "<table><tbody><form>B",
+          "<table><tbody><form></form></tbody></table>B" },
+        { "<table><form>B</form>C</table>D",
+          "<table><form></form></table>BCD" },
+        // In a cell the form is a container of its own, as before.
+        { "<td><form>B",
+          "<table><tbody><tr><td><form></form></td></tr></tbody></table>" },
+        // Hostile content in the form's place is still removed.
+        { "<tbody><form><script>alert(1)</script>B",
+          "<table><tbody><form></form></tbody></table>" },
+        { "<tbody><form onsubmit=alert(1)>B<img src=x onerror=alert(1)>C",
+          "<table><tbody><form></form></tbody></table>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(noFormText, c[0], c[1]);
+      String out = noFormText.sanitize(c[0]);
+      assertFalse(out.contains("alert") || out.contains("<img"), out);
+    }
+    // With text allowed in the form, the text is kept beside the table as
+    // before; a kept element inside the form holds its own text either way.
+    String[] names = { "table", "tbody", "tr", "td", "form", "b" };
+    PolicyFactory formText = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    PolicyFactory noFormTextWithB = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        formText, "<tbody><form>B", "<table><tbody><form></form></tbody></table>B");
+    assertRoundTripAndBalanced(
+        formText, "<tbody><form>B</form>C",
+        "<table><tbody><form></form></tbody></table>BC");
+    assertRoundTripAndBalanced(
+        formText, "<tbody><form><b>B</b>C",
+        "<table><tbody><form></form></tbody></table><b>B</b>C");
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form><b>B</b>C",
+        "<table><tbody><form></form></tbody></table><b>B</b>");
+    // The change listener sees no discarded tag for the text.
+    final List<String> discarded = new ArrayList<String>();
+    noFormText.sanitize(
+        "<tbody><form>B",
+        new HtmlChangeListener<Object>() {
+          public void discardedTag(Object ctx, String elementName) {
+            discarded.add(elementName);
+          }
+          public void discardedAttributes(
+              Object ctx, String tagName, String... attributeNames) {
+            discarded.add(tagName + "@" + Arrays.asList(attributeNames));
+          }
+        },
+        null);
+    assertEquals(Collections.<String>emptyList(), discarded);
+  }
+
+  /**
    * Item 1 of #492.  The list item the containment metadata implies for a
    * list's content landed inside a forwarded SVG or MathML root: the root
    * has no entry on the balancer's stack, so the text or foreign child inside

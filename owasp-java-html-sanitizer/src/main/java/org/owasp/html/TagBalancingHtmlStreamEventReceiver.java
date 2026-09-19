@@ -191,6 +191,17 @@ public class TagBalancingHtmlStreamEventReceiver
   /** Logical tables inserted only to wrap orphan input table parts. */
   private final BitSet impliedInputTables = new BitSet();
   /**
+   * Stack entries that are HTML forms the in-table rule inserted and popped
+   * in a table this receiver implied for a table part the input wrote
+   * without a table.  A browser reading that input has no table, so the
+   * form stays open there and the text after its start is the form's text.
+   * The policy holds the form's text gate for such an entry without output,
+   * until the input's end tag, or the implied table part, closes it (#492).
+   */
+  private final BitSet retiredFormGates = new BitSet();
+  /** The attributes of the last such form, to re-hold its gate with. */
+  private List<String> retiredFormAttrs = new ArrayList<>();
+  /**
    * Bit {@code i} is set when no output table remains for a logical entry
    * whose descendants still use table rules.  This happens when policy does
    * not emit a synthetic table while returning from {@link #pushedOut}, or
@@ -348,6 +359,16 @@ public class TagBalancingHtmlStreamEventReceiver
 
     /** Applies element and text policy while deliberately emitting no tag. */
     void openTagWithoutOutput(String elementName, List<String> attrs);
+
+    /**
+     * Holds the text gate of an element that was emitted and closed already,
+     * as {@link #openTagWithoutOutput} does, but without reporting the
+     * element as discarded: the form the in-table rule popped in a table
+     * this receiver implied is in the output, and only its gate is kept.
+     */
+    default void holdTextGate(String elementName, List<String> attrs) {
+      openTagWithoutOutput(elementName, attrs);
+    }
 
     /** Applies policy while deliberately emitting neither tag nor contents. */
     void openTagWithoutOutputOrContent(
@@ -1186,6 +1207,21 @@ public class TagBalancingHtmlStreamEventReceiver
         retireOutputTableForForm(formTableContext);
         if (usesForeignContentRules) {
           stackForeignFormWithoutOutput(startSerial);
+        } else if (formTableContext >= 0
+            && impliedInputTables.get(formTableContext)
+            && !outputElementIsForeign
+            && outputElementIndex != NO_OUTPUT_ELEMENT
+            && tablePolicyAtStart != null) {
+          // The table is this receiver's own, implied for a table part the
+          // input wrote without one.  A browser reading the input has no
+          // table: the form stays open and the text after its start is the
+          // form's text, which the policy's gate for the form has to judge
+          // although the output form is closed.  Keep a logical form whose
+          // gate the policy holds without output (#492, item 3).
+          stackElementWithoutOutput(FORM_TAG, false, startSerial);
+          retiredFormGates.set(openElements.size() - 1);
+          retiredFormAttrs = new ArrayList<>(attrs);
+          tablePolicyAtStart.holdTextGate(canonElementName, attrs);
         }
       } else if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         int stackIndex = openElements.size();
@@ -1213,6 +1249,7 @@ public class TagBalancingHtmlStreamEventReceiver
         clearedFormPointerTargets.clear(stackIndex);
         staleOutputFormPointerTargets.clear(stackIndex);
         impliedInputTables.clear(stackIndex);
+    retiredFormGates.clear(stackIndex);
         if (elIndex == TABLE_TAG
             && outputUsesHtmlIntegrationPointRules
             && outputElementIndex != TABLE_TAG
@@ -1411,6 +1448,7 @@ public class TagBalancingHtmlStreamEventReceiver
     staleOutputFormPointerTargets.clear(stackIndex);
     pushedOut.clear(stackIndex);
     impliedInputTables.clear(stackIndex);
+    retiredFormGates.clear(stackIndex);
     outputTableUnavailable.clear(stackIndex);
   }
 
@@ -1431,6 +1469,7 @@ public class TagBalancingHtmlStreamEventReceiver
     staleOutputFormPointerTargets.clear(stackIndex);
     pushedOut.clear(stackIndex);
     impliedInputTables.clear(stackIndex);
+    retiredFormGates.clear(stackIndex);
     outputTableUnavailable.clear(stackIndex);
     outputlessTablesWithEmittedParts.clear(stackIndex);
     pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -2447,6 +2486,7 @@ public class TagBalancingHtmlStreamEventReceiver
         clearedFormPointerTargets.clear(stackIndex);
         staleOutputFormPointerTargets.clear(stackIndex);
         impliedInputTables.clear(stackIndex);
+    retiredFormGates.clear(stackIndex);
         resumed = true;
       } else {
         break;
@@ -2878,6 +2918,22 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
+   * Holds the retired forms' gates again after the table below them was
+   * pushed out, which closed the policy's entries above the table too, so
+   * that the content that follows is still judged as the form's.
+   */
+  private void reholdRetiredFormGates(int tableIndex) {
+    PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+    if (tablePolicy == null) { return; }
+    for (int i = Math.max(tableIndex, 0), n = openElements.size(); i < n;
+         ++i) {
+      if (retiredFormGates.get(i)) {
+        tablePolicy.holdTextGate("form", retiredFormAttrs);
+      }
+    }
+  }
+
+  /**
    * Whether an SVG or MathML root arriving under HTML rules is in a table
    * insertion mode: directly in a table, row group, row or column group,
    * where a browser foster-parents it in front of the table.
@@ -2922,10 +2978,12 @@ public class TagBalancingHtmlStreamEventReceiver
     boolean retiredOutputlessSuffix = hasRetiredOutputlessTableSuffix();
     while (--i >= 0
         && (pushedOut.get(i)
+            || retiredFormGates.get(i)
             || (retiredOutputlessSuffix
                 && outputElements.get(i) == NO_OUTPUT_ELEMENT))) {
       // Skip a table closed in the output but still open here, and logical
-      // descendants whose output was retired with such a table.
+      // descendants whose output was retired with such a table, and a form
+      // the in-table rule popped whose gate alone the policy still holds.
     }
     return i;
   }
@@ -3203,6 +3261,7 @@ public class TagBalancingHtmlStreamEventReceiver
       }
       if (elIndex == TABLE_TAG) { break; }
     }
+    reholdRetiredFormGates(topIndex);
   }
 
   /**
@@ -3629,6 +3688,18 @@ public class TagBalancingHtmlStreamEventReceiver
             }
           }
           if (index < 0) { return; }
+        } else if (!openElements.isEmpty()
+            && retiredFormGates.get(openElements.size() - 1)
+            && (passthroughDepths.isEmpty()
+                || passthroughDepths.get(passthroughDepths.size() - 1)
+                    < openElements.size())) {
+          // The form the in-table rule popped in a table this receiver
+          // implied is the browser's open form, since the input has no
+          // table: its end tag closes it, and the policy's gate with it.
+          // With content forwarded above it the end tag is ignored as
+          // before, and the gate stays for direct text until the part
+          // closes.
+          index = openElements.size() - 1;
         } else {
           pointerTarget = formPointerTargets.previousSetBit(
               openElements.size() - 1);
