@@ -17,6 +17,19 @@ Most recent at top.
       bound before.  Text that a browser foster-parents out of a table
       whose parts the policy dropped is kept beside the table rather than
       dropped.
+    * The tag balancer reports a `form` start tag it ignores because the
+      browser's form element pointer is already set, which therefore never
+      reaches the policy, to `HtmlChangeListener.discardedTag`, as it already
+      did for a tag dropped at the nesting limit (#484).  Each such report
+      now names the tag in canonical form, which is the name the policy is
+      asked about and the name a tag the policy drops is reported under.  A
+      name a pre-processor had recased used to be reported as written by
+      some of those drops and in canonical form by others (#491).
+    * `TagBalancingHtmlStreamEventReceiver.setNestingLimit` documents the
+      `IllegalStateException` it throws when elements are already open deeper
+      than the new limit, and the exception now says so.  A receiver with no
+      policy below counts the elements outside its containment metadata that
+      it has forwarded, such as custom elements, toward that depth (#491).
     * A nested element inside one renamed to a literal-content element no
       longer opens its own text gate.  Its text now follows the outer element's
       gate, so it cannot reach `style` or similar content where text was not
