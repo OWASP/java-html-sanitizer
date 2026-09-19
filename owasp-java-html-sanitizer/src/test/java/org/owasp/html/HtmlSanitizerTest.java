@@ -5383,4 +5383,55 @@ class HtmlSanitizerTest {
       assertEquals(parseAsBrowser(input), parseAsBrowser(p.sanitize(input)));
     }
   }
+
+  /**
+   * The policy keeps a logical entry for every element it drops, including
+   * unknown tags, and that stack is not bounded by the nesting limit.  Its
+   * check of whether a form start is in a table scope walked the whole stack
+   * from the top, and the balancer asks it for every recognized start tag,
+   * so a run of unclosed unknown tags followed by ordinary markup was
+   * quadratic: 128,000 {@code <foo>} then 128,000 {@code <li>} took twelve
+   * seconds where main takes 42 ms.  The names that decide the check are now
+   * indexed, so the walk is bounded by the emitted depth.  Both cases below
+   * exceed the timeout several times over on the old scan.
+   */
+  @Test
+  void testRecognizedTagsAfterARunOfUnrecognizedTagsAreLinear()
+      throws Exception {
+    PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
+    final int n = 200_000;
+    final String items = stringRepeatedTimes("<foo>", n)
+        + stringRepeatedTimes("<li>", n);
+    assertEquals(
+        "<ul>" + stringRepeatedTimes("<li></li>", n) + "</ul>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(items)),
+        "list items after unknown tags");
+    final String options = stringRepeatedTimes("<my-widget>", n)
+        + stringRepeatedTimes("<option>x</option>", n);
+    assertEquals(
+        stringRepeatedTimes("x", n),
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(options)),
+        "options after unknown tags");
+    // The scope check itself still answers as before, across a run of
+    // dropped unknown tags: a form directly in a table is popped at once,
+    // one inside a cell is an ordinary container.
+    PolicyFactory forms = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form", "select",
+            "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        forms,
+        stringRepeatedTimes("<foo>", 300) + "<table><form>x<tr><td>y",
+        "<table><form></form></table>x"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>");
+    assertRoundTripAndBalanced(
+        forms,
+        stringRepeatedTimes("<foo>", 300)
+        + "<table><tr><td><select><form>x</form></select></td></tr></table>",
+        "<table><tbody><tr><td><select><form>x</form></select></td></tr>"
+        + "</tbody></table>");
+  }
 }

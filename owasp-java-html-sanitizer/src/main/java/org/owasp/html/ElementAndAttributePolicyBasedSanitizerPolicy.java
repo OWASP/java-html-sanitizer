@@ -137,6 +137,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   private final List<String> openElementStack = new ArrayList<>();
   /**
+   * Indices into {@link #openElementStack} of the output names that bound
+   * the scope a form start is judged in: table, caption, select, td,
+   * template and th, innermost last.  {@link #formStartTagUsesTableRules}
+   * walks these instead of the whole stack, which holds an entry for every
+   * element the policy dropped and is not bounded by the nesting limit: a run
+   * of unclosed unknown tags made every later start tag rescan all of them.
+   */
+  private final IntVector tableScopeOutputEntries = new IntVector();
+  /**
    * Bit {@code k} is the value {@link #skipText} had before the {@code k}-th
    * element on {@link #openElementStack} was pushed, so that popping back to
    * {@code k} elements restores it.
@@ -243,6 +252,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     skippedLastTagAsAttributeless = false;
     reopenedTableWasRenamed = false;
     openElementStack.clear();
+    tableScopeOutputEntries.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
     suppressOutputAndContentBeforeOpen.clear();
@@ -262,6 +272,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       }
     }
     openElementStack.clear();
+    tableScopeOutputEntries.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
     suppressOutputAndContentBeforeOpen.clear();
@@ -318,20 +329,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   public boolean supportsPushedOutTableOperations() { return true; }
 
   public boolean formStartTagUsesTableRules() {
-    for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
+    // Only the indexed names can decide this; every other entry, dropped or
+    // not, is skipped, so the walk is bounded by the emitted depth rather
+    // than by the number of elements the policy dropped.
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int i = tableScopeOutputEntries.get(k);
       String adjustedElementName = openElementStack.get(i);
       if ("table".equals(adjustedElementName)) { return true; }
-      if (adjustedElementName == null
-          || outputElementInForeignContent.get(i / 2)) {
-        continue;
-      }
-      if ("caption".equals(adjustedElementName)
-          || "select".equals(adjustedElementName)
-          || "td".equals(adjustedElementName)
-          || "template".equals(adjustedElementName)
-          || "th".equals(adjustedElementName)) {
-        return false;
-      }
+      if (outputElementInForeignContent.get(i / 2)) { continue; }
+      return false;
     }
     return false;
   }
@@ -428,6 +434,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
     openElementStack.subList(tableInputIndex + 2, n).clear();
     openElementStack.set(tableInputIndex + 1, null);
+    forgetTableScopeOutputEntriesFrom(tableInputIndex + 1);
     outputElementInForeignContent.clear(tableDepth, n / 2);
     skipText = tableSkipText;
     suppressOutputAndContent = tableSuppressOutputAndContent;
@@ -1435,6 +1442,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       }
     }
     openElementStack.subList(inputNameIndex, n).clear();
+    forgetTableScopeOutputEntriesFrom(inputNameIndex);
     int depth = inputNameIndex / 2;
     outputElementInForeignContent.clear(depth, n / 2);
     skipText = skipTextBeforeOpen.get(depth);
@@ -1626,6 +1634,28 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputElementInForeignContent.clear(depth);
     openElementStack.add(elementName);
     openElementStack.add(adjustedElementName);
+    if (adjustedElementName != null
+        && isTableScopeOutputName(adjustedElementName)) {
+      tableScopeOutputEntries.add(openElementStack.size() - 1);
+    }
+  }
+
+  /** The output names {@link #formStartTagUsesTableRules} decides on. */
+  private static boolean isTableScopeOutputName(String adjustedElementName) {
+    return "table".equals(adjustedElementName)
+        || "caption".equals(adjustedElementName)
+        || "select".equals(adjustedElementName)
+        || "td".equals(adjustedElementName)
+        || "template".equals(adjustedElementName)
+        || "th".equals(adjustedElementName);
+  }
+
+  /** Drops the indexed entries at or above {@code stackIndex}. */
+  private void forgetTableScopeOutputEntriesFrom(int stackIndex) {
+    while (!tableScopeOutputEntries.isEmpty()
+        && tableScopeOutputEntries.getLast() >= stackIndex) {
+      tableScopeOutputEntries.removeLast();
+    }
   }
 
   /**
