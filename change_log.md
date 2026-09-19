@@ -2,6 +2,20 @@
 
 Most recent at top.
   * Next release
+    * An `option` or `optgroup` under any element but a `select`, `optgroup`
+      or `option` now gets its `select`, and a list item under any element
+      but a list its list, whatever the container's name (a list the policy
+      dropped still stands for its item, as before).  The containment
+      metadata read a container whose index lay past the end of the wrapper's
+      set of allowed containers, such as `span`, `td`, `th` or `ul` for an
+      option and `var` for a list item, as one of them, so an option in a
+      dropped table cell came out bare and the next pass wrapped it.  A
+      `template` holds an option directly, as a browser's does, and one the
+      policy dropped or renamed is judged where it stood in the output, so
+      its option gets its select there.  With the table kept and only the
+      cell or template dropped, the select is pushed out of the table as a
+      browser foster-parents one written in a row, instead of being emitted
+      inside the row and moved out by the next pass (#492, item 9).
     * Text and SVG or MathML children inside a foreign root no longer get the
       list item the tag balancer implies for a list's content, which landed
       inside the root and, being a breakout name, made a browser pop the root

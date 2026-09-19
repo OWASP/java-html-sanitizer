@@ -149,6 +149,39 @@ final class HtmlElementTablesTest {
         Arrays.toString(new int[] {}),
         Arrays.toString(
             t.impliedElements(ix("td"), ix("td"))));
+    // The select and list wrappers apply under a container past the end of
+    // the wrapper's set of allowed containers too (#492, item 9).
+    assertEquals(
+        Arrays.toString(new int[] { ix("select") }),
+        Arrays.toString(
+            t.impliedElements(ix("ul"), ix("option"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("select") }),
+        Arrays.toString(
+            t.impliedElements(ix("span"), ix("optgroup"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("select") }),
+        Arrays.toString(
+            t.impliedElements(ix("td"), ix("option"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("ul") }),
+        Arrays.toString(
+            t.impliedElements(ix("var"), ix("li"))));
+    // A table part keeps the old reading past the end of its set: the
+    // balancer returns it to a table in scope first.
+    assertEquals(
+        Arrays.toString(new int[] { ix("li") }),
+        Arrays.toString(
+            t.impliedElements(ix("ul"), ix("td"))));
+    // The containers that hold the element directly imply nothing.
+    assertEquals(
+        Arrays.toString(new int[] {}),
+        Arrays.toString(
+            t.impliedElements(ix("select"), ix("option"))));
+    assertEquals(
+        Arrays.toString(new int[] {}),
+        Arrays.toString(
+            t.impliedElements(ix("ul"), ix("li"))));
   }
 
   @Test

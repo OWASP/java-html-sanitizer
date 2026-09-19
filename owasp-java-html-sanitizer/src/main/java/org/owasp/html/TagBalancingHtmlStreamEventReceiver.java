@@ -2186,31 +2186,57 @@ public class TagBalancingHtmlStreamEventReceiver
           top = container < foreignRootBoundary
               ? BODY_TAG : effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
-          startPos = 0;
-          for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
-            if (impliedElIndices[i] == top) {
-              startPos = i + 1;
-              break;
-            }
+          startPos = startAfter(impliedElIndices, top);
+        }
+        // The select has to fit where the option's output goes.  An entry
+        // the policy dropped, a cell, a caption, a template or any other
+        // element, is no container in the output: what holds the option
+        // there is the nearest entry below with output, and if that is
+        // table structure, which holds no select, the table is pushed out
+        // from there, as a browser foster-parents the select before the
+        // table, while the dropped entries stay where they are, so that the
+        // cell's end tag still closes the option it holds (#492).  A
+        // container the policy renamed into table structure is closed
+        // instead, since the select cannot go inside it either.
+        int outputTableEntry = -1;
+        if (startPos < impliedElIndices.length
+            && impliedElIndices[startPos] == SELECT_TAG
+            && container >= 0
+            && sentToUnderlying.get(container)) {
+          int below = container;
+          while (below >= 0
+              && outputElements.get(below) == NO_OUTPUT_ELEMENT
+              && sentToUnderlying.get(below)) {
+            --below;
+          }
+          // The scan stops at the select's own logical list item too, which
+          // has no output and is not the policy's.
+          if (below >= 0
+              && !pushedOut.get(below)
+              && outputElements.get(below) != NO_OUTPUT_ELEMENT
+              && TABLE_CONTEXT.get(outputElements.get(below))) {
+            outputTableEntry = below;
           }
         }
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
             && container >= 0
-            && !canHold(SELECT_TAG, top, container)) {
-          mayOpenAtNestingLimit &= prepareForContent(
-              SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
+            && (outputTableEntry >= 0
+                || !canHold(SELECT_TAG, top, container))) {
+          if (outputTableEntry < 0) {
+            mayOpenAtNestingLimit &= prepareForContent(
+                SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
+          } else if (outputTableEntry < container
+              || TABLE_CONTEXT.get(openElements.get(outputTableEntry))) {
+            pushOutTable(outputTableEntry);
+          } else {
+            closeStackFrom(container, openElements.get(container));
+          }
           container = containerIndex();
           top = container < foreignRootBoundary
               ? BODY_TAG : effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
-          startPos = 0;
-          for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
-            if (impliedElIndices[i] == top) {
-              startPos = i + 1;
-              break;
-            }
-          }
+          startPos = startAfter(impliedElIndices, top);
         }
 
         List<String> attrs = new ArrayList<>();
@@ -2865,6 +2891,17 @@ public class TagBalancingHtmlStreamEventReceiver
     return elIndex == A_TAG && hasOpenLinkInFormattingScope(lowerBound);
   }
 
+  /**
+   * The position in an implied path after the container itself, if the path
+   * runs through it, else the start of the path.
+   */
+  private static int startAfter(int[] implied, int top) {
+    for (int i = 0, n = implied.length; i < n; ++i) {
+      if (implied[i] == top) { return i + 1; }
+    }
+    return 0;
+  }
+
   /** Whether a browser would foster-parent this token out of an open table. */
   private boolean needsFosterParenting(int elIndex, int foreignRootBoundary) {
     if (!isFosterParented(elIndex)
@@ -3023,29 +3060,21 @@ public class TagBalancingHtmlStreamEventReceiver
       return BODY_TAG;
     }
     if (child == OPTION_TAG
-        && underlying instanceof OpenTagOutputPolicy
         && !isOutputInForeignContent()
         && hasDroppedTemplateAbove(-1)
         && hasUnavailableOutputlessTable()) {
-      String outputContainerName = ((OpenTagOutputPolicy) underlying)
-          .outputContainerElementName();
-      int outputContainer = METADATA.indexForName(
-          HtmlLexer.canonicalElementName(outputContainerName));
+      int outputContainer = outputContainerIndex();
       if (outputContainer != UNRECOGNIZED_TAG) {
         return outputContainer;
       }
     }
     if (child == OPTION_TAG
-        && underlying instanceof OpenTagOutputPolicy
         && !isOutputInForeignContent()
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()) {
       int inputContainer = openElements.get(containerIndexOnStack);
       if (inputContainer == TD_TAG || inputContainer == TH_TAG) {
-        String outputContainerName = ((OpenTagOutputPolicy) underlying)
-            .outputContainerElementName();
-        int outputContainer = METADATA.indexForName(
-            HtmlLexer.canonicalElementName(outputContainerName));
+        int outputContainer = outputContainerIndex();
         if (outputContainer != UNRECOGNIZED_TAG) {
           return outputContainer;
         }
@@ -3067,6 +3096,22 @@ public class TagBalancingHtmlStreamEventReceiver
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
+    }
+    if ((child == OPTION_TAG || child == OPTGROUP_TAG)
+        && !isOutputInForeignContent()
+        && containerIndexOnStack >= 0
+        && containerIndexOnStack < openElements.size()
+        && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
+        && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG
+        && sentToUnderlying.get(containerIndexOnStack)) {
+      // A template holds an option or optgroup directly, so the containment
+      // metadata implies no select for one there, but a template the policy
+      // dropped or renamed establishes none in the output: the option lands
+      // where the template was, or in what the template became, and is
+      // judged there, so it gets the select it gets in that place instead
+      // of coming out bare for the next pass to wrap (#492).
+      int outputContainer = outputContainerIndex();
+      return outputContainer != UNRECOGNIZED_TAG ? outputContainer : BODY_TAG;
     }
     boolean wrapperSensitiveChild = child >= 0
         && (TABLE_PARTS.get(child) || child == OPTION_TAG);
@@ -3146,6 +3191,22 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     return containerIndexOnStack >= 0
         ? openElements.get(containerIndexOnStack) : BODY_TAG;
+  }
+
+  /**
+   * The index of the element the output is currently inside, as the policy
+   * reports it, or {@link #UNRECOGNIZED_TAG} when there is no policy to ask,
+   * nothing is open in the output, or its name has no index.
+   */
+  private int outputContainerIndex() {
+    if (!(underlying instanceof OpenTagOutputPolicy)) {
+      return UNRECOGNIZED_TAG;
+    }
+    @Nullable String name =
+        ((OpenTagOutputPolicy) underlying).outputContainerElementName();
+    return name == null
+        ? UNRECOGNIZED_TAG
+        : METADATA.indexForName(HtmlLexer.canonicalElementName(name));
   }
 
   /** Whether a generated wrapper path can actually contain the child. */
