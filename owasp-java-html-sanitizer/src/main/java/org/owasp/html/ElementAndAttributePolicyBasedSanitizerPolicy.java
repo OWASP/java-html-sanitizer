@@ -1122,6 +1122,25 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * name the policy gives it, so for those every element whose content the
    * lexer read as raw text is filtered, wherever it sits.
    */
+  /**
+   * Whether an element that the output parser inserts as SVG or MathML holds
+   * text although its HTML namesake does not by default.  A tbody there is
+   * not a table part whose text a browser foster-parents out but an ordinary
+   * foreign element with a text child, so its text stays unless the author
+   * disallowed text in that name.  Without this, the text inside such an
+   * element under a list was kept only because the list item the balancer
+   * implied for it, which a browser never creates, was the container judged
+   * (#492).  A name a browser reads literally in HTML, such as style, is not
+   * relaxed: its text is a stylesheet or script wherever it is written, and
+   * needs allowTextIn on that name.
+   */
+  private boolean holdsTextAsForeignElement(
+      String elementName, List<String> attrs) {
+    return !HtmlStreamRenderer.emitsContentLiterally(elementName, false)
+        && outputForeignContent.startTagUsesForeignContentRules(
+            elementName, attrs);
+  }
+
   private boolean isLiteralContentElement(String adjustedElementName) {
     return outIsLibraryRenderer
         ? HtmlStreamRenderer.emitsContentLiterally(
@@ -1229,8 +1248,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           }
         } else if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
           push(elementName, null);
-          skipText = !allowedTextContainers.contains(elementName)
-              || disallowedTextContainers.contains(elementName)
+          skipText = disallowedTextContainers.contains(elementName)
+              || (!allowedTextContainers.contains(elementName)
+                  && !holdsTextAsForeignElement(elementName, attrs))
               // No tag is written for this element, so its text lands in
               // the nearest emitted element.  Text the policy disallows
               // there stays out: judging only by this element's gate let a
@@ -1524,8 +1544,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     // held to the same bar as one written under that name: text in it needs
     // allowTextIn on that name too.
     boolean literal = isLiteralContentElement(adjustedElementName);
-    skipText = !allowedTextContainers.contains(elementName)
-        || disallowedTextContainers.contains(elementName)
+    skipText = disallowedTextContainers.contains(elementName)
+        || (!allowedTextContainers.contains(elementName)
+            && !holdsTextAsForeignElement(adjustedElementName, attrs))
         || (literal && !allowedTextContainers.contains(adjustedElementName));
     boolean enteringKeptCdata = literal && !skipText;
     if (!inKeptCdataElement && enteringKeptCdata) {

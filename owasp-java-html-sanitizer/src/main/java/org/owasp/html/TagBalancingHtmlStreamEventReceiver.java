@@ -961,11 +961,18 @@ public class TagBalancingHtmlStreamEventReceiver
         ? formStartTagTableContext(
             usesForeignContentRules, outputUsesForeignContentRules)
         : -1;
+    // HTML containment is for an HTML element.  A start tag that a browser
+    // inserts as an SVG or MathML element, in the input and in the output,
+    // goes into the current foreign node: the HTML element below the foreign
+    // root implies no wrapper for it and does not close for it, as for a
+    // start tag at an HTML integration point.  The list item the metadata
+    // implies for a list's content used to land inside a forwarded svg that
+    // way, and li is a breakout name, so a browser popped the svg and read
+    // the SVG textarea or a that followed as HTML (#492).  A form there has
+    // no HTML form pointer either.
     if (!suppressingPolicySubtree
         && (!outputUsesHtmlIntegrationPointRules || TABLE_PARTS.get(elIndex))
-        && (elIndex != FORM_TAG
-            || !usesForeignContentRules
-            || !outputUsesForeignContentRules)) {
+        && !(usesForeignContentRules && outputUsesForeignContentRules)) {
       mayOpenAtNestingLimit &= prepareForContent(
           elIndex,
           elIndex != TABLE_TAG || !hasUnavailableInputTableInScope());
@@ -1806,6 +1813,35 @@ public class TagBalancingHtmlStreamEventReceiver
         : foreignContent.startTagUsesForeignContentRules("a", noAttrs);
   }
 
+  /**
+   * The stack depth of the innermost forwarded SVG or MathML root that the
+   * output entered, when the content arriving now goes inside that root, or
+   * -1.  Entries below that depth were open before the root; a browser
+   * inserts the content into the foreign node, or the integration point,
+   * inside the root, so those entries imply no wrapper for it and do not
+   * close for it.  The list item implied for a list's content used to land
+   * inside a forwarded svg that way, and li is a breakout name, so a browser
+   * popped the svg and read the SVG textarea or a beside it as HTML (#492).
+   * <p>
+   * Text is inside the root while the output's current node is foreign; after
+   * a breakout it is HTML again and goes where HTML rules put it.  An element
+   * is inside the root when an HTML entry is open above the root, at an
+   * integration point: a foreign current node took the foreign or breakout
+   * path in {@link #openTag} before reaching here.  Table parts keep their
+   * table structure wherever they are.
+   */
+  private int forwardedForeignRootBoundary(int elIndex) {
+    if (!forwardedForeignRootEnteredOutput()) { return -1; }
+    if (elIndex != HtmlElementTables.TEXT_NODE && TABLE_PARTS.get(elIndex)) {
+      return -1;
+    }
+    int rootDepth = passthroughDepths.get(passthroughForeignRoots.getLast());
+    boolean inside = elIndex == HtmlElementTables.TEXT_NODE
+        ? isOutputInForeignContent()
+        : openElements.size() > rootDepth;
+    return inside ? rootDepth : -1;
+  }
+
   /** The outermost foreign root the policy has actually emitted, if known. */
   private @Nullable String outputForeignContentRootName() {
     PushedOutTablePolicy policy = pushedOutTablePolicy();
@@ -1978,6 +2014,18 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean prepareForContent(
       int elIndex, boolean resumeFormatting,
       boolean impliedTableEscapesSyntheticSelect) {
+    return prepareForContent(
+        elIndex, resumeFormatting, impliedTableEscapesSyntheticSelect,
+        forwardedForeignRootBoundary(elIndex));
+  }
+
+  /**
+   * @param foreignRootBoundary see {@link #forwardedForeignRootBoundary},
+   *     judged once for the content and kept while containers close for it.
+   */
+  private boolean prepareForContent(
+      int elIndex, boolean resumeFormatting,
+      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary) {
     boolean mayOpenAtNestingLimit = true;
     boolean retiredFormattingForImplicitOutputTable = false;
     impliedTableEscapesSyntheticSelect |=
@@ -2044,12 +2092,19 @@ public class TagBalancingHtmlStreamEventReceiver
       pushOutTable(tableIndex);
     }
 
+    // Content that goes into a forwarded SVG or MathML root is contained by
+    // the foreign element, or the integration point, inside that root, not
+    // by the HTML entries below it: nothing is implied for it from those,
+    // and closing stops at the root.  Formatting still resumes for it below,
+    // as a browser reconstructs it at an integration point.
     int stackDepthBeforeImpliedElements = openElements.size();
     {
       int container = containerIndex();
       int top = effectiveContainer(elIndex, container);
       // Open implied elements, such as list-items and table cells & rows.
-      int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
+      int[] impliedElIndices = container < foreignRootBoundary
+          ? HtmlElementTables.ZERO_INTS
+          : METADATA.impliedElements(top, elIndex);
       if (impliedElIndices.length != 0) {
         int startPos = 0;
         for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
@@ -2215,7 +2270,7 @@ public class TagBalancingHtmlStreamEventReceiver
     boolean closedPreexistingContainer = false;
     while (true) {
       int container = containerIndex();
-      if (container < 0) { break; }
+      if (container < 0 || container < foreignRootBoundary) { break; }
       int top = openElements.get(container);
       // A link ends the link open before it, wherever that is: nested links
       // do not survive a browser's parse, so a table between them cannot
@@ -2269,7 +2324,8 @@ public class TagBalancingHtmlStreamEventReceiver
     // top before resuming formatting elements.
     if (closedPreexistingContainer) {
       mayOpenAtNestingLimit &= prepareForContent(
-          elIndex, false, impliedTableEscapesSyntheticSelect);
+          elIndex, false, impliedTableEscapesSyntheticSelect,
+          foreignRootBoundary);
     }
 
     if (retiredFormattingForImplicitOutputTable) {
@@ -2338,7 +2394,8 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     if (resumed) {
       mayOpenAtNestingLimit &= prepareForContent(
-          elIndex, false, impliedTableEscapesSyntheticSelect);
+          elIndex, false, impliedTableEscapesSyntheticSelect,
+          foreignRootBoundary);
     }
     return mayOpenAtNestingLimit;
   }

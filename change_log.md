@@ -2,6 +2,16 @@
 
 Most recent at top.
   * Next release
+    * Text and SVG or MathML children inside a foreign root no longer get the
+      list item the tag balancer implies for a list's content, which landed
+      inside the root and, being a breakout name, made a browser pop the root
+      and read an SVG `textarea` or `a` beside it as HTML.  Content a browser
+      inserts into a foreign node, or into an integration point inside it, is
+      now neither wrapped nor closed for by the HTML elements below the root,
+      and a policy judges an element the output parser inserts as SVG or
+      MathML as one, so text in a foreign `tbody` or `tr` stays as it does in
+      any other foreign element unless `disallowTextIn` names it; `style` and
+      the other literal-content names keep their bar (#492, item 1).
     * Content a `select` cannot hold, such as bare text or an SVG or MathML
       root with text inside it, no longer grows a list level on every
       sanitization.  The tag balancer's containment metadata answers such
