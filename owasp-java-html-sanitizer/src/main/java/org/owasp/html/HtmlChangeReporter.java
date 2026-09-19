@@ -293,6 +293,18 @@ public final class HtmlChangeReporter<T> {
           && ((FormPointerPolicy) policy).formStartTagUsesTableRules();
     }
 
+    public void holdRetiredFormGate(String elementName, boolean emitted) {
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).holdRetiredFormGate(elementName, emitted);
+      }
+    }
+
+    public void releaseRetiredFormGate() {
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).releaseRetiredFormGate();
+      }
+    }
+
     public boolean outputFormElementPointerIsSet() {
       return policy instanceof FormPointerPolicy
           && ((FormPointerPolicy) policy).outputFormElementPointerIsSet();

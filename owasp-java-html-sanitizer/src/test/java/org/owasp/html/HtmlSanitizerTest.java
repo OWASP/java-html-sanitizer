@@ -5486,6 +5486,145 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 3 of #492.  A form written directly in a table part that the input
+   * has without a table: the balancer implies the table, the in-table rule
+   * inserts and pops the form, and the text after it was foster-parented out
+   * of the table and judged by the gate around the table, though a browser
+   * reading the input, which has no table, keeps the form open and the text
+   * is the form's, so {@code disallowTextIn("form")} was bypassed.  The
+   * policy now holds the form's gate without output until the input's end
+   * tag, or the table part, closes it; content is still written beside the
+   * table.  A table the input has is unchanged: a browser foster-parents
+   * that text out of the form too.
+   */
+  @Test
+  void testDisallowedTextInFormRetiredInImpliedTable() throws Exception {
+    PolicyFactory noFormText = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .disallowTextIn("form")
+        .toFactory();
+    String[][] cases = {
+        { "<tbody><form>B", "<table><tbody><form></form></tbody></table>" },
+        { "<tr><form>B",
+          "<table><tbody><tr><form></form></tr></tbody></table>" },
+        { "<colgroup><form>B", "<table><form></form></table>" },
+        { "<p><tbody><form>B", "<table><tbody><form></form></tbody></table>" },
+        // Parts the policy drops between the implied table and the form
+        // retire the table's output before the form; the gate is held
+        // before that, so these are the same.
+        { "<thead><form>B", "<table><form></form></table>" },
+        { "<tfoot><form>B", "<table><form></form></table>" },
+        { "<caption><form>B", "<table><form></form></table>" },
+        { "<th><form>B", "<table><tbody><tr><form></form></tr></tbody></table>" },
+        { "<thead><form>B</form>C", "<table><form></form></table>C" },
+        // The end tag ends the form: text after it is not the form's.
+        { "<tbody><form>B</form>C",
+          "<table><tbody><form></form></tbody></table>C" },
+        // An element the policy drops between changes nothing.
+        { "<tbody><form><p>B", "<table><tbody><form></form></tbody></table>" },
+        // The table part's end tag is ignored by a browser reading the
+        // input, which has no table, so the form is still open after it.
+        { "<tbody><form>B</tbody>C", "<table><tbody><form></form></tbody></table>" },
+        // A table the input has: a browser puts the text in front of the
+        // table, outside the form, and so does the output.
+        { "<table><form>B", "<table><form></form></table>B" },
+        { "<table><tbody><form>B",
+          "<table><tbody><form></form></tbody></table>B" },
+        { "<table><form>B</form>C</table>D",
+          "<table><form></form></table>BCD" },
+        // In a cell the form is a container of its own, as before.
+        { "<td><form>B",
+          "<table><tbody><tr><td><form></form></td></tr></tbody></table>" },
+        // Hostile content in the form's place is still removed.
+        { "<tbody><form><script>alert(1)</script>B",
+          "<table><tbody><form></form></tbody></table>" },
+        { "<tbody><form onsubmit=alert(1)>B<img src=x onerror=alert(1)>C",
+          "<table><tbody><form></form></tbody></table>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(noFormText, c[0], c[1]);
+      String out = noFormText.sanitize(c[0]);
+      assertFalse(out.contains("alert") || out.contains("<img"), out);
+    }
+    // With text allowed in the form, the text is kept beside the table as
+    // before; a kept element inside the form holds its own text either way.
+    String[] names = { "table", "tbody", "tr", "td", "form", "b" };
+    PolicyFactory formText = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    PolicyFactory noFormTextWithB = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        formText, "<tbody><form>B", "<table><tbody><form></form></tbody></table>B");
+    assertRoundTripAndBalanced(
+        formText, "<tbody><form>B</form>C",
+        "<table><tbody><form></form></tbody></table>BC");
+    assertRoundTripAndBalanced(
+        formText, "<tbody><form><b>B</b>C",
+        "<table><tbody><form></form></tbody></table><b>B</b>C");
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form><b>B</b>C",
+        "<table><tbody><form></form></tbody></table><b>B</b>");
+    // The end tag releases the gate whatever opened since: the text after
+    // it is not the form's, nor is the text after an element it closed.
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form>B<b>x</b></form>C",
+        "<table><tbody><form></form></tbody></table><b>x</b>C");
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form>B<b>x</b></form>C<b>D</b>E",
+        "<table><tbody><form></form></tbody></table><b>x</b>C<b>D</b>E");
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form>B<b>x</form>y</b>C",
+        "<table><tbody><form></form></tbody></table><b>xy</b>C");
+    // A form the policy drops holds no text either, as elsewhere.
+    String[] noForm = { "table", "tbody", "tr", "td", "div", "b" };
+    PolicyFactory droppedForm = new HtmlPolicyBuilder()
+        .allowElements(noForm).allowWithoutAttributes(noForm)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        droppedForm, "<tbody><form>B", "<table><tbody></tbody></table>");
+    assertRoundTripAndBalanced(
+        droppedForm, "<tbody><form>B</form>C",
+        "<table><tbody></tbody></table>C");
+    assertRoundTripAndBalanced(droppedForm, "<div><form>B</form>C", "<div>C</div>");
+    // In template contents a browser ignores the form start, so the text
+    // is the template's and no gate is held.
+    String[] withTemplate = { "table", "tbody", "tr", "td", "form", "template" };
+    PolicyFactory templateKept = new HtmlPolicyBuilder()
+        .allowElements(withTemplate).allowWithoutAttributes(withTemplate)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        templateKept, "<template><tbody><form>B</template>C",
+        "<template><table><tbody><form></form></tbody></table>B</template>C");
+    // A form end tag inside foreign content reaches the form too.
+    String[] withSvg = { "table", "tbody", "tr", "td", "form", "svg" };
+    PolicyFactory svgKept = new HtmlPolicyBuilder()
+        .allowElements(withSvg).allowWithoutAttributes(withSvg)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        svgKept, "<tbody><form>B<svg></form></svg>D",
+        "<table><tbody><form></form></tbody></table><svg></svg>D");
+    assertRoundTripAndBalanced(
+        svgKept, "<tbody><form>B<svg>x</svg>C",
+        "<table><tbody><form></form></tbody></table><svg>x</svg>");
+    // The change listener sees no discarded tag for the text.
+    final List<String> discarded = new ArrayList<String>();
+    noFormText.sanitize(
+        "<tbody><form>B",
+        new HtmlChangeListener<Object>() {
+          public void discardedTag(Object ctx, String elementName) {
+            discarded.add(elementName);
+          }
+          public void discardedAttributes(
+              Object ctx, String tagName, String... attributeNames) {
+            discarded.add(tagName + "@" + Arrays.asList(attributeNames));
+          }
+        },
+        null);
+    assertEquals(Collections.<String>emptyList(), discarded);
+  }
+
+  /**
    * Item 9 of #492.  The containment metadata's select around a free option
    * or optgroup, and its list around a free list item, apply under any
    * container that is not one of the few that hold the element directly.

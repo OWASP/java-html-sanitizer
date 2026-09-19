@@ -232,6 +232,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private transient boolean skippedLastTagAsAttributeless;
 
   public void openDocument() {
+    retiredFormGateActive = false;
     skipText = false;
     inKeptLiteralElement = false;
     suppressOutputAndContent = false;
@@ -344,6 +345,84 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public boolean outputFormElementPointerIsSet() {
     return outputForeignContent.formElementPointerIsSet();
+  }
+
+  /**
+   * Whether the gate of a form the in-table rule popped, in a table the
+   * balancer implied, is still in force: see {@link #holdRetiredFormGate}.
+   */
+  private boolean retiredFormGateActive;
+  /** The depth of the implied table's entry; below it the gate ends. */
+  private int retiredFormGateFloor;
+  /**
+   * The stack depth when the gate was held, lowered as the stack shrinks;
+   * text at or above it is the form's.
+   */
+  private int retiredFormGateHoldDepth;
+
+  public void holdRetiredFormGate(String elementName, boolean emitted) {
+    // The gate a kept form has, or the one a dropped form's text is judged
+    // by: only the author's explicit rule, as for any dropped element.
+    boolean formHoldsNoText = emitted
+        ? disallowedTextContainers.contains(elementName)
+            || !allowedTextContainers.contains(elementName)
+        : suppressesTextWhenDropped(elementName);
+    if (!formHoldsNoText || suppressOutputAndContent) { return; }
+    // The implied table is the innermost emitted table; only the indexed
+    // table-scope entries need looking at, as in formStartTagUsesTableRules.
+    int tableDepth = -1;
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int i = tableScopeOutputEntries.get(k);
+      if ("table".equals(openElementStack.get(i))
+          && !outputElementInForeignContent.get(i / 2)) {
+        tableDepth = i / 2;
+        break;
+      }
+    }
+    if (tableDepth < 0) { return; }
+    retiredFormGateActive = true;
+    retiredFormGateFloor = tableDepth;
+    retiredFormGateHoldDepth = openElementStack.size() / 2;
+  }
+
+  public void releaseRetiredFormGate() {
+    retiredFormGateActive = false;
+  }
+
+  /**
+   * Ends the retired form's gate once the stack is below the implied
+   * table's level, where the table's container closed, and otherwise
+   * lowers the held depth to the stack's, as when the balancer pushes the
+   * table out: what opens above that depth is not the form's, but text
+   * directly at it still is.
+   */
+  private void followStackForRetiredFormGate() {
+    if (!retiredFormGateActive) { return; }
+    int depth = openElementStack.size() / 2;
+    if (depth < retiredFormGateFloor) {
+      retiredFormGateActive = false;
+    } else if (depth < retiredFormGateHoldDepth) {
+      retiredFormGateHoldDepth = depth;
+    }
+  }
+
+  /**
+   * True if this text is the retired form's, and the form's gate is closed:
+   * text at or above the level the gate was held at, down to the implied
+   * table's own level, where the balancer writes what it foster-parents out
+   * of that table.  Text inside an element opened since is that element's;
+   * elements the policy dropped write no tag, so text in them lands in the
+   * nearest emitted element and is judged by its gate, here the form's, as
+   * for any dropped element.
+   */
+  private boolean retiredFormGateSkipsText() {
+    followStackForRetiredFormGate();
+    if (!retiredFormGateActive) { return false; }
+    int depth = openElementStack.size() / 2;
+    for (int i = retiredFormGateHoldDepth; i < depth; ++i) {
+      if (openElementStack.get(i * 2 + 1) != null) { return false; }
+    }
+    return true;
   }
 
   public boolean retireOutputSelectKeepingLogicalDescendants() {
@@ -604,6 +683,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public void text(String textChunk) {
+    if (retiredFormGateSkipsText()) { return; }
     if (!skipText && !suppressOutputAndContent) {
       // The renderer emits the text of a kept literal-content element as it
       // is, so a tag in it would reach the browser as written.  stripTags
@@ -1659,6 +1739,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   private void push(String elementName, @Nullable String adjustedElementName) {
     int depth = openElementStack.size() / 2;
+    followStackForRetiredFormGate();
     skipTextBeforeOpen.set(depth, skipText);
     inKeptLiteralBeforeOpen.set(depth, inKeptLiteralElement);
     suppressOutputAndContentBeforeOpen.set(
