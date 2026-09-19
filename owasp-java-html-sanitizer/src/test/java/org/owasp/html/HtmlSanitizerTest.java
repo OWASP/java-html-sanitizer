@@ -5785,6 +5785,236 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 8 of #492.  A browser's list item start tag closes an open list
+   * item before it inserts the new one, walking down its stack past the
+   * formatting elements open inside that item, so the two items are
+   * siblings and the formatting is reconstructed inside the second.  The
+   * containment metadata answered the open formatting element with a fresh
+   * list inside it instead, and each item after the first nested one level
+   * deeper.  The walk stops at the elements the parsing algorithm calls
+   * special, other than {@code address}, {@code div} and {@code p}.
+   */
+  @Test
+  void testListItemStartClosesTheOpenItemThroughFormatting() throws Exception {
+    String[] names = {
+        "ul", "ol", "li", "b", "i", "a", "span", "div", "p", "h1", "form",
+        "table", "tbody", "tr", "td", "template" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowAttributes("href").onElements("a").allowStandardUrlProtocols()
+        .toFactory();
+    // Each output parses to the browser tree of its input.
+    String[][] faithful = {
+        { "<ul><li><b>x<li>y",
+          "<ul><li><b>x</b></li><li><b>y</b></li></ul>" },
+        { "<ul><li><b><i>x<li>y",
+          "<ul><li><b><i>x</i></b></li><li><b><i>y</i></b></li></ul>" },
+        { "<ul><li><b>x<li>y<li>z",
+          "<ul><li><b>x</b></li><li><b>y</b></li><li><b>z</b></li></ul>" },
+        { "<ol><li><b>x<li>y</b>z",
+          "<ol><li><b>x</b></li><li><b>y</b>z</li></ol>" },
+        // The rule steps over address, div and p, and over anything that is
+        // not special at all.
+        { "<ul><li><div>d<li>y",
+          "<ul><li><div>d</div></li><li>y</li></ul>" },
+        { "<ul><li><p>p<li>y", "<ul><li><p>p</p></li><li>y</li></ul>" },
+        { "<ul><li><span>s<li>y",
+          "<ul><li><span>s</span></li><li>y</li></ul>" },
+        { "<ul><li><b>x<div>d<li>y",
+          "<ul><li><b>x<div>d</div></b></li><li><b>y</b></li></ul>" },
+        // Formatting the input closed is not resumed, and an item with none
+        // open was already closed by the containment rules.
+        { "<ul><li><b>x</b><li>y", "<ul><li><b>x</b></li><li>y</li></ul>" },
+        { "<ul><li>x<li>y", "<ul><li>x</li><li>y</li></ul>" },
+        // A list inside the item is special, so the walk stops there and the
+        // new item goes into that list, as it does in a browser.
+        { "<ul><li><b>x<ul><li>y",
+          "<ul><li><b>x<ul><li>y</li></ul></b></li></ul>" },
+    };
+    for (String[] c : faithful) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // Hostile content around the item is still removed.  The tree is the
+    // input's but for the attributes the policy dropped, so a link resumed
+    // inside the new item carries no URL, as a resumed element carries none
+    // anywhere else.
+    String[][] hostile = {
+        { "<ul><li><a href=javascript:alert(1)>x<li>y",
+          "<ul><li><a>x</a></li><li><a>y</a></li></ul>" },
+        { "<ul><li><b onmouseover=alert(1)>x<li>y",
+          "<ul><li><b>x</b></li><li><b>y</b></li></ul>" },
+        { "<ul><li><a href=\"https://e/\">x<li>y",
+          "<ul><li><a href=\"https://e/\">x</a></li><li><a>y</a></li></ul>" },
+    };
+    for (String[] c : hostile) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert"), c[0]);
+    }
+    // A script between the items is text the policy removes, and the item
+    // still closes.
+    assertRoundTripAndBalanced(
+        p, "<ul><li><b>x<li><script>alert(1)</script>y",
+        "<ul><li><b>x</b></li><li><b>y</b></li></ul>");
+    // An element the parsing algorithm calls special, other than the three
+    // the rule steps over, stops the walk: the item stays open and the new
+    // one goes inside it, where a browser puts it too.  A browser needs no
+    // list around an item, and this receiver never emits one without.
+    String[][] barriers = {
+        { "<ul><li><h1>h<li>y",
+          "<ul><li><h1>h<ul><li>y</li></ul></h1></li></ul>" },
+        { "<ul><li><form>f<li>y",
+          "<ul><li><form>f<ul><li>y</li></ul></form></li></ul>" },
+        { "<ul><li><template><li>y",
+          "<ul><li><template><ul><li>y</li></ul></template></li></ul>" },
+    };
+    for (String[] c : barriers) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // A table this receiver closed in the output to put the item in front
+    // of it bounds nothing a browser reading that output can see, so the
+    // item closes.  A browser reading the input keeps the item open and
+    // foster-parents the new one into it; the output would not say so.
+    assertRoundTripAndBalanced(
+        p, "<ul><li><b>x<table><li>y",
+        "<ul><li><b>x<table></table></b></li><li><b>y</b></li></ul>");
+    // Formatting is not reconstructed inside an element whose content the
+    // lexer reads as text: a browser reconstructs it around that element,
+    // and a tag written inside it would come out as its text.  It resumes
+    // for the text that follows the element, as a browser reconstructs it
+    // there.
+    String[] rawNames = {
+        "ul", "li", "em", "span", "textarea", "style", "x-y", "textArea" };
+    PolicyFactory raw = new HtmlPolicyBuilder()
+        .allowElements(rawNames).allowWithoutAttributes(rawNames)
+        .allowTextIn("style", "textarea").toFactory();
+    String[][] rawText = {
+        { "<span><li><em>x<li><textarea>tail",
+          "<span><ul><li><em>x</em></li><li><textarea>tail</textarea></li>"
+          + "</ul></span>" },
+        { "<span><li><em>x<li><style>tail",
+          "<span><ul><li><em>x</em></li><li><style>tail</style></li></ul>"
+          + "</span>" },
+        // and again for the text that follows it, as a browser does.
+        { "<span><li><em>x<li><textarea>tail</textarea>after",
+          "<span><ul><li><em>x</em></li><li><textarea>tail</textarea>"
+          + "<em>after</em></li></ul></span>" },
+        // One forwarded under a name this receiver does not recognize, an
+        // SVG-cased textArea, has no entry on the stack, and a browser
+        // reading the output lowercases it and reads its content as text,
+        // so nothing is resumed inside it, at any depth.
+        { "<span><li><em>x<li><textArea>tail",
+          "<span><ul><li><em>x</em></li><li><textArea>tail</textArea></li>"
+          + "</ul></span>" },
+        { "<span><li><em>x<li><x-y><textArea>tail",
+          "<span><ul><li><em>x</em></li><li><x-y><textArea>tail</textArea>"
+          + "</x-y></li></ul></span>" },
+        { "<span><li><em>x<li><textArea><x-y>tail",
+          "<span><ul><li><em>x</em></li><li><textArea><x-y>tail</x-y>"
+          + "</textArea></li></ul></span>" },
+        // Hostile content in that text stays text: the element the lexer
+        // read as raw text is written back with its content escaped.
+        { "<span><li><em>x<li><textarea>&lt;/textarea&gt;&lt;img src=x "
+          + "onerror=alert(1)&gt;",
+          "<span><ul><li><em>x</em></li><li><textarea>&lt;/textarea&gt;"
+          + "&lt;img src&#61;x onerror&#61;alert(1)&gt;</textarea></li></ul>"
+          + "</span>" },
+        { "<span><li><em>x<li><style>&lt;/style&gt;&lt;script&gt;alert(1)"
+          + "&lt;/script&gt;",
+          "<span><ul><li><em>x</em></li><li><style>&lt;/style&gt;&lt;script"
+          + "&gt;alert(1)&lt;/script&gt;</style></li></ul></span>" },
+    };
+    for (String[] c : rawText) {
+      assertRoundTripAndBalanced(raw, c[0], c[1]);
+      String out = raw.sanitize(c[0]);
+      assertFalse(out.contains("<img") || out.contains("<script"), out);
+    }
+    // The elements a browser reads as text are siblings of the formatting
+    // it reconstructs, so with the list written out the output parses to
+    // the input's tree.
+    assertRoundTripAndBalanced(
+        raw, "<ul><li><em>x<li><textarea>tail</textarea>after",
+        "<ul><li><em>x</em></li><li><textarea>tail</textarea>"
+        + "<em>after</em></li></ul>");
+    assertEquals(
+        parseAsBrowser("<ul><li><em>x<li><textarea>tail</textarea>after"),
+        parseAsBrowser(
+            "<ul><li><em>x</em></li><li><textarea>tail</textarea>"
+            + "<em>after</em></li></ul>"));
+    // Formatting is reconstructed only where it needs no wrapper implied
+    // under the container: after the items close, a list holds the style
+    // directly, as a browser puts it there with no formatting around it.
+    String[] listRaw = { "ul", "ol", "li", "b", "style", "script" };
+    PolicyFactory listRawPolicy = new HtmlPolicyBuilder()
+        .allowElements(listRaw).allowWithoutAttributes(listRaw)
+        .allowTextIn("style", "script").toFactory();
+    String[][] bareList = {
+        { "<ul><li><b>x<li>y</li><style>s</style>",
+          "<ul><li><b>x</b></li><li><b>y</b></li><style>s</style></ul>" },
+        { "<ol><li><b>x<li>y</li><script>t</script>",
+          "<ol><li><b>x</b></li><li><b>y</b></li><script>t</script></ol>" },
+    };
+    for (String[] c : bareList) {
+      assertRoundTripAndBalanced(listRawPolicy, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // One list item after another over the same open formatting element
+    // keeps at most three of a name, as a browser's Noah's Ark clause
+    // does, so the output stays a constant factor of the input.
+    StringBuilder manyItems = new StringBuilder("<ul>");
+    for (int i = 0; i < 400; ++i) { manyItems.append("<li><b>"); }
+    String amplified = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .sanitize(manyItems.toString());
+    assertTrue(
+        amplified.length() < manyItems.length() * 8,
+        "" + amplified.length() + " from " + manyItems.length());
+    // An element the policy dropped bounds nothing in the output, so the
+    // item closes there as it does on the output's own next pass.
+    PolicyFactory itemsOnly = new HtmlPolicyBuilder()
+        .allowElements("li", "div", "b").allowWithoutAttributes("li", "div", "b")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        itemsOnly, "<li><div><h1><li>", "<li><div></div></li><li></li>");
+    assertRoundTripAndBalanced(
+        itemsOnly, "<li><div><template><li>", "<li><div></div></li><li></li>");
+    // A name the specification calls special but Chrome does not is not a
+    // barrier here either, as testDialogElementCategoryIsNotReliedOn says.
+    String[] dialogNames = { "ul", "li", "dialog", "b" };
+    PolicyFactory dialogs = new HtmlPolicyBuilder()
+        .allowElements(dialogNames).allowWithoutAttributes(dialogNames)
+        .toFactory();
+    assertRoundTripAndBalanced(
+        dialogs, "<ul><li><dialog>d<li>y",
+        "<ul><li><dialog>d</dialog></li><li>y</li></ul>");
+    assertEquals(
+        parseAsBrowser("<ul><li><dialog>d<li>y"),
+        parseAsBrowser("<ul><li><dialog>d</dialog></li><li>y</li></ul>"));
+    // The item a select keeps for content it cannot hold is none of the
+    // input's, so an item written in a select is unaffected.
+    String[] selectNames = { "select", "option", "ul", "li" };
+    PolicyFactory selects = new HtmlPolicyBuilder()
+        .allowElements(selectNames).allowWithoutAttributes(selectNames)
+        .toFactory();
+    assertRoundTripAndBalanced(
+        selects, "<select>x<li>y", "<select>x</select><ul><li>y</li></ul>");
+    assertRoundTripAndBalanced(
+        selects, "<select><option>x<li>y",
+        "<select><option>x<ul><li>y</li></ul></option></select>");
+    // The issue's shape, and an item whose formatting the policy drops.
+    PolicyFactory blocksFormatting =
+        Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    assertRoundTripAndBalanced(
+        blocksFormatting, "<math><b>x</math><li>y<li>z",
+        "<b>x</b><ul><li><b>y</b></li><li><b>z</b></li></ul>");
+    assertRoundTripAndBalanced(
+        blocksFormatting, "<ul><li><b>x<li>y</li></ul>after",
+        "<ul><li><b>x</b></li><li><b>y</b></li></ul><b>after</b>");
+    assertRoundTripAndBalanced(
+        Sanitizers.BLOCKS, "<ul><li><b>x<li>y<li>z",
+        "<ul><li>x</li><li>y</li><li>z</li></ul>");
+  }
+
+  /**
    * Item 1 of #492.  The list item the containment metadata implies for a
    * list's content landed inside a forwarded SVG or MathML root: the root
    * has no entry on the balancer's stack, so the text or foreign child inside

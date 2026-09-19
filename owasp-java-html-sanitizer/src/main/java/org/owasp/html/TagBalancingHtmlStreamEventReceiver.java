@@ -243,6 +243,36 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final BitSet TABLE_PARTS = new BitSet();
   /** Elements that bound the table context used for the special form rule. */
   private static final BitSet TABLE_FORM_SCOPE_BOUNDARIES = new BitSet();
+  /**
+   * Elements that stop the walk down the stack that a list item start tag
+   * makes for an open item to close: the specification's special category,
+   * less the {@code address}, {@code div} and {@code p} that the rule steps
+   * over.  A formatting element is not one of them, which is the point: a
+   * browser closes the item through it (#492).
+   */
+  private static final BitSet LIST_ITEM_START_BARRIERS = new BitSet();
+  static {
+    for (String name : HtmlSanitizer.specialHtmlElementNames()) {
+      int index = METADATA.indexForName(name);
+      if (index != UNRECOGNIZED_TAG) { LIST_ITEM_START_BARRIERS.set(index); }
+    }
+    for (String name : new String[] { "address", "div", "p" }) {
+      LIST_ITEM_START_BARRIERS.clear(METADATA.indexForName(name));
+    }
+    // Names the specification calls special but current Chrome does not:
+    // this receiver follows Chrome, as the input tracker does, so a list
+    // item start walks past them.
+    for (String name : HtmlSanitizer.ambiguouslySpecialHtmlElementNames()) {
+      LIST_ITEM_START_BARRIERS.clear(METADATA.indexForName(name));
+    }
+    // An option is not special for a browser, but a list this receiver
+    // opens inside one holds the item it writes for the list's content,
+    // and closing that item for the next start tag would unwrite on the
+    // next pass what this pass wrote.  The item stays where the output
+    // puts it.
+    LIST_ITEM_START_BARRIERS.set(METADATA.indexForName("option"));
+    LIST_ITEM_START_BARRIERS.set(METADATA.indexForName("optgroup"));
+  }
   static {
     for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
       TABLE_CONTEXT.set(METADATA.indexForName(name));
@@ -2072,16 +2102,28 @@ public class TagBalancingHtmlStreamEventReceiver
       boolean impliedTableEscapesSyntheticSelect) {
     return prepareForContent(
         elIndex, resumeFormatting, impliedTableEscapesSyntheticSelect,
-        forwardedForeignRootBoundary(elIndex));
+        forwardedForeignRootBoundary(elIndex), true);
+  }
+
+  private boolean prepareForContent(
+      int elIndex, boolean resumeFormatting,
+      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary) {
+    return prepareForContent(
+        elIndex, resumeFormatting, impliedTableEscapesSyntheticSelect,
+        foreignRootBoundary, true);
   }
 
   /**
    * @param foreignRootBoundary see {@link #forwardedForeignRootBoundary},
    *     judged once for the content and kept while containers close for it.
+   * @param mayCloseOpenListItem false when preparation re-enters itself,
+   *     which a browser's one walk down the stack for a list item start tag
+   *     does not do: the barriers that walk honoured may have closed since.
    */
   private boolean prepareForContent(
       int elIndex, boolean resumeFormatting,
-      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary) {
+      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary,
+      boolean mayCloseOpenListItem) {
     boolean mayOpenAtNestingLimit = true;
     boolean retiredFormattingForImplicitOutputTable = false;
     impliedTableEscapesSyntheticSelect |=
@@ -2146,6 +2188,18 @@ public class TagBalancingHtmlStreamEventReceiver
     if (needsFosterParenting(elIndex, foreignRootBoundary)) {
       int tableIndex = containerIndex();
       pushOutTable(tableIndex);
+    }
+
+    // A browser's list item start tag closes an open list item before it
+    // inserts the new one, walking down its stack past the formatting
+    // elements open inside that item, so the two items are siblings and the
+    // formatting is reconstructed inside the second.  Without this the
+    // containment metadata answered the open formatting element with a
+    // fresh list inside it, and each following item nested one level
+    // deeper (#492).
+    if (elIndex == LI_TAG && mayCloseOpenListItem) {
+      int itemToClose = listItemToCloseForStart(foreignRootBoundary);
+      if (itemToClose >= 0) { closeStackFrom(itemToClose, LI_TAG); }
     }
 
     // Content that goes into a forwarded SVG or MathML root is contained by
@@ -2398,7 +2452,7 @@ public class TagBalancingHtmlStreamEventReceiver
         pushedMappedTemplateOutputOpen.clear(i);
         suppressedMappedForeignSubtrees.clear(i);
         if (METADATA.resumable(unclosed) && unclosed != elIndex) {
-          toResumeInReverse.add(unclosed);
+          queueForResumption(unclosed);
         }
       }
     }
@@ -2410,15 +2464,31 @@ public class TagBalancingHtmlStreamEventReceiver
     if (closedPreexistingContainer) {
       mayOpenAtNestingLimit &= prepareForContent(
           elIndex, false, impliedTableEscapesSyntheticSelect,
-          foreignRootBoundary);
+          foreignRootBoundary, false);
     }
 
     if (retiredFormattingForImplicitOutputTable) {
       resumeFormatting = false;
     }
+    if (elIndex != HtmlElementTables.TEXT_NODE
+        && elIndex != UNRECOGNIZED_TAG
+        && writtenAsRawTextElement(elIndex)) {
+      // A browser does not reconstruct formatting for an element whose
+      // content it reads as text: the element is inserted beside the
+      // formatting, which is reconstructed again for the text after it.
+      resumeFormatting = false;
+    }
     boolean resumed = false;
+    // Formatting is not reconstructed inside an element whose content a
+    // browser reads as text, such as textarea or style: a tag written
+    // inside it would come out as that element's text (#492).  Asked once:
+    // nothing the loop opens is such an element.
+    boolean intoRawTextElement = resumeFormatting
+        && !toResumeInReverse.isEmpty()
+        && contentGoesIntoRawTextElement();
     while (resumeFormatting
         && !insertionPointIsInForeignContent
+        && !intoRawTextElement
         && !toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
       int nOpen;
@@ -2434,7 +2504,13 @@ public class TagBalancingHtmlStreamEventReceiver
       // browser reconstructs it.  Resuming it here put it inside the wrapper
       // already implied for the tag and then implied that wrapper again.
       if ((nOpen == 0
-          || canContain(toResume, openElements.get(nOpen - 1), nOpen))
+          || (canContain(toResume, openElements.get(nOpen - 1), nOpen)
+              // And directly: one that would need a wrapper implied
+              // between the container and it, such as the item a list
+              // gives its content, is left queued for the content that
+              // implies that wrapper, which is where a browser puts it.
+              && METADATA.impliedElements(
+                  openElements.get(nOpen - 1), toResume).length == 0))
           && canContain(elIndex, toResume, nOpen)
           && canHold(elIndex, toResume, nOpen)
           && !(toResume == A_TAG
@@ -2481,9 +2557,30 @@ public class TagBalancingHtmlStreamEventReceiver
     if (resumed) {
       mayOpenAtNestingLimit &= prepareForContent(
           elIndex, false, impliedTableEscapesSyntheticSelect,
-          foreignRootBoundary);
+          foreignRootBoundary, false);
     }
     return mayOpenAtNestingLimit;
+  }
+
+  /**
+   * Queues a formatting element to reconstruct later, keeping at most three
+   * of a name as a browser's list of active formatting elements does: its
+   * Noah's Ark clause drops the earliest of four alike.  Without that bound
+   * one list item after another closing over the same open formatting
+   * element grew the output by a level each time (#492).  The queue holds
+   * the innermost first, so the earliest is the last of the alike.
+   */
+  private void queueForResumption(int elIndex) {
+    int alike = 0;
+    int earliest = -1;
+    for (int i = toResumeInReverse.size(); --i >= 0;) {
+      if (toResumeInReverse.get(i) == elIndex) {
+        ++alike;
+        if (earliest < 0) { earliest = i; }
+      }
+    }
+    if (alike >= 3) { toResumeInReverse.remove(earliest); }
+    toResumeInReverse.add(elIndex);
   }
 
   /** Drops the innermost queued formatting element with this index, if any. */
@@ -2808,7 +2905,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (formatting < 0) { return false; }
     int formattingElement = openElements.get(formatting);
     closeStackFrom(formatting, formattingElement);
-    toResumeInReverse.add(formattingElement);
+    queueForResumption(formattingElement);
     return true;
   }
 
@@ -2902,6 +2999,41 @@ public class TagBalancingHtmlStreamEventReceiver
     return 0;
   }
 
+  /**
+   * The open list item that a browser closes for a list item start tag, or
+   * -1 for none: the walk down the stack stops at the first barrier, and at
+   * the foreign root below which content is judged as in a fresh body.  The
+   * item a select keeps for content it cannot hold is none of the input's,
+   * and the select below it is a barrier anyway.
+   */
+  private int listItemToCloseForStart(int foreignRootBoundary) {
+    for (int i = openElements.size(), floor = Math.max(0, foreignRootBoundary);
+         --i >= floor;) {
+      if (inputElementsInForeignContent.get(i)
+          || outputElementsInForeignContent.get(i)) {
+        // Neither parser is under HTML rules here.
+        return -1;
+      }
+      int openElement = openElements.get(i);
+      if (openElement == LI_TAG && !isSyntheticSelectListItem(i)) {
+        return i;
+      }
+      // An element with no output, one the policy dropped or one this
+      // receiver implied, and a table already closed in the output to put
+      // content in front of it, bound nothing a browser reading that
+      // output can see, so they bound nothing here: leaving them barriers
+      // made a first pass keep an item that the second pass closed.
+      if (outputElements.get(i) == NO_OUTPUT_ELEMENT || pushedOut.get(i)) {
+        continue;
+      }
+      // The emitted element is what bounds the walk, not the name the
+      // input wrote: a policy that renames a barrier to something else
+      // leaves no barrier in the output to find.
+      if (LIST_ITEM_START_BARRIERS.get(outputElements.get(i))) { return -1; }
+    }
+    return -1;
+  }
+
   /** Whether a browser would foster-parent this token out of an open table. */
   private boolean needsFosterParenting(int elIndex, int foreignRootBoundary) {
     if (!isFosterParented(elIndex)
@@ -2946,6 +3078,23 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean containerHasSpecialTextMode() {
     int container = containerIndex();
     return container >= 0 && hasSpecialTextMode(openElements.get(container));
+  }
+
+  /**
+   * Whether content arriving now goes into an element whose content this
+   * lexer reads as raw text, counting one forwarded under a name this
+   * receiver does not recognize, such as the SVG-cased {@code textArea},
+   * which has no entry on the stack.
+   */
+  private boolean contentGoesIntoRawTextElement() {
+    for (int i = passthroughNames.size(); --i >= 0;) {
+      // Every forwarded element still open contains what arrives now, so
+      // one anywhere above it decides, not only the innermost.
+      int forwarded = METADATA.indexForName(
+          Strings.toLowerCase(passthroughNames.get(i)));
+      if (hasSpecialTextMode(forwarded)) { return true; }
+    }
+    return containerHasSpecialTextMode();
   }
 
   /**
@@ -3311,7 +3460,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(i);
       impliedInputTables.clear(i);
       if (METADATA.resumable(unclosed)) {
-        toResumeInReverse.add(unclosed);
+        queueForResumption(unclosed);
       }
       outputTableUnavailable.clear(i);
       outputlessTablesWithEmittedParts.clear(i);
@@ -3990,7 +4139,7 @@ public class TagBalancingHtmlStreamEventReceiver
       if (unclosed == TEMPLATE_TAG) {
         closesTemplate = false;
       } else if (!closesTemplate && METADATA.resumable(unclosed)) {
-        toResumeInReverse.add(unclosed);
+        queueForResumption(unclosed);
       }
       discardStackSuffix(i);
     }
@@ -4069,7 +4218,7 @@ public class TagBalancingHtmlStreamEventReceiver
       pushedMappedTemplateOutputOpen.clear(last);
       suppressedMappedForeignSubtrees.clear(last);
       if (closedElement != TEMPLATE_TAG && METADATA.resumable(unclosed)) {
-        toResumeInReverse.add(unclosed);
+        queueForResumption(unclosed);
       }
     }
     closePassthroughsInside(index, emitCloseTags);
@@ -4228,7 +4377,7 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     for (int i = descendantCount; --i >= 0;) {
       if (METADATA.resumable(descendants[i])) {
-        toResumeInReverse.add(descendants[i]);
+        queueForResumption(descendants[i]);
       }
     }
     for (int i = 0; i < descendantCount; ++i) {
@@ -4423,6 +4572,19 @@ public class TagBalancingHtmlStreamEventReceiver
     return canonElementName.length() == 2
         && (canonElementName.charAt(0) | 32) == 'h'
         && canonElementName.charAt(1) <= '9';
+  }
+
+  /**
+   * Whether content this element holds is read as text in the output too.
+   * The renderer writes xmp, listing and plaintext as pre, whose content a
+   * browser reads as markup, so formatting is reconstructed for them as it
+   * is for any other element; one of them, xmp, is also the one raw-text
+   * start tag whose own rule reconstructs it.
+   */
+  private static boolean writtenAsRawTextElement(int elementIndex) {
+    String name = METADATA.canonNameForIndex(elementIndex);
+    return hasSpecialTextMode(elementIndex)
+        && name.equals(HtmlStreamRenderer.safeName(name));
   }
 
   private static boolean hasSpecialTextMode(int elementIndex) {
