@@ -5526,6 +5526,79 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Items 9 and 2 of #492.  A template holds an option directly, as a
+   * browser's does, so no select is implied for one there.  A template the
+   * policy dropped or renamed establishes none in the output, though: the
+   * option is judged where the template was, or in what it became, and gets
+   * its select there; inside table structure the select is pushed out of the
+   * table, as a browser foster-parents one written in a row.
+   */
+  @Test
+  void testOptionUnderDroppedTemplateGetsItsSelect() throws Exception {
+    String[] names = {
+        "u", "table", "tbody", "tr", "td", "select", "option", "optgroup" };
+    PolicyFactory noTemplate = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] dropped = {
+        { "<u><template><option>x", "<u><select><option>x</option></select></u>" },
+        { "<u><template><optgroup>x",
+          "<u><select><optgroup>x</optgroup></select></u>" },
+        { "<table><template><option>x",
+          "<table></table><select><option>x</option></select>" },
+        { "<table><tr><template><option>x",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>x</option></select>" },
+        { "<table><td><template><option>x",
+          "<table><tbody><tr><td><select><option>x</option></select></td></tr>"
+          + "</tbody></table>" },
+        { "<table><template><option>a</option></template><tr><td>b",
+          "<table></table><select><option>a</option></select>"
+          + "<table><tbody><tr><td>b</td></tr></tbody></table>" },
+        // Hostile content in the option's place is still removed.  The
+        // script inside the option is text there, as CVE-2021-42575 requires
+        // of a literal-content element in a select, with or without the
+        // template.
+        { "<u><template><option onclick=alert(1)>x<script>alert(1)</script>y",
+          "<u><select><option>xalert(1)y</option></select></u>" },
+        { "<table><template><option>x<img src=x onerror=alert(1)>",
+          "<table></table><select><option>x</option></select>" },
+    };
+    for (String[] c : dropped) {
+      assertRoundTripAndBalanced(noTemplate, c[0], c[1]);
+      String out = noTemplate.sanitize(c[0]);
+      assertFalse(
+          out.contains("<script") || out.contains("onclick")
+          || out.contains("onerror") || out.contains("<img"),
+          out);
+      assertEquals(
+          parseAsBrowser(c[1]), parseAsBrowser(noTemplate.sanitize(c[0])),
+          c[0]);
+    }
+    // A template the policy renames is the option's container in the
+    // output, and holds no option directly.
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowElements(
+            new ElementPolicy() {
+              public String apply(String elementName, List<String> attrs) {
+                return "u";
+              }
+            },
+            "template")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed, "<u><template><option>x",
+        "<u><u><select><option>x</option></select></u></u>");
+    // A template the policy keeps still holds the option directly.
+    PolicyFactory withTemplate = new HtmlPolicyBuilder()
+        .allowElements("u", "template", "select", "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        withTemplate, "<u><template><option>x",
+        "<u><template><option>x</option></template></u>");
+  }
+
+  /**
    * Item 2 of #492.  A template holds a caption or column group directly,
    * so the containment metadata implies no table for one there.  A template
    * the policy dropped establishes no template in the output, though: the

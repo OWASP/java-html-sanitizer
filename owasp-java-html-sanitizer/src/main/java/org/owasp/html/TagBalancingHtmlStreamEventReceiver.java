@@ -2081,26 +2081,35 @@ public class TagBalancingHtmlStreamEventReceiver
             }
           }
         }
-        // The select has to fit where the option's output goes.  A cell or
-        // caption the policy dropped is no such thing in the output: the
-        // option is in the row or table there, which holds no select, so the
-        // dropped part is closed and the select prepared like an explicit
-        // one, which pushes it out of the table as a browser foster-parents
-        // it (#492).
+        // The select has to fit where the option's output goes.  A cell,
+        // caption or template the policy dropped is no such thing in the
+        // output: the option is in the row or table there, which holds no
+        // select, so the dropped entry is closed and the select prepared
+        // like an explicit one, which pushes it out of the table as a
+        // browser foster-parents it (#492).
         boolean inDroppedPartOfOutputTable = false;
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
             && container > 0) {
           int logical = openElements.get(container);
-          int outputBelow = outputElements.get(container - 1);
-          inDroppedPartOfOutputTable =
-              (logical == TD_TAG || logical == TH_TAG
-                  || logical == CAPTION_TAG)
+          if ((logical == TD_TAG || logical == TH_TAG
+                  || logical == CAPTION_TAG || logical == TEMPLATE_TAG)
               && outputElements.get(container) == NO_OUTPUT_ELEMENT
-              && sentToUnderlying.get(container)
-              && !pushedOut.get(container - 1)
-              && outputBelow != NO_OUTPUT_ELEMENT
-              && TABLE_CONTEXT.get(outputBelow);
+              && sentToUnderlying.get(container)) {
+            // The nearest entry below that has output decides; table parts
+            // the policy dropped between establish nothing in the output.
+            int below = container - 1;
+            while (below >= 0
+                && outputElements.get(below) == NO_OUTPUT_ELEMENT
+                && sentToUnderlying.get(below)
+                && TABLE_PARTS.get(openElements.get(below))) {
+              --below;
+            }
+            inDroppedPartOfOutputTable = below >= 0
+                && !pushedOut.get(below)
+                && outputElements.get(below) != NO_OUTPUT_ELEMENT
+                && TABLE_CONTEXT.get(outputElements.get(below));
+          }
         }
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
@@ -2964,19 +2973,22 @@ public class TagBalancingHtmlStreamEventReceiver
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
     }
-    if ((child == CAPTION_TAG || child == COLGROUP_TAG)
+    if ((child == CAPTION_TAG || child == COLGROUP_TAG
+            || child == OPTION_TAG || child == OPTGROUP_TAG)
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
-        && outputElements.get(containerIndexOnStack) == NO_OUTPUT_ELEMENT
+        && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG
         && sentToUnderlying.get(containerIndexOnStack)) {
-      // A template holds a caption or column group directly, so the
-      // containment metadata implies no table for one there, but a template
-      // the policy dropped establishes none in the output: the part lands
-      // where the template was and is judged there, so it gets the table a
-      // caption in that place gets instead of coming out as an orphan the
-      // output parser drops (#492).  The other parts already get their
-      // table under a template through the metadata.
+      // A template holds a caption, column group, option or optgroup
+      // directly, so the containment metadata implies no table or select
+      // for one there, but a template the policy dropped or renamed
+      // establishes none in the output: the part lands where the template
+      // was, or in what the template became, and is judged there, so it gets
+      // the table or select it gets in that place instead of coming out bare
+      // for the output parser to drop and the next pass to wrap (#492).  The
+      // other table parts already get their table under a template through
+      // the metadata.
       if (underlying instanceof OpenTagOutputPolicy) {
         @Nullable String outputContainerName =
             ((OpenTagOutputPolicy) underlying).outputContainerElementName();
