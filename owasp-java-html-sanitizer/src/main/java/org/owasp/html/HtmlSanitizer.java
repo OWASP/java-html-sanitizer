@@ -391,6 +391,19 @@ public final class HtmlSanitizer {
     }
 
     /**
+     * Whether the node with this identity is still on the tracked stack.
+     * False once a breakout or an end tag has popped it, and when the
+     * context is unknown.
+     */
+    boolean isNodeOpen(int serial) {
+      if (unknown || serial == 0) { return false; }
+      for (int i = openElements.size(); --i >= 0;) {
+        if (openElements.get(i).serial == serial) { return true; }
+      }
+      return false;
+    }
+
+    /**
      * Foreign element names popped by the most recent end tag, inner first,
      * ending with the end tag's own target.  Empty unless
      * {@link #lastTagUsedForeignContentRules} is true.

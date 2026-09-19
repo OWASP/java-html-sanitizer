@@ -4231,9 +4231,72 @@ class HtmlSanitizerTest {
   }
 
   private static void appendTree(Node node, String indent, StringBuilder sb) {
+    appendTree(node, indent, sb, false);
+  }
+
+  /**
+   * As {@link #parseAsBrowser}, but naming an SVG or MathML element with its
+   * namespace, {@code svg:a} or {@code math:mi}, so that a tree comparison
+   * checks the namespace a browser gives each element and not just its name.
+   */
+  private static String parseAsBrowserWithNamespaces(String html)
+      throws Exception {
+    Node fragment = new HtmlDocumentBuilder().parseFragment(
+        new InputSource(new StringReader(html)), "body");
+    StringBuilder sb = new StringBuilder();
+    appendTree(fragment, "", sb, true);
+    return sb.toString();
+  }
+
+  /**
+   * Asserts that every element named in {@code foreignNames} is an SVG or
+   * MathML element, and never an HTML one, in the browser tree of the
+   * sanitized {@code input}.
+   */
+  private static void assertForeignInOutput(
+      PolicyFactory p, String input, Iterable<String> foreignNames)
+      throws Exception {
+    String tree = parseAsBrowserWithNamespaces(p.sanitize(input));
+    for (String name : foreignNames) {
+      assertTrue(
+          tree.contains("<svg:" + name + ">") || tree.contains("<math:" + name + ">")
+          || tree.contains("<svg:" + name + " ")
+          || tree.contains("<math:" + name + " "),
+          name + " not foreign in\n" + tree);
+      assertFalse(
+          tree.contains("<" + name + ">") || tree.contains("<" + name + " "),
+          name + " HTML in\n" + tree);
+    }
+  }
+
+  /** The element names in {@code html}, except the list and root names. */
+  private static List<String> foreignNamesIn(String html) {
+    List<String> names = new ArrayList<String>();
+    java.util.regex.Matcher m = Pattern.compile("<([a-zA-Z]+)").matcher(html);
+    while (m.find()) {
+      String name = m.group(1).toLowerCase(java.util.Locale.ROOT);
+      if (!name.equals("ul") && !name.equals("li") && !name.equals("svg")
+          && !name.equals("math") && !names.contains(name)) {
+        names.add(name);
+      }
+    }
+    return names;
+  }
+
+  private static void appendTree(
+      Node node, String indent, StringBuilder sb, boolean namespaces) {
     switch (node.getNodeType()) {
       case Node.ELEMENT_NODE:
-        sb.append(indent).append('<').append(node.getNodeName());
+        String name = node.getNodeName();
+        if (namespaces) {
+          String ns = node.getNamespaceURI();
+          if ("http://www.w3.org/2000/svg".equals(ns)) {
+            name = "svg:" + name;
+          } else if ("http://www.w3.org/1998/Math/MathML".equals(ns)) {
+            name = "math:" + name;
+          }
+        }
+        sb.append(indent).append('<').append(name);
         NamedNodeMap attrs = node.getAttributes();
         for (int i = 0, n = attrs.getLength(); i < n; ++i) {
           Node attr = attrs.item(i);
@@ -4252,7 +4315,7 @@ class HtmlSanitizerTest {
     }
     for (Node child = node.getFirstChild(); child != null;
          child = child.getNextSibling()) {
-      appendTree(child, indent, sb);
+      appendTree(child, indent, sb, namespaces);
     }
   }
 
@@ -5396,6 +5459,414 @@ class HtmlSanitizerTest {
     assertEquals(
         nest("<select>x</select>", 255),
         p.sanitize(nest("<select><div>x</div></select>", 255)));
+  }
+
+  /**
+   * Item 1 of #492.  The list item the containment metadata implies for a
+   * list's content landed inside a forwarded SVG or MathML root: the root
+   * has no entry on the balancer's stack, so the text or foreign child inside
+   * it was judged against the list below.  An li is a breakout name, so a
+   * browser popped the root at the item and read the SVG textarea or a that
+   * followed as an HTML element.  Content a browser inserts into a foreign
+   * node, or into an integration point inside the root, is now neither
+   * wrapped nor closed for by the HTML entries below the root.  The policy
+   * also judges an element the output parser inserts as SVG or MathML as
+   * one, so the text of a foreign tbody no longer depends on that item's
+   * gate.
+   */
+  @Test
+  void testForeignRootContentDoesNotGetTheListsImpliedItem()
+      throws Exception {
+    String[] names = {
+        "ul", "ol", "li", "svg", "math", "textarea", "a", "mi", "mtext",
+        "table", "tbody", "tr", "td", "b", "p", "div", "span",
+        "foreignObject", "desc", "path", "select" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    // Each is its own output and parses to the tree a browser builds from
+    // it, namespaces included.
+    String[] faithful = {
+        // The reproductions from the issue.
+        "<ul><svg><textarea>x</textarea></svg></ul>",
+        "<ul><svg><a>x</a></svg></ul>",
+        "<ul><math><mi>x</mi></math></ul>",
+        "<ul><svg><tbody>D</tbody></svg></ul>",
+        // Text in the root itself, in an ordered list, after an item, in a
+        // nested block, and in an integration point, with HTML inside it.
+        "<ul><svg>x</svg></ul>",
+        "<ul><math>x</math></ul>",
+        "<ol><svg><textarea>x</textarea></svg></ol>",
+        "<ul><li>a</li><svg><textarea>x</textarea></svg></ul>",
+        "<div><ul><svg><textarea>x</textarea></svg></ul></div>",
+        "<ul><svg><desc>x</desc></svg></ul>",
+        "<ul><svg><foreignObject>x</foreignObject></svg></ul>",
+        "<ul><svg><foreignObject><li>x</li></foreignObject></svg></ul>",
+        "<ul><svg><foreignObject><p>a</p><div>b</div></foreignObject></svg>"
+        + "</ul>",
+        "<ol><math><mtext>x</mtext></math></ol>",
+        "<ul><math><mi>x</mi>y</math></ul>",
+        // Foreign children with HTML names, and text after one.
+        "<ul><svg><a>x</a>y</svg></ul>",
+        "<ul><svg><tr><td>x</td></tr></svg></ul>",
+        "<ul><svg><select>x</select></svg></ul>",
+        // Other HTML containers below the root: a paragraph, a link, a
+        // cell, a select.
+        "<p><svg><a>x</a></svg>y</p>",
+        "<a><svg><a>x</a></svg></a>",
+        "<table><tbody><tr><td>a<svg>x</svg>b</td></tr></tbody></table>",
+        "<select><svg>x</svg></select>",
+    };
+    for (String c : faithful) {
+      // Unchanged, so the output's browser tree is the input's, namespaces
+      // included; the foreign children are pinned as foreign below.
+      assertRoundTripAndBalanced(p, c, c);
+    }
+    assertForeignInOutput(
+        p, "<ul><svg><textarea>x</textarea><a>y</a></svg></ul>",
+        Arrays.asList("textarea", "a"));
+    assertForeignInOutput(
+        p, "<ul><math><mi>x</mi><mtext>y</mtext></math></ul>",
+        Arrays.asList("mi", "mtext"));
+    assertForeignInOutput(
+        p, "<ul><svg><tr><td>x</td></tr></svg></ul>", Arrays.asList("tr", "td"));
+    // Unclosed forms reach the same outputs, with the input's tree.
+    String[][] unclosed = {
+        { "<ul><svg><tbody>D", "<ul><svg><tbody>D</tbody></svg></ul>" },
+        { "<svg><tbody>D", "<svg><tbody>D</tbody></svg>" },
+        { "<ul><svg><foreignObject><p>a<div>b",
+          "<ul><svg><foreignObject><p>a</p><div>b</div></foreignObject></svg>"
+          + "</ul>" },
+    };
+    for (String[] c : unclosed) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(
+          parseAsBrowserWithNamespaces(c[0]),
+          parseAsBrowserWithNamespaces(c[1]), c[0]);
+    }
+    // Text after the root is the list's own content and gets the list's
+    // item, as any text written directly in a list does.
+    assertRoundTripAndBalanced(
+        p, "<ul><svg>x</svg>y</ul>", "<ul><svg>x</svg><li>y</li></ul>");
+    assertRoundTripAndBalanced(
+        p, "<ul><svg><tbody>D</tbody>E</svg>F</ul>",
+        "<ul><svg><tbody>D</tbody>E</svg><li>F</li></ul>");
+
+    // Hostile content in those positions is still removed, and what is kept
+    // stays in the namespace a browser gives it.
+    String[][] hostile = {
+        { "<ul><svg><a href=javascript:alert(1)>x</a></svg></ul>",
+          "<ul><svg><a>x</a></svg></ul>" },
+        { "<ul><svg onload=alert(1)><a>x</a></svg></ul>",
+          "<ul><svg><a>x</a></svg></ul>" },
+        { "<ul><math><mi onclick=alert(1)>x</mi></math></ul>",
+          "<ul><math><mi>x</mi></math></ul>" },
+        { "<ul><svg><foreignObject><iframe src=javascript:alert(1)></iframe>"
+          + "x</foreignObject></svg></ul>",
+          "<ul><svg><foreignObject>x</foreignObject></svg></ul>" },
+        // A browser reads the SVG textarea's content as markup and the lexer
+        // as text; escaped, it stays text either way.
+        { "<ul><svg><textarea><b onmouseover=alert(1)>x</b></textarea></svg>"
+          + "</ul>",
+          "<ul><svg><textarea>&lt;b onmouseover&#61;alert(1)&gt;x&lt;/b&gt;"
+          + "</textarea></svg></ul>" },
+    };
+    for (String[] c : hostile) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert(1)>"), c[0]);
+    }
+    // A breakout inside the root is the list's content again: a browser pops
+    // the root at the img, and the text after it gets the list's item as
+    // text written in the list does.
+    assertRoundTripAndBalanced(
+        p, "<ul><svg><a>x</a><img src=x onerror=alert(1)>y</svg></ul>",
+        "<ul><svg><a>x</a><li>y</li></svg></ul>");
+
+    // The gate: a tbody the output parser inserts as an SVG element holds
+    // text like any other foreign element, the author's disallowTextIn still
+    // wins, an HTML table part still holds none, and style keeps its bar
+    // wherever it is written.
+    PolicyFactory noTbodyText = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .disallowTextIn("tbody").toFactory();
+    assertEquals(
+        "<svg><tbody></tbody></svg>", noTbodyText.sanitize("<svg><tbody>D"));
+    assertEquals(
+        "<ul><svg><tbody></tbody></svg></ul>",
+        noTbodyText.sanitize("<ul><svg><tbody>D"));
+    assertEquals(
+        "<table><tbody></tbody></table>D", p.sanitize("<table><tbody>D"));
+    String[] withStyle = { "ul", "li", "svg", "style" };
+    PolicyFactory style = new HtmlPolicyBuilder()
+        .allowElements(withStyle).allowWithoutAttributes(withStyle)
+        .toFactory();
+    assertEquals(
+        "<svg><style></style></svg>",
+        style.sanitize("<svg><style>*{color:red}</style>"));
+    assertEquals(
+        "<ul><svg><style></style></svg></ul>",
+        style.sanitize("<ul><svg><style>*{}</style></svg></ul>"));
+    // A dropped foreign tbody leaves its text in the root.  A dropped root
+    // leaves the content in the list, where the item applies.
+    String[] noTbody = { "ul", "li", "svg", "b" };
+    PolicyFactory dropTbody = new HtmlPolicyBuilder()
+        .allowElements(noTbody).allowWithoutAttributes(noTbody).toFactory();
+    assertRoundTripAndBalanced(
+        dropTbody, "<ul><svg><tbody>D", "<ul><svg>D</svg></ul>");
+    String[] noSvg = { "ul", "li", "a", "textarea" };
+    PolicyFactory dropSvg = new HtmlPolicyBuilder()
+        .allowElements(noSvg).allowWithoutAttributes(noSvg).toFactory();
+    assertRoundTripAndBalanced(
+        dropSvg, "<ul><svg><textarea>x</textarea></svg></ul>",
+        "<ul><li><textarea>x</textarea></li></ul>");
+    assertRoundTripAndBalanced(
+        dropSvg, "<ul><svg>x</svg></ul>", "<ul><li>x</li></ul>");
+    // Nothing is implied, so a policy without li has nothing to report.
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        discarded.add(elementName);
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        discarded.add(tagName);
+      }
+    };
+    PolicyFactory ulSvg = new HtmlPolicyBuilder()
+        .allowElements("ul", "svg", "textarea").toFactory();
+    assertEquals(
+        "<ul><svg><textarea>x</textarea></svg></ul>",
+        ulSvg.sanitize(
+            "<ul><svg><textarea>x</textarea></svg></ul>", listener, null));
+    assertEquals(new ArrayList<String>(), discarded);
+  }
+
+  /**
+   * The root is a boundary only while the output parser is still inside it.
+   * A breakout element with a stack entry pops the root in both parsers, so
+   * what follows it is HTML flow again and a link below the root is still
+   * ended by a new link; a link inside an integration point, on the other
+   * hand, is out of the outer link's scope, as it is for a browser's
+   * adoption agency algorithm, and the formatting element around it is not
+   * closed and reopened.  After a breakout out of an inner root only, the
+   * next root out is the boundary.
+   */
+  @Test
+  void testForeignRootBoundaryFollowsBreakouts() throws Exception {
+    String[] names = {
+        "a", "svg", "div", "p", "span", "b", "li", "ul", "foreignObject",
+        "math", "option", "select" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols().toFactory();
+    // A breakout, then a link: the outer link ends, as on main.
+    String[][] breakouts = {
+        { "<a href=\"https://good/\"><svg><div>x<a href=\"https://evil/\">"
+          + "click</a></div></svg></a>",
+          "<a href=\"https://good/\"><svg><div>x</div></svg></a>"
+          + "<a href=\"https://evil/\">click</a>" },
+        { "<a href=\"https://good/\"><svg><p>x<a href=\"https://evil/\">"
+          + "click</a></p></svg></a>",
+          "<a href=\"https://good/\"><svg><p>x</p></svg></a>"
+          + "<a href=\"https://evil/\">click</a>" },
+        { "<a href=\"https://good/\"><svg><span>x<a href=\"https://evil/\">"
+          + "click</a></span></svg></a>",
+          "<a href=\"https://good/\"><svg><span>x</span></svg></a>"
+          + "<a href=\"https://evil/\">click</a>" },
+        { "<a href=\"https://good/\"><svg><b>x<a href=\"https://evil/\">"
+          + "click</a></b></svg></a>",
+          "<a href=\"https://good/\"><svg><b>x</b></svg></a>"
+          + "<b><a href=\"https://evil/\">click</a></b>" },
+        { "<p><svg><div>x", "<p><svg></svg></p><div>x</div>" },
+    };
+    for (String[] c : breakouts) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // Inside an integration point, and after a breakout out of an inner
+    // root only: the output parses to the input's tree.
+    String[] faithful = {
+        "<a><svg><foreignObject><b>x<a>y</a></b></foreignObject></svg></a>",
+        "<a><svg><foreignObject><p>x<a>y</a></p></foreignObject></svg></a>",
+        "<ul><svg><foreignObject><p>a<svg></svg></p><div>b</div>"
+        + "</foreignObject></svg></ul>",
+    };
+    for (String c : faithful) {
+      assertRoundTripAndBalanced(p, c, c);
+    }
+    assertRoundTripAndBalanced(
+        p, "<ul><svg><foreignObject><p>a<svg><div>b",
+        "<ul><svg><foreignObject><p>a<svg></svg></p><div>b</div>"
+        + "</foreignObject></svg></ul>");
+    assertEquals(
+        parseAsBrowserWithNamespaces("<ul><svg><foreignObject><p>a<svg><div>b"),
+        parseAsBrowserWithNamespaces(
+            p.sanitize("<ul><svg><foreignObject><p>a<svg><div>b")));
+    // A breakout directly in a nested root inside an integration point lands
+    // at the integration point, inside the outer root, with no item from
+    // the list below.
+    String[] nested = {
+        "<ul><svg><foreignObject><svg><div>b</div></svg></foreignObject>"
+        + "</svg></ul>",
+        "<ul><svg><foreignObject><b>x</b><svg><div>y</div></svg>"
+        + "</foreignObject></svg></ul>",
+    };
+    for (String c : nested) {
+      assertRoundTripAndBalanced(p, c, c);
+    }
+    // An option that is a foreign element gets no select: an SVG option is
+    // not an HTML option.  One inside HTML at an integration point does,
+    // and the list below the root implies nothing for it.
+    String[][] options = {
+        { "<svg><option>x</option></svg>", "<svg><option>x</option></svg>" },
+        { "<ul><svg><option>x</option></svg></ul>",
+          "<ul><svg><option>x</option></svg></ul>" },
+        { "<ul><svg><foreignObject><b><option>x",
+          "<ul><svg><foreignObject><b><select><option>x</option></select></b>"
+          + "</foreignObject></svg></ul>" },
+    };
+    for (String[] c : options) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    assertForeignInOutput(
+        p, "<ul><svg><option>x</option></svg></ul>", Arrays.asList("option"));
+    assertTrue(
+        parseAsBrowserWithNamespaces(
+            p.sanitize("<ul><svg><foreignObject><b><option>x"))
+        .contains("<select>"));
+  }
+
+  /**
+   * A table part at an integration point that the policy dropped is HTML in
+   * the input, where a browser ignores it, but its output would sit directly
+   * in the foreign root.  An implied HTML table there would break out of the
+   * root in the output parser and turn every following SVG or MathML sibling
+   * into HTML.  The part is forwarded as the foreign element the output
+   * parser makes of it instead.
+   */
+  @Test
+  void testTablePartUnderDroppedIntegrationPointStaysForeign()
+      throws Exception {
+    String[] names = {
+        "svg", "math", "tbody", "table", "a", "textarea", "tr", "td",
+        "mtext", "ul", "li" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] cases = {
+        { "<svg><foreignObject><tbody></tbody></foreignObject><a>x</a>"
+          + "<textarea>&lt;b&gt;y&lt;/b&gt;</textarea></svg>",
+          "<svg><tbody></tbody><a>x</a><textarea>&lt;b&gt;y&lt;/b&gt;"
+          + "</textarea></svg>" },
+        { "<math><mi><tbody>x</tbody></mi><mtext>y</mtext></math>",
+          "<math><tbody>x</tbody><mtext>y</mtext></math>" },
+        { "<svg><foreignObject><tr><td>x</td></tr></foreignObject><a>y</a>"
+          + "</svg>",
+          "<svg><tr><td>x</td></tr><a>y</a></svg>" },
+        { "<ul><svg><foreignObject><tbody>D</tbody></foreignObject></svg>"
+          + "</ul>",
+          "<ul><svg><tbody>D</tbody></svg></ul>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      // The part and its siblings are foreign in the output's browser tree.
+      assertForeignInOutput(p, c[0], foreignNamesIn(c[1]));
+    }
+    // The part's stray end tag does not lose the input parser its context,
+    // so a foreign sibling under a list still gets no list item; an HTML
+    // element between the dropped integration point and the part changes
+    // nothing, since the output decides; and a hostile sibling stays text.
+    String[] names2 = {
+        "ul", "li", "svg", "tbody", "tr", "td", "a", "textarea", "section",
+        "label" };
+    PolicyFactory q = new HtmlPolicyBuilder()
+        .allowElements(names2).allowWithoutAttributes(names2).toFactory();
+    String[][] siblings = {
+        { "<ul><svg><foreignObject><tbody>x</tbody></foreignObject><a>y</a>"
+          + "</svg></ul>",
+          "<ul><svg><tbody>x</tbody><a>y</a></svg></ul>" },
+        { "<ul><svg><foreignObject><tr><td>x</td></tr></foreignObject>"
+          + "<textarea>&lt;b&gt;z&lt;/b&gt;</textarea></svg></ul>",
+          "<ul><svg><tr><td>x</td></tr><textarea>&lt;b&gt;z&lt;/b&gt;"
+          + "</textarea></svg></ul>" },
+        { "<svg><foreignObject><section><tbody>x</tbody></section>"
+          + "</foreignObject><a>y</a></svg>",
+          "<svg><section><tbody>x</tbody></section><a>y</a></svg>" },
+        { "<svg><foreignObject><label><tr><td>x</td></tr></label>"
+          + "</foreignObject><a>y</a></svg>",
+          "<svg><label><tr><td>x</td></tr></label><a>y</a></svg>" },
+        { "<ul><svg><foreignObject><tbody></tbody></foreignObject>"
+          + "<textarea>&lt;img src=x onerror=alert(1)&gt;</textarea></svg></ul>",
+          "<ul><svg><tbody></tbody><textarea>&lt;img src&#61;x onerror&#61;"
+          + "alert(1)&gt;</textarea></svg></ul>" },
+        // An HTML-named element at the dropped integration point is foreign
+        // in the output, so it gets no list item either, and neither does
+        // one inside a forwarded part.
+        { "<ul><svg><foreignObject><textarea>x</textarea></foreignObject>"
+          + "<a>y</a></svg></ul>",
+          "<ul><svg><textarea>x</textarea><a>y</a></svg></ul>" },
+        { "<ul><svg><foreignObject><tbody><a>y</a></tbody></foreignObject>"
+          + "</svg></ul>",
+          "<ul><svg><tbody><a>y</a></tbody></svg></ul>" },
+        // The forwarded part's end tag pops an outer foreign node of the
+        // same name through the integration point, as a browser's foreign
+        // end-tag algorithm does, so the sibling after it is outside both.
+        { "<svg><tbody><foreignObject><tbody>x</tbody><a>y</a></foreignObject>"
+          + "</svg>",
+          "<svg><tbody><tbody>x</tbody></tbody><a>y</a></svg>" },
+    };
+    for (String[] c : siblings) {
+      assertRoundTripAndBalanced(q, c[0], c[1]);
+      assertForeignInOutput(q, c[0], foreignNamesIn(c[1]));
+      assertFalse(q.sanitize(c[0]).contains("<img"), c[0]);
+    }
+    // An option there is a foreign option: no select, and a fixed point.
+    PolicyFactory r = new HtmlPolicyBuilder()
+        .allowElements("ul", "li", "svg", "tbody", "option", "select")
+        .allowWithoutAttributes("ul", "li", "svg", "tbody", "option", "select")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        r,
+        "<ul><svg><foreignObject><tbody><option>x</option></tbody>"
+        + "</foreignObject></svg></ul>",
+        "<ul><svg><tbody><option>x</option></tbody></svg></ul>");
+    assertForeignInOutput(
+        r, "<ul><svg><foreignObject><tbody><option>x</option></tbody>"
+        + "</foreignObject></svg></ul>",
+        Arrays.asList("tbody", "option"));
+  }
+
+  /**
+   * The text gate's relaxation for foreign elements reaches exactly the
+   * HTML names whose default is no text because a browser foster-parents
+   * text out of them: the table parts.  A void name holds no text anywhere,
+   * a breakout such as table is HTML in the output, and a literal-content
+   * name keeps its bar.  Enumerated from the containment metadata so that
+   * regenerating the tables cannot widen it unnoticed.
+   */
+  @Test
+  void testOnlyTablePartsKeepTextAsForeignElements() {
+    HtmlElementTables tables = HtmlElementTables.get();
+    List<String> relaxed = new ArrayList<>();
+    for (int i = 0, n = tables.nElementTypes(); i < n; ++i) {
+      if (tables.canContainPlainText(i)) { continue; }
+      String name = tables.canonNameForIndex(i);
+      for (String root : new String[] { "svg", "math" }) {
+        PolicyFactory p = new HtmlPolicyBuilder()
+            .allowElements(root, name).allowWithoutAttributes(root, name)
+            .toFactory();
+        String out = p.sanitize(
+            "<" + root + "><" + name + ">D</" + name + "></" + root + ">");
+        if (out.startsWith("<" + root + "><" + name + ">D")) {
+          relaxed.add(root + ":" + name);
+        }
+      }
+    }
+    assertEquals(
+        Arrays.asList(
+            "svg:colgroup", "math:colgroup", "svg:tbody", "math:tbody",
+            "svg:tfoot", "math:tfoot", "svg:thead", "math:thead",
+            "svg:tr", "math:tr"),
+        relaxed);
   }
 
   /**
