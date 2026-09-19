@@ -5200,4 +5200,62 @@ class HtmlSanitizerTest {
         "<option>x</option><p>y</p>",
         options.sanitize("<select><option>x</option></select><p>y</p>"));
   }
+
+  /**
+   * A foreign root that HTML rules foster-parent out of a table is dropped
+   * or renamed by the policy, and holds an element the policy keeps but this
+   * receiver does not recognize.  That child was judged a foreign breakout
+   * beside the pushed-out table and suppressed with everything in it, though
+   * with no foreign root in the output there is nothing to break out of: it
+   * is ordinary HTML beside the table, like its siblings, and lands where a
+   * browser puts the root.
+   */
+  @Test
+  void testChildrenOfADroppedForeignRootBesideATableAreKept()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "tbody", "tfoot", "tr", "td", "colgroup", "col",
+            "o:p", "foo", "b", "div")
+        .toFactory();
+    String before = "<table><tbody><tr></tr></tbody></table>";
+    String after = "<table><tbody><tr><td>y</td></tr></tbody></table>";
+    String[][] cases = {
+        { "<table><tr><svg><o:p>x</o:p></svg><td>y",
+          before + "<o:p>x</o:p>" + after },
+        { "<table><tr><math><foo>x</foo></math><td>y",
+          before + "<foo>x</foo>" + after },
+        { "<table><tr><svg><g><foo>x</foo></g></svg><td>y",
+          before + "<foo>x</foo>" + after },
+        { "<table><tr><svg><foo>x</foo></svg><b>q</b><td>y",
+          before + "<foo>x</foo><b>q</b>" + after },
+        { "<table><tr><svg><foo><b>x</b></foo></svg><td>y",
+          before + "<foo><b>x</b></foo>" + after },
+        { "<table><tr><svg><foo>x", before + "<foo>x</foo>" },
+        { "<table><svg><o:p>tail", "<table></table><o:p>tail</o:p>" },
+        { "<table><tfoot><svg><o:p>tail</o:p></svg><tr><td>y",
+          "<table><tfoot></tfoot></table><o:p>tail</o:p>"
+          + "<table><tfoot><tr><td>y</td></tr></tfoot></table>" },
+        { "<table><tr><svg><o:p onclick=alert(1)>x</o:p></svg><td>y",
+          before + "<o:p>x</o:p>" + after },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // The same when the root is renamed to an HTML element.
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "o:p", "div")
+        .allowElements((name, attrs) -> "div", "svg")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed, "<table><tr><svg><o:p>x</o:p></svg><td>y",
+        before + "<div><o:p>x</o:p></div>" + after);
+    // A root the policy keeps still carries its children with it.
+    PolicyFactory kept = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "svg", "foo", "b")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        kept, "<table><tr><svg><foo>x</foo></svg><td>y",
+        before + "<svg><foo>x</foo></svg>" + after);
+  }
 }

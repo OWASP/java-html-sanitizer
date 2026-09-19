@@ -123,6 +123,16 @@ public class TagBalancingHtmlStreamEventReceiver
   private final IntVector passthroughDepths = new IntVector();
   private final IntVector passthroughSerials = new IntVector();
   /**
+   * Whether the policy emitted each forwarded element as an SVG or MathML
+   * element, by index into {@link #passthroughNames}, and the indices of the
+   * forwarded SVG and MathML roots, innermost last.  Together they say
+   * whether the output entered the input's current foreign region: a root
+   * the policy dropped, or renamed to an HTML element, leaves the elements
+   * inside it as ordinary HTML in the output.
+   */
+  private final BitSet passthroughOutputForeign = new BitSet();
+  private final IntVector passthroughForeignRoots = new IntVector();
+  /**
    * The element each entry in {@link #openElements} became after policy
    * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it.
    * When the receiver below cannot report that, the input name is used.
@@ -530,6 +540,8 @@ public class TagBalancingHtmlStreamEventReceiver
     passthroughIndicesByName.clear();
     passthroughDepths.clear();
     passthroughSerials.clear();
+    passthroughOutputForeign.clear();
+    passthroughForeignRoots.clear();
     outputlessTablesWithEmittedParts.clear();
     pushedMappedTemplateOutputOpen.clear();
     suppressedMappedForeignSubtrees.clear();
@@ -734,10 +746,21 @@ public class TagBalancingHtmlStreamEventReceiver
           try {
             if (preparedOutputName != null) {
               int outputTableContext = outputTableContextForStart();
+              // A foreign element beside a pushed-out table whose output
+              // would be HTML, because the output's foreign root was popped
+              // by an emitted breakout or the policy renamed the element,
+              // lands where this receiver cannot follow it, so it is
+              // suppressed with its contents.  That needs the output to have
+              // entered the foreign region at all: when the policy dropped
+              // the root, or renamed it to an HTML element, the elements
+              // inside it are ordinary HTML beside the table, like their
+              // siblings, and go through like them.
               suppressForeignBreakoutBesidePushedTable =
                   usesForeignContentRules
                   && !foreignContent.lastStartTagOpenedIntegrationPoint()
                   && !pushedOut.isEmpty()
+                  && (outputForeignRootBefore != null
+                      || forwardedForeignRootEnteredOutput())
                   && !"table".equals(HtmlLexer.canonicalElementName(
                       preparedOutputName))
                   && !outputStartTagUsesForeignContentRules(
@@ -3533,10 +3556,36 @@ public class TagBalancingHtmlStreamEventReceiver
       indices = new IntVector();
       passthroughIndicesByName.put(canonElementName, indices);
     }
-    indices.add(passthroughNames.size());
+    int index = passthroughNames.size();
+    indices.add(index);
     passthroughNames.add(canonElementName);
     passthroughDepths.add(openElements.size());
     passthroughSerials.add(serial);
+    passthroughOutputForeign.set(
+        index,
+        lastOutputElementUsedForeignContentRules()
+            || lastOutputElementIsForeignRoot());
+    if (isForeignContentRoot(canonElementName)) {
+      passthroughForeignRoots.add(index);
+    }
+  }
+
+  /** Whether the most recently emitted element is an SVG or MathML root. */
+  private boolean lastOutputElementIsForeignRoot() {
+    if (!(underlying instanceof OpenTagOutputPolicy)) { return false; }
+    @Nullable String outputName = ((OpenTagOutputPolicy) underlying)
+        .outputElementNameForLastOpenTag();
+    return outputName != null
+        && isForeignContentRoot(HtmlLexer.canonicalElementName(outputName));
+  }
+
+  /**
+   * Whether the output entered the input's current foreign region: the
+   * innermost forwarded SVG or MathML root was emitted as a foreign element.
+   */
+  private boolean forwardedForeignRootEnteredOutput() {
+    return !passthroughForeignRoots.isEmpty()
+        && passthroughOutputForeign.get(passthroughForeignRoots.getLast());
   }
 
   /** The innermost forwarded element with this canonical name, or -1. */
@@ -3578,6 +3627,11 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     passthroughDepths.removeLast();
     passthroughSerials.removeLast();
+    passthroughOutputForeign.clear(last);
+    if (!passthroughForeignRoots.isEmpty()
+        && passthroughForeignRoots.getLast() == last) {
+      passthroughForeignRoots.removeLast();
+    }
     if (emitCloseTag) {
       underlying.closeTag(canonElementName);
     }
