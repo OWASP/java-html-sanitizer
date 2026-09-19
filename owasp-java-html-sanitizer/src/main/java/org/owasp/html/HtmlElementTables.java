@@ -363,12 +363,13 @@ public final class HtmlElementTables {
     }
     // A browser ignores the tags of most other children of a <select> and
     // keeps their text inside it.  Any child but an <option> is answered
-    // with a list item so that the tag balancer nests it inside the select
-    // the way a browser nests the text, instead of closing the select for
-    // it.  That item is a synthetic container, not a browser element and
-    // not an <option>: the balancer keeps it on its own stack and never
-    // emits it, since an emitted one grew a list level on every pass and
-    // hid the select from its end tag (#492).
+    // with a list item so that the tag balancer, below a policy, nests it
+    // inside the select the way a browser nests the text, instead of closing
+    // the select for it.  That item is a synthetic container, not a browser
+    // element and not an <option>: the balancer keeps it on its own stack
+    // and never emits it, since an emitted one grew a list level on every
+    // pass and hid the select from its end tag (#492).  With no policy below
+    // to drop it the balancer skips the item and closes the select instead.
     if (anc == SELECT_TAG && desc != OPTION_TAG) {
       return LI_TAG_ARR;
     }

@@ -134,7 +134,8 @@ public class TagBalancingHtmlStreamEventReceiver
   private final IntVector passthroughForeignRoots = new IntVector();
   /**
    * The element each entry in {@link #openElements} became after policy
-   * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it.
+   * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it or
+   * the entry is the list item implied under a select, which is never sent.
    * When the receiver below cannot report that, the input name is used.
    */
   private final IntVector outputElements = new IntVector();
@@ -143,6 +144,7 @@ public class TagBalancingHtmlStreamEventReceiver
    * {@link #openElements} was sent to {@link #underlying}.  Resumed formatting
    * and returned table entries can remain on the logical stack at or beyond
    * the nesting limit without an open event, and the limit may later change.
+   * The list item implied under a select is kept on the logical stack only.
    */
   private final BitSet sentToUnderlying = new BitSet();
   /**
@@ -2100,11 +2102,35 @@ public class TagBalancingHtmlStreamEventReceiver
         List<String> attrs = new ArrayList<>();
 
         for (int i = startPos, n = impliedElIndices.length; i < n; ++i) {
-          if (effectiveNestingDepth() >= nestingLimit) {
+          int impliedElIndex = impliedElIndices[i];
+          // The containment metadata answers most children of a select with
+          // a list item, so that they nest inside the select the way a
+          // browser nests their text instead of closing it.  No browser
+          // creates that element.  Below a policy it stays on this stack as
+          // the container but is never sent, so it needs no room in the
+          // output: a policy that allowed li emitted
+          // <select><li>x</li></select>, the next pass wrapped that li in a
+          // ul and the ul in a li without bound, and the emitted li bounded
+          // the select end tag's scope search, so text after </select>
+          // landed inside the select (#492).  A receiver with no policy to
+          // drop it would serialize it, so it is skipped there.  So is the
+          // item for an element beside a pushed-out table: retaining it on
+          // the logical stack can hide the select from its explicit end tag
+          // on a second sanitization.
+          boolean syntheticSelectListItem =
+              top == SELECT_TAG && impliedElIndex == LI_TAG;
+          boolean keepsSyntheticSelectListItem = syntheticSelectListItem
+              && pushedOutTablePolicy() != null
+              && (elIndex == HtmlElementTables.TEXT_NODE
+                  || !pushedTableRequiresSelectEscape());
+          if (!keepsSyntheticSelectListItem
+              && effectiveNestingDepth() >= nestingLimit) {
             mayOpenAtNestingLimit = false;
             break;
           }
-          int impliedElIndex = impliedElIndices[i];
+          if (syntheticSelectListItem && !keepsSyntheticSelectListItem) {
+            continue;
+          }
           attrs.clear();
           boolean suppressMappedImpliedTemplate = false;
           if (impliedElIndex == TABLE_TAG) {
@@ -2132,29 +2158,6 @@ public class TagBalancingHtmlStreamEventReceiver
           }
           boolean suppressedImpliedTable = impliedElIndex == TABLE_TAG
               && shouldSuppressTablePart(impliedElIndex, true);
-          // The containment metadata answers most children of a select with
-          // a list item, so that they nest inside the select the way a
-          // browser nests their text instead of closing it.  No browser
-          // creates that element.  A receiver with no policy to drop it
-          // would serialize it, so it is skipped there.  Below a policy it
-          // stays on this stack as the container but is never sent: a policy
-          // that allowed li emitted <select><li>x</li></select>, the next
-          // pass wrapped that li in a ul and the ul in a li without bound,
-          // and the emitted li bounded the select end tag's scope search, so
-          // text after </select> landed inside the select (#492).
-          boolean syntheticSelectListItem =
-              top == SELECT_TAG && impliedElIndex == LI_TAG;
-          if (syntheticSelectListItem && pushedOutTablePolicy() == null) {
-            continue;
-          }
-          if (syntheticSelectListItem
-              && elIndex != HtmlElementTables.TEXT_NODE
-              && pushedTableRequiresSelectEscape()) {
-            // Beside a pushed-out table, retaining the synthetic item on the
-            // logical stack can hide the select from its explicit end tag on
-            // a second sanitization.
-            continue;
-          }
           if ((impliedElIndex == UL_TAG || impliedElIndex == OL_TAG)
               && outputContainerIsParagraph()
               && underlying instanceof FormPointerPolicy) {

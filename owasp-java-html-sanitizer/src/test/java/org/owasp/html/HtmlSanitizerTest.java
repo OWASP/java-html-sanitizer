@@ -5282,24 +5282,31 @@ class HtmlSanitizerTest {
         "<select>x</select><ul><li>y</li></ul>");
 
     // Hostile content in those positions is still removed, and what is kept
-    // stays where a browser puts it.
+    // stays where a browser puts it: the output parses as the input with
+    // its payload taken out.
     String[][] hostile = {
         { "<select><li onclick=alert(1)><img src=x onerror=alert(1)>y",
-          "<select><ul><li>y</li></ul></select>" },
+          "<select><ul><li>y</li></ul></select>", "<select><li>y" },
         { "<select><li><a href=javascript:alert(1)>y</a>",
-          "<select><ul><li>y</li></ul></select>" },
+          "<select><ul><li>y</li></ul></select>", "<select><li>y" },
         { "<select><table><svg onload=alert(1)>x</svg>",
-          "<select><table></table><svg>x</svg></select>" },
+          "<select><table></table><svg>x</svg></select>",
+          "<select><table><svg>x</svg>" },
         { "a<select>x</select><b onmouseover=alert(1)>b</b>",
-          "a<select>x</select><b>b</b>" },
-        // With the item emitted, the select end tag was lost and the script
-        // body came out as text inside the select.
-        { "<select>x</select><script>alert(1)</script>y",
-          "<select>x</select>y" },
+          "a<select>x</select><b>b</b>", "a<select>x</select><b>b</b>" },
     };
     for (String[] c : hostile) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(c[1].contains("alert"), c[1]);
+      assertEquals(parseAsBrowser(c[2]), parseAsBrowser(c[1]), c[0]);
     }
+    // With the item emitted, the select end tag was lost and the script
+    // body came out as text inside the select.
+    String script = "<select>x</select><script>alert(1)</script>y";
+    assertRoundTripAndBalanced(p, script, "<select>x</select>y");
+    assertEquals(
+        parseAsBrowser("<select>x</select>y"),
+        parseAsBrowser(p.sanitize(script)));
 
     // The prepackaged policies drop the select and leave its text where the
     // select was.  {@code Sanitizers.BLOCKS} emitted a bare li there and
@@ -5346,21 +5353,29 @@ class HtmlSanitizerTest {
    */
   @Test
   void testSelectContentAtTheNestingLimitRoundTrips() throws Exception {
-    String[] names = { "div", "select", "svg", "ul", "li" };
+    String[] names = { "div", "select", "svg", "ul", "li", "b" };
     PolicyFactory p = new HtmlPolicyBuilder()
         .allowElements(names).allowWithoutAttributes(names).toFactory();
     String[] inners = {
         "<select>x</select>", "<select><svg>x</svg></select>",
         "<select><li>x</li></select>", "<select><ul><li>x</li></ul></select>",
+        "<select><b>x</b></select>", "<select><div>x</div></select>",
+        "<select><b>x</b></select>y",
     };
     for (String inner : inners) {
       for (int depth : new int[] { 252, 253, 254, 255, 256 }) {
         String label = inner + " at depth " + depth;
-        String out = p.sanitize(nest(inner, depth));
+        String input = nest(inner, depth);
+        String out = p.sanitize(input);
         String again = p.sanitize(out);
         assertEquals(out, again, label);
         assertEquals(parseAsBrowser(out), parseAsBrowser(again), label);
         assertTrue(out.contains("x"), label);
+        if (depth <= 254) {
+          // Everything fits, or only the li of a list the browser ignores
+          // inside a select is dropped, so the output reads as the input.
+          assertEquals(parseAsBrowser(input), parseAsBrowser(out), label);
+        }
       }
     }
     // The li at the 256th level is emitted; one level deeper it is not, and
@@ -5371,6 +5386,16 @@ class HtmlSanitizerTest {
     assertEquals(
         nest("<select><ul></ul>x</select>", 254),
         p.sanitize(nest("<select><li>x</li></select>", 254)));
+    // With the select itself at the limit, its item still holds the content
+    // the child would have held, and the select is not closed for it.  The
+    // limit check that refused the item here moved the text out of the
+    // select while bare text stayed in.
+    assertEquals(
+        nest("<select>x</select>y", 255),
+        p.sanitize(nest("<select><b>x</b></select>y", 255)));
+    assertEquals(
+        nest("<select>x</select>", 255),
+        p.sanitize(nest("<select><div>x</div></select>", 255)));
   }
 
   /**
