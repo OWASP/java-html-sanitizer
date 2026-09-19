@@ -1122,6 +1122,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * name the policy gives it, so for those every element whose content the
    * lexer read as raw text is filtered, wherever it sits.
    */
+  private boolean isLiteralContentElement(String adjustedElementName) {
+    return outIsLibraryRenderer
+        ? HtmlStreamRenderer.emitsContentLiterally(
+              HtmlStreamRenderer.safeName(adjustedElementName),
+              inForeignContent)
+        : HtmlStreamRenderer.emitsContentLiterally(adjustedElementName, false);
+  }
+
   /**
    * Whether an element that the output parser inserts as SVG or MathML holds
    * text although its HTML namesake does not by default.  A tbody there is
@@ -1132,21 +1140,20 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * implied for it, which a browser never creates, was the container judged
    * (#492).  A name a browser reads literally in HTML, such as style, is not
    * relaxed: its text is a stylesheet or script wherever it is written, and
-   * needs allowTextIn on that name.
+   * needs allowTextIn on that name.  Inside retained HTML template contents
+   * the template's own context answers, as it does for every other output
+   * namespace decision here.
    */
   private boolean holdsTextAsForeignElement(
       String elementName, List<String> attrs) {
-    return !HtmlStreamRenderer.emitsContentLiterally(elementName, false)
-        && outputForeignContent.startTagUsesForeignContentRules(
-            elementName, attrs);
-  }
-
-  private boolean isLiteralContentElement(String adjustedElementName) {
-    return outIsLibraryRenderer
-        ? HtmlStreamRenderer.emitsContentLiterally(
-              HtmlStreamRenderer.safeName(adjustedElementName),
-              inForeignContent)
-        : HtmlStreamRenderer.emitsContentLiterally(adjustedElementName, false);
+    if (HtmlStreamRenderer.emitsContentLiterally(elementName, false)) {
+      return false;
+    }
+    HtmlSanitizer.ForeignContentContext templateContext =
+        currentOutputTemplateForeignContent();
+    HtmlSanitizer.ForeignContentContext context = templateContext != null
+        ? templateContext : outputForeignContent;
+    return context.startTagUsesForeignContentRules(elementName, attrs);
   }
 
   public void openTag(String elementName, List<String> attrs) {

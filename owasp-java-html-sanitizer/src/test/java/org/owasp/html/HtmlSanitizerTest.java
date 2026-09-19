@@ -4231,9 +4231,72 @@ class HtmlSanitizerTest {
   }
 
   private static void appendTree(Node node, String indent, StringBuilder sb) {
+    appendTree(node, indent, sb, false);
+  }
+
+  /**
+   * As {@link #parseAsBrowser}, but naming an SVG or MathML element with its
+   * namespace, {@code svg:a} or {@code math:mi}, so that a tree comparison
+   * checks the namespace a browser gives each element and not just its name.
+   */
+  private static String parseAsBrowserWithNamespaces(String html)
+      throws Exception {
+    Node fragment = new HtmlDocumentBuilder().parseFragment(
+        new InputSource(new StringReader(html)), "body");
+    StringBuilder sb = new StringBuilder();
+    appendTree(fragment, "", sb, true);
+    return sb.toString();
+  }
+
+  /**
+   * Asserts that every element named in {@code foreignNames} is an SVG or
+   * MathML element, and never an HTML one, in the browser tree of the
+   * sanitized {@code input}.
+   */
+  private static void assertForeignInOutput(
+      PolicyFactory p, String input, Iterable<String> foreignNames)
+      throws Exception {
+    String tree = parseAsBrowserWithNamespaces(p.sanitize(input));
+    for (String name : foreignNames) {
+      assertTrue(
+          tree.contains("<svg:" + name + ">") || tree.contains("<math:" + name + ">")
+          || tree.contains("<svg:" + name + " ")
+          || tree.contains("<math:" + name + " "),
+          name + " not foreign in\n" + tree);
+      assertFalse(
+          tree.contains("<" + name + ">") || tree.contains("<" + name + " "),
+          name + " HTML in\n" + tree);
+    }
+  }
+
+  /** The element names in {@code html}, except the list and root names. */
+  private static List<String> foreignNamesIn(String html) {
+    List<String> names = new ArrayList<String>();
+    java.util.regex.Matcher m = Pattern.compile("<([a-zA-Z]+)").matcher(html);
+    while (m.find()) {
+      String name = m.group(1).toLowerCase(java.util.Locale.ROOT);
+      if (!name.equals("ul") && !name.equals("li") && !name.equals("svg")
+          && !name.equals("math") && !names.contains(name)) {
+        names.add(name);
+      }
+    }
+    return names;
+  }
+
+  private static void appendTree(
+      Node node, String indent, StringBuilder sb, boolean namespaces) {
     switch (node.getNodeType()) {
       case Node.ELEMENT_NODE:
-        sb.append(indent).append('<').append(node.getNodeName());
+        String name = node.getNodeName();
+        if (namespaces) {
+          String ns = node.getNamespaceURI();
+          if ("http://www.w3.org/2000/svg".equals(ns)) {
+            name = "svg:" + name;
+          } else if ("http://www.w3.org/1998/Math/MathML".equals(ns)) {
+            name = "math:" + name;
+          }
+        }
+        sb.append(indent).append('<').append(name);
         NamedNodeMap attrs = node.getAttributes();
         for (int i = 0, n = attrs.getLength(); i < n; ++i) {
           Node attr = attrs.item(i);
@@ -4252,7 +4315,7 @@ class HtmlSanitizerTest {
     }
     for (Node child = node.getFirstChild(); child != null;
          child = child.getNextSibling()) {
-      appendTree(child, indent, sb);
+      appendTree(child, indent, sb, namespaces);
     }
   }
 
@@ -5454,10 +5517,19 @@ class HtmlSanitizerTest {
         "<select><svg>x</svg></select>",
     };
     for (String c : faithful) {
+      // Unchanged, so the output's browser tree is the input's, namespaces
+      // included; the foreign children are pinned as foreign below.
       assertRoundTripAndBalanced(p, c, c);
-      assertEquals(parseAsBrowser(c), parseAsBrowser(p.sanitize(c)), c);
     }
-    // Unclosed forms reach the same outputs.
+    assertForeignInOutput(
+        p, "<ul><svg><textarea>x</textarea><a>y</a></svg></ul>",
+        Arrays.asList("textarea", "a"));
+    assertForeignInOutput(
+        p, "<ul><math><mi>x</mi><mtext>y</mtext></math></ul>",
+        Arrays.asList("mi", "mtext"));
+    assertForeignInOutput(
+        p, "<ul><svg><tr><td>x</td></tr></svg></ul>", Arrays.asList("tr", "td"));
+    // Unclosed forms reach the same outputs, with the input's tree.
     String[][] unclosed = {
         { "<ul><svg><tbody>D", "<ul><svg><tbody>D</tbody></svg></ul>" },
         { "<svg><tbody>D", "<svg><tbody>D</tbody></svg>" },
@@ -5467,7 +5539,9 @@ class HtmlSanitizerTest {
     };
     for (String[] c : unclosed) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
-      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+      assertEquals(
+          parseAsBrowserWithNamespaces(c[0]),
+          parseAsBrowserWithNamespaces(c[1]), c[0]);
     }
     // Text after the root is the list's own content and gets the list's
     // item, as any text written directly in a list does.
@@ -5619,15 +5693,15 @@ class HtmlSanitizerTest {
     };
     for (String c : faithful) {
       assertRoundTripAndBalanced(p, c, c);
-      assertEquals(parseAsBrowser(c), parseAsBrowser(p.sanitize(c)), c);
     }
     assertRoundTripAndBalanced(
         p, "<ul><svg><foreignObject><p>a<svg><div>b",
         "<ul><svg><foreignObject><p>a<svg></svg></p><div>b</div>"
         + "</foreignObject></svg></ul>");
     assertEquals(
-        parseAsBrowser("<ul><svg><foreignObject><p>a<svg><div>b"),
-        parseAsBrowser(p.sanitize("<ul><svg><foreignObject><p>a<svg><div>b")));
+        parseAsBrowserWithNamespaces("<ul><svg><foreignObject><p>a<svg><div>b"),
+        parseAsBrowserWithNamespaces(
+            p.sanitize("<ul><svg><foreignObject><p>a<svg><div>b")));
     // A breakout directly in a nested root inside an integration point lands
     // at the integration point, inside the outer root, with no item from
     // the list below.
@@ -5639,7 +5713,6 @@ class HtmlSanitizerTest {
     };
     for (String c : nested) {
       assertRoundTripAndBalanced(p, c, c);
-      assertEquals(parseAsBrowser(c), parseAsBrowser(p.sanitize(c)), c);
     }
     // An option that is a foreign element gets no select: an SVG option is
     // not an HTML option.  One inside HTML at an integration point does,
@@ -5655,9 +5728,12 @@ class HtmlSanitizerTest {
     for (String[] c : options) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
     }
-    assertEquals(
-        parseAsBrowser("<svg><option>x</option></svg>"),
-        parseAsBrowser(p.sanitize("<svg><option>x</option></svg>")));
+    assertForeignInOutput(
+        p, "<ul><svg><option>x</option></svg></ul>", Arrays.asList("option"));
+    assertTrue(
+        parseAsBrowserWithNamespaces(
+            p.sanitize("<ul><svg><foreignObject><b><option>x"))
+        .contains("<select>"));
   }
 
   /**
@@ -5692,9 +5768,8 @@ class HtmlSanitizerTest {
     };
     for (String[] c : cases) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
-      // The siblings keep their namespace: the output parses as the output
-      // with the dropped integration point's element written as foreign.
-      assertEquals(parseAsBrowser(c[1]), parseAsBrowser(p.sanitize(c[0])));
+      // The part and its siblings are foreign in the output's browser tree.
+      assertForeignInOutput(p, c[0], foreignNamesIn(c[1]));
     }
     // The part's stray end tag does not lose the input parser its context,
     // so a foreign sibling under a list still gets no list item; an HTML
@@ -5723,12 +5798,41 @@ class HtmlSanitizerTest {
           + "<textarea>&lt;img src=x onerror=alert(1)&gt;</textarea></svg></ul>",
           "<ul><svg><tbody></tbody><textarea>&lt;img src&#61;x onerror&#61;"
           + "alert(1)&gt;</textarea></svg></ul>" },
+        // An HTML-named element at the dropped integration point is foreign
+        // in the output, so it gets no list item either, and neither does
+        // one inside a forwarded part.
+        { "<ul><svg><foreignObject><textarea>x</textarea></foreignObject>"
+          + "<a>y</a></svg></ul>",
+          "<ul><svg><textarea>x</textarea><a>y</a></svg></ul>" },
+        { "<ul><svg><foreignObject><tbody><a>y</a></tbody></foreignObject>"
+          + "</svg></ul>",
+          "<ul><svg><tbody><a>y</a></tbody></svg></ul>" },
+        // The forwarded part's end tag pops an outer foreign node of the
+        // same name through the integration point, as a browser's foreign
+        // end-tag algorithm does, so the sibling after it is outside both.
+        { "<svg><tbody><foreignObject><tbody>x</tbody><a>y</a></foreignObject>"
+          + "</svg>",
+          "<svg><tbody><tbody>x</tbody></tbody><a>y</a></svg>" },
     };
     for (String[] c : siblings) {
       assertRoundTripAndBalanced(q, c[0], c[1]);
-      assertEquals(parseAsBrowser(c[1]), parseAsBrowser(q.sanitize(c[0])));
+      assertForeignInOutput(q, c[0], foreignNamesIn(c[1]));
       assertFalse(q.sanitize(c[0]).contains("<img"), c[0]);
     }
+    // An option there is a foreign option: no select, and a fixed point.
+    PolicyFactory r = new HtmlPolicyBuilder()
+        .allowElements("ul", "li", "svg", "tbody", "option", "select")
+        .allowWithoutAttributes("ul", "li", "svg", "tbody", "option", "select")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        r,
+        "<ul><svg><foreignObject><tbody><option>x</option></tbody>"
+        + "</foreignObject></svg></ul>",
+        "<ul><svg><tbody><option>x</option></tbody></svg></ul>");
+    assertForeignInOutput(
+        r, "<ul><svg><foreignObject><tbody><option>x</option></tbody>"
+        + "</foreignObject></svg></ul>",
+        Arrays.asList("tbody", "option"));
   }
 
   /**
