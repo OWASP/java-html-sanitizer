@@ -5867,12 +5867,17 @@ class HtmlSanitizerTest {
           "<ul><li><form>f<ul><li>y</li></ul></form></li></ul>" },
         { "<ul><li><template><li>y",
           "<ul><li><template><ul><li>y</li></ul></template></li></ul>" },
-        { "<ul><li><b>x<table><li>y",
-          "<ul><li><b>x<table></table><ul><li>y</li></ul></b></li></ul>" },
     };
     for (String[] c : barriers) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
     }
+    // A table this receiver closed in the output to put the item in front
+    // of it bounds nothing a browser reading that output can see, so the
+    // item closes.  A browser reading the input keeps the item open and
+    // foster-parents the new one into it; the output would not say so.
+    assertRoundTripAndBalanced(
+        p, "<ul><li><b>x<table><li>y",
+        "<ul><li><b>x<table></table></b></li><li><b>y</b></li></ul>");
     // Formatting is not reconstructed inside an element whose content the
     // lexer reads as text: a browser reconstructs it around that element,
     // and a tag written inside it would come out as its text.  It resumes

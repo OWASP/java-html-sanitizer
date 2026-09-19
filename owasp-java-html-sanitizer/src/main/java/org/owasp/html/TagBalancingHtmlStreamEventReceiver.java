@@ -265,6 +265,13 @@ public class TagBalancingHtmlStreamEventReceiver
     for (String name : HtmlSanitizer.ambiguouslySpecialHtmlElementNames()) {
       LIST_ITEM_START_BARRIERS.clear(METADATA.indexForName(name));
     }
+    // An option is not special for a browser, but a list this receiver
+    // opens inside one holds the item it writes for the list's content,
+    // and closing that item for the next start tag would unwrite on the
+    // next pass what this pass wrote.  The item stays where the output
+    // puts it.
+    LIST_ITEM_START_BARRIERS.set(METADATA.indexForName("option"));
+    LIST_ITEM_START_BARRIERS.set(METADATA.indexForName("optgroup"));
   }
   static {
     for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
@@ -2999,16 +3006,23 @@ public class TagBalancingHtmlStreamEventReceiver
   private int listItemToCloseForStart(int foreignRootBoundary) {
     for (int i = openElements.size(), floor = Math.max(0, foreignRootBoundary);
          --i >= floor;) {
-      if (inputElementsInForeignContent.get(i)) { return -1; }
+      if (inputElementsInForeignContent.get(i)
+          || outputElementsInForeignContent.get(i)) {
+        // Neither parser is under HTML rules here.
+        return -1;
+      }
       int openElement = openElements.get(i);
       if (openElement == LI_TAG && !isSyntheticSelectListItem(i)) {
         return i;
       }
       // An element with no output, one the policy dropped or one this
-      // receiver implied, bounds nothing a browser reading the output can
-      // see, so it bounds nothing here either: leaving it a barrier made
-      // the first pass keep an item that the second pass closed.
-      if (outputElements.get(i) == NO_OUTPUT_ELEMENT) { continue; }
+      // receiver implied, and a table already closed in the output to put
+      // content in front of it, bound nothing a browser reading that
+      // output can see, so they bound nothing here: leaving them barriers
+      // made a first pass keep an item that the second pass closed.
+      if (outputElements.get(i) == NO_OUTPUT_ELEMENT || pushedOut.get(i)) {
+        continue;
+      }
       if (LIST_ITEM_START_BARRIERS.get(openElement)) { return -1; }
     }
     return -1;
