@@ -8,12 +8,16 @@ Most recent at top.
       metadata read a container whose index lay past the end of the wrapper's
       set of allowed containers, such as `span`, `td`, `th` or `ul` for an
       option and `var` for a list item, as one of them, so an option in a
-      dropped table cell came out bare and the next pass wrapped it (#492,
+      dropped table cell came out bare and the next pass wrapped it.  A
+      `template` holds an option directly, as a browser's does.  With the
+      table kept and only the cell dropped, the select is pushed out of the
+      table as a browser foster-parents one written in a row, instead of
+      being emitted inside the row and moved out by the next pass (#492,
       item 9).  A caption or column group under a `template` the policy
-      dropped is judged where the template was and gets its table there,
-      instead of coming out as an orphan part that a browser drops and the
-      next pass wraps; `Sanitizers.TABLES` now emits on the first pass what
-      it emitted on the second (#492, item 2).
+      dropped is judged in the output, where the template was, and gets its
+      table there, instead of coming out as an orphan part that a browser
+      drops and the next pass wraps; `Sanitizers.TABLES` now emits on the
+      first pass what it emitted on the second (#492, item 2).
     * Content a `select` cannot hold, such as bare text or an SVG or MathML
       root with text inside it, no longer grows a list level on every
       sanitization.  The tag balancer's containment metadata answers such

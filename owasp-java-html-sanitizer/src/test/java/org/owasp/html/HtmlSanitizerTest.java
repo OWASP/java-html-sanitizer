@@ -5470,6 +5470,39 @@ class HtmlSanitizerTest {
     for (String[] c : dropped) {
       assertRoundTripAndBalanced(noTable, c[0], c[1]);
     }
+    // With the table kept and only the cell dropped, the option's select
+    // lands where a browser foster-parents one written in a row: before the
+    // table, not inside the row.
+    PolicyFactory noCell = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "select", "option",
+            "optgroup")
+        .allowWithoutAttributes("table", "tbody", "tr", "td", "select",
+            "option", "optgroup")
+        .toFactory();
+    String[][] droppedCell = {
+        { "<table><th><option>tail",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>tail</option></select>" },
+        { "<table><th><optgroup>tail",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><optgroup>tail</optgroup></select>" },
+        { "<table><caption><option>tail",
+          "<table></table><select><option>tail</option></select>" },
+        { "<table><td><table><th><option>tail",
+          "<table><tbody><tr><td><table><tbody><tr></tr></tbody></table>"
+          + "<select><option>tail</option></select></td></tr></tbody></table>" },
+        // The balancer closes a table it pushes content out of, as it does
+        // for text, so the cell after the option opens a new one.
+        { "<table><th><option>a</option></th><td>b",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>"
+          + "<table><tbody><tr><td>b</td></tr></tbody></table>" },
+    };
+    for (String[] c : droppedCell) {
+      assertRoundTripAndBalanced(noCell, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[1]), parseAsBrowser(noCell.sanitize(c[0])),
+          c[0]);
+    }
     // Hostile content around the wrapper is still removed.
     String[][] hostile = {
         { "<span><option onmouseover=alert(1)>x</option>"
@@ -5488,7 +5521,7 @@ class HtmlSanitizerTest {
     };
     for (String[] c : hostile) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
-      assertFalse(c[1].contains("alert"), c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert"), c[0]);
     }
   }
 
@@ -5528,8 +5561,19 @@ class HtmlSanitizerTest {
     };
     for (String[] c : tables) {
       assertRoundTripAndBalanced(Sanitizers.TABLES, c[0], c[1]);
-      assertFalse(c[1].contains("alert"), c[1]);
+      assertFalse(Sanitizers.TABLES.sanitize(c[0]).contains("alert"), c[0]);
     }
+    // The template's place is judged in the output: a formatting element
+    // the policy keeps around the dropped template is the caption's
+    // container there, and a browser drops a caption written in it, so it
+    // stays as it was; under a container the policy also drops, the caption
+    // gets its table.
+    assertRoundTripAndBalanced(
+        Sanitizers.TABLES, "<u><template><caption>TEXT",
+        "<table><caption>TEXT</caption></table>");
+    assertRoundTripAndBalanced(
+        Sanitizers.TABLES, "<u><template><colgroup>TEXT",
+        "<table><colgroup></colgroup></table>TEXT");
     // With the list kept, the caption's table stands beside the list, as it
     // does for <ul><caption> without the template.
     assertRoundTripAndBalanced(

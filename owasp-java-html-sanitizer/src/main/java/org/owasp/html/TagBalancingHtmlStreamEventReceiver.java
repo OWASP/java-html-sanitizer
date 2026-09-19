@@ -2081,10 +2081,35 @@ public class TagBalancingHtmlStreamEventReceiver
             }
           }
         }
+        // The select has to fit where the option's output goes.  A cell or
+        // caption the policy dropped is no such thing in the output: the
+        // option is in the row or table there, which holds no select, so the
+        // dropped part is closed and the select prepared like an explicit
+        // one, which pushes it out of the table as a browser foster-parents
+        // it (#492).
+        boolean inDroppedPartOfOutputTable = false;
+        if (startPos < impliedElIndices.length
+            && impliedElIndices[startPos] == SELECT_TAG
+            && container > 0) {
+          int logical = openElements.get(container);
+          int outputBelow = outputElements.get(container - 1);
+          inDroppedPartOfOutputTable =
+              (logical == TD_TAG || logical == TH_TAG
+                  || logical == CAPTION_TAG)
+              && outputElements.get(container) == NO_OUTPUT_ELEMENT
+              && sentToUnderlying.get(container)
+              && !pushedOut.get(container - 1)
+              && outputBelow != NO_OUTPUT_ELEMENT
+              && TABLE_CONTEXT.get(outputBelow);
+        }
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
             && container >= 0
-            && !canHold(SELECT_TAG, top, container)) {
+            && (inDroppedPartOfOutputTable
+                || !canHold(SELECT_TAG, top, container))) {
+          if (inDroppedPartOfOutputTable) {
+            closeStackFrom(container, openElements.get(container));
+          }
           mayOpenAtNestingLimit &= prepareForContent(
               SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
           container = containerIndex();
@@ -2939,20 +2964,29 @@ public class TagBalancingHtmlStreamEventReceiver
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
     }
-    if (child >= 0
-        && TABLE_PARTS.get(child)
+    if ((child == CAPTION_TAG || child == COLGROUP_TAG)
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
         && outputElements.get(containerIndexOnStack) == NO_OUTPUT_ELEMENT
         && sentToUnderlying.get(containerIndexOnStack)) {
-      // A template holds a caption or column group directly, but one the
-      // policy dropped establishes no template in the output: its parts land
-      // where the template was and are judged there, so a caption gets the
-      // table that a caption in that place gets, instead of coming out as
-      // an orphan the output parser drops (#492).
-      return containerIndexOnStack > 0
-          ? effectiveContainer(child, containerIndexOnStack - 1) : BODY_TAG;
+      // A template holds a caption or column group directly, so the
+      // containment metadata implies no table for one there, but a template
+      // the policy dropped establishes none in the output: the part lands
+      // where the template was and is judged there, so it gets the table a
+      // caption in that place gets instead of coming out as an orphan the
+      // output parser drops (#492).  The other parts already get their
+      // table under a template through the metadata.
+      if (underlying instanceof OpenTagOutputPolicy) {
+        @Nullable String outputContainerName =
+            ((OpenTagOutputPolicy) underlying).outputContainerElementName();
+        if (outputContainerName != null) {
+          int outputContainer = METADATA.indexForName(
+              HtmlLexer.canonicalElementName(outputContainerName));
+          if (outputContainer != UNRECOGNIZED_TAG) { return outputContainer; }
+        }
+      }
+      return BODY_TAG;
     }
     boolean wrapperSensitiveChild = child >= 0
         && (TABLE_PARTS.get(child) || child == OPTION_TAG);

@@ -68,6 +68,7 @@ public final class HtmlElementTables {
   private final int COL_TAG;
   private final int COLGROUP_TAG;
   private final int IFRAME_TAG;
+  private final int TEMPLATE_TAG;
 
   private final FreeWrapper[] FREE_WRAPPERS;
 
@@ -124,6 +125,7 @@ public final class HtmlElementTables {
     COL_TAG = indexForName("col");
     COLGROUP_TAG = indexForName("colgroup");
     IFRAME_TAG = indexForName("iframe");
+    TEMPLATE_TAG = indexForName("template");
 
     List<FreeWrapper> freeWrappers = j8().listOf(
         new FreeWrapper(
@@ -133,11 +135,14 @@ public final class HtmlElementTables {
             // opened.
             new int[] { DIR_TAG, OL_TAG, UL_TAG, LI_TAG },
             new int[] { UL_TAG }),
+        // A template's contents hold an option or optgroup directly, as a
+        // select does.
         new FreeWrapper(
-            OPTION_TAG, new int[] { SELECT_TAG, OPTGROUP_TAG, OPTION_TAG },
+            OPTION_TAG,
+            new int[] { SELECT_TAG, OPTGROUP_TAG, OPTION_TAG, TEMPLATE_TAG },
             new int[] { SELECT_TAG }),
         new FreeWrapper(
-            OPTGROUP_TAG, new int[] { SELECT_TAG, OPTGROUP_TAG },
+            OPTGROUP_TAG, new int[] { SELECT_TAG, OPTGROUP_TAG, TEMPLATE_TAG },
             new int[] { SELECT_TAG }),
         new FreeWrapper(
             TD_TAG, new int[] { TR_TAG, TD_TAG, TH_TAG },
