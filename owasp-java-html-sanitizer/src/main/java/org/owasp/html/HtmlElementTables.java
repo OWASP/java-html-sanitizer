@@ -72,7 +72,6 @@ public final class HtmlElementTables {
   private final FreeWrapper[] FREE_WRAPPERS;
 
   private final int[] LI_TAG_ARR;
-  private final int[] OPTION_TAG_ARR;
 
   /** {@code <noscript>}, {@code <noframes>}, etc. */
   private final DenseElementSet nofeatureElements;
@@ -181,7 +180,6 @@ public final class HtmlElementTables {
     FREE_WRAPPERS = freeWrapperArr;
 
     LI_TAG_ARR = new int[] { LI_TAG };
-    OPTION_TAG_ARR = new int[] { OPTION_TAG };
 
     boolean[] nofeatureBits = new boolean[this.nElementTypes()];
     nofeatureBits[indexForName("noscript")] =
@@ -360,18 +358,21 @@ public final class HtmlElementTables {
     // nested in a <li>.
     // This does not have the same security implications as the above, but is
     // symmetric.
-    int[] oneImplied = null;
-    if (anc == OL_TAG || anc == UL_TAG) {
-      oneImplied = LI_TAG_ARR;
-    } else if (anc == SELECT_TAG) {
-      oneImplied = OPTION_TAG_ARR;
+    if ((anc == OL_TAG || anc == UL_TAG) && desc != LI_TAG) {
+      return LI_TAG_ARR;
     }
-    if (oneImplied != null) {
-      if (desc != oneImplied[0]) {
-        return LI_TAG_ARR;
-      }
+    // A browser ignores the tags of most other children of a <select> and
+    // keeps their text inside it.  Any child but an <option> is answered
+    // with a list item so that the tag balancer, below a policy, nests it
+    // inside the select the way a browser nests the text, instead of closing
+    // the select for it.  That item is a synthetic container, not a browser
+    // element and not an <option>: the balancer keeps it on its own stack
+    // and never emits it, since an emitted one grew a list level on every
+    // pass and hid the select from its end tag (#492).  With no policy below
+    // to drop it the balancer skips the item and closes the select instead.
+    if (anc == SELECT_TAG && desc != OPTION_TAG) {
+      return LI_TAG_ARR;
     }
-    // TODO: why are we dropping OPTION_AG_ARR?
     return ZERO_INTS;
   }
 

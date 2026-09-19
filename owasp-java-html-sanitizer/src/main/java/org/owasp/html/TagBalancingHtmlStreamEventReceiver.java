@@ -134,7 +134,8 @@ public class TagBalancingHtmlStreamEventReceiver
   private final IntVector passthroughForeignRoots = new IntVector();
   /**
    * The element each entry in {@link #openElements} became after policy
-   * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it.
+   * application, or {@link #NO_OUTPUT_ELEMENT} when the policy dropped it or
+   * the entry is the list item implied under a select, which is never sent.
    * When the receiver below cannot report that, the input name is used.
    */
   private final IntVector outputElements = new IntVector();
@@ -143,6 +144,7 @@ public class TagBalancingHtmlStreamEventReceiver
    * {@link #openElements} was sent to {@link #underlying}.  Resumed formatting
    * and returned table entries can remain on the logical stack at or beyond
    * the nesting limit without an open event, and the limit may later change.
+   * The list item implied under a select is kept on the logical stack only.
    */
   private final BitSet sentToUnderlying = new BitSet();
   /**
@@ -533,7 +535,7 @@ public class TagBalancingHtmlStreamEventReceiver
    * every forwarded element reached the receiver below and nests there.
    */
   private int effectiveNestingDepth() {
-    int depth = openElements.size();
+    int depth = openElements.size() - syntheticSelectListItemCount();
     if (underlying instanceof OpenTagOutputPolicy) {
       depth = Math.max(
           depth, ((OpenTagOutputPolicy) underlying).outputNestingDepth());
@@ -541,6 +543,29 @@ public class TagBalancingHtmlStreamEventReceiver
       depth += passthroughNames.size();
     }
     return depth;
+  }
+
+  /**
+   * How many synthetic select list items are on the stack.  One is never
+   * sent below, so it nests nothing in the output and must not consume the
+   * budget: a select's content that fit the limit when its wrapper was
+   * implied by the content has to fit again when the wrapper is explicit.
+   */
+  private int syntheticSelectListItemCount() {
+    int n = 0;
+    for (int i = openElements.size(); --i > 0;) {
+      if (isSyntheticSelectListItem(i)) { ++n; }
+    }
+    return n;
+  }
+
+  /** Whether the entry is the never-sent list item under a select. */
+  private boolean isSyntheticSelectListItem(int stackIndex) {
+    return stackIndex > 0
+        && openElements.get(stackIndex) == LI_TAG
+        && openElements.get(stackIndex - 1) == SELECT_TAG
+        && outputElements.get(stackIndex) == NO_OUTPUT_ELEMENT
+        && !sentToUnderlying.get(stackIndex);
   }
 
   public void openDocument() {
@@ -2077,11 +2102,35 @@ public class TagBalancingHtmlStreamEventReceiver
         List<String> attrs = new ArrayList<>();
 
         for (int i = startPos, n = impliedElIndices.length; i < n; ++i) {
-          if (effectiveNestingDepth() >= nestingLimit) {
+          int impliedElIndex = impliedElIndices[i];
+          // The containment metadata answers most children of a select with
+          // a list item, so that they nest inside the select the way a
+          // browser nests their text instead of closing it.  No browser
+          // creates that element.  Below a policy it stays on this stack as
+          // the container but is never sent, so it needs no room in the
+          // output: a policy that allowed li emitted
+          // <select><li>x</li></select>, the next pass wrapped that li in a
+          // ul and the ul in a li without bound, and the emitted li bounded
+          // the select end tag's scope search, so text after </select>
+          // landed inside the select (#492).  A receiver with no policy to
+          // drop it would serialize it, so it is skipped there.  So is the
+          // item for an element beside a pushed-out table: retaining it on
+          // the logical stack can hide the select from its explicit end tag
+          // on a second sanitization.
+          boolean syntheticSelectListItem =
+              top == SELECT_TAG && impliedElIndex == LI_TAG;
+          boolean keepsSyntheticSelectListItem = syntheticSelectListItem
+              && pushedOutTablePolicy() != null
+              && (elIndex == HtmlElementTables.TEXT_NODE
+                  || !pushedTableRequiresSelectEscape());
+          if (!keepsSyntheticSelectListItem
+              && effectiveNestingDepth() >= nestingLimit) {
             mayOpenAtNestingLimit = false;
             break;
           }
-          int impliedElIndex = impliedElIndices[i];
+          if (syntheticSelectListItem && !keepsSyntheticSelectListItem) {
+            continue;
+          }
           attrs.clear();
           boolean suppressMappedImpliedTemplate = false;
           if (impliedElIndex == TABLE_TAG) {
@@ -2109,14 +2158,6 @@ public class TagBalancingHtmlStreamEventReceiver
           }
           boolean suppressedImpliedTable = impliedElIndex == TABLE_TAG
               && shouldSuppressTablePart(impliedElIndex, true);
-          if (top == SELECT_TAG
-              && impliedElIndex == LI_TAG
-              && pushedOutTablePolicy() == null) {
-            // The canned browser experiment records a synthetic li around
-            // otherwise unsupported select children.  A raw receiver would
-            // serialize it even though a browser drops it on reparse.
-            continue;
-          }
           if ((impliedElIndex == UL_TAG || impliedElIndex == OL_TAG)
               && outputContainerIsParagraph()
               && underlying instanceof FormPointerPolicy) {
@@ -2124,7 +2165,9 @@ public class TagBalancingHtmlStreamEventReceiver
                 METADATA.canonNameForIndex(impliedElIndex), attrs);
           }
           int outputElementIndex;
-          if (suppressMappedImpliedTemplate) {
+          if (syntheticSelectListItem) {
+            outputElementIndex = NO_OUTPUT_ELEMENT;
+          } else if (suppressMappedImpliedTemplate) {
             if (impliedTableEscapesSyntheticSelect) {
               pushedOutTablePolicy().openTagWithoutOutputOrContent(
                   "table", attrs);
@@ -2135,19 +2178,6 @@ public class TagBalancingHtmlStreamEventReceiver
           } else {
             outputElementIndex = openElement(impliedElIndex, attrs, true);
           }
-          if (top == SELECT_TAG
-              && impliedElIndex == LI_TAG
-              && outputElementIndex == NO_OUTPUT_ELEMENT
-              && elIndex != HtmlElementTables.TEXT_NODE
-              && pushedTableRequiresSelectEscape()) {
-            // The canned browser experiment records an implied li around
-            // otherwise unsupported select children.  If policy drops that
-            // synthetic li beside a pushed-out table, retaining it only on
-            // the logical stack can hide the select from its explicit end
-            // tag on a second sanitization.
-            underlying.closeTag("li");
-            continue;
-          }
           boolean outputElementIsForeign =
               lastOutputElementUsedForeignContentRules();
           int stackIndex = openElements.size();
@@ -2157,7 +2187,7 @@ public class TagBalancingHtmlStreamEventReceiver
           outputlessTablesWithEmittedParts.clear(stackIndex);
           pushedMappedTemplateOutputOpen.clear(stackIndex);
           suppressedMappedForeignSubtrees.clear(stackIndex);
-          sentToUnderlying.set(stackIndex);
+          sentToUnderlying.set(stackIndex, !syntheticSelectListItem);
           inputElementsInForeignContent.clear(stackIndex);
           outputElementsInForeignContent.set(
               stackIndex, outputElementIsForeign);

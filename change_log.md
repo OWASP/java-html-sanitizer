@@ -2,6 +2,18 @@
 
 Most recent at top.
   * Next release
+    * Content a `select` cannot hold, such as bare text or an SVG or MathML
+      root with text inside it, no longer grows a list level on every
+      sanitization.  The tag balancer's containment metadata answers such
+      content with a list item so that it nests inside the select, as a
+      browser nests the text; that item is now kept on the balancer's own
+      stack and never emitted, since a policy that allowed `li` serialized
+      it, the next pass wrapped it in a `ul`, and so on without bound, and the
+      emitted item hid the select from its own end tag, so text after
+      `</select>` landed inside it.  The item also no longer counts toward
+      the nesting limit, and a policy that does not allow `li` no longer
+      reports one to `HtmlChangeListener.discardedTag` for such content
+      (#492, item 5).
     * Fix balancing of a form start tag directly in table structure so that it
       does not contain following text or rows (#484).  The tag balancer now
       closes the elements popped by an SVG or MathML end tag by identity rather
