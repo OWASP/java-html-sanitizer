@@ -2081,46 +2081,64 @@ public class TagBalancingHtmlStreamEventReceiver
             }
           }
         }
-        // The select has to fit where the option's output goes.  A cell,
-        // caption or template the policy dropped is no such thing in the
-        // output: the option is in the row or table there, which holds no
-        // select, so the dropped entry is closed and the select prepared
-        // like an explicit one, which pushes it out of the table as a
-        // browser foster-parents it (#492).
-        boolean inDroppedPartOfOutputTable = false;
+        // The select has to fit where the option's output goes.  An entry
+        // the policy dropped, a cell, a caption, a template or any other
+        // element, is no container in the output: what holds the option
+        // there is the nearest entry below with output, and if that is
+        // table structure, which holds no select, the dropped entries are
+        // set aside, the select is prepared like an explicit one, which
+        // pushes it out of the table as a browser foster-parents it, and the
+        // dropped entries are put back so that the cell's end tag still
+        // closes the option it holds (#492).  A container the policy
+        // renamed into table structure is closed instead, since the select
+        // cannot go inside it either.
+        int outputTableEntry = -1;
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
-            && container > 0) {
-          int logical = openElements.get(container);
-          if ((logical == TD_TAG || logical == TH_TAG
-                  || logical == CAPTION_TAG || logical == TEMPLATE_TAG)
-              && outputElements.get(container) == NO_OUTPUT_ELEMENT
-              && sentToUnderlying.get(container)) {
-            // The nearest entry below that has output decides; table parts
-            // the policy dropped between establish nothing in the output.
-            int below = container - 1;
-            while (below >= 0
-                && outputElements.get(below) == NO_OUTPUT_ELEMENT
-                && sentToUnderlying.get(below)
-                && TABLE_PARTS.get(openElements.get(below))) {
-              --below;
-            }
-            inDroppedPartOfOutputTable = below >= 0
-                && !pushedOut.get(below)
-                && outputElements.get(below) != NO_OUTPUT_ELEMENT
-                && TABLE_CONTEXT.get(outputElements.get(below));
+            && container >= 0
+            && sentToUnderlying.get(container)) {
+          int below = container;
+          while (below >= 0
+              && outputElements.get(below) == NO_OUTPUT_ELEMENT
+              && sentToUnderlying.get(below)) {
+            --below;
+          }
+          if (below >= 0
+              && !pushedOut.get(below)
+              && TABLE_CONTEXT.get(outputElements.get(below))) {
+            outputTableEntry = below;
           }
         }
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
             && container >= 0
-            && (inDroppedPartOfOutputTable
+            && (outputTableEntry >= 0
                 || !canHold(SELECT_TAG, top, container))) {
-          if (inDroppedPartOfOutputTable) {
+          int nSetAside = 0;
+          int[] setAside = null;
+          int[] setAsideSerials = null;
+          boolean[] setAsideInputForeign = null;
+          if (outputTableEntry >= 0 && outputTableEntry < container) {
+            nSetAside = container - outputTableEntry;
+            setAside = new int[nSetAside];
+            setAsideSerials = new int[nSetAside];
+            setAsideInputForeign = new boolean[nSetAside];
+            for (int i = 0; i < nSetAside; ++i) {
+              int at = outputTableEntry + 1 + i;
+              setAside[i] = openElements.get(at);
+              setAsideSerials[i] = inputElementSerials.get(at);
+              setAsideInputForeign[i] = inputElementsInForeignContent.get(at);
+            }
+            closeStackFrom(outputTableEntry + 1, setAside[0]);
+          } else if (outputTableEntry == container) {
             closeStackFrom(container, openElements.get(container));
           }
           mayOpenAtNestingLimit &= prepareForContent(
               SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
+          for (int i = 0; i < nSetAside; ++i) {
+            stackElementWithoutOutput(
+                setAside[i], setAsideInputForeign[i], setAsideSerials[i]);
+          }
           container = containerIndex();
           top = effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
@@ -2928,29 +2946,21 @@ public class TagBalancingHtmlStreamEventReceiver
       return BODY_TAG;
     }
     if (child == OPTION_TAG
-        && underlying instanceof OpenTagOutputPolicy
         && !isOutputInForeignContent()
         && hasDroppedTemplateAbove(-1)
         && hasUnavailableOutputlessTable()) {
-      String outputContainerName = ((OpenTagOutputPolicy) underlying)
-          .outputContainerElementName();
-      int outputContainer = METADATA.indexForName(
-          HtmlLexer.canonicalElementName(outputContainerName));
+      int outputContainer = outputContainerIndex();
       if (outputContainer != UNRECOGNIZED_TAG) {
         return outputContainer;
       }
     }
     if (child == OPTION_TAG
-        && underlying instanceof OpenTagOutputPolicy
         && !isOutputInForeignContent()
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()) {
       int inputContainer = openElements.get(containerIndexOnStack);
       if (inputContainer == TD_TAG || inputContainer == TH_TAG) {
-        String outputContainerName = ((OpenTagOutputPolicy) underlying)
-            .outputContainerElementName();
-        int outputContainer = METADATA.indexForName(
-            HtmlLexer.canonicalElementName(outputContainerName));
+        int outputContainer = outputContainerIndex();
         if (outputContainer != UNRECOGNIZED_TAG) {
           return outputContainer;
         }
@@ -2985,16 +2995,8 @@ public class TagBalancingHtmlStreamEventReceiver
       // where the template was, or in what the template became, and is
       // judged there, so it gets the select it gets in that place instead
       // of coming out bare for the next pass to wrap (#492).
-      if (underlying instanceof OpenTagOutputPolicy) {
-        @Nullable String outputContainerName =
-            ((OpenTagOutputPolicy) underlying).outputContainerElementName();
-        if (outputContainerName != null) {
-          int outputContainer = METADATA.indexForName(
-              HtmlLexer.canonicalElementName(outputContainerName));
-          if (outputContainer != UNRECOGNIZED_TAG) { return outputContainer; }
-        }
-      }
-      return BODY_TAG;
+      int outputContainer = outputContainerIndex();
+      return outputContainer != UNRECOGNIZED_TAG ? outputContainer : BODY_TAG;
     }
     boolean wrapperSensitiveChild = child >= 0
         && (TABLE_PARTS.get(child) || child == OPTION_TAG);
@@ -3074,6 +3076,22 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     return containerIndexOnStack >= 0
         ? openElements.get(containerIndexOnStack) : BODY_TAG;
+  }
+
+  /**
+   * The index of the element the output is currently inside, as the policy
+   * reports it, or {@link #UNRECOGNIZED_TAG} when there is no policy to ask,
+   * nothing is open in the output, or its name has no index.
+   */
+  private int outputContainerIndex() {
+    if (!(underlying instanceof OpenTagOutputPolicy)) {
+      return UNRECOGNIZED_TAG;
+    }
+    @Nullable String name =
+        ((OpenTagOutputPolicy) underlying).outputContainerElementName();
+    return name == null
+        ? UNRECOGNIZED_TAG
+        : METADATA.indexForName(HtmlLexer.canonicalElementName(name));
   }
 
   /** Whether a generated wrapper path can actually contain the child. */

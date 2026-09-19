@@ -5497,13 +5497,40 @@ class HtmlSanitizerTest {
           "<table><tbody><tr></tr></tbody></table>"
           + "<select><option>a</option></select>"
           + "<table><tbody><tr><td>b</td></tr></tbody></table>" },
+        // The dropped cell still closes what it holds at its end tag: text
+        // after it is not the option's.
+        { "<table><th><option>a</th>b",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>b" },
+        // Dropped elements between the cell and the option, of any name,
+        // change nothing: the output's row is what holds the option.
+        { "<table><th><p><option>a</p></th>b",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>b" },
+        { "<table><th><b><i><optgroup>a",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><optgroup>a</optgroup></select>" },
+        { "<table><th><template><option>a",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>" },
     };
     for (String[] c : droppedCell) {
       assertRoundTripAndBalanced(noCell, c[0], c[1]);
       assertEquals(parseAsBrowser(c[1]), parseAsBrowser(noCell.sanitize(c[0])),
           c[0]);
     }
-    // Hostile content around the wrapper is still removed.
+    // Hostile content around the wrapper is still removed, with the link
+    // allowed so that its URL is what the policy judges.
+    PolicyFactory withLinks = p.and(new HtmlPolicyBuilder()
+        .allowElements("a").allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols().allowWithoutAttributes("a")
+        .toFactory());
+    assertRoundTripAndBalanced(
+        withLinks,
+        "<span><option onmouseover=alert(1)>x</option>"
+        + "<a href=javascript:alert(1)>y</a><a href=https://e/>z</a></span>",
+        "<span><select><option>x</option><a>y</a>"
+        + "<a href=\"https://e/\">z</a></select></span>");
     String[][] hostile = {
         { "<span><option onmouseover=alert(1)>x</option>"
           + "<a href=javascript:alert(1)>y</a></span>",
@@ -5575,7 +5602,8 @@ class HtmlSanitizerTest {
           c[0]);
     }
     // A template the policy renames is the option's container in the
-    // output, and holds no option directly.
+    // output, and holds no option directly; renamed into table structure it
+    // cannot hold the select either, which is pushed out of it.
     PolicyFactory renamed = new HtmlPolicyBuilder()
         .allowElements(names).allowWithoutAttributes(names)
         .allowElements(
@@ -5589,6 +5617,29 @@ class HtmlSanitizerTest {
     assertRoundTripAndBalanced(
         renamed, "<u><template><option>x",
         "<u><u><select><option>x</option></select></u></u>");
+    PolicyFactory renamedToTable = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowElements(
+            new ElementPolicy() {
+              public String apply(String elementName, List<String> attrs) {
+                return "table";
+              }
+            },
+            "template")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamedToTable, "<u><template><option>x",
+        "<u><table></table><select><option>x</option></select></u>");
+    // With the cell dropped as well, the select is pushed out of the table
+    // that remains.
+    PolicyFactory noCellNoTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "select", "option")
+        .allowWithoutAttributes("table", "tbody", "tr", "select", "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        noCellNoTemplate, "<table><td><template><option>x",
+        "<table><tbody><tr></tr></tbody></table>"
+        + "<select><option>x</option></select>");
     // A template the policy keeps still holds the option directly.
     PolicyFactory withTemplate = new HtmlPolicyBuilder()
         .allowElements("u", "template", "select", "option")

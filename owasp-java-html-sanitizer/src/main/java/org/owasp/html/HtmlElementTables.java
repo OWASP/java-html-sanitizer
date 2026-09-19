@@ -308,16 +308,23 @@ public final class HtmlElementTables {
     final boolean[] allowedContainers;
     final int[] implied;
     /** Whether the wrapped element is a table part. */
-    final boolean tablePart;
+    /**
+     * Whether an ancestor whose index lies past the end of
+     * {@link #allowedContainers} counts as allowed, the reading the table
+     * parts' wrappers keep; false for the select and list wrappers, whose
+     * set is exact.
+     */
+    final boolean pastEndCountsAsAllowed;
 
     FreeWrapper(int desc, int[] allowedContainers, int[] implied) {
       this(desc, allowedContainers, implied, false);
     }
 
     FreeWrapper(
-        int desc, int[] allowedContainers, int[] implied, boolean tablePart) {
+        int desc, int[] allowedContainers, int[] implied,
+        boolean pastEndCountsAsAllowed) {
       this.desc = desc;
-      this.tablePart = tablePart;
+      this.pastEndCountsAsAllowed = pastEndCountsAsAllowed;
       int maxAllowedContainer = -1;
       for (int allowedContainer : allowedContainers) {
         maxAllowedContainer = Math.max(maxAllowedContainer, allowedContainer);
@@ -366,7 +373,7 @@ public final class HtmlElementTables {
       // reading, so an ancestor past the end still counts as allowed there.
       boolean allowedContainer = anc < wrapper.allowedContainers.length
           ? wrapper.allowedContainers[anc]
-          : wrapper.tablePart;
+          : wrapper.pastEndCountsAsAllowed;
       if (!allowedContainer) {
         return wrapper.implied;
       }

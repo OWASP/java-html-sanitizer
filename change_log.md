@@ -4,7 +4,8 @@ Most recent at top.
   * Next release
     * An `option` or `optgroup` under any element but a `select`, `optgroup`
       or `option` now gets its `select`, and a list item under any element
-      but a list its list, whatever the container's name.  The containment
+      but a list its list, whatever the container's name (a list the policy
+      dropped still stands for its item, as before).  The containment
       metadata read a container whose index lay past the end of the wrapper's
       set of allowed containers, such as `span`, `td`, `th` or `ul` for an
       option and `var` for a list item, as one of them, so an option in a
