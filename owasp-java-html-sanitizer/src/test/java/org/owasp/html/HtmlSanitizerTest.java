@@ -5148,4 +5148,56 @@ class HtmlSanitizerTest {
     }
     return sb.toString();
   }
+
+  /**
+   * A select the policy drops leaves no list item behind.  The option's
+   * container in the output was judged to be the body, and the containment
+   * metadata answers an option there with an implied select, which the same
+   * policy drops again.  Preparing that select under the dropped one also
+   * implied a synthetic list item, which was emitted and held everything up
+   * to the enclosing block: an ordinary dropdown under
+   * {@code Sanitizers.BLOCKS} came out as {@code <li>x<p>y</p></li>} and grew
+   * a {@code <ul>} on the next pass.
+   */
+  @Test
+  void testDroppedSelectDoesNotImplyAListItem() throws Exception {
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    String[][] cases = {
+        { "<select><option>x</option></select>", "x" },
+        { "<select><option>x</option><option>y</option></select>", "xy" },
+        { "<select><option>x</option></select><p>y</p><p>z</p>",
+          "x<p>y</p><p>z</p>" },
+        { "<p>a</p><select><option>x</option></select><p>y</p>",
+          "<p>a</p>x<p>y</p>" },
+        { "<form><select><option>x</option></select></form><p>y</p>",
+          "x<p>y</p>" },
+        { "<select><option>x</select><p>y</p>", "x<p>y</p>" },
+        { "<select><option></option></select><p>y</p>", "<p>y</p>" },
+        { "<select><option>x</option></select><h1>y</h1><ul><li>z</li></ul>",
+          "x<h1>y</h1><ul><li>z</li></ul>" },
+        { "<select name=s onchange=alert(1)><option value=1>One</option>"
+          + "<option value=2>Two</option></select><b>after</b>",
+          "OneTwo<b>after</b>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(blocks, c[0], c[1]);
+    }
+    // Nothing changes for a select the policy keeps, or one nested in a
+    // container the policy keeps.
+    PolicyFactory selects = new HtmlPolicyBuilder()
+        .allowElements("select", "option", "p", "div").toFactory();
+    assertRoundTripAndBalanced(
+        selects, "<select><option>x</option></select><p>y</p>",
+        "<select><option>x</option></select><p>y</p>");
+    assertRoundTripAndBalanced(
+        blocks, "<div><select><option>x</option></select></div><p>y</p>",
+        "<div>x</div><p>y</p>");
+    // An option the policy keeps under a dropped select is emitted where
+    // the select was, with no implied wrapper around it.
+    PolicyFactory options = new HtmlPolicyBuilder()
+        .allowElements("option", "p").toFactory();
+    assertEquals(
+        "<option>x</option><p>y</p>",
+        options.sanitize("<select><option>x</option></select><p>y</p>"));
+  }
 }

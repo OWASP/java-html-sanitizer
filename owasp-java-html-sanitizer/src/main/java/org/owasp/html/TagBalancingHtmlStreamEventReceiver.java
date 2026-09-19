@@ -198,6 +198,7 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final int LI_TAG = METADATA.indexForName("li");
   private static final int OL_TAG = METADATA.indexForName("ol");
   private static final int OPTION_TAG = METADATA.indexForName("option");
+  private static final int OPTGROUP_TAG = METADATA.indexForName("optgroup");
   private static final int UL_TAG = METADATA.indexForName("ul");
   private static final int SELECT_TAG = METADATA.indexForName("select");
   private static final int TABLE_TAG = METADATA.indexForName("table");
@@ -2769,6 +2770,19 @@ public class TagBalancingHtmlStreamEventReceiver
         && underlying instanceof OpenTagOutputPolicy
         && ((OpenTagOutputPolicy) underlying).outputContainerElementName()
             == null) {
+      if (containerIndexOnStack >= 0
+          && containerIndexOnStack < openElements.size()
+          && (openElements.get(containerIndexOnStack) == SELECT_TAG
+              || openElements.get(containerIndexOnStack) == OPTGROUP_TAG)) {
+        // The option's select is open in the input; the policy dropped it and
+        // everything around it.  A browser reading the output finds an option
+        // with no select, which the containment metadata answers with an
+        // implied select that the same policy drops again.  Preparing that
+        // select under the dropped one also implied a list item, which was
+        // emitted and held everything up to the enclosing block.  Nothing
+        // needs implying: the option goes where its select would have been.
+        return openElements.get(containerIndexOnStack);
+      }
       return BODY_TAG;
     }
     if (child == OPTION_TAG
