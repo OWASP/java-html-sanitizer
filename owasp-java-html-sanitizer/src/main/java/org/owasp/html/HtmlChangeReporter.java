@@ -293,9 +293,9 @@ public final class HtmlChangeReporter<T> {
           && ((FormPointerPolicy) policy).formStartTagUsesTableRules();
     }
 
-    public void holdRetiredFormGate(String elementName) {
+    public void holdRetiredFormGate(String elementName, boolean emitted) {
       if (policy instanceof FormPointerPolicy) {
-        ((FormPointerPolicy) policy).holdRetiredFormGate(elementName);
+        ((FormPointerPolicy) policy).holdRetiredFormGate(elementName, emitted);
       }
     }
 

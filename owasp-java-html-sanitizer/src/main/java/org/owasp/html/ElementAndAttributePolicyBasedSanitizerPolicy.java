@@ -360,9 +360,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   private int retiredFormGateHoldDepth;
 
-  public void holdRetiredFormGate(String elementName) {
-    boolean formHoldsNoText = disallowedTextContainers.contains(elementName)
-        || !allowedTextContainers.contains(elementName);
+  public void holdRetiredFormGate(String elementName, boolean emitted) {
+    // The gate a kept form has, or the one a dropped form's text is judged
+    // by: only the author's explicit rule, as for any dropped element.
+    boolean formHoldsNoText = emitted
+        ? disallowedTextContainers.contains(elementName)
+            || !allowedTextContainers.contains(elementName)
+        : suppressesTextWhenDropped(elementName);
     if (!formHoldsNoText || suppressOutputAndContent) { return; }
     // The implied table is the innermost emitted table; only the indexed
     // table-scope entries need looking at, as in formStartTagUsesTableRules.

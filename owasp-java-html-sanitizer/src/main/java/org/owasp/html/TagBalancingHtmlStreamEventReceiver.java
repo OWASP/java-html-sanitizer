@@ -419,7 +419,7 @@ public class TagBalancingHtmlStreamEventReceiver
      * {@link #releaseRetiredFormGate} or the table's container closes.
      * Nothing changes for a form the policy allows text in (#492).
      */
-    default void holdRetiredFormGate(String elementName) {}
+    default void holdRetiredFormGate(String elementName, boolean emitted) {}
 
     /** Ends the gate held by {@link #holdRetiredFormGate} at the form's end tag. */
     default void releaseRetiredFormGate() {}
@@ -1208,11 +1208,13 @@ public class TagBalancingHtmlStreamEventReceiver
           // table: the form stays open and the text after its start is the
           // form's, which the policy's gate for the form has to judge
           // although the output form is closed, whether the policy kept
-          // or dropped the form.  Held before the table is retired below,
+          // the form or dropped it with an explicit rule against its text.
+          // Held before the table is retired below,
           // while the policy still has the table to measure by.  Not in
           // template contents, where a browser ignores the form start
           // (#492, item 3).
-          formPolicy.holdRetiredFormGate(canonElementName);
+          formPolicy.holdRetiredFormGate(
+              canonElementName, outputElementIndex != NO_OUTPUT_ELEMENT);
         }
         retireOutputTableForForm(formTableContext);
         if (usesForeignContentRules) {
