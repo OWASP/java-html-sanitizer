@@ -2,6 +2,11 @@
 
 Most recent at top.
   * Next release
+    * List and option output contexts left by dropped wrappers now remain
+      stable: later content does not enter an inferred list or an earlier
+      item, browser-ignored inferred items are not serialized, and an
+      `option` below a dropped nested `select` closes its output sibling
+      (#494).
     * Text-policy gates now follow the browser's output context when table
       parts are serialized without a physical table and when an `input`,
       `keygen`, `textarea` or nested `select` exits an HTML `select`.  Text

@@ -5441,6 +5441,49 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Residuals from #494 under policies that keep {@code li} but drop its
+   * usual wrappers.  A dropped inferred list must not capture later text or
+   * a following select after its emitted item.  An inferred item inside an
+   * output select is just as browser-invisible as the select's synthetic
+   * item.  Neither may hide the select's end tag.  Finally, a kept option
+   * below a dropped nested select must close the option open in the output,
+   * and a dropped list after a closed select must not nest its inferred item
+   * in the item that held the select.
+   */
+  @Test
+  void testDroppedListAndSelectContextsAreStable() throws Exception {
+    PolicyFactory liOnly = new HtmlPolicyBuilder()
+        .allowElements("li").toFactory();
+    PolicyFactory liOption = new HtmlPolicyBuilder()
+        .allowElements("li", "option").toFactory();
+    PolicyFactory liSelect = new HtmlPolicyBuilder()
+        .allowElements("li", "select").toFactory();
+    String droppedSelect =
+        "<ul><li onclick=alert(1)></li></ul><select>"
+        + "<img src=x onerror=alert(1)>tail</select>";
+    assertRoundTripAndBalanced(
+        liOnly, droppedSelect, "<li></li>tail");
+    assertRoundTripAndBalanced(
+        liOption, droppedSelect, "<li></li>tail");
+    assertRoundTripAndBalanced(
+        liOption, "<select><option>one<select><option>two",
+        "<option>one</option><option>two</option>");
+    assertRoundTripAndBalanced(
+        liSelect, "<form><li onclick=alert(1)></form><select>"
+            + "<img src=x onerror=alert(1)>tail</select>",
+        "<li></li><select>tail</select>");
+    assertRoundTripAndBalanced(
+        liSelect, "<select>x<ul><img src=x onerror=alert(1)>tail",
+        "<select>xtail</select>");
+    assertRoundTripAndBalanced(
+        liSelect, "<select><li></li></select>tail",
+        "<select><li></li></select>tail");
+    assertRoundTripAndBalanced(
+        liSelect, "<ol><select></select><ul>tail",
+        "<li><select></select></li>tail");
+  }
+
+  /**
    * Input, keygen and textarea starts make a browser leave its in-select
    * insertion mode; another select start closes the open select and is
    * ignored.  The serialized output has to retire the same select before the
