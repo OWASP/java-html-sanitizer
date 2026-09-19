@@ -975,10 +975,16 @@ public class TagBalancingHtmlStreamEventReceiver
     // implies for a list's content used to land inside a forwarded svg that
     // way, and li is a breakout name, so a browser popped the svg and read
     // the SVG textarea or a that followed as HTML (#492).  A form there has
-    // no HTML form pointer either.
+    // no HTML form pointer either.  The exception is a foreign node whose
+    // name this receiver's lexer reads as raw text, an SVG textArea written
+    // out in lower case by a policy: elements nested in it would be read
+    // back as its text, so the HTML containment that closes it first stays.
+    boolean insertsIntoForeignNode =
+        usesForeignContentRules && outputUsesForeignContentRules
+        && !containerHasSpecialTextMode();
     if (!suppressingPolicySubtree
         && (!outputUsesHtmlIntegrationPointRules || TABLE_PARTS.get(elIndex))
-        && !(usesForeignContentRules && outputUsesForeignContentRules)) {
+        && !insertsIntoForeignNode) {
       mayOpenAtNestingLimit &= prepareForContent(
           elIndex,
           elIndex != TABLE_TAG || !hasUnavailableInputTableInScope());
@@ -2867,6 +2873,12 @@ public class TagBalancingHtmlStreamEventReceiver
   /** Whether this name establishes SVG or MathML foreign content. */
   private static boolean isForeignContentRoot(String canonElementName) {
     return "svg".equals(canonElementName) || "math".equals(canonElementName);
+  }
+
+  /** Whether the entry content goes into is read as raw text by the lexer. */
+  private boolean containerHasSpecialTextMode() {
+    int container = containerIndex();
+    return container >= 0 && hasSpecialTextMode(openElements.get(container));
   }
 
   /** True if a link is open that a browser ends before opening this one. */
