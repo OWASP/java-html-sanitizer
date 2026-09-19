@@ -5820,19 +5820,60 @@ class HtmlSanitizerTest {
     };
     for (String[] c : tables) {
       assertRoundTripAndBalanced(Sanitizers.TABLES, c[0], c[1]);
-      assertFalse(Sanitizers.TABLES.sanitize(c[0]).contains("alert"), c[0]);
     }
-    // The template's place is judged in the output: a formatting element
-    // the policy keeps around the dropped template is the caption's
-    // container there, and a browser drops a caption written in it, so it
-    // stays as it was; under a container the policy also drops, the caption
-    // gets its table.
+    // A dropped template bounds no table scope in the output: a part under
+    // it inside an open table returns to that table, closing a column
+    // group, a cell or a row as a browser reading the output does, instead
+    // of opening a second table or coming out bare in the cell.
+    String[][] inTable = {
+        { "<table><colgroup><template><caption>x",
+          "<table><colgroup></colgroup><caption>x</caption></table>" },
+        { "<table><tr><td><template><caption>x",
+          "<table><tbody><tr><td></td></tr></tbody><caption>x</caption>"
+          + "</table>" },
+        { "<table><td>a<template><caption>x</template>b",
+          "<table><tbody><tr><td>a</td></tr></tbody><caption>xb</caption>"
+          + "</table>" },
+        { "<table><tbody><template><colgroup>x",
+          "<table><tbody></tbody><colgroup></colgroup></table>x" },
+        // A col is held directly by a template too.
+        { "<template><col>x", "<table><colgroup><col /></colgroup></table>x" },
+        { "<template><ul><math><col>x",
+          "<table><colgroup><col /></colgroup></table>x" },
+        { "<template><colgroup onclick=alert(1)><col onclick=alert(1)>"
+          + "<script>alert(1)</script>x",
+          "<table><colgroup><col /></colgroup></table>x" },
+    };
+    for (String[] c : inTable) {
+      assertRoundTripAndBalanced(Sanitizers.TABLES, c[0], c[1]);
+    }
+    // The template's place is judged in the output.  Under a container the
+    // policy drops, the caption gets its table; under a formatting element
+    // the policy keeps, the caption closes it and gets its table beside it,
+    // exactly as the caption does without the template.
     assertRoundTripAndBalanced(
         Sanitizers.TABLES, "<u><template><caption>TEXT",
         "<table><caption>TEXT</caption></table>");
     assertRoundTripAndBalanced(
         Sanitizers.TABLES, "<u><template><colgroup>TEXT",
         "<table><colgroup></colgroup></table>TEXT");
+    PolicyFactory formattingTables =
+        Sanitizers.FORMATTING.and(Sanitizers.TABLES);
+    assertRoundTripAndBalanced(
+        formattingTables, "<u><template><caption>TEXT",
+        "<u></u><table><caption><u>TEXT</u></caption></table>");
+    assertEquals(
+        formattingTables.sanitize("<u><caption>TEXT"),
+        formattingTables.sanitize("<u><template><caption>TEXT"));
+    // A policy that drops the caption itself still gets the part's table,
+    // as it does for a bare caption without the template.
+    PolicyFactory noCaption = new HtmlPolicyBuilder()
+        .allowElements("table", "tr", "td", "u").toFactory();
+    assertEquals(
+        noCaption.sanitize("<caption>x"),
+        noCaption.sanitize("<template><caption>x"));
+    assertRoundTripAndBalanced(
+        noCaption, "<template><caption>x", "<table></table>x");
     // With the list kept, the caption's table stands beside the list, as it
     // does for <ul><caption> without the template.
     assertRoundTripAndBalanced(

@@ -2,11 +2,15 @@
 
 Most recent at top.
   * Next release
-    * A caption or column group under a `template` the policy dropped is
-      judged in the output, where the template was, and gets its table there,
-      instead of coming out as an orphan part that a browser drops and the
-      next pass wraps; `Sanitizers.TABLES` now emits on the first pass what
-      it emitted on the second (#492, item 2).
+    * A caption, column group or `col` under a `template` the policy dropped
+      is judged in the output, where the template was, and gets its table
+      there, instead of coming out as an orphan part that a browser drops
+      and the next pass wraps; a dropped template bounds no table scope
+      either, so such a part inside an open table returns to that table as
+      it does without the template.  `Sanitizers.TABLES` now emits on the
+      first pass what it emitted on the second, and a policy that drops the
+      part itself gets the same table beside the text as it does for the
+      bare part (#492, item 2).
     * An `option` or `optgroup` under any element but a `select`, `optgroup`
       or `option` now gets its `select`, and a list item under any element
       but a list its list, whatever the container's name (a list the policy

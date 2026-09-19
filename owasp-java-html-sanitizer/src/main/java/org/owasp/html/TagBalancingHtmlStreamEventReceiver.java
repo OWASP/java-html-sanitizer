@@ -2356,7 +2356,11 @@ public class TagBalancingHtmlStreamEventReceiver
     while (true) {
       int container = containerIndex();
       if (container < 0 || container < foreignRootBoundary) { break; }
-      int top = openElements.get(container);
+      // A template the policy dropped is no container in the output: what
+      // it can hold is judged where its content lands (#492, item 2).
+      int top = isDroppedTemplate(container)
+          ? effectiveContainer(elIndex, container)
+          : openElements.get(container);
       // A link ends the link open before it, wherever that is: nested links
       // do not survive a browser's parse, so a table between them cannot
       // stay open either.
@@ -2850,7 +2854,12 @@ public class TagBalancingHtmlStreamEventReceiver
         table = i;
         break;
       }
-      if ((SCOPES_BY_ELEMENT[openElementIndex] & tableScope) != 0) {
+      if ((SCOPES_BY_ELEMENT[openElementIndex] & tableScope) != 0
+          && !isDroppedTemplate(i)) {
+        // A template the policy dropped establishes no template in the
+        // output, so it bounds no table scope there: a part under it
+        // returns to the open table as a browser reading the output does
+        // (#492, item 2).
         return true;
       }
     }
@@ -3098,14 +3107,15 @@ public class TagBalancingHtmlStreamEventReceiver
       return BODY_TAG;
     }
     if ((child == OPTION_TAG || child == OPTGROUP_TAG
-            || child == CAPTION_TAG || child == COLGROUP_TAG)
+            || child == CAPTION_TAG || child == COLGROUP_TAG
+            || child == COL_TAG)
         && !isOutputInForeignContent()
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG
         && sentToUnderlying.get(containerIndexOnStack)) {
-      // A template holds an option, optgroup, caption or column group
+      // A template holds an option, optgroup, caption, column group or col
       // directly, so the containment metadata implies no select or table
       // for one there, but a template the policy dropped or renamed
       // establishes none in the output: the element lands where the
@@ -3220,6 +3230,13 @@ public class TagBalancingHtmlStreamEventReceiver
     int innermost = implied.length == 0
         ? container : implied[implied.length - 1];
     return METADATA.canContain(innermost, child);
+  }
+
+  /** Whether the entry is a template the policy dropped. */
+  private boolean isDroppedTemplate(int stackIndex) {
+    return openElements.get(stackIndex) == TEMPLATE_TAG
+        && outputElements.get(stackIndex) == NO_OUTPUT_ELEMENT
+        && sentToUnderlying.get(stackIndex);
   }
 
   /** Whether a dropped logical template contains the stack entry. */
