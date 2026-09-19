@@ -2,6 +2,15 @@
 
 Most recent at top.
   * Next release
+    * A list item start tag closes the list item that is open, as a browser
+      does, even when a formatting element such as `b` is open inside that
+      item: the two items come out as siblings, with the formatting
+      reconstructed inside the second, instead of the second item and every
+      one after it nesting a list deeper inside the first.  The walk down
+      the stack for the item to close stops where the parsing algorithm's
+      does, at an element in its special category other than `address`,
+      `div` and `p`, so an item written inside a heading, a form, a table or
+      a template still nests as a browser nests it (#492, item 8).
     * An `option` or `optgroup` under any element but a `select`, `optgroup`
       or `option` now gets its `select`, and a list item under any element
       but a list its list, whatever the container's name (a list the policy

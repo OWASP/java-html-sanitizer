@@ -5785,6 +5785,120 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 8 of #492.  A browser's list item start tag closes an open list
+   * item before it inserts the new one, walking down its stack past the
+   * formatting elements open inside that item, so the two items are
+   * siblings and the formatting is reconstructed inside the second.  The
+   * containment metadata answered the open formatting element with a fresh
+   * list inside it instead, and each item after the first nested one level
+   * deeper.  The walk stops at the elements the parsing algorithm calls
+   * special, other than {@code address}, {@code div} and {@code p}.
+   */
+  @Test
+  void testListItemStartClosesTheOpenItemThroughFormatting() throws Exception {
+    String[] names = {
+        "ul", "ol", "li", "b", "i", "a", "span", "div", "p", "h1", "form",
+        "table", "tbody", "tr", "td", "template" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowAttributes("href").onElements("a").allowStandardUrlProtocols()
+        .toFactory();
+    // Each output parses to the browser tree of its input.
+    String[][] faithful = {
+        { "<ul><li><b>x<li>y",
+          "<ul><li><b>x</b></li><li><b>y</b></li></ul>" },
+        { "<ul><li><b><i>x<li>y",
+          "<ul><li><b><i>x</i></b></li><li><b><i>y</i></b></li></ul>" },
+        { "<ul><li><b>x<li>y<li>z",
+          "<ul><li><b>x</b></li><li><b>y</b></li><li><b>z</b></li></ul>" },
+        { "<ol><li><b>x<li>y</b>z",
+          "<ol><li><b>x</b></li><li><b>y</b>z</li></ol>" },
+        // The rule steps over address, div and p, and over anything that is
+        // not special at all.
+        { "<ul><li><div>d<li>y",
+          "<ul><li><div>d</div></li><li>y</li></ul>" },
+        { "<ul><li><p>p<li>y", "<ul><li><p>p</p></li><li>y</li></ul>" },
+        { "<ul><li><span>s<li>y",
+          "<ul><li><span>s</span></li><li>y</li></ul>" },
+        { "<ul><li><b>x<div>d<li>y",
+          "<ul><li><b>x<div>d</div></b></li><li><b>y</b></li></ul>" },
+        // Formatting the input closed is not resumed, and an item with none
+        // open was already closed by the containment rules.
+        { "<ul><li><b>x</b><li>y", "<ul><li><b>x</b></li><li>y</li></ul>" },
+        { "<ul><li>x<li>y", "<ul><li>x</li><li>y</li></ul>" },
+        // A list inside the item is special, so the walk stops there and the
+        // new item goes into that list, as it does in a browser.
+        { "<ul><li><b>x<ul><li>y",
+          "<ul><li><b>x<ul><li>y</li></ul></b></li></ul>" },
+    };
+    for (String[] c : faithful) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // Hostile content around the item is still removed.  The tree is the
+    // input's but for the attributes the policy dropped, so a link resumed
+    // inside the new item carries no URL, as a resumed element carries none
+    // anywhere else.
+    String[][] hostile = {
+        { "<ul><li><a href=javascript:alert(1)>x<li>y",
+          "<ul><li><a>x</a></li><li><a>y</a></li></ul>" },
+        { "<ul><li><b onmouseover=alert(1)>x<li>y",
+          "<ul><li><b>x</b></li><li><b>y</b></li></ul>" },
+        { "<ul><li><a href=\"https://e/\">x<li>y",
+          "<ul><li><a href=\"https://e/\">x</a></li><li><a>y</a></li></ul>" },
+    };
+    for (String[] c : hostile) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert"), c[0]);
+    }
+    // A script between the items is text the policy removes, and the item
+    // still closes.
+    assertRoundTripAndBalanced(
+        p, "<ul><li><b>x<li><script>alert(1)</script>y",
+        "<ul><li><b>x</b></li><li><b>y</b></li></ul>");
+    // An element the parsing algorithm calls special, other than the three
+    // the rule steps over, stops the walk: the item stays open and the new
+    // one goes inside it, where a browser puts it too.  A browser needs no
+    // list around an item, and this receiver never emits one without.
+    String[][] barriers = {
+        { "<ul><li><h1>h<li>y",
+          "<ul><li><h1>h<ul><li>y</li></ul></h1></li></ul>" },
+        { "<ul><li><form>f<li>y",
+          "<ul><li><form>f<ul><li>y</li></ul></form></li></ul>" },
+        { "<ul><li><template><li>y",
+          "<ul><li><template><ul><li>y</li></ul></template></li></ul>" },
+        { "<ul><li><b>x<table><li>y",
+          "<ul><li><b>x<table></table><ul><li>y</li></ul></b></li></ul>" },
+    };
+    for (String[] c : barriers) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // The item a select keeps for content it cannot hold is none of the
+    // input's, so an item written in a select is unaffected.
+    String[] selectNames = { "select", "option", "ul", "li" };
+    PolicyFactory selects = new HtmlPolicyBuilder()
+        .allowElements(selectNames).allowWithoutAttributes(selectNames)
+        .toFactory();
+    assertRoundTripAndBalanced(
+        selects, "<select>x<li>y", "<select>x</select><ul><li>y</li></ul>");
+    assertRoundTripAndBalanced(
+        selects, "<select><option>x<li>y",
+        "<select><option>x<ul><li>y</li></ul></option></select>");
+    // The issue's shape, and an item whose formatting the policy drops.
+    PolicyFactory blocksFormatting =
+        Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    assertRoundTripAndBalanced(
+        blocksFormatting, "<math><b>x</math><li>y<li>z",
+        "<b>x</b><ul><li><b>y</b></li><li><b>z</b></li></ul>");
+    assertRoundTripAndBalanced(
+        blocksFormatting, "<ul><li><b>x<li>y</li></ul>after",
+        "<ul><li><b>x</b></li><li><b>y</b></li></ul><b>after</b>");
+    assertRoundTripAndBalanced(
+        Sanitizers.BLOCKS, "<ul><li><b>x<li>y<li>z",
+        "<ul><li>x</li><li>y</li><li>z</li></ul>");
+  }
+
+  /**
    * Item 1 of #492.  The list item the containment metadata implies for a
    * list's content landed inside a forwarded SVG or MathML root: the root
    * has no entry on the balancer's stack, so the text or foreign child inside

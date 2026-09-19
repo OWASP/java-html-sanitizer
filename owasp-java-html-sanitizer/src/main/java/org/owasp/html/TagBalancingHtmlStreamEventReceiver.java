@@ -243,6 +243,23 @@ public class TagBalancingHtmlStreamEventReceiver
   private static final BitSet TABLE_PARTS = new BitSet();
   /** Elements that bound the table context used for the special form rule. */
   private static final BitSet TABLE_FORM_SCOPE_BOUNDARIES = new BitSet();
+  /**
+   * Elements that stop the walk down the stack that a list item start tag
+   * makes for an open item to close: the specification's special category,
+   * less the {@code address}, {@code div} and {@code p} that the rule steps
+   * over.  A formatting element is not one of them, which is the point: a
+   * browser closes the item through it (#492).
+   */
+  private static final BitSet LIST_ITEM_START_BARRIERS = new BitSet();
+  static {
+    for (String name : HtmlSanitizer.specialHtmlElementNames()) {
+      int index = METADATA.indexForName(name);
+      if (index != UNRECOGNIZED_TAG) { LIST_ITEM_START_BARRIERS.set(index); }
+    }
+    for (String name : new String[] { "address", "div", "p" }) {
+      LIST_ITEM_START_BARRIERS.clear(METADATA.indexForName(name));
+    }
+  }
   static {
     for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
       TABLE_CONTEXT.set(METADATA.indexForName(name));
@@ -2148,6 +2165,18 @@ public class TagBalancingHtmlStreamEventReceiver
       pushOutTable(tableIndex);
     }
 
+    // A browser's list item start tag closes an open list item before it
+    // inserts the new one, walking down its stack past the formatting
+    // elements open inside that item, so the two items are siblings and the
+    // formatting is reconstructed inside the second.  Without this the
+    // containment metadata answered the open formatting element with a
+    // fresh list inside it, and each following item nested one level
+    // deeper (#492).
+    if (elIndex == LI_TAG) {
+      int itemToClose = listItemToCloseForStart(foreignRootBoundary);
+      if (itemToClose >= 0) { closeStackFrom(itemToClose, LI_TAG); }
+    }
+
     // Content that goes into a forwarded SVG or MathML root is contained by
     // the foreign element, or the integration point, inside that root, not
     // by the HTML entries below it: those imply nothing for it, so it is
@@ -2900,6 +2929,26 @@ public class TagBalancingHtmlStreamEventReceiver
       if (implied[i] == top) { return i + 1; }
     }
     return 0;
+  }
+
+  /**
+   * The open list item that a browser closes for a list item start tag, or
+   * -1 for none: the walk down the stack stops at the first barrier, and at
+   * the foreign root below which content is judged as in a fresh body.  The
+   * item a select keeps for content it cannot hold is none of the input's,
+   * and the select below it is a barrier anyway.
+   */
+  private int listItemToCloseForStart(int foreignRootBoundary) {
+    for (int i = openElements.size(), floor = Math.max(0, foreignRootBoundary);
+         --i >= floor;) {
+      if (inputElementsInForeignContent.get(i)) { return -1; }
+      int openElement = openElements.get(i);
+      if (openElement == LI_TAG) {
+        return isSyntheticSelectListItem(i) ? -1 : i;
+      }
+      if (LIST_ITEM_START_BARRIERS.get(openElement)) { return -1; }
+    }
+    return -1;
   }
 
   /** Whether a browser would foster-parent this token out of an open table. */
