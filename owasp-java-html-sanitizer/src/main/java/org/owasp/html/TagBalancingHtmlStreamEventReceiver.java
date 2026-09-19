@@ -503,7 +503,10 @@ public class TagBalancingHtmlStreamEventReceiver
    * {@link PolicyFactory#apply(HtmlStreamEventReceiver, HtmlChangeListener,
    * Object)}, its listener hears of the dropped tag through
    * {@link HtmlChangeListener#discardedTag}.  The limit may be changed while
-   * a document is open, but not to less than the depth already open.
+   * a document is open, but not to less than the depth already open.  After
+   * a receiver below threw mid-document, call {@link #openDocument} before
+   * lowering the limit: until then the depth judged is the abandoned
+   * document's.
    *
    * @param limit the greatest number of elements that may be open at once.
    * @throws IllegalStateException if elements are already open deeper than
