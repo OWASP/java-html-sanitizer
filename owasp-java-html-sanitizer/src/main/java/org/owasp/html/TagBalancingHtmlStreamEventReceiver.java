@@ -3097,19 +3097,24 @@ public class TagBalancingHtmlStreamEventReceiver
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
     }
-    if ((child == OPTION_TAG || child == OPTGROUP_TAG)
+    if ((child == OPTION_TAG || child == OPTGROUP_TAG
+            || child == CAPTION_TAG || child == COLGROUP_TAG)
         && !isOutputInForeignContent()
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG
         && sentToUnderlying.get(containerIndexOnStack)) {
-      // A template holds an option or optgroup directly, so the containment
-      // metadata implies no select for one there, but a template the policy
-      // dropped or renamed establishes none in the output: the option lands
-      // where the template was, or in what the template became, and is
-      // judged there, so it gets the select it gets in that place instead
-      // of coming out bare for the next pass to wrap (#492).
+      // A template holds an option, optgroup, caption or column group
+      // directly, so the containment metadata implies no select or table
+      // for one there, but a template the policy dropped or renamed
+      // establishes none in the output: the element lands where the
+      // template was, or in what the template became, and is judged there,
+      // so it gets the select or table it gets in that place instead of
+      // coming out bare, an orphan caption that the output parser drops,
+      // for the next pass to wrap (#492, items 9 and 2).  The other table
+      // parts already get their table under a template through the
+      // metadata.
       int outputContainer = outputContainerIndex();
       return outputContainer != UNRECOGNIZED_TAG ? outputContainer : BODY_TAG;
     }
