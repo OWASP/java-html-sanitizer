@@ -29,12 +29,14 @@ package org.owasp.html;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.owasp.html.TagBalancingHtmlStreamEventReceiver
@@ -1480,6 +1482,175 @@ class TagBalancingHtmlStreamRendererTest {
         renderPolicyEvents(
             keep, "@3", "svg", "noscript", "noscript", "/noscript", "path",
             "/path", "/svg"));
+  }
+
+  /**
+   * The limit cannot be set below what is open.  With no policy below to
+   * count its own output, the elements outside the containment metadata
+   * that were forwarded count too, since each nests the output.
+   */
+  @Test
+  void testNestingLimitCannotBeSetBelowTheOpenDepth() {
+    balancer.openDocument();
+    balancer.openTag("foo", j8().listOf());
+    balancer.openTag("div", j8().listOf());
+    IllegalStateException ex = assertThrows(
+        IllegalStateException.class, () -> balancer.setNestingLimit(1));
+    assertEquals(
+        "Cannot set the nesting limit to 1: elements are already open 2 deep",
+        ex.getMessage());
+    balancer.setNestingLimit(2);
+    balancer.openTag("p", j8().listOf());
+    balancer.text("x");
+    balancer.closeDocument();
+
+    assertEquals("<foo><div>x</div></foo>", htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /**
+   * A pre-processor can hand the balancer a name in a case the lexer would
+   * not.  Every start tag is forwarded under its canonical name, so a tag
+   * the policy drops is reported to the listener under that name.  The tags
+   * the balancer drops itself, a form ignored while the form element pointer
+   * is set and a tag past the nesting limit, are reported the same way,
+   * whether or not the element is in the containment metadata.
+   */
+  @Test
+  void testDroppedTagsAreReportedUnderTheCanonicalName() {
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        discarded.add(elementName);
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        fail("Unexpected discarded attributes on " + tagName);
+      }
+    };
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements("form", "div", "foo")
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            underlying.openTag(elementName.toUpperCase(Locale.ROOT), attrs);
+          }
+
+          @Override
+          public void closeTag(String elementName) {
+            underlying.closeTag(elementName.toUpperCase(Locale.ROOT));
+          }
+        })
+        .toFactory();
+
+    // The second form start is ignored under the form element pointer rule
+    // before it reaches the policy; the b is dropped by the policy.
+    assertEquals(
+        "<form></form>",
+        factory.sanitize(
+            "<form><form></form></form><b></b>", listener, null));
+    assertEquals(j8().listOf("form", "b"), discarded);
+
+    // One start past the limit HtmlSanitizer sets, for an element in the
+    // containment metadata and for one outside it.
+    final int limit = 256;
+    for (String name : new String[] { "div", "foo" }) {
+      discarded.clear();
+      StringBuilder input = new StringBuilder();
+      StringBuilder expected = new StringBuilder();
+      for (int i = 0; i <= limit; ++i) {
+        input.append('<').append(name).append('>');
+        if (i < limit) { expected.append('<').append(name).append('>'); }
+      }
+      input.append('x');
+      expected.append('x');
+      for (int i = 0; i <= limit; ++i) {
+        input.append("</").append(name).append('>');
+        if (i < limit) { expected.append("</").append(name).append('>'); }
+      }
+      assertEquals(
+          expected.toString(),
+          factory.sanitize(input.toString(), listener, null), name);
+      assertEquals(j8().listOf(name), discarded, name);
+    }
+  }
+
+  /**
+   * A balancer can be reused for another document.  The first leaves a
+   * dropped element whose text is suppressed, the form element pointer set,
+   * and a foreign root open; the next document starts with none of that.
+   */
+  @Test
+  void testBalancerStartsEachDocumentClean() {
+    balancer.setNestingLimit(2);
+    balancer.openDocument();
+    balancer.openTag("form", j8().listOf());
+    balancer.openTag("svg", j8().listOf());
+    balancer.openTag("script", j8().listOf());
+    balancer.text("alert(1)");
+    balancer.closeDocument();
+    assertEquals("<form><svg></svg></form>", htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+
+    htmlOutputBuffer.setLength(0);
+    balancer.openDocument();
+    balancer.text("x");
+    balancer.openTag("form", j8().listOf());
+    balancer.openTag("p", j8().listOf());
+    balancer.text("y");
+    balancer.closeDocument();
+    assertEquals("x<form><p>y</p></form>", htmlOutputBuffer.toString());
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /**
+   * An option suppressed at the limit inside a table mapped to a foreign
+   * select owns a policy entry.  That entry is opened under the canonical
+   * name, like every other start tag, so the end tag the balancer sends under
+   * that name closes it, and the listener hears the same name a
+   * pre-processor's recasing cannot change.
+   */
+  @Test
+  void testSuppressedOptionAtLimitIsForwardedUnderTheCanonicalName() {
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        discarded.add(elementName);
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        fail("Unexpected discarded attributes on " + tagName);
+      }
+    };
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements("svg", "table", "option")
+        .allowElements((name, attrs) -> "select", "table")
+        .allowTextIn("svg", "table", "option")
+        .allowWithoutAttributes("svg", "table", "option")
+        .toFactory();
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    int[] eventCounts = new int[3];
+    TagBalancingHtmlStreamEventReceiver limited =
+        new TagBalancingHtmlStreamEventReceiver(
+            factory.apply(
+                strictRenderer(output, open, eventCounts), listener, null));
+    limited.setNestingLimit(2);
+    limited.openDocument();
+    limited.openTag("svg", j8().listOf());
+    limited.openTag("table", j8().listOf());
+    limited.openTag("OPTION", j8().listOf());
+    limited.text("dropped");
+    limited.closeTag("OPTION");
+    limited.closeTag("table");
+    limited.closeTag("svg");
+    limited.closeDocument();
+
+    assertEquals("<svg><select></select></svg>", output.toString());
+    assertEquals(j8().listOf("option"), discarded);
+    assertEquals(eventCounts[0], eventCounts[1]);
   }
 
   /**

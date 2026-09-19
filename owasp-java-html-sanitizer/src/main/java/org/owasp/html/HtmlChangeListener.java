@@ -47,12 +47,19 @@ public interface HtmlChangeListener<T> {
 
   /**
    * Called when a tag is discarded from the input, by the policy, by the tag
-   * balancer for nesting past its limit, or by the renderer.  The renderer
-   * writes no tag whose name is not one HTML allows, which an
+   * balancer, or by the renderer.  The tag balancer drops a start tag that
+   * would nest the output past its limit, and a {@code form} start tag a
+   * browser ignores because its form element pointer is already set.  The
+   * renderer writes no tag whose name is not one HTML allows, which an
    * {@link ElementPolicy} can produce by renaming, and none that arrives
    * inside literal content it is writing, such as the tags inside an element
    * a policy renamed into a {@code style}.  Its drops are reported under the
    * same conditions as its dropped text: see {@link #discardedText}.
+   *
+   * @param elementName the tag's name as a policy is asked about it: lower
+   *     case unless it is a namespaced or mixed-case SVG or MathML name,
+   *     however the input or a pre-processor spelled it.  A tag the renderer
+   *     drops is named as the policy emitted it.
    */
   public void discardedTag(@Nullable T context, String elementName);
 

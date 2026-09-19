@@ -286,8 +286,11 @@ public class TagBalancingHtmlStreamEventReceiver
    * is invisible to a listener.
    */
   interface NestingLimitListener {
-    /** @param elementName the tag that was not emitted. */
-    void nestingLimitReached(String elementName);
+    /**
+     * @param canonElementName the canonical name of the tag that was not
+     *     emitted, which is the name it would have been forwarded under.
+     */
+    void nestingLimitReached(String canonElementName);
   }
 
   /**
@@ -467,10 +470,18 @@ public class TagBalancingHtmlStreamEventReceiver
    * Tells the listener, if any, of a start tag dropped here, which the
    * policy therefore never sees: one the nesting limit drops, or a form
    * start a browser ignores while its form element pointer is set.
+   *
+   * @param canonElementName the dropped tag's canonical name.  Every start
+   *     tag is forwarded under its canonical name, so that is the name the
+   *     policy would have been asked about, and the name a tag the policy
+   *     drops is reported under.  Reporting the same name here lets a
+   *     listener hear one name for a tag however it was dropped, even when
+   *     a pre-processor handed this receiver the name in another case.
    */
-  private void reportDroppedStartTag(String elementName) {
+  private void reportDroppedStartTag(String canonElementName) {
     if (underlying instanceof NestingLimitListener) {
-      ((NestingLimitListener) underlying).nestingLimitReached(elementName);
+      ((NestingLimitListener) underlying)
+          .nestingLimitReached(canonElementName);
     }
   }
 
@@ -485,14 +496,28 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /**
-   * Set the maximum element nesting depth.
+   * Sets the maximum element nesting depth.  A start tag that would nest the
+   * output deeper is dropped.  When the receiver below was built by
+   * {@link PolicyFactory#apply(HtmlStreamEventReceiver, HtmlChangeListener,
+   * Object)}, its listener hears of the dropped tag through
+   * {@link HtmlChangeListener#discardedTag}.  The limit may be changed while
+   * a document is open, but not to less than the depth already open.
+   *
+   * @param limit the greatest number of elements that may be open at once.
+   * @throws IllegalStateException if elements are already open deeper than
+   *     {@code limit}.  With no policy below to count its own output, the
+   *     elements outside this receiver's containment metadata that it has
+   *     forwarded, such as custom elements, count toward that depth.
    */
   public void setNestingLimit(int limit) {
     resetMappedForeignTableSuppressionIfPolicyEnded();
     resetDroppedSuppressedTableIfPolicyEnded();
     resetDroppedSuppressedOptionIfPolicyEnded();
-    if (effectiveNestingDepth() > limit) {
-      throw new IllegalStateException();
+    int depth = effectiveNestingDepth();
+    if (depth > limit) {
+      throw new IllegalStateException(
+          "Cannot set the nesting limit to " + limit
+          + ": elements are already open " + depth + " deep");
     }
     this.nestingLimit = limit;
   }
@@ -519,32 +544,7 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   public void openDocument() {
-    droppedSkippableDepth = 0;
-    droppedSuppressedOptionDepth = 0;
-    droppedSuppressedOptionOwnsPolicyEntry = false;
-    droppedSuppressedOptionStackDepth = -1;
-    droppedSuppressedOptionPassthroughDepth = -1;
-    droppedSuppressedOptionResumeDepth = -1;
-    droppedSuppressedTableDepth = 0;
-    suppressedMappedForeignTableResumeDepth = -1;
-    foreignContent = new HtmlSanitizer.ForeignContentContext();
-    foreignRootPendingTableReturn = null;
-    pendingUnrecognizedHtmlTextElement = null;
-    policyOnlyTableMayBeOpen = false;
-    preparingPreparedPolicyStart = false;
-    insertionPointIsInForeignContent = false;
-    outputlessTablePartsMayBeOpen = false;
-    outputlessTablePartsOpenedAtEvent = -1;
-    openTagEvent = 0;
-    passthroughNames.clear();
-    passthroughIndicesByName.clear();
-    passthroughDepths.clear();
-    passthroughSerials.clear();
-    passthroughOutputForeign.clear();
-    passthroughForeignRoots.clear();
-    outputlessTablesWithEmittedParts.clear();
-    pushedMappedTemplateOutputOpen.clear();
-    suppressedMappedForeignSubtrees.clear();
+    resetDocumentState();
     underlying.openDocument();
   }
 
@@ -561,6 +561,19 @@ public class TagBalancingHtmlStreamEventReceiver
       underlying.closeTag(elname);
     }
     while (!passthroughNames.isEmpty()) { popPassthrough(true); }
+    resetDocumentState();
+    underlying.closeDocument();
+  }
+
+  /**
+   * Returns every field that describes the document being balanced to its
+   * value in a new instance.  Both {@link #openDocument} and
+   * {@link #closeDocument} call this, so nothing of one document is left for
+   * a caller to see, or the next document to inherit, whichever of the two
+   * is called next.  The nesting limit is configuration rather than document
+   * state and is kept.
+   */
+  private void resetDocumentState() {
     openElements.clear();
     inputElementSerials.clear();
     outputElements.clear();
@@ -574,6 +587,17 @@ public class TagBalancingHtmlStreamEventReceiver
     pushedOut.clear();
     impliedInputTables.clear();
     outputTableUnavailable.clear();
+    toResumeInReverse.clear();
+    passthroughNames.clear();
+    passthroughIndicesByName.clear();
+    passthroughDepths.clear();
+    passthroughSerials.clear();
+    passthroughOutputForeign.clear();
+    passthroughForeignRoots.clear();
+    outputlessTablesWithEmittedParts.clear();
+    pushedMappedTemplateOutputOpen.clear();
+    suppressedMappedForeignSubtrees.clear();
+    foreignContent = new HtmlSanitizer.ForeignContentContext();
     foreignRootPendingTableReturn = null;
     pendingUnrecognizedHtmlTextElement = null;
     policyOnlyTableMayBeOpen = false;
@@ -581,18 +605,15 @@ public class TagBalancingHtmlStreamEventReceiver
     insertionPointIsInForeignContent = false;
     outputlessTablePartsMayBeOpen = false;
     outputlessTablePartsOpenedAtEvent = -1;
-    outputlessTablesWithEmittedParts.clear();
-    pushedMappedTemplateOutputOpen.clear();
-    suppressedMappedForeignSubtrees.clear();
-    droppedSuppressedTableDepth = 0;
-    suppressedMappedForeignTableResumeDepth = -1;
+    openTagEvent = 0;
+    droppedSkippableDepth = 0;
     droppedSuppressedOptionDepth = 0;
     droppedSuppressedOptionOwnsPolicyEntry = false;
     droppedSuppressedOptionStackDepth = -1;
     droppedSuppressedOptionPassthroughDepth = -1;
     droppedSuppressedOptionResumeDepth = -1;
-    toResumeInReverse.clear();
-    underlying.closeDocument();
+    droppedSuppressedTableDepth = 0;
+    suppressedMappedForeignTableResumeDepth = -1;
   }
 
   public void openTag(String elementName, List<String> attrs) {
@@ -652,13 +673,13 @@ public class TagBalancingHtmlStreamEventReceiver
         if (droppedSuppressedOptionDepth != Integer.MAX_VALUE) {
           ++droppedSuppressedOptionDepth;
         }
-        reportDroppedStartTag(elementName);
+        reportDroppedStartTag(canonElementName);
       } else if (effectiveNestingDepth() >= nestingLimit) {
         if (!suppressingPolicySubtree) {
           // The policy-only suppression entry owns a stack entry below even
           // though nothing is emitted for it.
           tablePolicyAtStart.openTagWithoutOutputOrContent(
-              elementName, attrs);
+              canonElementName, attrs);
           droppedSuppressedOptionOwnsPolicyEntry = true;
           droppedSuppressedOptionStackDepth = openElements.size();
           droppedSuppressedOptionPassthroughDepth = passthroughNames.size();
@@ -666,7 +687,7 @@ public class TagBalancingHtmlStreamEventReceiver
         } else {
           droppedSuppressedOptionStackDepth = openElements.size();
           droppedSuppressedOptionResumeDepth = -1;
-          reportDroppedStartTag(elementName);
+          reportDroppedStartTag(canonElementName);
         }
         droppedSuppressedOptionDepth = 1;
       } else {
@@ -683,7 +704,7 @@ public class TagBalancingHtmlStreamEventReceiver
         // while its form element pointer is set.  It never reaches the
         // policy, so a listener hears of it from here, as of a tag the
         // nesting limit drops.
-        reportDroppedStartTag(elementName);
+        reportDroppedStartTag(canonElementName);
         return;
       }
       // ForeignContentContext may have become unknown while retaining the
@@ -720,7 +741,7 @@ public class TagBalancingHtmlStreamEventReceiver
       // An HTML integration point makes ForeignContentContext report HTML
       // rules and deliberately does not take this path.
       if (effectiveNestingDepth() >= nestingLimit) {
-        reportDroppedStartTag(elementName);
+        reportDroppedStartTag(canonElementName);
         return;
       }
       underlying.openTag(canonElementName, attrs);
@@ -869,7 +890,7 @@ public class TagBalancingHtmlStreamEventReceiver
           if (contentIsSkippable(canonElementName)) {
             ++droppedSkippableDepth;
           }
-          reportDroppedStartTag(elementName);
+          reportDroppedStartTag(canonElementName);
         } else if (suppressPreparedOutput) {
           PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
           if (suppressForeignBreakoutBesidePushedTable
@@ -899,7 +920,7 @@ public class TagBalancingHtmlStreamEventReceiver
         }
       } else {
         if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
-        reportDroppedStartTag(elementName);
+        reportDroppedStartTag(canonElementName);
       }
       return;
     }
@@ -1044,7 +1065,7 @@ public class TagBalancingHtmlStreamEventReceiver
         if (contentIsSkippable(canonElementName)) {
           ++droppedSkippableDepth;
         }
-        reportDroppedStartTag(METADATA.canonNameForIndex(elIndex));
+        reportDroppedStartTag(canonElementName);
         return;
       }
       if (elIndex == FORM_TAG
@@ -1159,7 +1180,7 @@ public class TagBalancingHtmlStreamEventReceiver
         ++droppedSuppressedTableDepth;
       }
       if (contentIsSkippable(canonElementName)) { ++droppedSkippableDepth; }
-      reportDroppedStartTag(METADATA.canonNameForIndex(elIndex));
+      reportDroppedStartTag(canonElementName);
     }
   }
 

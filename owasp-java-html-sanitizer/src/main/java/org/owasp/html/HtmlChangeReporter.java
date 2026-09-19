@@ -165,11 +165,12 @@ public final class HtmlChangeReporter<T> {
     /**
      * The tag balancer sits upstream of this channel, so a tag it drops for
      * exceeding the nesting limit never reaches the policy and would otherwise
-     * go unreported.  It tells us directly instead.  The same goes for a form
-     * start it ignores because the browser's form element pointer is set.
+     * go unreported.  It tells us directly instead, under the canonical name
+     * it forwards every start tag under.  The same goes for a form start it
+     * ignores because the browser's form element pointer is set.
      */
-    public void nestingLimitReached(String elementName) {
-      listener.discardedTag(context, elementName);
+    public void nestingLimitReached(String canonElementName) {
+      listener.discardedTag(context, canonElementName);
     }
 
     /**
@@ -515,8 +516,9 @@ public final class HtmlChangeReporter<T> {
           preparedElementName = null;
           preparedElementAttrs = null;
         }
-        // Dispatch notifications to the listener, under the input name,
-        // which is the one the listener can relate to what came in.
+        // Dispatch notifications to the listener under the name this channel
+        // received, which is the canonical name the tag balancer forwards
+        // every start tag under and reports its own drops under.
         if (discarded) {
           listener.discardedTag(context, elementName);
         }
