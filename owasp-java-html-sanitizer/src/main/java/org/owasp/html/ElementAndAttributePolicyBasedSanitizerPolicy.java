@@ -1233,6 +1233,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     return suppressOutputAndContent;
   }
 
+  public boolean isSuppressingText() {
+    return skipText;
+  }
+
   public void openReopenedTable(List<String> attrs) {
     openTag("table", attrs, OpenTagMode.REOPENED_TABLE);
   }

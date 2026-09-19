@@ -6751,9 +6751,9 @@ class HtmlSanitizerTest {
 
   /**
    * A table part that produces no browser node, whether the policy suppresses
-   * its tag or it is serialized outside a physical table, sends its text to
-   * the nearest real output element.  Text the policy disallows there stays
-   * out.  The part's own explicit gate still applies, and a table renamed to a
+   * it or it is serialized outside a physical table, sends its text to the
+   * nearest real output element.  Text the policy disallows there stays out.
+   * The part's own explicit gate still applies, and a table renamed to a
    * container that holds text keeps the text of its suppressed cells.
    */
   @Test
@@ -6790,6 +6790,12 @@ class HtmlSanitizerTest {
         { "<div><table><form><tr><td>y",
           "<div><form><tbody><tr><td></td></tr></tbody></form></div>" },
         { "<form>y<b>z</b></form>", "<form><b>z</b></form>" },
+        // Reduced probe cases: bare table parts must not move later text on a
+        // second pass, whether its fixed point is outside the parts or in a
+        // standalone HTML integration point.
+        { "<th>tail", "<tbody><tr></tr></tbody>tail" },
+        { "<tr><hr><foreignObject>tail",
+          "<tbody><tr></tr></tbody><foreignObject>tail</foreignObject>" },
     };
     for (String[] c : cases) {
       assertRoundTripAndBalanced(noTextInForms, c[0], c[1]);
@@ -6827,6 +6833,16 @@ class HtmlSanitizerTest {
     assertRoundTripAndBalanced(
         noTextInCells, "<div><table><form><tr><td>y",
         "<div><form><tbody><tr><td></td></tr></tbody></form></div>");
+    assertRoundTripAndBalanced(
+        noTextInCells, "<template><form><tbody><form>tail",
+        "<form><tbody></tbody>tail</form>");
+
+    PolicyFactory renamedPart = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowElements((name, attrs) -> "div", "td")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamedPart, "<td>shown", "<div>shown</div>");
   }
 
   /**
