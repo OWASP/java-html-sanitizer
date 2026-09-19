@@ -756,6 +756,7 @@ public class TagBalancingHtmlStreamEventReceiver
       mayOpenAtNestingLimit = prepareForContent(elIndex);
     }
     if ((usesForeignContentRules
+            || foreignContent.isInForeignContent()
             || foreignRootPendingTableReturn != null
             || hasPushedOutputlessTableWithEmittedParts())
         && outputUsesForeignContentRules
@@ -764,7 +765,12 @@ public class TagBalancingHtmlStreamEventReceiver
       // HTML table balancing does not apply to SVG or MathML descendants, even
       // when a local name happens to be a table part.
       // An HTML integration point makes ForeignContentContext report HTML
-      // rules and deliberately does not take this path.
+      // rules and deliberately does not take this path while the output is
+      // at that integration point too.  When the policy dropped the
+      // integration point, the output's current node is foreign: a browser
+      // ignores the part in the input, and an implied HTML table in the
+      // output would break out of the root there, so the part is forwarded
+      // as the foreign element the output parser makes of it (#492).
       if (effectiveNestingDepth() >= nestingLimit) {
         reportDroppedStartTag(canonElementName);
         return;
@@ -1742,7 +1748,16 @@ public class TagBalancingHtmlStreamEventReceiver
    * cell leaves one outside the table alone.
    */
   private boolean hasOpenLinkInFormattingScope() {
-    for (int i = outputElements.size(); --i >= 0;) {
+    return hasOpenLinkInFormattingScope(0);
+  }
+
+  /**
+   * As above, looking no further down than {@code lowerBound}: a link below
+   * a forwarded foreign root is out of scope for a link inside the root's
+   * integration point, as it is for a browser's adoption agency algorithm.
+   */
+  private boolean hasOpenLinkInFormattingScope(int lowerBound) {
+    for (int i = outputElements.size(); --i >= Math.max(0, lowerBound);) {
       int openElementIndex = outputElements.get(i);
       if (openElementIndex == A_TAG) { return true; }
       if (openElementIndex != NO_OUTPUT_ELEMENT
@@ -1823,22 +1838,39 @@ public class TagBalancingHtmlStreamEventReceiver
    * inside a forwarded svg that way, and li is a breakout name, so a browser
    * popped the svg and read the SVG textarea or a beside it as HTML (#492).
    * <p>
-   * Text is inside the root while the output's current node is foreign; after
-   * a breakout it is HTML again and goes where HTML rules put it.  An element
-   * is inside the root when an HTML entry is open above the root, at an
-   * integration point: a foreign current node took the foreign or breakout
-   * path in {@link #openTag} before reaching here.  Table parts keep their
-   * table structure wherever they are.
+   * Table parts keep their table structure wherever they are.
    */
   private int forwardedForeignRootBoundary(int elIndex) {
-    if (!forwardedForeignRootEnteredOutput()) { return -1; }
     if (elIndex != HtmlElementTables.TEXT_NODE && TABLE_PARTS.get(elIndex)) {
       return -1;
     }
-    int rootDepth = passthroughDepths.get(passthroughForeignRoots.getLast());
+    // Nothing is under a root the output parser has left: an emitted
+    // breakout pops it there, and text or a later tag is HTML again.
+    if (outputForeignContentRootName() == null) { return -1; }
+    // The innermost forwarded root that the output entered and that the
+    // input parser still has open.  A breakout pops the roots it breaks out
+    // of, so after one the boundary is the next root out, if any.  When the
+    // input parser has none open, but the output parser still does because
+    // the policy dropped the breakout, the innermost emitted root stands.
+    int root = -1;
+    for (int i = passthroughForeignRoots.size(); --i >= 0;) {
+      int candidate = passthroughForeignRoots.get(i);
+      if (!passthroughOutputForeign.get(candidate)) { continue; }
+      if (root < 0) { root = candidate; }
+      if (foreignContent.isNodeOpen(passthroughSerials.get(candidate))) {
+        root = candidate;
+        break;
+      }
+    }
+    if (root < 0) { return -1; }
+    int rootDepth = passthroughDepths.get(root);
+    // Text goes into the root's current node.  An element does when an HTML
+    // entry is open above the root, at an integration point; with none, a
+    // foreign current node took the foreign path in openTag before reaching
+    // here, and a breakout is judged against the HTML below the root it
+    // popped, as a browser inserts it there.
     boolean inside = elIndex == HtmlElementTables.TEXT_NODE
-        ? isOutputInForeignContent()
-        : openElements.size() > rootDepth;
+        || openElements.size() > rootDepth;
     return inside ? rootDepth : -1;
   }
 
@@ -2276,7 +2308,8 @@ public class TagBalancingHtmlStreamEventReceiver
       // A link ends the link open before it, wherever that is: nested links
       // do not survive a browser's parse, so a table between them cannot
       // stay open either.
-      boolean endsLink = endsAnOpenLink(elIndex);
+      boolean endsLink = elIndex == A_TAG
+          && hasOpenLinkInFormattingScope(foreignRootBoundary);
       if (!endsLink && canContain(elIndex, top, container)) {
         break;
       }
@@ -2354,7 +2387,8 @@ public class TagBalancingHtmlStreamEventReceiver
           && canContain(elIndex, toResume, nOpen)
           && canHold(elIndex, toResume, nOpen)
           && !(toResume == A_TAG
-               && (elIndex == A_TAG || hasOpenLinkInFormattingScope()))) {
+               && (elIndex == A_TAG
+                   || hasOpenLinkInFormattingScope(foreignRootBoundary)))) {
         toResumeInReverse.removeLast();
         int outputElementIndex = NO_OUTPUT_ELEMENT;
         boolean sent = effectiveNestingDepth() < nestingLimit;

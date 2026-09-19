@@ -5567,6 +5567,141 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * The root is a boundary only while the output parser is still inside it.
+   * A breakout element with a stack entry pops the root in both parsers, so
+   * what follows it is HTML flow again and a link below the root is still
+   * ended by a new link; a link inside an integration point, on the other
+   * hand, is out of the outer link's scope, as it is for a browser's
+   * adoption agency algorithm, and the formatting element around it is not
+   * closed and reopened.  After a breakout out of an inner root only, the
+   * next root out is the boundary.
+   */
+  @Test
+  void testForeignRootBoundaryFollowsBreakouts() throws Exception {
+    String[] names = {
+        "a", "svg", "div", "p", "span", "b", "li", "ul", "foreignObject",
+        "math", "option", "select" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols().toFactory();
+    // A breakout, then a link: the outer link ends, as on main.
+    String[][] breakouts = {
+        { "<a href=\"https://good/\"><svg><div>x<a href=\"https://evil/\">"
+          + "click</a></div></svg></a>",
+          "<a href=\"https://good/\"><svg><div>x</div></svg></a>"
+          + "<a href=\"https://evil/\">click</a>" },
+        { "<a href=\"https://good/\"><svg><p>x<a href=\"https://evil/\">"
+          + "click</a></p></svg></a>",
+          "<a href=\"https://good/\"><svg><p>x</p></svg></a>"
+          + "<a href=\"https://evil/\">click</a>" },
+        { "<a href=\"https://good/\"><svg><span>x<a href=\"https://evil/\">"
+          + "click</a></span></svg></a>",
+          "<a href=\"https://good/\"><svg><span>x</span></svg></a>"
+          + "<a href=\"https://evil/\">click</a>" },
+        { "<a href=\"https://good/\"><svg><b>x<a href=\"https://evil/\">"
+          + "click</a></b></svg></a>",
+          "<a href=\"https://good/\"><svg><b>x</b></svg></a>"
+          + "<b><a href=\"https://evil/\">click</a></b>" },
+        { "<p><svg><div>x", "<p><svg></svg></p><div>x</div>" },
+    };
+    for (String[] c : breakouts) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // Inside an integration point, and after a breakout out of an inner
+    // root only: the output parses to the input's tree.
+    String[] faithful = {
+        "<a><svg><foreignObject><b>x<a>y</a></b></foreignObject></svg></a>",
+        "<a><svg><foreignObject><p>x<a>y</a></p></foreignObject></svg></a>",
+        "<ul><svg><foreignObject><p>a<svg></svg></p><div>b</div>"
+        + "</foreignObject></svg></ul>",
+    };
+    for (String c : faithful) {
+      assertRoundTripAndBalanced(p, c, c);
+      assertEquals(parseAsBrowser(c), parseAsBrowser(p.sanitize(c)), c);
+    }
+    assertRoundTripAndBalanced(
+        p, "<ul><svg><foreignObject><p>a<svg><div>b",
+        "<ul><svg><foreignObject><p>a<svg></svg></p><div>b</div>"
+        + "</foreignObject></svg></ul>");
+    assertEquals(
+        parseAsBrowser("<ul><svg><foreignObject><p>a<svg><div>b"),
+        parseAsBrowser(p.sanitize("<ul><svg><foreignObject><p>a<svg><div>b")));
+  }
+
+  /**
+   * A table part at an integration point that the policy dropped is HTML in
+   * the input, where a browser ignores it, but its output would sit directly
+   * in the foreign root.  An implied HTML table there would break out of the
+   * root in the output parser and turn every following SVG or MathML sibling
+   * into HTML.  The part is forwarded as the foreign element the output
+   * parser makes of it instead.
+   */
+  @Test
+  void testTablePartUnderDroppedIntegrationPointStaysForeign()
+      throws Exception {
+    String[] names = {
+        "svg", "math", "tbody", "table", "a", "textarea", "tr", "td",
+        "mtext", "ul", "li" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] cases = {
+        { "<svg><foreignObject><tbody></tbody></foreignObject><a>x</a>"
+          + "<textarea>&lt;b&gt;y&lt;/b&gt;</textarea></svg>",
+          "<svg><tbody></tbody><a>x</a><textarea>&lt;b&gt;y&lt;/b&gt;"
+          + "</textarea></svg>" },
+        { "<math><mi><tbody>x</tbody></mi><mtext>y</mtext></math>",
+          "<math><tbody>x</tbody><mtext>y</mtext></math>" },
+        { "<svg><foreignObject><tr><td>x</td></tr></foreignObject><a>y</a>"
+          + "</svg>",
+          "<svg><tr><td>x</td></tr><a>y</a></svg>" },
+        { "<ul><svg><foreignObject><tbody>D</tbody></foreignObject></svg>"
+          + "</ul>",
+          "<ul><svg><tbody>D</tbody></svg></ul>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      // The siblings keep their namespace: the output parses as the output
+      // with the dropped integration point's element written as foreign.
+      assertEquals(parseAsBrowser(c[1]), parseAsBrowser(p.sanitize(c[0])));
+    }
+  }
+
+  /**
+   * The text gate's relaxation for foreign elements reaches exactly the
+   * HTML names whose default is no text because a browser foster-parents
+   * text out of them: the table parts.  A void name holds no text anywhere,
+   * a breakout such as table is HTML in the output, and a literal-content
+   * name keeps its bar.  Enumerated from the containment metadata so that
+   * regenerating the tables cannot widen it unnoticed.
+   */
+  @Test
+  void testOnlyTablePartsKeepTextAsForeignElements() {
+    HtmlElementTables tables = HtmlElementTables.get();
+    List<String> relaxed = new ArrayList<>();
+    for (int i = 0, n = tables.nElementTypes(); i < n; ++i) {
+      if (tables.canContainPlainText(i)) { continue; }
+      String name = tables.canonNameForIndex(i);
+      for (String root : new String[] { "svg", "math" }) {
+        PolicyFactory p = new HtmlPolicyBuilder()
+            .allowElements(root, name).allowWithoutAttributes(root, name)
+            .toFactory();
+        String out = p.sanitize(
+            "<" + root + "><" + name + ">D</" + name + "></" + root + ">");
+        if (out.startsWith("<" + root + "><" + name + ">D")) {
+          relaxed.add(root + ":" + name);
+        }
+      }
+    }
+    assertEquals(
+        Arrays.asList(
+            "svg:colgroup", "math:colgroup", "svg:tbody", "math:tbody",
+            "svg:tfoot", "math:tfoot", "svg:thead", "math:thead",
+            "svg:tr", "math:tr"),
+        relaxed);
+  }
+
+  /**
    * A foreign root that HTML rules foster-parent out of a table is dropped
    * or renamed by the policy, and holds an element the policy keeps but this
    * receiver does not recognize.  That child was judged a foreign breakout
