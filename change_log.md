@@ -11,7 +11,11 @@ Most recent at top.
       and a policy judges an element the output parser inserts as SVG or
       MathML as one, so text in a foreign `tbody` or `tr` stays as it does in
       any other foreign element unless `disallowTextIn` names it; `style` and
-      the other literal-content names keep their bar (#492, item 1).
+      the other literal-content names keep their bar.  A table part whose
+      output would be foreign, under an integration point the policy dropped,
+      is forwarded as that foreign element rather than given an HTML table
+      that would break out of the root, and an `option` or `optgroup` that is
+      an SVG or MathML element gets no `select` (#492, item 1).
     * Content a `select` cannot hold, such as bare text or an SVG or MathML
       root with text inside it, no longer grows a list level on every
       sanitization.  The tag balancer's containment metadata answers such

@@ -755,22 +755,19 @@ public class TagBalancingHtmlStreamEventReceiver
       // imply a list item or select wrapper around it, is not consulted.
       mayOpenAtNestingLimit = prepareForContent(elIndex);
     }
-    if ((usesForeignContentRules
-            || foreignContent.isInForeignContent()
-            || foreignRootPendingTableReturn != null
-            || hasPushedOutputlessTableWithEmittedParts())
-        && outputUsesForeignContentRules
+    if (outputUsesForeignContentRules
         && TABLE_PARTS.get(elIndex)
         && isOutputInForeignContent()) {
       // HTML table balancing does not apply to SVG or MathML descendants, even
-      // when a local name happens to be a table part.
-      // An HTML integration point makes ForeignContentContext report HTML
-      // rules and deliberately does not take this path while the output is
-      // at that integration point too.  When the policy dropped the
-      // integration point, the output's current node is foreign: a browser
-      // ignores the part in the input, and an implied HTML table in the
-      // output would break out of the root there, so the part is forwarded
-      // as the foreign element the output parser makes of it (#492).
+      // when a local name happens to be a table part.  What decides is the
+      // output: a part whose output would be foreign is forwarded as the
+      // foreign element the output parser makes of it, whether the input
+      // had it under foreign rules too, or at an integration point the
+      // policy dropped, or under an HTML element inside one, where a browser
+      // ignores the part in the input and an implied HTML table in the output
+      // would break out of the root and turn every SVG or MathML sibling
+      // after it into HTML (#492).  An integration point the output keeps
+      // makes the output rules HTML too, so the part takes the table path.
       if (effectiveNestingDepth() >= nestingLimit) {
         reportDroppedStartTag(canonElementName);
         return;
@@ -1859,24 +1856,31 @@ public class TagBalancingHtmlStreamEventReceiver
     // input parser has none open, but the output parser still does because
     // the policy dropped the breakout, the innermost emitted root stands.
     int root = -1;
+    boolean poppedInnerRoot = false;
+    boolean rootIsOpen = false;
     for (int i = passthroughForeignRoots.size(); --i >= 0;) {
       int candidate = passthroughForeignRoots.get(i);
       if (!passthroughOutputForeign.get(candidate)) { continue; }
       if (root < 0) { root = candidate; }
       if (foreignContent.isNodeOpen(passthroughSerials.get(candidate))) {
         root = candidate;
+        rootIsOpen = true;
         break;
       }
+      poppedInnerRoot = true;
     }
     if (root < 0) { return -1; }
     int rootDepth = passthroughDepths.get(root);
     // Text goes into the root's current node.  An element does when an HTML
-    // entry is open above the root, at an integration point; with none, a
-    // foreign current node took the foreign path in openTag before reaching
-    // here, and a breakout is judged against the HTML below the root it
-    // popped, as a browser inserts it there.
+    // entry is open above the root, at an integration point, or when it
+    // broke out of an inner root only and so landed at the integration
+    // point inside this one.  With neither, a foreign current node took the
+    // foreign path in openTag before reaching here, and a breakout out of
+    // the last root is judged against the HTML below it, as a browser
+    // inserts it there.
     boolean inside = elIndex == HtmlElementTables.TEXT_NODE
-        || openElements.size() > rootDepth;
+        || openElements.size() > rootDepth
+        || (rootIsOpen && poppedInnerRoot);
     return inside ? rootDepth : -1;
   }
 
@@ -2125,7 +2129,7 @@ public class TagBalancingHtmlStreamEventReceiver
     // contains the content: a browser puts content a table cannot hold in
     // front of the table, so what contains the table contains the content,
     // and it is what decides which elements are implied and what must close.
-    if (needsFosterParenting(elIndex)) {
+    if (needsFosterParenting(elIndex, foreignRootBoundary)) {
       int tableIndex = containerIndex();
       pushOutTable(tableIndex);
     }
@@ -2165,7 +2169,8 @@ public class TagBalancingHtmlStreamEventReceiver
             && openElements.get(container) != COLGROUP_TAG
             && retireMappedOutputContainer(COLGROUP_TAG)) {
           container = containerIndex();
-          top = effectiveContainer(elIndex, container);
+          top = container < foreignRootBoundary
+              ? BODY_TAG : effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
           startPos = 0;
           for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
@@ -2182,7 +2187,8 @@ public class TagBalancingHtmlStreamEventReceiver
           mayOpenAtNestingLimit &= prepareForContent(
               SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
           container = containerIndex();
-          top = effectiveContainer(elIndex, container);
+          top = container < foreignRootBoundary
+              ? BODY_TAG : effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
           startPos = 0;
           for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
@@ -2839,8 +2845,12 @@ public class TagBalancingHtmlStreamEventReceiver
   }
 
   /** Whether a browser would foster-parent this token out of an open table. */
-  private boolean needsFosterParenting(int elIndex) {
-    if (!isFosterParented(elIndex) || endsAnOpenLink(elIndex)) { return false; }
+  private boolean needsFosterParenting(int elIndex, int foreignRootBoundary) {
+    if (!isFosterParented(elIndex)
+        || (elIndex == A_TAG
+            && hasOpenLinkInFormattingScope(foreignRootBoundary))) {
+      return false;
+    }
     int tableIndex = containerIndex();
     return tableIndex >= 0
         && TABLE_CONTEXT.get(openElements.get(tableIndex))
@@ -2879,11 +2889,6 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean containerHasSpecialTextMode() {
     int container = containerIndex();
     return container >= 0 && hasSpecialTextMode(openElements.get(container));
-  }
-
-  /** True if a link is open that a browser ends before opening this one. */
-  private boolean endsAnOpenLink(int elIndex) {
-    return elIndex == A_TAG && hasOpenLinkInFormattingScope();
   }
 
   /**
@@ -3475,6 +3480,8 @@ public class TagBalancingHtmlStreamEventReceiver
         elIndex == FORM_TAG && foreignContent.formElementPointerIsSet();
     String foreignRootBefore = foreignContent.outermostForeignElementName();
     String outputForeignRootBefore = outputForeignContentRootName();
+    int forwardedPart = TABLE_PARTS.get(elIndex)
+        ? indexOfPassthroughNamed(canonElementName) : -1;
     if (!pushedOut.isEmpty()
         && foreignContent.isInForeignContent()
         && !foreignContent.hasForeignElementNamed(canonElementName)
@@ -3484,6 +3491,17 @@ public class TagBalancingHtmlStreamEventReceiver
       // that boundary, so the end tag is ignored.  Keeping the known foreign
       // current node prevents later foreign names from being balanced as
       // HTML or spuriously returning to the table.
+      foreignContent.ignoreEndTagUnderHtmlRules();
+    } else if (forwardedPart >= 0
+        && passthroughSerials.get(forwardedPart) == 0
+        && foreignContent.isInForeignContent()) {
+      // A table part forwarded as the foreign element its output is, while
+      // the input parser ignored its start at an integration point, has no
+      // node in the input parser.  Its end tag is a stray table-scoped end
+      // tag there, which a browser ignores without leaving the foreign
+      // context, so the tracker is told so instead of giving up on the
+      // context; giving up put the list item back inside the root for the
+      // next foreign sibling (#492).
       foreignContent.ignoreEndTagUnderHtmlRules();
     } else {
       foreignContent.processEndTag(canonElementName);

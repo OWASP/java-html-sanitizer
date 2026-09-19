@@ -5498,6 +5498,7 @@ class HtmlSanitizerTest {
     };
     for (String[] c : hostile) {
       assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert(1)>"), c[0]);
     }
     // A breakout inside the root is the list's content again: a browser pops
     // the root at the img, and the text after it gets the list's item as
@@ -5627,6 +5628,36 @@ class HtmlSanitizerTest {
     assertEquals(
         parseAsBrowser("<ul><svg><foreignObject><p>a<svg><div>b"),
         parseAsBrowser(p.sanitize("<ul><svg><foreignObject><p>a<svg><div>b")));
+    // A breakout directly in a nested root inside an integration point lands
+    // at the integration point, inside the outer root, with no item from
+    // the list below.
+    String[] nested = {
+        "<ul><svg><foreignObject><svg><div>b</div></svg></foreignObject>"
+        + "</svg></ul>",
+        "<ul><svg><foreignObject><b>x</b><svg><div>y</div></svg>"
+        + "</foreignObject></svg></ul>",
+    };
+    for (String c : nested) {
+      assertRoundTripAndBalanced(p, c, c);
+      assertEquals(parseAsBrowser(c), parseAsBrowser(p.sanitize(c)), c);
+    }
+    // An option that is a foreign element gets no select: an SVG option is
+    // not an HTML option.  One inside HTML at an integration point does,
+    // and the list below the root implies nothing for it.
+    String[][] options = {
+        { "<svg><option>x</option></svg>", "<svg><option>x</option></svg>" },
+        { "<ul><svg><option>x</option></svg></ul>",
+          "<ul><svg><option>x</option></svg></ul>" },
+        { "<ul><svg><foreignObject><b><option>x",
+          "<ul><svg><foreignObject><b><select><option>x</option></select></b>"
+          + "</foreignObject></svg></ul>" },
+    };
+    for (String[] c : options) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    assertEquals(
+        parseAsBrowser("<svg><option>x</option></svg>"),
+        parseAsBrowser(p.sanitize("<svg><option>x</option></svg>")));
   }
 
   /**
@@ -5664,6 +5695,39 @@ class HtmlSanitizerTest {
       // The siblings keep their namespace: the output parses as the output
       // with the dropped integration point's element written as foreign.
       assertEquals(parseAsBrowser(c[1]), parseAsBrowser(p.sanitize(c[0])));
+    }
+    // The part's stray end tag does not lose the input parser its context,
+    // so a foreign sibling under a list still gets no list item; an HTML
+    // element between the dropped integration point and the part changes
+    // nothing, since the output decides; and a hostile sibling stays text.
+    String[] names2 = {
+        "ul", "li", "svg", "tbody", "tr", "td", "a", "textarea", "section",
+        "label" };
+    PolicyFactory q = new HtmlPolicyBuilder()
+        .allowElements(names2).allowWithoutAttributes(names2).toFactory();
+    String[][] siblings = {
+        { "<ul><svg><foreignObject><tbody>x</tbody></foreignObject><a>y</a>"
+          + "</svg></ul>",
+          "<ul><svg><tbody>x</tbody><a>y</a></svg></ul>" },
+        { "<ul><svg><foreignObject><tr><td>x</td></tr></foreignObject>"
+          + "<textarea>&lt;b&gt;z&lt;/b&gt;</textarea></svg></ul>",
+          "<ul><svg><tr><td>x</td></tr><textarea>&lt;b&gt;z&lt;/b&gt;"
+          + "</textarea></svg></ul>" },
+        { "<svg><foreignObject><section><tbody>x</tbody></section>"
+          + "</foreignObject><a>y</a></svg>",
+          "<svg><section><tbody>x</tbody></section><a>y</a></svg>" },
+        { "<svg><foreignObject><label><tr><td>x</td></tr></label>"
+          + "</foreignObject><a>y</a></svg>",
+          "<svg><label><tr><td>x</td></tr></label><a>y</a></svg>" },
+        { "<ul><svg><foreignObject><tbody></tbody></foreignObject>"
+          + "<textarea>&lt;img src=x onerror=alert(1)&gt;</textarea></svg></ul>",
+          "<ul><svg><tbody></tbody><textarea>&lt;img src&#61;x onerror&#61;"
+          + "alert(1)&gt;</textarea></svg></ul>" },
+    };
+    for (String[] c : siblings) {
+      assertRoundTripAndBalanced(q, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[1]), parseAsBrowser(q.sanitize(c[0])));
+      assertFalse(q.sanitize(c[0]).contains("<img"), c[0]);
     }
   }
 
