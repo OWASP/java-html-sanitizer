@@ -293,6 +293,18 @@ public final class HtmlChangeReporter<T> {
           && ((FormPointerPolicy) policy).formStartTagUsesTableRules();
     }
 
+    public void holdRetiredFormGate(String elementName, List<String> attrs) {
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).holdRetiredFormGate(elementName, attrs);
+      }
+    }
+
+    public void releaseRetiredFormGate() {
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).releaseRetiredFormGate();
+      }
+    }
+
     public boolean outputFormElementPointerIsSet() {
       return policy instanceof FormPointerPolicy
           && ((FormPointerPolicy) policy).outputFormElementPointerIsSet();
@@ -419,17 +431,6 @@ public final class HtmlChangeReporter<T> {
     public void openTagWithoutOutputOrContent(
         String elementName, List<String> attrs) {
       openTag(elementName, attrs, OpenTagMode.SUPPRESS_SUBTREE);
-    }
-
-    public void holdTextGate(String elementName, List<String> attrs) {
-      // The element was emitted and reported when it was opened; only its
-      // text gate is held again, so there is nothing to report.
-      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
-      if (tablePolicy == null
-          || !tablePolicy.supportsPushedOutTableOperations()) {
-        throw new IllegalStateException("Policy cannot hold a text gate");
-      }
-      tablePolicy.holdTextGate(elementName, attrs);
     }
 
     public void openTagWithSuppressedContent(

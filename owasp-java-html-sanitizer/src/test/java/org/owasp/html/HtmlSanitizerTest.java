@@ -5490,6 +5490,9 @@ class HtmlSanitizerTest {
           "<table><tbody><form></form></tbody></table>C" },
         // An element the policy drops between changes nothing.
         { "<tbody><form><p>B", "<table><tbody><form></form></tbody></table>" },
+        // The table part's end tag is ignored by a browser reading the
+        // input, which has no table, so the form is still open after it.
+        { "<tbody><form>B</tbody>C", "<table><tbody><form></form></tbody></table>" },
         // A table the input has: a browser puts the text in front of the
         // table, outside the form, and so does the output.
         { "<table><form>B", "<table><form></form></table>B" },
