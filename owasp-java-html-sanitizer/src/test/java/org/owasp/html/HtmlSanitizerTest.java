@@ -2776,13 +2776,10 @@ class HtmlSanitizerTest {
     for (String[] c : tableOnlyCases) {
       assertRoundTripAndBalanced(tableOnly, c[0], c[1]);
     }
-    // The caption's table is implied inside the list's item, as under any
-    // container that is not a table (#492, item 9); the text still lands
-    // beside the table.
     PolicyFactory tableAndList = new HtmlPolicyBuilder()
         .allowElements("table", "ul", "li").toFactory();
     assertRoundTripAndBalanced(
-        tableAndList, "<ul><caption>E", "<ul><li><table></table>E</li></ul>");
+        tableAndList, "<ul><caption>E", "<ul><li></li></ul><table></table>E");
   }
 
   /**
@@ -3559,9 +3556,7 @@ class HtmlSanitizerTest {
 
     // The same shape recursed with the table mapped to a list.  A list can
     // hold a form only through an item on the next pass, so that pass is
-    // checked for balance rather than for exact idempotence.  The col's own
-    // table is implied under the list and suppressed like the rest; it used
-    // to get the list's item instead, an empty li (#492, item 9).
+    // checked for balance rather than for exact idempotence.
     for (String list : new String[] { "ul", "ol" }) {
       PolicyFactory q = new HtmlPolicyBuilder()
           .allowElements((name, attrs) -> list, "table")
@@ -3571,7 +3566,7 @@ class HtmlSanitizerTest {
       String out = q.sanitize(input);
       assertEquals(
           "<" + list + "><form><noscript></noscript></form><form></form>"
-          + "</" + list + ">",
+          + "<li></li></" + list + ">",
           out, list);
       assertBalancedPolicyEvents(q, input);
       assertBalancedPolicyEvents(q, out);
@@ -5404,15 +5399,17 @@ class HtmlSanitizerTest {
   }
 
   /**
-   * Item 9 of #492.  The containment metadata's free wrappers, the select
-   * around an option or optgroup, the list around a list item and the table
-   * structure around a cell, apply under any container that is not one of
-   * the few that hold the element directly.  Those few were kept as a bit
-   * set only as long as its highest member, and an ancestor past its end
-   * was read as one of them, so an option under a span, a th or a ul, and
-   * a list item under a var, got no wrapper.  Under a ul the list's own item
-   * was implied instead, and the next pass, seeing the option in that item,
-   * added the select: not a fixed point.
+   * Item 9 of #492.  The containment metadata's select around a free option
+   * or optgroup, and its list around a free list item, apply under any
+   * container that is not one of the few that hold the element directly.
+   * Those few were kept as a bit set only as long as its highest member,
+   * and an ancestor past its end was read as one of them, so an option
+   * under a span, a th or a ul, and a list item under a var, got no wrapper.
+   * Under a ul the list's own item was implied instead, and the next pass,
+   * seeing the option in that item, added the select: not a fixed point.
+   * The table parts' wrappers keep the old reading, since the balancer
+   * returns a part to a table in scope first and its handling of parts in
+   * dropped tables was built on it.
    */
   @Test
   void testFreeWrappersApplyUnderEveryOtherContainer() throws Exception {
@@ -5436,8 +5433,6 @@ class HtmlSanitizerTest {
         { "<table><td>x<option>y",
           "<table><tbody><tr><td>x<select><option>y</option></select></td>"
           + "</tr></tbody></table>" },
-        { "<ul><td>x",
-          "<ul><li><table><tbody><tr><td>x</td></tr></tbody></table></li></ul>" },
         { "<ul><li>x</li><option>y",
           "<ul><li>x</li><li><select><option>y</option></select></li></ul>" },
         // Containers before it, and the containers that hold the element
@@ -5495,6 +5490,64 @@ class HtmlSanitizerTest {
       assertRoundTripAndBalanced(p, c[0], c[1]);
       assertFalse(c[1].contains("alert"), c[1]);
     }
+  }
+
+  /**
+   * Item 2 of #492.  A template holds a caption or column group directly,
+   * so the containment metadata implies no table for one there.  A template
+   * the policy dropped establishes no template in the output, though: the
+   * caption landed where the template was, as an orphan that a browser
+   * drops, and the next pass gave it its table.  Parts under a dropped
+   * template are now judged where the template was.  The prepackaged
+   * policies drop the template and, being allowed no `table` they did not
+   * emit before, the output narrows to what the second pass already gave.
+   */
+  @Test
+  void testTablePartUnderDroppedTemplateGetsItsTable() throws Exception {
+    String[][] tables = {
+        { "<template><ul><math><caption>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        { "<template><ul><svg><caption>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        { "<template><ul><math><colgroup>TEXT",
+          "<table><colgroup></colgroup></table>TEXT" },
+        { "<template><caption>TEXT", "<table><caption>TEXT</caption></table>" },
+        { "<template><caption>TEXT</caption></template>after",
+          "<table><caption>TEXT</caption></table>after" },
+        { "<div><template><caption>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        // A cell already got its table there.
+        { "<template><ul><math><td>TEXT",
+          "<table><tbody><tr><td>TEXT</td></tr></tbody></table>" },
+        // Hostile content in the caption's place is still removed.
+        { "<template><caption><script>alert(1)</script>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        { "<template><ul><math><caption onclick=alert(1)>TEXT"
+          + "<img src=x onerror=alert(1)>",
+          "<table><caption>TEXT</caption></table>" },
+    };
+    for (String[] c : tables) {
+      assertRoundTripAndBalanced(Sanitizers.TABLES, c[0], c[1]);
+      assertFalse(c[1].contains("alert"), c[1]);
+    }
+    // With the list kept, the caption's table stands beside the list, as it
+    // does for <ul><caption> without the template.
+    assertRoundTripAndBalanced(
+        Sanitizers.BLOCKS.and(Sanitizers.TABLES),
+        "<template><ul><math><caption>TEXT",
+        "<ul><li></li></ul><table><caption>TEXT</caption></table>");
+    // A template the policy keeps still holds the caption directly, as a
+    // browser does.
+    PolicyFactory withTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "caption", "colgroup", "template")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        withTemplate, "<template><caption>TEXT</caption></template>",
+        "<template><caption>TEXT</caption></template>");
+    assertEquals(
+        parseAsBrowser("<template><caption>TEXT</caption></template>"),
+        parseAsBrowser(
+            withTemplate.sanitize("<template><caption>TEXT</caption></template>")));
   }
 
   /**

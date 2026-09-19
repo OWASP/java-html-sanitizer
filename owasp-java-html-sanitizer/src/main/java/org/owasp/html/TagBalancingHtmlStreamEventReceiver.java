@@ -2939,6 +2939,21 @@ public class TagBalancingHtmlStreamEventReceiver
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
     }
+    if (child >= 0
+        && TABLE_PARTS.get(child)
+        && containerIndexOnStack >= 0
+        && containerIndexOnStack < openElements.size()
+        && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
+        && outputElements.get(containerIndexOnStack) == NO_OUTPUT_ELEMENT
+        && sentToUnderlying.get(containerIndexOnStack)) {
+      // A template holds a caption or column group directly, but one the
+      // policy dropped establishes no template in the output: its parts land
+      // where the template was and are judged there, so a caption gets the
+      // table that a caption in that place gets, instead of coming out as
+      // an orphan the output parser drops (#492).
+      return containerIndexOnStack > 0
+          ? effectiveContainer(child, containerIndexOnStack - 1) : BODY_TAG;
+    }
     boolean wrapperSensitiveChild = child >= 0
         && (TABLE_PARTS.get(child) || child == OPTION_TAG);
     if (wrapperSensitiveChild

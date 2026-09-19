@@ -3,13 +3,17 @@
 Most recent at top.
   * Next release
     * An `option` or `optgroup` under any element but a `select`, `optgroup`
-      or `option` now gets its `select`, a list item under any element but a
-      list its list, and a table cell its table structure, whatever the
-      container's name.  The containment metadata read a container whose
-      index lay past the end of the wrapper's set of allowed containers, such
-      as `span`, `td`, `th` or `ul` for an option, as one of them, so an
-      option in a dropped table cell came out bare and the next pass wrapped
-      it (#492, item 9).
+      or `option` now gets its `select`, and a list item under any element
+      but a list its list, whatever the container's name.  The containment
+      metadata read a container whose index lay past the end of the wrapper's
+      set of allowed containers, such as `span`, `td`, `th` or `ul` for an
+      option and `var` for a list item, as one of them, so an option in a
+      dropped table cell came out bare and the next pass wrapped it (#492,
+      item 9).  A caption or column group under a `template` the policy
+      dropped is judged where the template was and gets its table there,
+      instead of coming out as an orphan part that a browser drops and the
+      next pass wraps; `Sanitizers.TABLES` now emits on the first pass what
+      it emitted on the second (#492, item 2).
     * Content a `select` cannot hold, such as bare text or an SVG or MathML
       root with text inside it, no longer grows a list level on every
       sanitization.  The tag balancer's containment metadata answers such

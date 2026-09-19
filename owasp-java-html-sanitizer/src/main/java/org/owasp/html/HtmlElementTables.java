@@ -141,31 +141,32 @@ public final class HtmlElementTables {
             new int[] { SELECT_TAG }),
         new FreeWrapper(
             TD_TAG, new int[] { TR_TAG, TD_TAG, TH_TAG },
-            new int[] { TABLE_TAG, TBODY_TAG, TR_TAG }),
+            new int[] { TABLE_TAG, TBODY_TAG, TR_TAG }, true),
         new FreeWrapper(
             TH_TAG, new int[] { TR_TAG, TD_TAG, TH_TAG },
-            new int[] { TABLE_TAG, TBODY_TAG, TR_TAG }),
+            new int[] { TABLE_TAG, TBODY_TAG, TR_TAG }, true),
         new FreeWrapper(
             TR_TAG, new int[] { TBODY_TAG, THEAD_TAG, TFOOT_TAG, TR_TAG, TD_TAG, TH_TAG },
-            new int[] { TABLE_TAG, TBODY_TAG }),
+            new int[] { TABLE_TAG, TBODY_TAG }, true),
         new FreeWrapper(
             TBODY_TAG, new int[] { TABLE_TAG, THEAD_TAG, TBODY_TAG, TFOOT_TAG },
-            new int[] { TABLE_TAG }),
+            new int[] { TABLE_TAG }, true),
         new FreeWrapper(
             THEAD_TAG, new int[] { TABLE_TAG, THEAD_TAG, TBODY_TAG, TFOOT_TAG },
-            new int[] { TABLE_TAG }),
+            new int[] { TABLE_TAG }, true),
         new FreeWrapper(
             TFOOT_TAG, new int[] { TABLE_TAG, THEAD_TAG, TBODY_TAG, TFOOT_TAG },
-            new int[] { TABLE_TAG }),
+            new int[] { TABLE_TAG }, true),
         new FreeWrapper(
             CAPTION_TAG,
             new int[] { TABLE_TAG },
-            new int[] { TABLE_TAG }),
+            new int[] { TABLE_TAG }, true),
         new FreeWrapper(
             COL_TAG, new int[] { COLGROUP_TAG },
-            new int[] { TABLE_TAG, COLGROUP_TAG }),
+            new int[] { TABLE_TAG, COLGROUP_TAG }, true),
         new FreeWrapper(
-            COLGROUP_TAG, new int[] { TABLE_TAG }, new int[] { TABLE_TAG })
+            COLGROUP_TAG, new int[] { TABLE_TAG }, new int[] { TABLE_TAG },
+            true)
         );
     int maxDescIdx = -1;
     for (FreeWrapper freeWrapper : freeWrappers) {
@@ -301,9 +302,17 @@ public final class HtmlElementTables {
     final int desc;
     final boolean[] allowedContainers;
     final int[] implied;
+    /** Whether the wrapped element is a table part. */
+    final boolean tablePart;
 
     FreeWrapper(int desc, int[] allowedContainers, int[] implied) {
+      this(desc, allowedContainers, implied, false);
+    }
+
+    FreeWrapper(
+        int desc, int[] allowedContainers, int[] implied, boolean tablePart) {
       this.desc = desc;
+      this.tablePart = tablePart;
       int maxAllowedContainer = -1;
       for (int allowedContainer : allowedContainers) {
         maxAllowedContainer = Math.max(maxAllowedContainer, allowedContainer);
@@ -342,11 +351,18 @@ public final class HtmlElementTables {
         ? FREE_WRAPPERS[desc] : null;
     if (wrapper != null) {
       // The allowed containers are a bit set only as long as its highest
-      // member; an ancestor past its end is not among them.  Reading it as
-      // allowed left an option under a span, or a list item under a var,
-      // without its select or list (#492).
-      if (anc >= wrapper.allowedContainers.length
-          || !wrapper.allowedContainers[anc]) {
+      // member.  For the select and list wrappers an ancestor past its end
+      // is not among them: reading it as one left an option under a span,
+      // a th or a ul, and a list item under a var, without its select or
+      // list, and under a list the list's own item was implied instead,
+      // which the next pass then wrapped (#492).  For a table part the
+      // balancer returns to a table in scope before consulting this, and
+      // its handling of parts in dropped tables was built on the old
+      // reading, so an ancestor past the end still counts as allowed there.
+      boolean allowedContainer = anc < wrapper.allowedContainers.length
+          ? wrapper.allowedContainers[anc]
+          : wrapper.tablePart;
+      if (!allowedContainer) {
         return wrapper.implied;
       }
     }
