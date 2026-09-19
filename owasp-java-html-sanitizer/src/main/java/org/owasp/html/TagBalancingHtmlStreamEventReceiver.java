@@ -2229,9 +2229,15 @@ public class TagBalancingHtmlStreamEventReceiver
       // next begins, and nested links do not survive a browser's parse, so
       // the output would not read back as written.
       nOpen = openElements.size();
+      // The resumed element has to hold the content directly.  One that
+      // would need a wrapper implied inside it, such as the list around a
+      // list item, stays queued for the content inside the tag, where a
+      // browser reconstructs it.  Resuming it here put it inside the wrapper
+      // already implied for the tag and then implied that wrapper again.
       if ((nOpen == 0
           || canContain(toResume, openElements.get(nOpen - 1), nOpen))
           && canContain(elIndex, toResume, nOpen)
+          && canHold(elIndex, toResume, nOpen)
           && !(toResume == A_TAG
                && (elIndex == A_TAG || hasOpenLinkInFormattingScope()))) {
         toResumeInReverse.removeLast();

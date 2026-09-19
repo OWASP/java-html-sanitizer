@@ -5318,4 +5318,69 @@ class HtmlSanitizerTest {
     assertRoundTripAndBalanced(tables, input, out);
     assertEquals(parseAsBrowser(input), parseAsBrowser(out), input);
   }
+
+  /**
+   * Formatting closed by a foreign or unrecognized end tag resumes around
+   * later content, as a browser reconstructs it.  It was resumed for a tag
+   * the resumed element cannot hold directly: for a list item the element
+   * went inside the list implied for the item and a second list was implied
+   * inside it, so {@code <math><b>x</math><li>y</li>} became
+   * {@code <b>x</b><ul><b><ul><li>y</li></ul></b></ul>} under
+   * {@code Sanitizers.BLOCKS} and grew another item on the next pass.  An
+   * element that would need a wrapper implied inside it now stays queued for
+   * the content inside the tag, where a browser reconstructs it.
+   */
+  @Test
+  void testFormattingIsNotResumedAroundAWrapperImpliedForTheNextTag()
+      throws Exception {
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    String[][] published = {
+        { "<math><b>x</math><li>y</li>", "<b>x</b><ul><li><b>y</b></li></ul>" },
+        { "<math><b>x</math><li>y</li><li>z</li>",
+          "<b>x</b><ul><li><b>y</b></li><li><b>z</b></li></ul>" },
+        { "<math><i><b>x</math><li>y",
+          "<i><b>x</b></i><ul><li><i><b>y</b></i></li></ul>" },
+        { "<math><b onclick=alert(1)>x</math><li onclick=alert(1)>y",
+          "<b>x</b><ul><li><b>y</b></li></ul>" },
+        // The same rule for a list item that closes the item before it,
+        // which was not a fixed point before either.
+        { "<ol><li><b>x</li><li>y</li></ol>",
+          "<ol><li><b>x</b></li><li><b>y</b></li></ol>" },
+    };
+    for (String[] c : published) {
+      assertRoundTripAndBalanced(blocks, c[0], c[1]);
+    }
+    assertEquals(
+        parseAsBrowser("<ol><li><b>x</li><li>y</li></ol>"),
+        parseAsBrowser(blocks.sanitize("<ol><li><b>x</li><li>y</li></ol>")));
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "math", "foo", "b", "i", "ul", "li", "dt", "p",
+            "select", "option", "hr", "table", "tbody", "tr", "td")
+        .toFactory();
+    String[][] cases = {
+        { "<svg><b></svg><li>x", "<svg><b></b></svg><ul><li><b>x</b></li></ul>" },
+        { "<foo><b>x</foo><li>y", "<foo><b>x</b></foo><ul><li><b>y</b></li></ul>" },
+        { "<ul><li><b>x</li><li>y", "<ul><li><b>x</b></li><li><b>y</b></li></ul>" },
+        { "<foo><b>x</foo><option>y",
+          "<foo><b>x</b></foo><select><option><b>y</b></option></select>" },
+        { "<foo><b>x</foo><td>y",
+          "<foo><b>x</b></foo>"
+          + "<table><tbody><tr><td><b>y</b></td></tr></tbody></table>" },
+        // An element that holds the tag directly still resumes around it.
+        { "<foo><b>x</foo><p>y</p>z", "<foo><b>x</b></foo><b><p>y</p>z</b>" },
+        { "<foo><b>x</foo><dt>y", "<foo><b>x</b></foo><b><dt>y</dt></b>" },
+        { "<foo><b><i>x</foo>y<hr>z",
+          "<foo><b><i>x</i></b></foo><b><i>y<hr />z</i></b>" },
+        // Nothing to resume once the formatting element closed itself.
+        { "<b><foo>x</foo></b><li>y", "<b><foo>x</foo></b><ul><li>y</li></ul>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    for (String input : new String[] {
+        "<ul><li><b>x</li><li>y", "<foo><b><i>x</foo>y<hr>z" }) {
+      assertEquals(parseAsBrowser(input), parseAsBrowser(p.sanitize(input)));
+    }
+  }
 }
