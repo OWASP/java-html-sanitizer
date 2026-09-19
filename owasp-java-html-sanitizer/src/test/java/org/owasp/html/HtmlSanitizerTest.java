@@ -5509,6 +5509,14 @@ class HtmlSanitizerTest {
           "<table><tbody><tr><form></form></tr></tbody></table>" },
         { "<colgroup><form>B", "<table><form></form></table>" },
         { "<p><tbody><form>B", "<table><tbody><form></form></tbody></table>" },
+        // Parts the policy drops between the implied table and the form
+        // retire the table's output before the form; the gate is held
+        // before that, so these are the same.
+        { "<thead><form>B", "<table><form></form></table>" },
+        { "<tfoot><form>B", "<table><form></form></table>" },
+        { "<caption><form>B", "<table><form></form></table>" },
+        { "<th><form>B", "<table><tbody><tr><form></form></tr></tbody></table>" },
+        { "<thead><form>B</form>C", "<table><form></form></table>C" },
         // The end tag ends the form: text after it is not the form's.
         { "<tbody><form>B</form>C",
           "<table><tbody><form></form></tbody></table>C" },
@@ -5557,6 +5565,48 @@ class HtmlSanitizerTest {
     assertRoundTripAndBalanced(
         noFormTextWithB, "<tbody><form><b>B</b>C",
         "<table><tbody><form></form></tbody></table><b>B</b>");
+    // The end tag releases the gate whatever opened since: the text after
+    // it is not the form's, nor is the text after an element it closed.
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form>B<b>x</b></form>C",
+        "<table><tbody><form></form></tbody></table><b>x</b>C");
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form>B<b>x</b></form>C<b>D</b>E",
+        "<table><tbody><form></form></tbody></table><b>x</b>C<b>D</b>E");
+    assertRoundTripAndBalanced(
+        noFormTextWithB, "<tbody><form>B<b>x</form>y</b>C",
+        "<table><tbody><form></form></tbody></table><b>xy</b>C");
+    // A form the policy drops holds no text either, as elsewhere.
+    String[] noForm = { "table", "tbody", "tr", "td", "div", "b" };
+    PolicyFactory droppedForm = new HtmlPolicyBuilder()
+        .allowElements(noForm).allowWithoutAttributes(noForm)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        droppedForm, "<tbody><form>B", "<table><tbody></tbody></table>");
+    assertRoundTripAndBalanced(
+        droppedForm, "<tbody><form>B</form>C",
+        "<table><tbody></tbody></table>C");
+    assertRoundTripAndBalanced(droppedForm, "<div><form>B</form>C", "<div>C</div>");
+    // In template contents a browser ignores the form start, so the text
+    // is the template's and no gate is held.
+    String[] withTemplate = { "table", "tbody", "tr", "td", "form", "template" };
+    PolicyFactory templateKept = new HtmlPolicyBuilder()
+        .allowElements(withTemplate).allowWithoutAttributes(withTemplate)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        templateKept, "<template><tbody><form>B</template>C",
+        "<template><table><tbody><form></form></tbody></table>B</template>C");
+    // A form end tag inside foreign content reaches the form too.
+    String[] withSvg = { "table", "tbody", "tr", "td", "form", "svg" };
+    PolicyFactory svgKept = new HtmlPolicyBuilder()
+        .allowElements(withSvg).allowWithoutAttributes(withSvg)
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        svgKept, "<tbody><form>B<svg></form></svg>D",
+        "<table><tbody><form></form></tbody></table><svg></svg>D");
+    assertRoundTripAndBalanced(
+        svgKept, "<tbody><form>B<svg>x</svg>C",
+        "<table><tbody><form></form></tbody></table><svg>x</svg>");
     // The change listener sees no discarded tag for the text.
     final List<String> discarded = new ArrayList<String>();
     noFormText.sanitize(

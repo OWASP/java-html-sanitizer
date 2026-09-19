@@ -354,17 +354,21 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private boolean retiredFormGateActive;
   /** The depth of the implied table's entry; below it the gate ends. */
   private int retiredFormGateFloor;
-  /** The stack depth when the gate was held; text at or above it is the form's. */
+  /**
+   * The stack depth when the gate was held, lowered as the stack shrinks;
+   * text at or above it is the form's.
+   */
   private int retiredFormGateHoldDepth;
-  /** {@link #skipText} before the gate was held, restored on release. */
-  private boolean skipTextBeforeRetiredFormGate;
 
-  public void holdRetiredFormGate(String elementName, List<String> attrs) {
+  public void holdRetiredFormGate(String elementName) {
     boolean formHoldsNoText = disallowedTextContainers.contains(elementName)
         || !allowedTextContainers.contains(elementName);
     if (!formHoldsNoText || suppressOutputAndContent) { return; }
+    // The implied table is the innermost emitted table; only the indexed
+    // table-scope entries need looking at, as in formStartTagUsesTableRules.
     int tableDepth = -1;
-    for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int i = tableScopeOutputEntries.get(k);
       if ("table".equals(openElementStack.get(i))
           && !outputElementInForeignContent.get(i / 2)) {
         tableDepth = i / 2;
@@ -375,21 +379,26 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     retiredFormGateActive = true;
     retiredFormGateFloor = tableDepth;
     retiredFormGateHoldDepth = openElementStack.size() / 2;
-    skipTextBeforeRetiredFormGate = skipText;
-    skipText = true;
   }
 
   public void releaseRetiredFormGate() {
-    if (!retiredFormGateActive) { return; }
     retiredFormGateActive = false;
+  }
+
+  /**
+   * Ends the retired form's gate once the stack is below the implied
+   * table's level, where the table's container closed, and otherwise
+   * lowers the held depth to the stack's, as when the balancer pushes the
+   * table out: what opens above that depth is not the form's, but text
+   * directly at it still is.
+   */
+  private void followStackForRetiredFormGate() {
+    if (!retiredFormGateActive) { return; }
     int depth = openElementStack.size() / 2;
-    if (depth == retiredFormGateHoldDepth) {
-      skipText = skipTextBeforeRetiredFormGate;
-    } else if (depth > retiredFormGateHoldDepth) {
-      // Elements opened since saved the held gate as the value to restore;
-      // the first of them restores what was in force before the form.
-      skipTextBeforeOpen.set(
-          retiredFormGateHoldDepth, skipTextBeforeRetiredFormGate);
+    if (depth < retiredFormGateFloor) {
+      retiredFormGateActive = false;
+    } else if (depth < retiredFormGateHoldDepth) {
+      retiredFormGateHoldDepth = depth;
     }
   }
 
@@ -397,18 +406,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * True if this text is the retired form's, and the form's gate is closed:
    * text at or above the level the gate was held at, down to the implied
    * table's own level, where the balancer writes what it foster-parents out
-   * of that table.  Text inside an element opened since is that element's.
+   * of that table.  Text inside an element opened since is that element's;
+   * elements the policy dropped write no tag, so text in them lands in the
+   * nearest emitted element and is judged by its gate, here the form's, as
+   * for any dropped element.
    */
   private boolean retiredFormGateSkipsText() {
+    followStackForRetiredFormGate();
     if (!retiredFormGateActive) { return false; }
     int depth = openElementStack.size() / 2;
-    if (depth < retiredFormGateFloor) {
-      retiredFormGateActive = false;
-      return false;
-    }
-    // Elements the policy dropped write no tag, so text in them lands in
-    // the nearest emitted element and is judged by its gate, as for any
-    // dropped element: here that is the form's.
     for (int i = retiredFormGateHoldDepth; i < depth; ++i) {
       if (openElementStack.get(i * 2 + 1) != null) { return false; }
     }
@@ -1729,16 +1735,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    */
   private void push(String elementName, @Nullable String adjustedElementName) {
     int depth = openElementStack.size() / 2;
-    if (retiredFormGateActive) {
-      // The stack may have shrunk since the gate was held, as it does when
-      // the balancer pushes the implied table out: what opens now is not
-      // the form's, but text directly under it at this depth still is.
-      if (depth < retiredFormGateFloor) {
-        retiredFormGateActive = false;
-      } else if (depth < retiredFormGateHoldDepth) {
-        retiredFormGateHoldDepth = depth;
-      }
-    }
+    followStackForRetiredFormGate();
     skipTextBeforeOpen.set(depth, skipText);
     inKeptLiteralBeforeOpen.set(depth, inKeptLiteralElement);
     suppressOutputAndContentBeforeOpen.set(

@@ -419,7 +419,7 @@ public class TagBalancingHtmlStreamEventReceiver
      * {@link #releaseRetiredFormGate} or the table's container closes.
      * Nothing changes for a form the policy allows text in (#492).
      */
-    default void holdRetiredFormGate(String elementName, List<String> attrs) {}
+    default void holdRetiredFormGate(String elementName) {}
 
     /** Ends the gate held by {@link #holdRetiredFormGate} at the form's end tag. */
     default void releaseRetiredFormGate() {}
@@ -1197,20 +1197,26 @@ public class TagBalancingHtmlStreamEventReceiver
         // balanced empty element downstream, but leave the input form pointer
         // set until an actual </form> arrives.
         underlying.closeTag(canonElementName);
-        retireOutputTableForForm(formTableContext);
-        if (usesForeignContentRules) {
-          stackForeignFormWithoutOutput(startSerial);
-        } else if (formTableContext >= 0
+        if (!usesForeignContentRules
+            && formTableContext >= 0
             && impliedInputTables.get(formTableContext)
             && !outputElementIsForeign
-            && outputElementIndex != NO_OUTPUT_ELEMENT
+            && !hasOpenTemplateElement()
             && formPolicy != null) {
           // The table is this receiver's own, implied for a table part the
           // input wrote without one.  A browser reading the input has no
           // table: the form stays open and the text after its start is the
           // form's, which the policy's gate for the form has to judge
-          // although the output form is closed (#492, item 3).
-          formPolicy.holdRetiredFormGate(canonElementName, attrs);
+          // although the output form is closed, whether the policy kept
+          // or dropped the form.  Held before the table is retired below,
+          // while the policy still has the table to measure by.  Not in
+          // template contents, where a browser ignores the form start
+          // (#492, item 3).
+          formPolicy.holdRetiredFormGate(canonElementName);
+        }
+        retireOutputTableForForm(formTableContext);
+        if (usesForeignContentRules) {
+          stackForeignFormWithoutOutput(startSerial);
         }
       } else if (!HtmlTextEscapingMode.isVoidElement(canonElementName)) {
         int stackIndex = openElements.size();
@@ -3580,6 +3586,13 @@ public class TagBalancingHtmlStreamEventReceiver
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
+    if (elIndex == FORM_TAG && underlying instanceof FormPointerPolicy) {
+      // A form's end tag ends the gate the policy may hold for a form the
+      // in-table rule popped, whichever path closes it below: under HTML
+      // rules a browser closes the open form, and under foreign rules the
+      // foreign end-tag algorithm reaches it too (#492, item 3).
+      ((FormPointerPolicy) underlying).releaseRetiredFormGate();
+    }
     boolean parsingTemplateContents =
         elIndex == FORM_TAG && hasOpenTemplateElement();
     boolean formElementPointerWasSet =
@@ -3797,13 +3810,6 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     if (index < 0) {
-      if (formEndUsesPointer
-          && formElementPointerWasSet
-          && underlying instanceof FormPointerPolicy) {
-        // The end tag of a form the in-table rule popped ends the gate the
-        // policy may still hold for it (#492, item 3).
-        ((FormPointerPolicy) underlying).releaseRetiredFormGate();
-      }
       if (formEndUsesPointer && pointerTarget >= 0) {
         formPointerTargets.clear(pointerTarget);
         boolean outputFormOwnsPointer = sentToUnderlying.get(pointerTarget)
