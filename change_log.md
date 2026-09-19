@@ -2,6 +2,9 @@
 
 Most recent at top.
   * Next release
+    * Text following bare table parts from a dropped or renamed table now
+      keeps a stable serialized position across sanitization passes while
+      respecting the inherited text-policy gate.
     * Text-policy gates now follow the browser's output context when table
       parts are serialized without a physical table and when an `input`,
       `keygen`, `textarea` or nested `select` exits an HTML `select`.  Text
