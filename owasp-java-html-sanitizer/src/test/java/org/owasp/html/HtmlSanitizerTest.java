@@ -5885,28 +5885,105 @@ class HtmlSanitizerTest {
         .allowTextIn("style", "textarea").toFactory();
     String[][] rawText = {
         { "<span><li><em>x<li><textarea>tail",
-          "<span><ul><li><em>x</em></li><li><em><textarea>tail</textarea>"
-          + "</em></li></ul></span>" },
+          "<span><ul><li><em>x</em></li><li><textarea>tail</textarea></li>"
+          + "</ul></span>" },
         { "<span><li><em>x<li><style>tail",
-          "<span><ul><li><em>x</em></li><li><em><style>tail</style></em>"
-          + "</li></ul></span>" },
+          "<span><ul><li><em>x</em></li><li><style>tail</style></li></ul>"
+          + "</span>" },
+        // and again for the text that follows it, as a browser does.
         { "<span><li><em>x<li><textarea>tail</textarea>after",
-          "<span><ul><li><em>x</em></li><li><em><textarea>tail</textarea>"
-          + "after</em></li></ul></span>" },
+          "<span><ul><li><em>x</em></li><li><textarea>tail</textarea>"
+          + "<em>after</em></li></ul></span>" },
         // One forwarded under a name this receiver does not recognize, an
-        // SVG-cased textArea, has no entry on the stack; the lexer still
-        // reads its content as text, so nothing is resumed inside it
-        // either, and, as for any unrecognized name, nothing around it.
+        // SVG-cased textArea, has no entry on the stack, and a browser
+        // reading the output lowercases it and reads its content as text,
+        // so nothing is resumed inside it, at any depth.
         { "<span><li><em>x<li><textArea>tail",
           "<span><ul><li><em>x</em></li><li><textArea>tail</textArea></li>"
           + "</ul></span>" },
         { "<span><li><em>x<li><x-y><textArea>tail",
           "<span><ul><li><em>x</em></li><li><x-y><textArea>tail</textArea>"
           + "</x-y></li></ul></span>" },
+        { "<span><li><em>x<li><textArea><x-y>tail",
+          "<span><ul><li><em>x</em></li><li><textArea><x-y>tail</x-y>"
+          + "</textArea></li></ul></span>" },
+        // Hostile content in that text stays text: the element the lexer
+        // read as raw text is written back with its content escaped.
+        { "<span><li><em>x<li><textarea>&lt;/textarea&gt;&lt;img src=x "
+          + "onerror=alert(1)&gt;",
+          "<span><ul><li><em>x</em></li><li><textarea>&lt;/textarea&gt;"
+          + "&lt;img src&#61;x onerror&#61;alert(1)&gt;</textarea></li></ul>"
+          + "</span>" },
+        { "<span><li><em>x<li><style>&lt;/style&gt;&lt;script&gt;alert(1)"
+          + "&lt;/script&gt;",
+          "<span><ul><li><em>x</em></li><li><style>&lt;/style&gt;&lt;script"
+          + "&gt;alert(1)&lt;/script&gt;</style></li></ul></span>" },
     };
     for (String[] c : rawText) {
       assertRoundTripAndBalanced(raw, c[0], c[1]);
+      String out = raw.sanitize(c[0]);
+      assertFalse(out.contains("<img") || out.contains("<script"), out);
     }
+    // The elements a browser reads as text are siblings of the formatting
+    // it reconstructs, so with the list written out the output parses to
+    // the input's tree.
+    assertRoundTripAndBalanced(
+        raw, "<ul><li><em>x<li><textarea>tail</textarea>after",
+        "<ul><li><em>x</em></li><li><textarea>tail</textarea>"
+        + "<em>after</em></li></ul>");
+    assertEquals(
+        parseAsBrowser("<ul><li><em>x<li><textarea>tail</textarea>after"),
+        parseAsBrowser(
+            "<ul><li><em>x</em></li><li><textarea>tail</textarea>"
+            + "<em>after</em></li></ul>"));
+    // Formatting is reconstructed only where it needs no wrapper implied
+    // under the container: after the items close, a list holds the style
+    // directly, as a browser puts it there with no formatting around it.
+    String[] listRaw = { "ul", "ol", "li", "b", "style", "script" };
+    PolicyFactory listRawPolicy = new HtmlPolicyBuilder()
+        .allowElements(listRaw).allowWithoutAttributes(listRaw)
+        .allowTextIn("style", "script").toFactory();
+    String[][] bareList = {
+        { "<ul><li><b>x<li>y</li><style>s</style>",
+          "<ul><li><b>x</b></li><li><b>y</b></li><style>s</style></ul>" },
+        { "<ol><li><b>x<li>y</li><script>t</script>",
+          "<ol><li><b>x</b></li><li><b>y</b></li><script>t</script></ol>" },
+    };
+    for (String[] c : bareList) {
+      assertRoundTripAndBalanced(listRawPolicy, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // One list item after another over the same open formatting element
+    // keeps at most three of a name, as a browser's Noah's Ark clause
+    // does, so the output stays a constant factor of the input.
+    StringBuilder manyItems = new StringBuilder("<ul>");
+    for (int i = 0; i < 400; ++i) { manyItems.append("<li><b>"); }
+    String amplified = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .sanitize(manyItems.toString());
+    assertTrue(
+        amplified.length() < manyItems.length() * 8,
+        "" + amplified.length() + " from " + manyItems.length());
+    // An element the policy dropped bounds nothing in the output, so the
+    // item closes there as it does on the output's own next pass.
+    PolicyFactory itemsOnly = new HtmlPolicyBuilder()
+        .allowElements("li", "div", "b").allowWithoutAttributes("li", "div", "b")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        itemsOnly, "<li><div><h1><li>", "<li><div></div></li><li></li>");
+    assertRoundTripAndBalanced(
+        itemsOnly, "<li><div><template><li>", "<li><div></div></li><li></li>");
+    // A name the specification calls special but Chrome does not is not a
+    // barrier here either, as testDialogElementCategoryIsNotReliedOn says.
+    String[] dialogNames = { "ul", "li", "dialog", "b" };
+    PolicyFactory dialogs = new HtmlPolicyBuilder()
+        .allowElements(dialogNames).allowWithoutAttributes(dialogNames)
+        .toFactory();
+    assertRoundTripAndBalanced(
+        dialogs, "<ul><li><dialog>d<li>y",
+        "<ul><li><dialog>d</dialog></li><li>y</li></ul>");
+    assertEquals(
+        parseAsBrowser("<ul><li><dialog>d<li>y"),
+        parseAsBrowser("<ul><li><dialog>d</dialog></li><li>y</li></ul>"));
     // The item a select keeps for content it cannot hold is none of the
     // input's, so an item written in a select is unaffected.
     String[] selectNames = { "select", "option", "ul", "li" };

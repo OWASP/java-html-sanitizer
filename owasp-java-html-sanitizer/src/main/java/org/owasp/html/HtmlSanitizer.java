@@ -1291,6 +1291,11 @@ public final class HtmlSanitizer {
   private static final Set<String> AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES
       = j8().setOf("dialog", "search");
 
+  /** Those names, for the tag balancer, which follows Chrome as this does. */
+  static Set<String> ambiguouslySpecialHtmlElementNames() {
+    return AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES;
+  }
+
   /** Start tags whose HTML stack effect this bounded tracker cannot derive. */
   private static final Set<String> UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES
       = j8().setOf("template", "frameset");

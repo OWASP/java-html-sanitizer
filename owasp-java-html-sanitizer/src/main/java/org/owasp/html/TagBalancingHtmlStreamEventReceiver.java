@@ -259,6 +259,12 @@ public class TagBalancingHtmlStreamEventReceiver
     for (String name : new String[] { "address", "div", "p" }) {
       LIST_ITEM_START_BARRIERS.clear(METADATA.indexForName(name));
     }
+    // Names the specification calls special but current Chrome does not:
+    // this receiver follows Chrome, as the input tracker does, so a list
+    // item start walks past them.
+    for (String name : HtmlSanitizer.ambiguouslySpecialHtmlElementNames()) {
+      LIST_ITEM_START_BARRIERS.clear(METADATA.indexForName(name));
+    }
   }
   static {
     for (String name : new String[] { "table", "tbody", "tfoot", "thead", "tr" }) {
@@ -2089,16 +2095,28 @@ public class TagBalancingHtmlStreamEventReceiver
       boolean impliedTableEscapesSyntheticSelect) {
     return prepareForContent(
         elIndex, resumeFormatting, impliedTableEscapesSyntheticSelect,
-        forwardedForeignRootBoundary(elIndex));
+        forwardedForeignRootBoundary(elIndex), true);
+  }
+
+  private boolean prepareForContent(
+      int elIndex, boolean resumeFormatting,
+      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary) {
+    return prepareForContent(
+        elIndex, resumeFormatting, impliedTableEscapesSyntheticSelect,
+        foreignRootBoundary, true);
   }
 
   /**
    * @param foreignRootBoundary see {@link #forwardedForeignRootBoundary},
    *     judged once for the content and kept while containers close for it.
+   * @param mayCloseOpenListItem false when preparation re-enters itself,
+   *     which a browser's one walk down the stack for a list item start tag
+   *     does not do: the barriers that walk honoured may have closed since.
    */
   private boolean prepareForContent(
       int elIndex, boolean resumeFormatting,
-      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary) {
+      boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary,
+      boolean mayCloseOpenListItem) {
     boolean mayOpenAtNestingLimit = true;
     boolean retiredFormattingForImplicitOutputTable = false;
     impliedTableEscapesSyntheticSelect |=
@@ -2172,7 +2190,7 @@ public class TagBalancingHtmlStreamEventReceiver
     // containment metadata answered the open formatting element with a
     // fresh list inside it, and each following item nested one level
     // deeper (#492).
-    if (elIndex == LI_TAG) {
+    if (elIndex == LI_TAG && mayCloseOpenListItem) {
       int itemToClose = listItemToCloseForStart(foreignRootBoundary);
       if (itemToClose >= 0) { closeStackFrom(itemToClose, LI_TAG); }
     }
@@ -2427,7 +2445,7 @@ public class TagBalancingHtmlStreamEventReceiver
         pushedMappedTemplateOutputOpen.clear(i);
         suppressedMappedForeignSubtrees.clear(i);
         if (METADATA.resumable(unclosed) && unclosed != elIndex) {
-          toResumeInReverse.add(unclosed);
+          queueForResumption(unclosed);
         }
       }
     }
@@ -2439,20 +2457,31 @@ public class TagBalancingHtmlStreamEventReceiver
     if (closedPreexistingContainer) {
       mayOpenAtNestingLimit &= prepareForContent(
           elIndex, false, impliedTableEscapesSyntheticSelect,
-          foreignRootBoundary);
+          foreignRootBoundary, false);
     }
 
     if (retiredFormattingForImplicitOutputTable) {
       resumeFormatting = false;
     }
+    if (elIndex != HtmlElementTables.TEXT_NODE
+        && elIndex != UNRECOGNIZED_TAG
+        && hasSpecialTextMode(elIndex)) {
+      // A browser does not reconstruct formatting for an element whose
+      // content it reads as text: the element is inserted beside the
+      // formatting, which is reconstructed again for the text after it.
+      resumeFormatting = false;
+    }
     boolean resumed = false;
     // Formatting is not reconstructed inside an element whose content a
-    // browser reads as text, such as textarea or style: a browser
-    // reconstructs it around that element, when its start tag arrives, and
-    // a tag written inside it would come out as that element's text (#492).
+    // browser reads as text, such as textarea or style: a tag written
+    // inside it would come out as that element's text (#492).  Asked once:
+    // nothing the loop opens is such an element.
+    boolean intoRawTextElement = resumeFormatting
+        && !toResumeInReverse.isEmpty()
+        && contentGoesIntoRawTextElement();
     while (resumeFormatting
         && !insertionPointIsInForeignContent
-        && !contentGoesIntoRawTextElement()
+        && !intoRawTextElement
         && !toResumeInReverse.isEmpty()) {
       int toResume = toResumeInReverse.getLast();
       int nOpen;
@@ -2468,7 +2497,13 @@ public class TagBalancingHtmlStreamEventReceiver
       // browser reconstructs it.  Resuming it here put it inside the wrapper
       // already implied for the tag and then implied that wrapper again.
       if ((nOpen == 0
-          || canContain(toResume, openElements.get(nOpen - 1), nOpen))
+          || (canContain(toResume, openElements.get(nOpen - 1), nOpen)
+              // And directly: one that would need a wrapper implied
+              // between the container and it, such as the item a list
+              // gives its content, is left queued for the content that
+              // implies that wrapper, which is where a browser puts it.
+              && METADATA.impliedElements(
+                  openElements.get(nOpen - 1), toResume).length == 0))
           && canContain(elIndex, toResume, nOpen)
           && canHold(elIndex, toResume, nOpen)
           && !(toResume == A_TAG
@@ -2515,12 +2550,30 @@ public class TagBalancingHtmlStreamEventReceiver
     if (resumed) {
       mayOpenAtNestingLimit &= prepareForContent(
           elIndex, false, impliedTableEscapesSyntheticSelect,
-          foreignRootBoundary);
+          foreignRootBoundary, false);
     }
     return mayOpenAtNestingLimit;
   }
 
   /** Drops the innermost queued formatting element with this index, if any. */
+  /**
+   * Queues a formatting element to reconstruct later, keeping at most three
+   * of a name as a browser's list of active formatting elements does: its
+   * Noah's Ark clause drops the earliest of four alike.  Without that bound
+   * one list item after another closing over the same open formatting
+   * element grew the output by a level each time (#492).
+   */
+  private void queueForResumption(int elIndex) {
+    int alike = 0;
+    for (int i = toResumeInReverse.size(); --i >= 0;) {
+      if (toResumeInReverse.get(i) == elIndex && ++alike == 3) {
+        toResumeInReverse.remove(i);
+        break;
+      }
+    }
+    toResumeInReverse.add(elIndex);
+  }
+
   private void forgetQueuedFormatting(int elIndex) {
     for (int i = toResumeInReverse.size(); --i >= 0;) {
       if (toResumeInReverse.get(i) == elIndex) {
@@ -2842,7 +2895,7 @@ public class TagBalancingHtmlStreamEventReceiver
     if (formatting < 0) { return false; }
     int formattingElement = openElements.get(formatting);
     closeStackFrom(formatting, formattingElement);
-    toResumeInReverse.add(formattingElement);
+    queueForResumption(formattingElement);
     return true;
   }
 
@@ -2948,9 +3001,14 @@ public class TagBalancingHtmlStreamEventReceiver
          --i >= floor;) {
       if (inputElementsInForeignContent.get(i)) { return -1; }
       int openElement = openElements.get(i);
-      if (openElement == LI_TAG) {
-        return isSyntheticSelectListItem(i) ? -1 : i;
+      if (openElement == LI_TAG && !isSyntheticSelectListItem(i)) {
+        return i;
       }
+      // An element with no output, one the policy dropped or one this
+      // receiver implied, bounds nothing a browser reading the output can
+      // see, so it bounds nothing here either: leaving it a barrier made
+      // the first pass keep an item that the second pass closed.
+      if (outputElements.get(i) == NO_OUTPUT_ELEMENT) { continue; }
       if (LIST_ITEM_START_BARRIERS.get(openElement)) { return -1; }
     }
     return -1;
@@ -3009,13 +3067,12 @@ public class TagBalancingHtmlStreamEventReceiver
    * which has no entry on the stack.
    */
   private boolean contentGoesIntoRawTextElement() {
-    int last = passthroughNames.size() - 1;
-    if (last >= 0 && passthroughDepths.get(last) >= openElements.size()) {
+    for (int i = passthroughNames.size(); --i >= 0;) {
+      // Every forwarded element still open contains what arrives now, so
+      // one anywhere above it decides, not only the innermost.
       int forwarded = METADATA.indexForName(
-          Strings.toLowerCase(passthroughNames.get(last)));
-      if (forwarded != UNRECOGNIZED_TAG && hasSpecialTextMode(forwarded)) {
-        return true;
-      }
+          Strings.toLowerCase(passthroughNames.get(i)));
+      if (hasSpecialTextMode(forwarded)) { return true; }
     }
     return containerHasSpecialTextMode();
   }
@@ -3383,7 +3440,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(i);
       impliedInputTables.clear(i);
       if (METADATA.resumable(unclosed)) {
-        toResumeInReverse.add(unclosed);
+        queueForResumption(unclosed);
       }
       outputTableUnavailable.clear(i);
       outputlessTablesWithEmittedParts.clear(i);
@@ -4062,7 +4119,7 @@ public class TagBalancingHtmlStreamEventReceiver
       if (unclosed == TEMPLATE_TAG) {
         closesTemplate = false;
       } else if (!closesTemplate && METADATA.resumable(unclosed)) {
-        toResumeInReverse.add(unclosed);
+        queueForResumption(unclosed);
       }
       discardStackSuffix(i);
     }
@@ -4141,7 +4198,7 @@ public class TagBalancingHtmlStreamEventReceiver
       pushedMappedTemplateOutputOpen.clear(last);
       suppressedMappedForeignSubtrees.clear(last);
       if (closedElement != TEMPLATE_TAG && METADATA.resumable(unclosed)) {
-        toResumeInReverse.add(unclosed);
+        queueForResumption(unclosed);
       }
     }
     closePassthroughsInside(index, emitCloseTags);
@@ -4300,7 +4357,7 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     for (int i = descendantCount; --i >= 0;) {
       if (METADATA.resumable(descendants[i])) {
-        toResumeInReverse.add(descendants[i]);
+        queueForResumption(descendants[i]);
       }
     }
     for (int i = 0; i < descendantCount; ++i) {
