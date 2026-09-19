@@ -5206,6 +5206,174 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 5 of #492.  The containment metadata answers content a select
+   * cannot hold with a list item, so that it nests inside the select the way
+   * a browser nests its text.  No browser creates that item.  A policy that
+   * allowed li emitted it: {@code <select>x</select>} came out as
+   * {@code <select><li>x</li></select>}, the next pass wrapped the li in a
+   * ul, the one after that wrapped the ul in a li, and so on until the
+   * nesting limit truncated the document.  The emitted li also bounded the
+   * select end tag's scope search, so text after {@code </select>} landed
+   * inside the select.  The item now stays on the balancer's stack and is
+   * never sent.
+   */
+  @Test
+  void testSelectContentDoesNotGrowAListLevelPerPass() throws Exception {
+    String[] names = {
+        "select", "option", "optgroup", "svg", "math", "foreignObject",
+        "table", "tbody", "tr", "td", "ul", "li", "div", "b" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    // Each output is a fixed point and parses to the tree a browser builds
+    // from the input.
+    String[][] faithful = {
+        // The reproductions from the issue.
+        { "<select><svg>x</svg></select>", "<select><svg>x</svg></select>" },
+        { "<select><math>x</math></select>",
+          "<select><math>x</math></select>" },
+        { "<select><table><svg>x</svg>",
+          "<select><table></table><svg>x</svg></select>" },
+        // The growth needs no foreign root: bare text, and any element the
+        // select cannot hold, took the same wrappers.
+        { "<select>x</select>", "<select>x</select>" },
+        { "<select><li>x", "<select><ul><li>x</li></ul></select>" },
+        { "<select><ul><li>x", "<select><ul><li>x</li></ul></select>" },
+        { "<select><div>x</div></select>", "<select><div>x</div></select>" },
+        { "<select><td>x",
+          "<select><table><tbody><tr><td>x</td></tr></tbody></table>"
+          + "</select>" },
+        // An option or optgroup around the root, or beside it.
+        { "<select><option><svg>x</svg></option></select>",
+          "<select><option><svg>x</svg></option></select>" },
+        { "<select><optgroup><svg>x</svg></optgroup></select>",
+          "<select><optgroup><svg>x</svg></optgroup></select>" },
+        { "<select><optgroup><svg>x</svg></optgroup><option>y</option>"
+          + "</select>",
+          "<select><optgroup><svg>x</svg></optgroup><option>y</option>"
+          + "</select>" },
+        { "<select><svg>x</svg><option>y</option></select>",
+          "<select><svg>x</svg><option>y</option></select>" },
+        { "<select><option>a</option>x<option>b</option></select>",
+          "<select><option>a</option>x<option>b</option></select>" },
+        // An integration point, a cell around the select, and a nested
+        // select, which a browser reads as the end of the first.
+        { "<select><svg><foreignObject>x</foreignObject></svg></select>",
+          "<select><svg><foreignObject>x</foreignObject></svg></select>" },
+        { "<table><tr><td><select>x</select></td></tr></table>",
+          "<table><tbody><tr><td><select>x</select></td></tr></tbody>"
+          + "</table>" },
+        { "<select><select>x", "<select><select>x</select></select>" },
+        // Text before and after the root, and after the select: the emitted
+        // item hid the select from its end tag, so the b landed inside it.
+        { "<select>a<svg>x</svg>b</select>",
+          "<select>a<svg>x</svg>b</select>" },
+        { "a<select>x</select>b", "a<select>x</select>b" },
+        { "<ul><li><select>x</select></li><li>y</li></ul>",
+          "<ul><li><select>x</select></li><li>y</li></ul>" },
+    };
+    for (String[] c : faithful) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // A free list item after the select gets the list it gets anywhere
+    // else, and the output is a fixed point.
+    assertRoundTripAndBalanced(
+        p, "<select>x</select><li>y",
+        "<select>x</select><ul><li>y</li></ul>");
+
+    // Hostile content in those positions is still removed, and what is kept
+    // stays where a browser puts it.
+    String[][] hostile = {
+        { "<select><li onclick=alert(1)><img src=x onerror=alert(1)>y",
+          "<select><ul><li>y</li></ul></select>" },
+        { "<select><li><a href=javascript:alert(1)>y</a>",
+          "<select><ul><li>y</li></ul></select>" },
+        { "<select><table><svg onload=alert(1)>x</svg>",
+          "<select><table></table><svg>x</svg></select>" },
+        { "a<select>x</select><b onmouseover=alert(1)>b</b>",
+          "a<select>x</select><b>b</b>" },
+        // With the item emitted, the select end tag was lost and the script
+        // body came out as text inside the select.
+        { "<select>x</select><script>alert(1)</script>y",
+          "<select>x</select>y" },
+    };
+    for (String[] c : hostile) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+
+    // The prepackaged policies drop the select and leave its text where the
+    // select was.  {@code Sanitizers.BLOCKS} emitted a bare li there and
+    // wrapped it in a ul on the next pass.
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.TABLES);
+    String[][] dropped = {
+        { "<select>x</select>", "x" },
+        { "<p>a</p><select>x</select><p>b</p>", "<p>a</p>x<p>b</p>" },
+        { "<select><svg>x</svg></select><p>y</p>", "x<p>y</p>" },
+        { "<select><table><svg>x</svg>", "<table></table>x" },
+        { "<ul><li><select>x</select></li><li>y</li></ul>",
+          "<ul><li>x</li><li>y</li></ul>" },
+    };
+    for (String[] c : dropped) {
+      assertRoundTripAndBalanced(blocks, c[0], c[1]);
+    }
+
+    // The item is never sent, so a policy without li has nothing to report.
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        discarded.add(elementName);
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        discarded.add(tagName);
+      }
+    };
+    PolicyFactory selects = new HtmlPolicyBuilder()
+        .allowElements("select", "svg").toFactory();
+    assertEquals(
+        "<select><svg>x</svg></select>",
+        selects.sanitize("<select><svg>x</svg></select>", listener, null));
+    assertEquals(new ArrayList<String>(), discarded);
+  }
+
+  /**
+   * The synthetic item nests nothing in the output, so it does not consume
+   * the nesting budget.  Counting it made the second pass over
+   * {@code <select><li>x</li></select>} near the limit drop the li the first
+   * pass had emitted: the explicit ul of the second pass implied the item,
+   * where the li of the first pass had implied only the ul.
+   */
+  @Test
+  void testSelectContentAtTheNestingLimitRoundTrips() throws Exception {
+    String[] names = { "div", "select", "svg", "ul", "li" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[] inners = {
+        "<select>x</select>", "<select><svg>x</svg></select>",
+        "<select><li>x</li></select>", "<select><ul><li>x</li></ul></select>",
+    };
+    for (String inner : inners) {
+      for (int depth : new int[] { 252, 253, 254, 255, 256 }) {
+        String label = inner + " at depth " + depth;
+        String out = p.sanitize(nest(inner, depth));
+        String again = p.sanitize(out);
+        assertEquals(out, again, label);
+        assertEquals(parseAsBrowser(out), parseAsBrowser(again), label);
+        assertTrue(out.contains("x"), label);
+      }
+    }
+    // The li at the 256th level is emitted; one level deeper it is not, and
+    // the text flattens into the list.  Both read back the same.
+    assertEquals(
+        nest("<select><ul><li>x</li></ul></select>", 253),
+        p.sanitize(nest("<select><li>x</li></select>", 253)));
+    assertEquals(
+        nest("<select><ul></ul>x</select>", 254),
+        p.sanitize(nest("<select><li>x</li></select>", 254)));
+  }
+
+  /**
    * A foreign root that HTML rules foster-parent out of a table is dropped
    * or renamed by the policy, and holds an element the policy keeps but this
    * receiver does not recognize.  That child was judged a foreign breakout
