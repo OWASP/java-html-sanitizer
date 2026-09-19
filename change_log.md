@@ -2,6 +2,12 @@
 
 Most recent at top.
   * Next release
+    * Text-policy gates now follow the browser's output context when table
+      parts are serialized without a physical table and when an `input`,
+      `keygen`, `textarea` or nested `select` exits an HTML `select`.  Text
+      that reparses directly in an ancestor where the policy disallows it is
+      removed, while text inside a retained descendant or a physical table
+      keeps that descendant's rule.
     * A caption, column group or `col` under a `template` the policy dropped
       or renamed is judged in the output, where the template stood, and gets
       its table there, instead of coming out as an orphan part that a

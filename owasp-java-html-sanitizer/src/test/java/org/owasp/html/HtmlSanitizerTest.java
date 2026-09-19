@@ -3516,17 +3516,26 @@ class HtmlSanitizerTest {
         "<select><strong></strong></select>");
   }
 
-  /** A dropped implied list item cannot remain on the balancer's stack. */
+  /** A dropped implied item cannot hide a table pushed past a retired select. */
   @Test
   void testDroppedImpliedListItemDoesNotOutliveForeignSelect()
       throws Exception {
     PolicyFactory p = tableMutationPolicy("div", "svg", "svg", null);
+    String oldOutput =
+        "<select><mtext><table><tbody><tr></tr></tbody></table>"
+        + "<math><select><bar>;<b></b></bar></select></math>"
+        + "<table><tbody><tr></tr></tbody></table></mtext></select>";
+    String stableOutput =
+        "<select><mtext><table><tbody><tr></tr></tbody></table>"
+        + "<math></math></mtext></select><bar>;<b></b></bar>"
+        + "<table><tbody><tr></tr></tbody></table>";
     assertRoundTripAndBalanced(
         p,
         "<select><mtext><tr><math><select><bar>;<b><tr>",
-        "<select><mtext><table><tbody><tr></tr></tbody></table>"
-        + "<math><select><bar>;<b></b></bar></select></math>"
-        + "<table><tbody><tr></tr></tbody></table></mtext></select>");
+        stableOutput);
+    assertEquals(
+        parseAsBrowserWithNamespaces(oldOutput),
+        parseAsBrowserWithNamespaces(stableOutput));
   }
 
   /** A table section cannot be pushed out after losing its owning table. */
@@ -3607,8 +3616,8 @@ class HtmlSanitizerTest {
     // its contents as text, so the output is compared with its own reparse.
     assertRoundTripAndBalanced(
         p, "<select><textArea><select><foreignObject><form></textArea><table>",
-        "<select><textArea><select><foreignObject><form></form>"
-        + "</foreignObject></select></textArea><table></table></select>");
+        "<select></select><textArea><select><foreignObject><form></form>"
+        + "</foreignObject></select></textArea><table></table>");
   }
 
   /**
@@ -5349,7 +5358,7 @@ class HtmlSanitizerTest {
         { "<table><tr><td><select>x</select></td></tr></table>",
           "<table><tbody><tr><td><select>x</select></td></tr></tbody>"
           + "</table>" },
-        { "<select><select>x", "<select><select>x</select></select>" },
+        { "<select><select>x", "<select></select>x" },
         // Text before and after the root, and after the select: the emitted
         // item hid the select from its end tag, so the b landed inside it.
         { "<select>a<svg>x</svg>b</select>",
@@ -5429,6 +5438,119 @@ class HtmlSanitizerTest {
         "<select><svg>x</svg></select>",
         selects.sanitize("<select><svg>x</svg></select>", listener, null));
     assertEquals(new ArrayList<String>(), discarded);
+  }
+
+  /**
+   * Input, keygen and textarea starts make a browser leave its in-select
+   * insertion mode; another select start closes the open select and is
+   * ignored.  The serialized output has to retire the same select before the
+   * policy judges later text.  Otherwise an allowed select admits text that a
+   * browser reparses directly in an ancestor where the policy disallows it.
+   */
+  @Test
+  void testSelectExitStartsRestoreTheBrowserTextGate() throws Exception {
+    String[] names = {
+        "table", "tbody", "tr", "th", "foo", "select", "option",
+        "optgroup",
+        "input", "keygen", "textarea", "hr", "button", "b", "svg", "math",
+    };
+    PolicyFactory noTextInFoo = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .disallowTextIn("foo").toFactory();
+    String[][] blocked = {
+        // The minimized issue reproduction includes the free option wrapper.
+        { "<th><FOO><option><input>hidden",
+          "<table><tbody><tr><th><foo><select><option></option></select>"
+          + "<input /></foo></th></tr></tbody></table>" },
+        { "<foo><select><input>hidden",
+          "<foo><select></select><input /></foo>" },
+        { "<foo><select><keygen>hidden",
+          "<foo><select></select><keygen /></foo>" },
+        { "<foo><select><textarea>hidden",
+          "<foo><select></select><textarea></textarea></foo>" },
+        { "<foo><select><select>hidden",
+          "<foo><select></select></foo>" },
+        // A browser ignores these roots in select mode.  They do not make the
+        // following input foreign, even though a lexical tracker sees them.
+        { "<foo><select><svg><input>hidden",
+          "<foo><select><svg></svg></select><input /></foo>" },
+        { "<foo><select><math><input>hidden",
+          "<foo><select><math></math></select><input /></foo>" },
+        // A real descendant after the exit owns and admits its own text.
+        { "<foo><select><option>safe<input>hidden<b>shown</b>hidden",
+          "<foo><select><option>safe</option></select><input />"
+          + "<b>shown</b></foo>" },
+        // A template or table ignored in select mode establishes no output
+        // container; retained descendants still precede the exit.
+        { "<foo><select><template><b>safe</b><input>hidden",
+          "<foo><select><b>safe</b></select><input /></foo>" },
+        { "<foo><select><table><input>hidden",
+          "<foo><select><table></table></select><input /></foo>" },
+        // A table pushed in front of foreign-looking select content remains
+        // available to reopen after the select exit.
+        { "<foo><select><mtext><tr><math><input>hidden<b>shown</b><tr>",
+          "<foo><select><table><tbody><tr></tr></tbody></table>"
+          + "<math></math></select><input /><b>shown</b>"
+          + "<table><tbody><tr></tr></tbody></table></foo>" },
+        // A select implied only for containment must neither retire a real
+        // output select nor hide that select from its explicit end tag.
+        { "<foo><select><option><optgroup><input>hidden",
+          "<foo><select><option><optgroup></optgroup></option></select>"
+          + "<input /></foo>" },
+        { "<foo><select><select><option><input>hidden",
+          "<foo><select></select><select><option></option></select>"
+          + "<input /></foo>" },
+        { "<foo><select><table><optgroup><tbody><input>hidden",
+          "<foo><select><table></table><optgroup></optgroup></select>"
+          + "<table><tbody></tbody></table><input /></foo>" },
+        // These starts stay in select mode, so their text remains in select.
+        { "<foo><select><hr>kept",
+          "<foo><select><hr />kept</select></foo>" },
+        { "<foo><select><button>kept",
+          "<foo><select><button>kept</button></select></foo>" },
+    };
+    for (String[] c : blocked) {
+      assertRoundTripAndBalanced(noTextInFoo, c[0], c[1]);
+    }
+    assertEquals(
+        "safeshown",
+        textOf(parseAsBrowser(noTextInFoo.sanitize(blocked[7][0]))));
+
+    PolicyFactory textInFoo = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] retained = {
+        { "<foo><select><option>safe<input>tail",
+          "<foo><select><option>safe</option></select><input />tail</foo>" },
+        { "<foo><select><option>safe<select>tail",
+          "<foo><select><option>safe</option></select>tail</foo>" },
+    };
+    for (String[] c : retained) {
+      assertRoundTripAndBalanced(textInFoo, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+
+    // The output name decides.  A custom element mapped to input exits the
+    // select; an input mapped to a div is ignored there like any other child.
+    PolicyFactory mappedToInput = new HtmlPolicyBuilder()
+        .allowElements("foo", "select", "option", "input", "b")
+        .allowElements((name, attrs) -> "input", "bar")
+        .allowWithoutAttributes("bar", "input")
+        .disallowTextIn("foo").toFactory();
+    assertRoundTripAndBalanced(
+        mappedToInput,
+        "<foo><select><option>safe<bar>hidden</bar><b>shown</b>hidden",
+        "<foo><select><option>safe</option></select><input />"
+        + "<b>shown</b></foo>");
+    PolicyFactory mappedFromInput = new HtmlPolicyBuilder()
+        .allowElements("foo", "select", "option", "div", "b")
+        .allowElements((name, attrs) -> "div", "input")
+        .allowWithoutAttributes("input")
+        .disallowTextIn("foo").toFactory();
+    assertRoundTripAndBalanced(
+        mappedFromInput,
+        "<foo><select><option>safe<input>kept<b>shown</b></select>",
+        "<foo><select><option>safe<div></div>kept<b>shown</b></option>"
+        + "</select></foo>");
   }
 
   /**
@@ -6516,8 +6638,8 @@ class HtmlSanitizerTest {
     PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
         .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
     final int n = 200_000;
-    final String items = stringRepeatedTimes("<foo>", n)
-        + stringRepeatedTimes("<li>", n);
+    final String unknowns = stringRepeatedTimes("<foo>", n);
+    final String items = unknowns + stringRepeatedTimes("<li>", n);
     assertEquals(
         "<ul>" + stringRepeatedTimes("<li></li>", n) + "</ul>",
         assertTimeoutPreemptively(
@@ -6530,6 +6652,14 @@ class HtmlSanitizerTest {
         assertTimeoutPreemptively(
             Duration.ofSeconds(20), () -> p.sanitize(options)),
         "options after unknown tags");
+    PolicyFactory inputPolicy = new HtmlPolicyBuilder()
+        .allowElements("input").allowWithoutAttributes("input").toFactory();
+    final String inputs = unknowns + stringRepeatedTimes("<input>", n);
+    assertEquals(
+        stringRepeatedTimes("<input />", n),
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> inputPolicy.sanitize(inputs)),
+        "select-exit starts after unknown tags");
     // The scope check itself still answers as before, across a run of
     // dropped unknown tags: a form directly in a table is popped at once,
     // one inside a cell is an ordinary container.
@@ -6551,23 +6681,33 @@ class HtmlSanitizerTest {
   }
 
   /**
-   * A table part opened without output, because a browser would drop it where
-   * it lands, writes no tag, so its text goes to the nearest emitted element.
-   * Text the policy disallows there stays out: judging only by the suppressed
-   * part's own gate let a cell admit text into a form the policy disallows
-   * text in, and the next pass removed it.  The part's own gate still applies
-   * as well, and a table renamed to a container that holds text keeps the
-   * text of its suppressed cells, as before.
+   * A table part that produces no browser node, whether the policy suppresses
+   * its tag or it is serialized outside a physical table, sends its text to
+   * the nearest real output element.  Text the policy disallows there stays
+   * out.  The part's own explicit gate still applies, and a table renamed to a
+   * container that holds text keeps the text of its suppressed cells.
    */
   @Test
-  void testTextInASuppressedTablePartFollowsTheGateOfWhereItLands()
+  void testTablePartTextFollowsTheGateOfWhereItLands()
       throws Exception {
     HtmlPolicyBuilder base = new HtmlPolicyBuilder()
         .allowElements(
             "svg", "foreignObject", "desc", "math", "mtext",
             "form", "tbody", "tr", "td", "p", "b", "div");
     PolicyFactory noTextInForms = base.disallowTextIn("form").toFactory();
+    String issueInput =
+        "<ul><mtext><option><Svg></select><FORM><td>hidden";
     String[][] cases = {
+        { issueInput,
+          "<mtext><svg></svg><form><tbody><tr><td></td></tr></tbody>"
+          + "</form></mtext>" },
+        { "<form><td>hidden",
+          "<form><tbody><tr><td></td></tr></tbody></form>" },
+        { "<form><td><b>shown</b>hidden",
+          "<form><tbody><tr><td><b>shown</b></td></tr></tbody></form>" },
+        // A foreign element with the same local name is a real container.
+        { "<form><svg><tbody>shown</tbody></svg>hidden",
+          "<form><svg><tbody>shown</tbody></svg></form>" },
         { "<svg><foreignObject><table><form><tr><td>y",
           "<svg><foreignObject><form></form></foreignObject></svg>" },
         { "<svg><foreignObject><table><form><tr><td><p>y</p>z",
@@ -6576,14 +6716,28 @@ class HtmlSanitizerTest {
           "<math><mtext><form></form></mtext></math>" },
         { "<svg><foreignObject><table><form><tr><td><b>y</b>",
           "<svg><foreignObject><form><b>y</b></form></foreignObject></svg>" },
-        // A cell the output keeps still decides for its own text.
+        // These tags are serialized, but a browser ignores them without a
+        // physical table, so their text lands directly in the form.
         { "<div><table><form><tr><td>y",
-          "<div><form><tbody><tr><td>y</td></tr></tbody></form></div>" },
+          "<div><form><tbody><tr><td></td></tr></tbody></form></div>" },
         { "<form>y<b>z</b></form>", "<form><b>z</b></form>" },
     };
     for (String[] c : cases) {
       assertRoundTripAndBalanced(noTextInForms, c[0], c[1]);
     }
+    assertEquals("", textOf(parseAsBrowser(noTextInForms.sanitize(issueInput))));
+    assertEquals(
+        "shown",
+        textOf(parseAsBrowser(
+            noTextInForms.sanitize("<form><td><b>shown</b>hidden"))));
+    // So is a cell when the output has a physical table for it.
+    PolicyFactory physicalTable = new HtmlPolicyBuilder()
+        .allowElements("form", "table", "tbody", "tr", "td")
+        .disallowTextIn("form").toFactory();
+    assertRoundTripAndBalanced(
+        physicalTable,
+        "<form><table><td>shown</td></table>hidden",
+        "<form><table><tbody><tr><td>shown</td></tr></tbody></table></form>");
     PolicyFactory renamed = new HtmlPolicyBuilder()
         .allowElements("form", "tbody", "tr", "td", "div")
         .allowElements((name, attrs) -> "div", "table")

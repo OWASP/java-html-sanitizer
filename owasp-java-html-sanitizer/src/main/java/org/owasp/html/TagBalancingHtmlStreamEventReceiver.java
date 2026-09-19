@@ -190,6 +190,8 @@ public class TagBalancingHtmlStreamEventReceiver
   private final BitSet pushedOut = new BitSet();
   /** Logical tables inserted only to wrap orphan input table parts. */
   private final BitSet impliedInputTables = new BitSet();
+  /** Implied selects kept logical because a real output select was open. */
+  private final BitSet outputlessImpliedSelects = new BitSet();
   /**
    * Bit {@code i} is set when no output table remains for a logical entry
    * whose descendants still use table rules.  This happens when policy does
@@ -331,6 +333,9 @@ public class TagBalancingHtmlStreamEventReceiver
     /** Whether that output element was inserted using SVG or MathML rules. */
     boolean outputElementForLastOpenTagUsedForeignContentRules();
 
+    /** Whether that call closed an HTML select still open on this stack. */
+    boolean outputSelectRetiredForLastOpenTag();
+
     /** Number of non-void elements currently open in the emitted stream. */
     int outputNestingDepth();
 
@@ -355,6 +360,10 @@ public class TagBalancingHtmlStreamEventReceiver
 
     /** Emits a kept start while suppressing everything through its end. */
     void openTagWithSuppressedContent(
+        String elementName, List<String> attrs);
+
+    /** Emits a table part while retaining the enclosing output text gate. */
+    void openTablePartWithInheritedTextGate(
         String elementName, List<String> attrs);
 
     /** Whether a prior suppressed start still suppresses its input subtree. */
@@ -614,6 +623,7 @@ public class TagBalancingHtmlStreamEventReceiver
     staleOutputFormPointerTargets.clear();
     pushedOut.clear();
     impliedInputTables.clear();
+    outputlessImpliedSelects.clear();
     outputTableUnavailable.clear();
     toResumeInReverse.clear();
     passthroughNames.clear();
@@ -944,6 +954,8 @@ public class TagBalancingHtmlStreamEventReceiver
           pushPassthrough(canonElementName, startSerial);
         } else {
           underlying.openTag(canonElementName, attrs);
+          int outputElementIndex =
+              outputElementIndexForLastOpenTag(UNRECOGNIZED_TAG);
           pushPassthrough(canonElementName, startSerial);
           if (leaveHtmlTextElementPending
               && underlying instanceof OpenTagOutputPolicy
@@ -952,8 +964,7 @@ public class TagBalancingHtmlStreamEventReceiver
                       .outputElementNameForLastOpenTag())) {
             pendingUnrecognizedHtmlTextElement = canonElementName;
           }
-          if (outputElementIndexForLastOpenTag(UNRECOGNIZED_TAG)
-              == TABLE_TAG) {
+          if (outputElementIndex == TABLE_TAG) {
             policyOnlyTableMayBeOpen = true;
           }
         }
@@ -1031,7 +1042,9 @@ public class TagBalancingHtmlStreamEventReceiver
               && "style".equals(HtmlLexer.canonicalElementName(
                   preparedOutputName))
               && hasDroppedTableInSyntheticSelectListItemContext()) {
-            formPolicy.retireOutputSelectKeepingLogicalDescendants();
+            if (formPolicy.retireOutputSelectKeepingLogicalDescendants()) {
+              markOutputSelectRetired();
+            }
           }
           if (preparedOutputName != null
               && (usesForeignContentRules
@@ -1193,6 +1206,7 @@ public class TagBalancingHtmlStreamEventReceiver
         inputElementSerials.add(startSerial);
         outputElements.add(outputElementIndex);
         outputlessTablesWithEmittedParts.clear(stackIndex);
+        outputlessImpliedSelects.clear(stackIndex);
         pushedMappedTemplateOutputOpen.clear(stackIndex);
         suppressedMappedForeignSubtrees.set(
             stackIndex,
@@ -1213,6 +1227,7 @@ public class TagBalancingHtmlStreamEventReceiver
         clearedFormPointerTargets.clear(stackIndex);
         staleOutputFormPointerTargets.clear(stackIndex);
         impliedInputTables.clear(stackIndex);
+        outputlessImpliedSelects.clear(stackIndex);
         if (elIndex == TABLE_TAG
             && outputUsesHtmlIntegrationPointRules
             && outputElementIndex != TABLE_TAG
@@ -1411,6 +1426,7 @@ public class TagBalancingHtmlStreamEventReceiver
     staleOutputFormPointerTargets.clear(stackIndex);
     pushedOut.clear(stackIndex);
     impliedInputTables.clear(stackIndex);
+    outputlessImpliedSelects.clear(stackIndex);
     outputTableUnavailable.clear(stackIndex);
   }
 
@@ -1431,6 +1447,7 @@ public class TagBalancingHtmlStreamEventReceiver
     staleOutputFormPointerTargets.clear(stackIndex);
     pushedOut.clear(stackIndex);
     impliedInputTables.clear(stackIndex);
+    outputlessImpliedSelects.clear(stackIndex);
     outputTableUnavailable.clear(stackIndex);
     outputlessTablesWithEmittedParts.clear(stackIndex);
     pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -1453,6 +1470,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(i);
       pushedOut.clear(i);
       impliedInputTables.clear(i);
+      outputlessImpliedSelects.clear(i);
       outputTableUnavailable.clear(i);
       outputlessTablesWithEmittedParts.clear(i);
       pushedMappedTemplateOutputOpen.clear(i);
@@ -1792,8 +1810,11 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private int outputElementIndexForLastOpenTag(int inputElementIndex) {
     if (underlying instanceof OpenTagOutputPolicy) {
-      String outputElementName = ((OpenTagOutputPolicy) underlying)
-          .outputElementNameForLastOpenTag();
+      OpenTagOutputPolicy policy = (OpenTagOutputPolicy) underlying;
+      if (policy.outputSelectRetiredForLastOpenTag()) {
+        markOutputSelectRetired();
+      }
+      String outputElementName = policy.outputElementNameForLastOpenTag();
       return outputElementName != null
           ? METADATA.indexForName(
               HtmlLexer.canonicalElementName(outputElementName))
@@ -1986,7 +2007,14 @@ public class TagBalancingHtmlStreamEventReceiver
       policy.openTagWithoutOutput(inputElementName, attrs);
       return NO_OUTPUT_ELEMENT;
     }
-    underlying.openTag(inputElementName, attrs);
+    if (policy != null
+        && inputElementIndex != TABLE_TAG
+        && TABLE_PARTS.get(inputElementIndex)
+        && outputTableContextForStart() == -1) {
+      policy.openTablePartWithInheritedTextGate(inputElementName, attrs);
+    } else {
+      underlying.openTag(inputElementName, attrs);
+    }
     return outputElementIndexForLastOpenTag(inputElementIndex);
   }
 
@@ -2309,8 +2337,14 @@ public class TagBalancingHtmlStreamEventReceiver
             ((FormPointerPolicy) underlying).prepareOutputForHtmlStart(
                 METADATA.canonNameForIndex(impliedElIndex), attrs);
           }
+          boolean outputlessImpliedSelect = impliedElIndex == SELECT_TAG
+              && pushedOutTablePolicy() != null
+              && hasOpenHtmlOutputSelect();
           int outputElementIndex;
           if (syntheticSelectListItem) {
+            outputElementIndex = NO_OUTPUT_ELEMENT;
+          } else if (outputlessImpliedSelect) {
+            pushedOutTablePolicy().openTagWithoutOutput("select", attrs);
             outputElementIndex = NO_OUTPUT_ELEMENT;
           } else if (suppressMappedImpliedTemplate) {
             if (impliedTableEscapesSyntheticSelect) {
@@ -2344,6 +2378,8 @@ public class TagBalancingHtmlStreamEventReceiver
           clearedFormPointerTargets.clear(stackIndex);
           staleOutputFormPointerTargets.clear(stackIndex);
           impliedInputTables.set(stackIndex, impliedElIndex == TABLE_TAG);
+          outputlessImpliedSelects.set(
+              stackIndex, outputlessImpliedSelect);
           if (impliedElIndex == TABLE_TAG
               && (suppressedImpliedTable
                   || (outputElementIndex != NO_OUTPUT_ELEMENT
@@ -2398,6 +2434,7 @@ public class TagBalancingHtmlStreamEventReceiver
         staleOutputFormPointerTargets.clear(i);
         pushedOut.clear(i);
         impliedInputTables.clear(i);
+        outputlessImpliedSelects.clear(i);
         outputTableUnavailable.clear(i);
         outputlessTablesWithEmittedParts.clear(i);
         pushedMappedTemplateOutputOpen.clear(i);
@@ -2464,6 +2501,7 @@ public class TagBalancingHtmlStreamEventReceiver
         inputElementSerials.add(0);
         outputElements.add(outputElementIndex);
         outputlessTablesWithEmittedParts.clear(stackIndex);
+        outputlessImpliedSelects.clear(stackIndex);
         pushedMappedTemplateOutputOpen.clear(stackIndex);
         suppressedMappedForeignSubtrees.clear(stackIndex);
         sentToUnderlying.set(stackIndex, sent);
@@ -2478,6 +2516,7 @@ public class TagBalancingHtmlStreamEventReceiver
         clearedFormPointerTargets.clear(stackIndex);
         staleOutputFormPointerTargets.clear(stackIndex);
         impliedInputTables.clear(stackIndex);
+        outputlessImpliedSelects.clear(stackIndex);
         resumed = true;
       } else {
         break;
@@ -2572,6 +2611,39 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     return false;
+  }
+
+  /** Mirrors an HTML select suffix the policy closed but kept logically. */
+  private void markOutputSelectRetired() {
+    int select = -1;
+    for (int i = openElements.size(); --i >= 0;) {
+      if (sentToUnderlying.get(i)
+          && !pushedOut.get(i)
+          && outputElements.get(i) == SELECT_TAG
+          && !outputElementsInForeignContent.get(i)) {
+        select = i;
+        break;
+      }
+    }
+    if (select < 0) { return; }
+    // The policy already closed every forwarded output element inside the
+    // select.  Keep the input namespace tracker alone, but forget those
+    // elements from this output mirror.
+    closePassthroughsInside(select, false);
+    for (int i = select, n = openElements.size(); i < n; ++i) {
+      // Table context temporarily pushed out of the output was not in the
+      // suffix the policy closed.  Preserve it so a later table part can
+      // reopen it in front of the now-retired select.
+      if (pushedOut.get(i) && !pushedMappedTemplateOutputOpen.get(i)) {
+        continue;
+      }
+      outputElements.set(i, NO_OUTPUT_ELEMENT);
+      outputElementsInForeignContent.clear(i);
+      outputElementsStartForeignContent.clear(i);
+      clearedFormPointerTargets.clear(i);
+      staleOutputFormPointerTargets.clear(i);
+      pushedMappedTemplateOutputOpen.clear(i);
+    }
   }
 
   /** Closes a mapped HTML output container and its logical descendants. */
@@ -2880,6 +2952,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(i);
       pushedOut.clear(i);
       impliedInputTables.clear(i);
+      outputlessImpliedSelects.clear(i);
       outputTableUnavailable.clear(i);
       outputlessTablesWithEmittedParts.clear(i);
       pushedMappedTemplateOutputOpen.clear(i);
@@ -3033,6 +3106,22 @@ public class TagBalancingHtmlStreamEventReceiver
         && "select".equals(((OpenTagOutputPolicy) underlying)
             .outputContainerElementName())) {
       return SELECT_TAG;
+    }
+    if ((child == OPTION_TAG || child == OPTGROUP_TAG)
+        && underlying instanceof OpenTagOutputPolicy
+        && ((OpenTagOutputPolicy) underlying).outputContainerElementName()
+            != null
+        && containerIndexOnStack >= 0
+        && containerIndexOnStack < openElements.size()
+        && sentToUnderlying.get(containerIndexOnStack)
+        && outputElements.get(containerIndexOnStack) == NO_OUTPUT_ELEMENT
+        && (openElements.get(containerIndexOnStack) == SELECT_TAG
+            || openElements.get(containerIndexOnStack) == OPTGROUP_TAG)) {
+      // A select the output parser closed is still present only as a logical
+      // input entry.  Judge a later option where the output really is, so it
+      // gets the wrapper that will also be present on the next pass.
+      int outputContainer = outputContainerIndex();
+      return outputContainer != UNRECOGNIZED_TAG ? outputContainer : BODY_TAG;
     }
     if (child == OPTION_TAG
         && underlying instanceof OpenTagOutputPolicy
@@ -3330,6 +3419,7 @@ public class TagBalancingHtmlStreamEventReceiver
       clearedFormPointerTargets.clear(i);
       staleOutputFormPointerTargets.clear(i);
       impliedInputTables.clear(i);
+      outputlessImpliedSelects.clear(i);
       if (METADATA.resumable(unclosed)) {
         toResumeInReverse.add(unclosed);
       }
@@ -3358,6 +3448,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(top);
       pushedOut.clear(top);
       impliedInputTables.clear(top);
+      outputlessImpliedSelects.clear(top);
       outputTableUnavailable.clear(top);
       pushedMappedTemplateOutputOpen.clear(top);
       suppressedMappedForeignSubtrees.clear(top);
@@ -3432,6 +3523,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(start + i);
       pushedOut.clear(start + i);
       impliedInputTables.clear(start + i);
+      outputlessImpliedSelects.clear(start + i);
       outputTableUnavailable.clear(start + i);
       outputlessTablesWithEmittedParts.clear(start + i);
       pushedMappedTemplateOutputOpen.clear(start + i);
@@ -3477,6 +3569,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.set(
           stackIndex, runStaleOutputFormPointerTarget[i]);
       impliedInputTables.set(stackIndex, runImpliedInputTable[i]);
+      outputlessImpliedSelects.clear(stackIndex);
       pushedMappedTemplateOutputOpen.clear(stackIndex);
       suppressedMappedForeignSubtrees.set(
           stackIndex, runSuppressedMappedForeignTemplates[i]);
@@ -3768,6 +3861,14 @@ public class TagBalancingHtmlStreamEventReceiver
         for (int i = openElements.size(); -- i >= 0;) {
           int openElementIndex = openElements.get(i);
           if (openElementIndex == elIndex) {
+            if (elIndex == SELECT_TAG
+                && outputlessImpliedSelects.get(i)
+                && hasOpenHtmlOutputSelectBelow(i)) {
+              // This implied select established no scope in the output.  Its
+              // end tag reaches the physical select below, so close both
+              // logical entries together.
+              continue;
+            }
             index = i;
             break;
           }
@@ -3818,6 +3919,19 @@ public class TagBalancingHtmlStreamEventReceiver
     }
 
     closeStackFrom(index, elIndex);
+  }
+
+  /** Whether an emitted HTML select is open below {@code upperBound}. */
+  private boolean hasOpenHtmlOutputSelectBelow(int upperBound) {
+    for (int i = upperBound; --i >= 0;) {
+      if (sentToUnderlying.get(i)
+          && !pushedOut.get(i)
+          && outputElements.get(i) == SELECT_TAG
+          && !outputElementsInForeignContent.get(i)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -4084,6 +4198,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(last);
       pushedOut.clear(last);
       impliedInputTables.clear(last);
+      outputlessImpliedSelects.clear(last);
       outputTableUnavailable.clear(last);
       outputlessTablesWithEmittedParts.clear(last);
       pushedMappedTemplateOutputOpen.clear(last);
@@ -4105,6 +4220,7 @@ public class TagBalancingHtmlStreamEventReceiver
     staleOutputFormPointerTargets.clear(index);
     pushedOut.clear(index);
     impliedInputTables.clear(index);
+    outputlessImpliedSelects.clear(index);
     outputTableUnavailable.clear(index);
     outputlessTablesWithEmittedParts.clear(index);
     pushedMappedTemplateOutputOpen.clear(index);
@@ -4183,6 +4299,8 @@ public class TagBalancingHtmlStreamEventReceiver
     boolean[] descendantsArePushedOut = new boolean[descendantCount];
     boolean[] descendantsAreImpliedInputTables =
         new boolean[descendantCount];
+    boolean[] descendantsAreOutputlessImpliedSelects =
+        new boolean[descendantCount];
     boolean[] descendantOutputTablesWereUnavailable =
         new boolean[descendantCount];
     boolean[] descendantOutputlessTablesHadEmittedParts =
@@ -4208,6 +4326,8 @@ public class TagBalancingHtmlStreamEventReceiver
       descendantsArePushedOut[i] = pushedOut.get(stackIndex);
       descendantsAreImpliedInputTables[i] =
           impliedInputTables.get(stackIndex);
+      descendantsAreOutputlessImpliedSelects[i] =
+          outputlessImpliedSelects.get(stackIndex);
       descendantOutputTablesWereUnavailable[i] =
           outputTableUnavailable.get(stackIndex);
       descendantOutputlessTablesHadEmittedParts[i] =
@@ -4241,6 +4361,7 @@ public class TagBalancingHtmlStreamEventReceiver
       staleOutputFormPointerTargets.clear(i);
       pushedOut.clear(i);
       impliedInputTables.clear(i);
+      outputlessImpliedSelects.clear(i);
       outputTableUnavailable.clear(i);
       outputlessTablesWithEmittedParts.clear(i);
       pushedMappedTemplateOutputOpen.clear(i);
@@ -4274,6 +4395,8 @@ public class TagBalancingHtmlStreamEventReceiver
       pushedOut.set(stackIndex, descendantsArePushedOut[i]);
       impliedInputTables.set(
           stackIndex, descendantsAreImpliedInputTables[i]);
+      outputlessImpliedSelects.set(
+          stackIndex, descendantsAreOutputlessImpliedSelects[i]);
       outputTableUnavailable.set(
           stackIndex, descendantOutputTablesWereUnavailable[i]);
       outputlessTablesWithEmittedParts.set(

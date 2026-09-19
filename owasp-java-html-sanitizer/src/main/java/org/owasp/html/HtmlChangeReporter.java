@@ -152,6 +152,7 @@ public final class HtmlChangeReporter<T> {
       SUPPRESS,
       SUPPRESS_SUBTREE,
       EMIT_SUPPRESS_SUBTREE,
+      INHERIT_TEXT_GATE,
     }
 
     InputChannel(
@@ -230,6 +231,12 @@ public final class HtmlChangeReporter<T> {
       return policy instanceof OpenTagOutputPolicy
           && ((OpenTagOutputPolicy) policy)
               .outputElementForLastOpenTagUsedForeignContentRules();
+    }
+
+    public boolean outputSelectRetiredForLastOpenTag() {
+      return policy instanceof OpenTagOutputPolicy
+          && ((OpenTagOutputPolicy) policy)
+              .outputSelectRetiredForLastOpenTag();
     }
 
     public int outputNestingDepth() {
@@ -426,6 +433,11 @@ public final class HtmlChangeReporter<T> {
       openTag(elementName, attrs, OpenTagMode.EMIT_SUPPRESS_SUBTREE);
     }
 
+    public void openTablePartWithInheritedTextGate(
+        String elementName, List<String> attrs) {
+      openTag(elementName, attrs, OpenTagMode.INHERIT_TEXT_GATE);
+    }
+
     public boolean isSuppressingOutputAndContent() {
       PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
       return tablePolicy != null
@@ -466,7 +478,8 @@ public final class HtmlChangeReporter<T> {
         tablePolicy.openReopenedTable(attrs);
       } else if (mode == OpenTagMode.SUPPRESS
           || mode == OpenTagMode.SUPPRESS_SUBTREE
-          || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
+          || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE
+          || mode == OpenTagMode.INHERIT_TEXT_GATE) {
         PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
         if (tablePolicy == null
             || !tablePolicy.supportsPushedOutTableOperations()) {
@@ -477,6 +490,8 @@ public final class HtmlChangeReporter<T> {
           tablePolicy.openTagWithoutOutputOrContent(elementName, attrs);
         } else if (mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
           tablePolicy.openTagWithSuppressedContent(elementName, attrs);
+        } else if (mode == OpenTagMode.INHERIT_TEXT_GATE) {
+          tablePolicy.openTablePartWithInheritedTextGate(elementName, attrs);
         } else {
           tablePolicy.openTagWithoutOutput(elementName, attrs);
         }

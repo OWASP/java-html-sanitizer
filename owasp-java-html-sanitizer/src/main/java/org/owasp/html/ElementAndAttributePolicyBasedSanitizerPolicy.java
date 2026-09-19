@@ -181,6 +181,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private transient @Nullable String outputElementNameForLastOpenTag;
   /** Whether that element was inserted using SVG or MathML rules. */
   private transient boolean outputElementForLastOpenTagUsedForeignContentRules;
+  /** Whether the most recent open closed a previously emitted HTML select. */
+  private transient boolean outputSelectRetiredForLastOpenTag;
   /** Number of non-void elements currently open in the emitted event stream. */
   private transient int outputNestingDepth;
   /** Innermost non-void element currently open in the emitted event stream. */
@@ -246,6 +248,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     discardedAttributeListener = null;
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputSelectRetiredForLastOpenTag = false;
     outputNestingDepth = 0;
     outputContainerElementName = null;
     clearPreparedFormStart();
@@ -288,6 +291,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     inForeignContent = false;
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputSelectRetiredForLastOpenTag = false;
     outputNestingDepth = 0;
     outputContainerElementName = null;
     outputContainerBeforeOpen.clear();
@@ -314,6 +318,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public boolean outputElementForLastOpenTagUsedForeignContentRules() {
     return outputElementForLastOpenTagUsedForeignContentRules;
+  }
+
+  public boolean outputSelectRetiredForLastOpenTag() {
+    return outputSelectRetiredForLastOpenTag;
   }
 
   public int outputNestingDepth() {
@@ -347,7 +355,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   }
 
   public boolean retireOutputSelectKeepingLogicalDescendants() {
-    for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
+    // The logical stack also contains every dropped unknown element and is
+    // not depth-bounded.  The indexed output entries keep this check bounded
+    // by the emitted depth when no select is open.
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int i = tableScopeOutputEntries.get(k);
       if (!outputElementInForeignContent.get(i / 2)
           && "select".equals(openElementStack.get(i))) {
         retireOutputSuffixKeepingLogical(i - 1);
@@ -1174,6 +1186,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     openTag(elementName, attrs, OpenTagMode.EMIT_SUPPRESS_SUBTREE);
   }
 
+  public void openTablePartWithInheritedTextGate(
+      String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.INHERIT_TEXT_GATE);
+  }
+
   public boolean isSuppressingOutputAndContent() {
     return suppressOutputAndContent;
   }
@@ -1190,6 +1207,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       String elementName, List<String> attrs, OpenTagMode mode) {
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputSelectRetiredForLastOpenTag = false;
     reopenedTableWasRenamed = false;
     boolean usesPreparedStart = mode != OpenTagMode.REOPENED_TABLE
         && elementName.equals(preparedElementName)
@@ -1227,6 +1245,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       if (!skippedLastTagAsAttributeless
           && !(attrs.isEmpty()
                && policies.htmlTagSkipType.skipAvailability())) {
+        boolean inheritedTextGate = skipText;
+        boolean ignoreNestedSelect = modeEmitsOutput(mode)
+            && prepareForSelectExit(adjustedElementName);
+        if (ignoreNestedSelect) {
+          deferOpenTag(elementName);
+          return;
+        }
         if (mode == OpenTagMode.NORMAL
             && outputFormStartWouldBeIgnored(adjustedElementName, attrs)) {
           // An element policy can introduce a form where the input parser has
@@ -1246,9 +1271,21 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         }
         if (mode == OpenTagMode.NORMAL
             || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE
+            || mode == OpenTagMode.INHERIT_TEXT_GATE
             || (mode == OpenTagMode.REOPENED_TABLE
                 && "table".equals(adjustedElementName))) {
           writeOpenTag(policies, adjustedElementName, attrs);
+          if (mode == OpenTagMode.INHERIT_TEXT_GATE
+              && isHtmlTablePart(adjustedElementName)
+              && !outputElementForLastOpenTagUsedForeignContentRules
+              && !HtmlTextEscapingMode.isVoidElement(elementName)) {
+            // Outside a physical table a browser ignores these start tags, so
+            // their ordinary structural text rules do not create containers.
+            // Carry the gate from where their text lands, while retaining an
+            // explicit rule on the author's current input name.
+            skipText = inheritedTextGate
+                || disallowedTextContainers.contains(elementName);
+          }
           if (mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
             suppressOutputAndContent = true;
             skipText = true;
@@ -1392,12 +1429,54 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     preparedSkippedAsAttributeless = false;
   }
 
+  /** Prepares an emitted start that changes the HTML in-select insertion mode. */
+  private boolean prepareForSelectExit(String adjustedElementName) {
+    String htmlName = Strings.toLowerCase(adjustedElementName);
+    boolean exitsSelect = "input".equals(htmlName)
+        || "keygen".equals(htmlName)
+        || "select".equals(htmlName)
+        || "textarea".equals(htmlName);
+    if (!exitsSelect) { return false; }
+    // Search the emitted stack for an HTML select instead of trusting the
+    // current lexical namespace.  SVG and MathML roots written inside a select
+    // are ignored by tree construction, although the lexical tracker enters
+    // them, so an input after either root still exits the select.
+    outputSelectRetiredForLastOpenTag =
+        retireOutputSelectKeepingLogicalDescendants();
+    // A select start seen in the in-select insertion mode closes the open
+    // select but is not reprocessed, so it produces no element of its own.
+    return outputSelectRetiredForLastOpenTag && "select".equals(htmlName);
+  }
+
+  /** Whether this mode may serialize the adjusted start tag. */
+  private static boolean modeEmitsOutput(OpenTagMode mode) {
+    return mode == OpenTagMode.NORMAL
+        || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE
+        || mode == OpenTagMode.INHERIT_TEXT_GATE;
+  }
+
+  /** Whether HTML tree construction gives this local name table semantics. */
+  private static boolean isHtmlTablePart(String elementName) {
+    String htmlName = Strings.toLowerCase(elementName);
+    return "caption".equals(htmlName)
+        || "col".equals(htmlName)
+        || "colgroup".equals(htmlName)
+        || "table".equals(htmlName)
+        || "tbody".equals(htmlName)
+        || "td".equals(htmlName)
+        || "tfoot".equals(htmlName)
+        || "th".equals(htmlName)
+        || "thead".equals(htmlName)
+        || "tr".equals(htmlName);
+  }
+
   private enum OpenTagMode {
     NORMAL,
     REOPENED_TABLE,
     SUPPRESS,
     SUPPRESS_SUBTREE,
     EMIT_SUPPRESS_SUBTREE,
+    INHERIT_TEXT_GATE,
   }
 
   public boolean skippedLastTagAsAttributeless() {
