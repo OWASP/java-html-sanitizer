@@ -1509,85 +1509,6 @@ class TagBalancingHtmlStreamRendererTest {
   }
 
   /**
-   * Item 4 of #492.  A receiver that throws leaves the document without its
-   * closeDocument.  openDocument used to start the next document with the
-   * previous document's open elements, so that document's output began with
-   * the previous document's close tags.  Both lifecycle calls now reset the
-   * document state, and the nesting limit, which is configuration, survives.
-   * The receiver here records events itself, since the renderer refuses a
-   * second document while one is open.
-   */
-  @Test
-  void testOpenDocumentResetsWhatAThrowingReceiverLeftOpen() {
-    final StringBuilder events = new StringBuilder();
-    final int[] counts = new int[2];
-    final TagBalancingHtmlStreamEventReceiver b =
-        new TagBalancingHtmlStreamEventReceiver(new HtmlStreamEventReceiver() {
-          public void openDocument() {
-            events.append("[open]");
-          }
-
-          public void closeDocument() {
-            events.append("[close]");
-          }
-
-          public void openTag(String elementName, List<String> attrs) {
-            events.append('<').append(elementName).append('>');
-            if (!HtmlTextEscapingMode.isVoidElement(
-                HtmlLexer.canonicalElementName(elementName))) {
-              ++counts[0];
-            }
-          }
-
-          public void closeTag(String elementName) {
-            events.append("</").append(elementName).append('>');
-            ++counts[1];
-          }
-
-          public void text(String text) {
-            if ("BOOM".equals(text)) {
-              throw new IllegalStateException("receiver failed");
-            }
-            events.append(text);
-          }
-        });
-    b.setNestingLimit(4);
-    b.openDocument();
-    b.openTag("table", j8().listOf());
-    b.openTag("tr", j8().listOf());
-    b.openTag("td", j8().listOf());
-    b.text("x");
-    IllegalStateException ex = assertThrows(
-        IllegalStateException.class, () -> b.text("BOOM"));
-    assertEquals("receiver failed", ex.getMessage());
-    // The first document stops where the receiver failed, unclosed.
-    assertEquals("[open]<table><tbody><tr><td>x", events.toString());
-    events.setLength(0);
-    counts[0] = counts[1] = 0;
-
-    // The next document starts clean: no close tags for the table structure
-    // the first one left open, and the limit still applies from depth zero.
-    b.openDocument();
-    b.openTag("svg", j8().listOf());
-    b.openTag("path", j8().listOf());
-    b.text("y");
-    b.closeTag("path");
-    b.closeTag("svg");
-    for (int i = 0; i < 5; ++i) {
-      b.openTag("div", j8().listOf());
-    }
-    b.text("z");
-    b.closeDocument();
-    assertEquals(
-        "[open]<svg><path>y</path></svg>"
-        + "<div><div><div><div>z</div></div></div></div>[close]",
-        events.toString());
-    // svg, path and the four divs that fit the limit.
-    assertEquals(6, counts[0]);
-    assertEquals(counts[0], counts[1]);
-  }
-
-  /**
    * A pre-processor can hand the balancer a name in a case the lexer would
    * not.  Every start tag is forwarded under its canonical name, so a tag
    * the policy drops is reported to the listener under that name.  The tags
@@ -1659,6 +1580,8 @@ class TagBalancingHtmlStreamRendererTest {
    * A balancer can be reused for another document.  The first leaves a
    * dropped element whose text is suppressed, the form element pointer set,
    * and a foreign root open; the next document starts with none of that.
+   * {@link #testOpenDocumentResetsWhatAThrowingReceiverLeftOpen} covers the
+   * same reset when the first document ends in a throw instead.
    */
   @Test
   void testBalancerStartsEachDocumentClean() {
@@ -1681,6 +1604,83 @@ class TagBalancingHtmlStreamRendererTest {
     balancer.closeDocument();
     assertEquals("x<form><p>y</p></form>", htmlOutputBuffer.toString());
     assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
+  /**
+   * Item 4 of #492.  A receiver that throws leaves the document without its
+   * closeDocument.  openDocument used to start the next document with the
+   * previous document's open elements, so that document's output began with
+   * the previous document's close tags.  Both lifecycle calls now reset the
+   * document state: here the first document leaves an HTML form with the
+   * pointer set, a forwarded custom element, table structure, and a
+   * formatting element queued to resume; the next document starts with
+   * none of it.  {@link #testBalancerStartsEachDocumentClean} is the same
+   * reset through closeDocument.  The receiver records events itself, since
+   * the renderer refuses a second document while one is open.
+   */
+  @Test
+  void testOpenDocumentResetsWhatAThrowingReceiverLeftOpen() {
+    final StringBuilder events = new StringBuilder();
+    final TagBalancingHtmlStreamEventReceiver b =
+        new TagBalancingHtmlStreamEventReceiver(new HtmlStreamEventReceiver() {
+          public void openDocument() {
+            events.append("[open]");
+          }
+
+          public void closeDocument() {
+            events.append("[close]");
+          }
+
+          public void openTag(String elementName, List<String> attrs) {
+            events.append('<').append(elementName).append('>');
+          }
+
+          public void closeTag(String elementName) {
+            if ("tr".equals(elementName)) {
+              throw new IllegalStateException("receiver failed");
+            }
+            events.append("</").append(elementName).append('>');
+          }
+
+          public void text(String text) {
+            events.append(text);
+          }
+        });
+    b.openDocument();
+    b.openTag("form", j8().listOf());
+    b.openTag("foo", j8().listOf());
+    b.openTag("table", j8().listOf());
+    b.openTag("tr", j8().listOf());
+    b.openTag("td", j8().listOf());
+    b.openTag("b", j8().listOf());
+    b.text("x");
+    // Closing the cell pops the b, which is queued to resume; the row's
+    // close is where the receiver fails.
+    b.closeTag("td");
+    IllegalStateException ex = assertThrows(
+        IllegalStateException.class, () -> b.closeTag("tr"));
+    assertEquals("receiver failed", ex.getMessage());
+    assertEquals(
+        "[open]<form><foo><table><tbody><tr><td><b>x</b></td>",
+        events.toString());
+    events.setLength(0);
+
+    // The next document starts clean: the text is not wrapped in the queued
+    // b, the form is not ignored for a pointer the last document set, no
+    // close tag comes for the custom element or the table, and the nesting
+    // limit, set once the new document is open, applies from depth zero.
+    b.openDocument();
+    b.setNestingLimit(3);
+    b.text("y");
+    b.openTag("form", j8().listOf());
+    b.openTag("p", j8().listOf());
+    b.openTag("span", j8().listOf());
+    b.openTag("span", j8().listOf());
+    b.text("z");
+    b.closeDocument();
+    assertEquals(
+        "[open]y<form><p><span>z</span></p></form>[close]",
+        events.toString());
   }
 
   /**
