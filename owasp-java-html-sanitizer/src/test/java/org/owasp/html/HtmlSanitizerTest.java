@@ -5258,4 +5258,64 @@ class HtmlSanitizerTest {
         kept, "<table><tr><svg><foo>x</foo></svg><td>y",
         before + "<svg><foo>x</foo></svg>" + after);
   }
+
+  /**
+   * A table the policy drops inside an SVG or MathML integration point has
+   * its rows and cells suppressed, since a browser reading the output drops
+   * them there, but their text still goes where the browser puts it.  The
+   * policy's fail-closed rule for text in a suppressed table part, meant for
+   * the renderer's lexical SVG nesting left open after an emitted breakout,
+   * also fired inside an integration point, where the root is still on the
+   * browser's stack and HTML rules apply, and deleted the cell text.
+   */
+  @Test
+  void testCellTextOfADroppedTableInAnIntegrationPointIsKept()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "desc", "math", "mtext",
+            "form", "tbody", "tr", "td", "p", "b", "div")
+        .toFactory();
+    String[][] cases = {
+        { "<svg><foreignObject><table><form><tr><td>y</td></tr></table>",
+          "<svg><foreignObject><form>y</form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><form>y<tr><td>z",
+          "<svg><foreignObject><form>yz</form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><tbody><form><tr><td>y",
+          "<svg><foreignObject><form>y</form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><tr><form><td>y</td></tr></table>z",
+          "<svg><foreignObject><form>yz</form></foreignObject></svg>" },
+        { "<svg><desc><table><form><tr><td>y",
+          "<svg><desc><form>y</form></desc></svg>" },
+        { "<math><mtext><table><form><tr><td>y</td></tr></table>",
+          "<math><mtext><form>y</form></mtext></math>" },
+        { "<svg><foreignObject><table><form><tr><td>y</td></tr></table>"
+          + "</foreignObject></svg><p>after</p>",
+          "<svg><foreignObject><form>y</form></foreignObject></svg>"
+          + "<p>after</p>" },
+        { "<svg><foreignObject><table><form action=x onsubmit=alert(1)>"
+          + "<tr><td><p>para</p></td></tr></table>",
+          "<svg><foreignObject><form><p>para</p></form></foreignObject>"
+          + "</svg>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // Outside an integration point the parts themselves survive, as before.
+    assertRoundTripAndBalanced(
+        p, "<div><table><form><tr><td>y</td></tr></table>",
+        "<div><form><tbody><tr><td>y</td></tr></tbody></form></div>");
+    // A table the policy keeps is unchanged: the form is inserted and
+    // popped in the table, as a browser does, and the cell keeps its text.
+    PolicyFactory tables = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "table", "form", "tbody", "tr", "td")
+        .toFactory();
+    String input = "<svg><foreignObject><table><form><tr><td>y</td></tr>"
+        + "</table>";
+    String out = "<svg><foreignObject><table><form></form><tbody><tr><td>y"
+        + "</td></tr></tbody></table></foreignObject></svg>";
+    assertRoundTripAndBalanced(tables, input, out);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out), input);
+  }
 }

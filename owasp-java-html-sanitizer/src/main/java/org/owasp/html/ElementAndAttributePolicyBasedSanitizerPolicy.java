@@ -1228,8 +1228,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
               // SVG/Math nesting open after the browser context has left it.
               // Text from a suppressed table part cannot be placed safely in
               // that stale lexical context, so fail closed for that text.
+              // Inside an integration point the foreign root is still on the
+              // browser's stack and HTML rules apply to what is inserted
+              // there, so the text goes where it would in any HTML container.
               || (inForeignContent
-                  && !outputForeignContent.isInForeignContent());
+                  && !outputForeignContent.isInForeignContent()
+                  && outputForeignContent.outermostForeignElementName()
+                      == null);
         }
         return;
       }
