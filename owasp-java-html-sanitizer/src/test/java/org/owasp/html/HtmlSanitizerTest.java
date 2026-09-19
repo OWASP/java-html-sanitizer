@@ -5516,6 +5516,29 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * A nested item start has already ended the output item for a browser.
+   * When the list around that nested item has no output, keeping its logical
+   * context lets later text acquire its own item too.  Retiring the list
+   * instead moved the text outside any item when the first output was parsed,
+   * so its tree changed on the next sanitization.
+   */
+  @Test
+  void testDroppedNestedListKeepsBrowserItemContext() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("ul", "li", "p").toFactory();
+    String input =
+        "<li onclick=alert(1)><ol><tbody></li>"
+        + "<img src=x onerror=alert(1)>&amp;";
+    String out = p.sanitize(input);
+    String again = p.sanitize(out);
+    assertEquals(parseAsBrowser(out), parseAsBrowser(again));
+    assertTrue(out.contains("&amp;"));
+    assertFalse(out.contains("alert") || out.contains("<img"));
+    assertBalancedPolicyEvents(p, input);
+    assertBalancedPolicyEvents(p, out);
+  }
+
+  /**
    * Input, keygen and textarea starts make a browser leave its in-select
    * insertion mode; another select start closes the open select and is
    * ignored.  The serialized output has to retire the same select before the

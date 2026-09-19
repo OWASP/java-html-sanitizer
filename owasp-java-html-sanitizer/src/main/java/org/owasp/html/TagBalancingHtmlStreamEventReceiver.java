@@ -2170,6 +2170,14 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     int element = openElements.get(top);
     if (element == UL_TAG || element == OL_TAG) {
+      if (underlying instanceof OpenTagOutputPolicy
+          && "li".equals(((OpenTagOutputPolicy) underlying)
+              .outputContainerElementName())) {
+        // A nested item start already ended that output item for a browser.
+        // Keep the logical list so later content gets its own item too.
+        outputlessImpliedListAfterEmittedItem = -1;
+        return;
+      }
       // The inferred list established no output context.  Leaving it open
       // makes later content behave as its next item only on a subsequent
       // pass, after an emitted free item causes the same inference again.
