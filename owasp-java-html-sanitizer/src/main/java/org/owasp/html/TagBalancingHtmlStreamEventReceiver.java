@@ -2186,25 +2186,18 @@ public class TagBalancingHtmlStreamEventReceiver
           top = container < foreignRootBoundary
               ? BODY_TAG : effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
-          startPos = 0;
-          for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
-            if (impliedElIndices[i] == top) {
-              startPos = i + 1;
-              break;
-            }
-          }
+          startPos = startAfter(impliedElIndices, top);
         }
         // The select has to fit where the option's output goes.  An entry
         // the policy dropped, a cell, a caption, a template or any other
         // element, is no container in the output: what holds the option
         // there is the nearest entry below with output, and if that is
-        // table structure, which holds no select, the dropped entries are
-        // set aside, the select is prepared like an explicit one, which
-        // pushes it out of the table as a browser foster-parents it, and the
-        // dropped entries are put back so that the cell's end tag still
-        // closes the option it holds (#492).  A container the policy
-        // renamed into table structure is closed instead, since the select
-        // cannot go inside it either.
+        // table structure, which holds no select, the table is pushed out
+        // from there, as a browser foster-parents the select before the
+        // table, while the dropped entries stay where they are, so that the
+        // cell's end tag still closes the option it holds (#492).  A
+        // container the policy renamed into table structure is closed
+        // instead, since the select cannot go inside it either.
         int outputTableEntry = -1;
         if (startPos < impliedElIndices.length
             && impliedElIndices[startPos] == SELECT_TAG
@@ -2230,42 +2223,20 @@ public class TagBalancingHtmlStreamEventReceiver
             && container >= 0
             && (outputTableEntry >= 0
                 || !canHold(SELECT_TAG, top, container))) {
-          int nSetAside = 0;
-          int[] setAside = null;
-          int[] setAsideSerials = null;
-          boolean[] setAsideInputForeign = null;
-          if (outputTableEntry >= 0 && outputTableEntry < container) {
-            nSetAside = container - outputTableEntry;
-            setAside = new int[nSetAside];
-            setAsideSerials = new int[nSetAside];
-            setAsideInputForeign = new boolean[nSetAside];
-            for (int i = 0; i < nSetAside; ++i) {
-              int at = outputTableEntry + 1 + i;
-              setAside[i] = openElements.get(at);
-              setAsideSerials[i] = inputElementSerials.get(at);
-              setAsideInputForeign[i] = inputElementsInForeignContent.get(at);
-            }
-            closeStackFrom(outputTableEntry + 1, setAside[0]);
-          } else if (outputTableEntry == container) {
+          if (outputTableEntry < 0) {
+            mayOpenAtNestingLimit &= prepareForContent(
+                SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
+          } else if (outputTableEntry < container
+              || TABLE_CONTEXT.get(openElements.get(outputTableEntry))) {
+            pushOutTable(outputTableEntry);
+          } else {
             closeStackFrom(container, openElements.get(container));
-          }
-          mayOpenAtNestingLimit &= prepareForContent(
-              SELECT_TAG, false, impliedTableEscapesSyntheticSelect);
-          for (int i = 0; i < nSetAside; ++i) {
-            stackElementWithoutOutput(
-                setAside[i], setAsideInputForeign[i], setAsideSerials[i]);
           }
           container = containerIndex();
           top = container < foreignRootBoundary
               ? BODY_TAG : effectiveContainer(elIndex, container);
           impliedElIndices = METADATA.impliedElements(top, elIndex);
-          startPos = 0;
-          for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
-            if (impliedElIndices[i] == top) {
-              startPos = i + 1;
-              break;
-            }
-          }
+          startPos = startAfter(impliedElIndices, top);
         }
 
         List<String> attrs = new ArrayList<>();
@@ -2920,6 +2891,17 @@ public class TagBalancingHtmlStreamEventReceiver
     return elIndex == A_TAG && hasOpenLinkInFormattingScope(lowerBound);
   }
 
+  /**
+   * The position in an implied path after the container itself, if the path
+   * runs through it, else the start of the path.
+   */
+  private static int startAfter(int[] implied, int top) {
+    for (int i = 0, n = implied.length; i < n; ++i) {
+      if (implied[i] == top) { return i + 1; }
+    }
+    return 0;
+  }
+
   /** Whether a browser would foster-parent this token out of an open table. */
   private boolean needsFosterParenting(int elIndex, int foreignRootBoundary) {
     if (!isFosterParented(elIndex)
@@ -3116,6 +3098,7 @@ public class TagBalancingHtmlStreamEventReceiver
       return BODY_TAG;
     }
     if ((child == OPTION_TAG || child == OPTGROUP_TAG)
+        && !isOutputInForeignContent()
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG

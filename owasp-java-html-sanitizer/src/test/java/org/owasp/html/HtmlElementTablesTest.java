@@ -173,6 +173,7 @@ final class HtmlElementTablesTest {
         Arrays.toString(new int[] { ix("li") }),
         Arrays.toString(
             t.impliedElements(ix("ul"), ix("td"))));
+    // The containers that hold the element directly imply nothing.
     assertEquals(
         Arrays.toString(new int[] {}),
         Arrays.toString(

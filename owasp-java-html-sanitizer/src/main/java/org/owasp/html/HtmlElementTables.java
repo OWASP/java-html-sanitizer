@@ -307,7 +307,6 @@ public final class HtmlElementTables {
     final int desc;
     final boolean[] allowedContainers;
     final int[] implied;
-    /** Whether the wrapped element is a table part. */
     /**
      * Whether an ancestor whose index lies past the end of
      * {@link #allowedContainers} counts as allowed, the reading the table

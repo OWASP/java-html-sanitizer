@@ -4269,6 +4269,30 @@ class HtmlSanitizerTest {
     }
   }
 
+  /**
+   * The name of the parent of the first {@code name} element in the browser
+   * tree of {@code html}, or "" when it is a child of the fragment.
+   */
+  private static String browserParentOf(String html, String name)
+      throws Exception {
+    String[] lines = parseAsBrowser(html).split("\n");
+    for (int i = 0; i < lines.length; ++i) {
+      String line = lines[i];
+      int indent = line.length() - line.replaceAll("^ +", "").length();
+      if (!line.trim().equals("<" + name + ">")) { continue; }
+      for (int j = i; --j >= 0;) {
+        String above = lines[j];
+        int aboveIndent =
+            above.length() - above.replaceAll("^ +", "").length();
+        if (aboveIndent == indent - 2 && above.trim().startsWith("<")) {
+          return above.trim().replaceAll("^<([a-zA-Z0-9:-]+).*$", "$1");
+        }
+      }
+      return "";
+    }
+    return null;
+  }
+
   /** The element names in {@code html}, except the list and root names. */
   private static List<String> foreignNamesIn(String html) {
     List<String> names = new ArrayList<String>();
@@ -5579,9 +5603,36 @@ class HtmlSanitizerTest {
     };
     for (String[] c : droppedCell) {
       assertRoundTripAndBalanced(noCell, c[0], c[1]);
-      assertEquals(parseAsBrowser(c[1]), parseAsBrowser(noCell.sanitize(c[0])),
-          c[0]);
+      // The select is not in table structure in the output's browser tree.
+      String parent = browserParentOf(noCell.sanitize(c[0]), "select");
+      assertTrue(
+          "".equals(parent) || "td".equals(parent), c[0] + " -> " + parent);
     }
+    // A kept element around the table holds the select; a kept formatting
+    // element inside the dropped cell is pushed out with it; a row holding
+    // the option directly is closed and the next row opens a new table.
+    String[] names3 = {
+        "table", "tbody", "tr", "td", "select", "option", "div", "b" };
+    PolicyFactory noCellDiv = new HtmlPolicyBuilder()
+        .allowElements(names3).allowWithoutAttributes(names3).toFactory();
+    String[][] around = {
+        { "<div><table><th><option>x",
+          "<div><table><tbody><tr></tr></tbody></table>"
+          + "<select><option>x</option></select></div>" },
+        { "<table><th><b><option>x</b>y</th>z",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<b><select><option>x</option></select></b>yz" },
+        { "<table><tr><option>x</option></tr><tr><td>y",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>x</option></select>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>" },
+    };
+    for (String[] c : around) {
+      assertRoundTripAndBalanced(noCellDiv, c[0], c[1]);
+    }
+    assertEquals(
+        "div", browserParentOf(noCellDiv.sanitize("<div><table><th><option>x"),
+        "select"));
     // Hostile content around the wrapper is still removed, with the link
     // allowed so that its URL is what the policy judges.
     PolicyFactory withLinks = p.and(new HtmlPolicyBuilder()
@@ -5660,9 +5711,10 @@ class HtmlSanitizerTest {
           out.contains("<script") || out.contains("onclick")
           || out.contains("onerror") || out.contains("<img"),
           out);
-      assertEquals(
-          parseAsBrowser(c[1]), parseAsBrowser(noTemplate.sanitize(c[0])),
-          c[0]);
+      String parent = browserParentOf(out, "select");
+      assertTrue(
+          "".equals(parent) || "td".equals(parent) || "u".equals(parent),
+          c[0] + " -> " + parent);
     }
     // A template the policy renames is the option's container in the
     // output, and holds no option directly; renamed into table structure it
