@@ -2472,7 +2472,7 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     if (elIndex != HtmlElementTables.TEXT_NODE
         && elIndex != UNRECOGNIZED_TAG
-        && hasSpecialTextMode(elIndex)) {
+        && writtenAsRawTextElement(elIndex)) {
       // A browser does not reconstruct formatting for an element whose
       // content it reads as text: the element is inserted beside the
       // formatting, which is reconstructed again for the text after it.
@@ -2562,25 +2562,28 @@ public class TagBalancingHtmlStreamEventReceiver
     return mayOpenAtNestingLimit;
   }
 
-  /** Drops the innermost queued formatting element with this index, if any. */
   /**
    * Queues a formatting element to reconstruct later, keeping at most three
    * of a name as a browser's list of active formatting elements does: its
    * Noah's Ark clause drops the earliest of four alike.  Without that bound
    * one list item after another closing over the same open formatting
-   * element grew the output by a level each time (#492).
+   * element grew the output by a level each time (#492).  The queue holds
+   * the innermost first, so the earliest is the last of the alike.
    */
   private void queueForResumption(int elIndex) {
     int alike = 0;
+    int earliest = -1;
     for (int i = toResumeInReverse.size(); --i >= 0;) {
-      if (toResumeInReverse.get(i) == elIndex && ++alike == 3) {
-        toResumeInReverse.remove(i);
-        break;
+      if (toResumeInReverse.get(i) == elIndex) {
+        ++alike;
+        if (earliest < 0) { earliest = i; }
       }
     }
+    if (alike >= 3) { toResumeInReverse.remove(earliest); }
     toResumeInReverse.add(elIndex);
   }
 
+  /** Drops the innermost queued formatting element with this index, if any. */
   private void forgetQueuedFormatting(int elIndex) {
     for (int i = toResumeInReverse.size(); --i >= 0;) {
       if (toResumeInReverse.get(i) == elIndex) {
@@ -3023,7 +3026,10 @@ public class TagBalancingHtmlStreamEventReceiver
       if (outputElements.get(i) == NO_OUTPUT_ELEMENT || pushedOut.get(i)) {
         continue;
       }
-      if (LIST_ITEM_START_BARRIERS.get(openElement)) { return -1; }
+      // The emitted element is what bounds the walk, not the name the
+      // input wrote: a policy that renames a barrier to something else
+      // leaves no barrier in the output to find.
+      if (LIST_ITEM_START_BARRIERS.get(outputElements.get(i))) { return -1; }
     }
     return -1;
   }
@@ -4566,6 +4572,19 @@ public class TagBalancingHtmlStreamEventReceiver
     return canonElementName.length() == 2
         && (canonElementName.charAt(0) | 32) == 'h'
         && canonElementName.charAt(1) <= '9';
+  }
+
+  /**
+   * Whether content this element holds is read as text in the output too.
+   * The renderer writes xmp, listing and plaintext as pre, whose content a
+   * browser reads as markup, so formatting is reconstructed for them as it
+   * is for any other element; one of them, xmp, is also the one raw-text
+   * start tag whose own rule reconstructs it.
+   */
+  private static boolean writtenAsRawTextElement(int elementIndex) {
+    String name = METADATA.canonNameForIndex(elementIndex);
+    return hasSpecialTextMode(elementIndex)
+        && name.equals(HtmlStreamRenderer.safeName(name));
   }
 
   private static boolean hasSpecialTextMode(int elementIndex) {
