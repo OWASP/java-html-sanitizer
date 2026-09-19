@@ -149,6 +149,36 @@ final class HtmlElementTablesTest {
         Arrays.toString(new int[] {}),
         Arrays.toString(
             t.impliedElements(ix("td"), ix("td"))));
+    // The free wrappers apply under a container past the end of the
+    // wrapper's set of allowed containers too (#492, item 9).
+    assertEquals(
+        Arrays.toString(new int[] { ix("select") }),
+        Arrays.toString(
+            t.impliedElements(ix("ul"), ix("option"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("select") }),
+        Arrays.toString(
+            t.impliedElements(ix("span"), ix("optgroup"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("select") }),
+        Arrays.toString(
+            t.impliedElements(ix("td"), ix("option"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("ul") }),
+        Arrays.toString(
+            t.impliedElements(ix("var"), ix("li"))));
+    assertEquals(
+        Arrays.toString(new int[] { ix("table"), ix("tbody"), ix("tr") }),
+        Arrays.toString(
+            t.impliedElements(ix("ul"), ix("td"))));
+    assertEquals(
+        Arrays.toString(new int[] {}),
+        Arrays.toString(
+            t.impliedElements(ix("select"), ix("option"))));
+    assertEquals(
+        Arrays.toString(new int[] {}),
+        Arrays.toString(
+            t.impliedElements(ix("ul"), ix("li"))));
   }
 
   @Test

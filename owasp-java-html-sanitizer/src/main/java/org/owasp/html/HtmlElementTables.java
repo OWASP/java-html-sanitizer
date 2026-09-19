@@ -341,8 +341,12 @@ public final class HtmlElementTables {
     FreeWrapper wrapper = desc != TEXT_NODE && desc < FREE_WRAPPERS.length
         ? FREE_WRAPPERS[desc] : null;
     if (wrapper != null) {
-      if (anc < wrapper.allowedContainers.length
-          && !wrapper.allowedContainers[anc]) {
+      // The allowed containers are a bit set only as long as its highest
+      // member; an ancestor past its end is not among them.  Reading it as
+      // allowed left an option under a span, or a list item under a var,
+      // without its select or list (#492).
+      if (anc >= wrapper.allowedContainers.length
+          || !wrapper.allowedContainers[anc]) {
         return wrapper.implied;
       }
     }

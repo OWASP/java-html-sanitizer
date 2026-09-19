@@ -2776,10 +2776,13 @@ class HtmlSanitizerTest {
     for (String[] c : tableOnlyCases) {
       assertRoundTripAndBalanced(tableOnly, c[0], c[1]);
     }
+    // The caption's table is implied inside the list's item, as under any
+    // container that is not a table (#492, item 9); the text still lands
+    // beside the table.
     PolicyFactory tableAndList = new HtmlPolicyBuilder()
         .allowElements("table", "ul", "li").toFactory();
     assertRoundTripAndBalanced(
-        tableAndList, "<ul><caption>E", "<ul><li></li></ul><table></table>E");
+        tableAndList, "<ul><caption>E", "<ul><li><table></table>E</li></ul>");
   }
 
   /**
@@ -3556,7 +3559,9 @@ class HtmlSanitizerTest {
 
     // The same shape recursed with the table mapped to a list.  A list can
     // hold a form only through an item on the next pass, so that pass is
-    // checked for balance rather than for exact idempotence.
+    // checked for balance rather than for exact idempotence.  The col's own
+    // table is implied under the list and suppressed like the rest; it used
+    // to get the list's item instead, an empty li (#492, item 9).
     for (String list : new String[] { "ul", "ol" }) {
       PolicyFactory q = new HtmlPolicyBuilder()
           .allowElements((name, attrs) -> list, "table")
@@ -3566,7 +3571,7 @@ class HtmlSanitizerTest {
       String out = q.sanitize(input);
       assertEquals(
           "<" + list + "><form><noscript></noscript></form><form></form>"
-          + "<li></li></" + list + ">",
+          + "</" + list + ">",
           out, list);
       assertBalancedPolicyEvents(q, input);
       assertBalancedPolicyEvents(q, out);
@@ -5396,6 +5401,100 @@ class HtmlSanitizerTest {
     assertEquals(
         nest("<select>x</select>", 255),
         p.sanitize(nest("<select><div>x</div></select>", 255)));
+  }
+
+  /**
+   * Item 9 of #492.  The containment metadata's free wrappers, the select
+   * around an option or optgroup, the list around a list item and the table
+   * structure around a cell, apply under any container that is not one of
+   * the few that hold the element directly.  Those few were kept as a bit
+   * set only as long as its highest member, and an ancestor past its end
+   * was read as one of them, so an option under a span, a th or a ul, and
+   * a list item under a var, got no wrapper.  Under a ul the list's own item
+   * was implied instead, and the next pass, seeing the option in that item,
+   * added the select: not a fixed point.
+   */
+  @Test
+  void testFreeWrappersApplyUnderEveryOtherContainer() throws Exception {
+    String[] names = {
+        "ul", "ol", "li", "select", "option", "optgroup", "table", "tbody",
+        "tr", "td", "th", "span", "u", "var", "video", "tt", "div", "p", "b" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] cases = {
+        // Containers whose element index is past the wrapper's set.
+        { "<ul><option>x", "<ul><li><select><option>x</option></select></li></ul>" },
+        { "<ul><optgroup>x",
+          "<ul><li><select><optgroup>x</optgroup></select></li></ul>" },
+        { "<span><option>x", "<span><select><option>x</option></select></span>" },
+        { "<u><optgroup>x", "<u><select><optgroup>x</optgroup></select></u>" },
+        { "<var><li>x", "<var><ul><li>x</li></ul></var>" },
+        { "<video><li>x", "<video><ul><li>x</li></ul></video>" },
+        { "<table><th><option>x",
+          "<table><tbody><tr><th><select><option>x</option></select></th></tr>"
+          + "</tbody></table>" },
+        { "<table><td>x<option>y",
+          "<table><tbody><tr><td>x<select><option>y</option></select></td>"
+          + "</tr></tbody></table>" },
+        { "<ul><td>x",
+          "<ul><li><table><tbody><tr><td>x</td></tr></tbody></table></li></ul>" },
+        { "<ul><li>x</li><option>y",
+          "<ul><li>x</li><li><select><option>y</option></select></li></ul>" },
+        // Containers before it, and the containers that hold the element
+        // directly, are as they were.
+        { "<div><option>x", "<div><select><option>x</option></select></div>" },
+        { "<u><li>x", "<u><ul><li>x</li></ul></u>" },
+        { "<ul><li>x", "<ul><li>x</li></ul>" },
+        { "<select><option>x", "<select><option>x</option></select>" },
+        { "<select><optgroup><option>x",
+          "<select><optgroup><option>x</option></optgroup></select>" },
+        { "<table><tr><td>x",
+          "<table><tbody><tr><td>x</td></tr></tbody></table>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // The issue's shape: the option's cell is dropped by the policy, and
+    // an optgroup beside it, or in the cell's place, gets its select too.
+    PolicyFactory noTable = new HtmlPolicyBuilder()
+        .allowElements("select", "option", "optgroup", "p", "b", "div", "ul",
+            "li")
+        .allowWithoutAttributes("select", "option", "optgroup", "p", "b",
+            "div", "ul", "li")
+        .toFactory();
+    String[][] dropped = {
+        { "<table><th><option>tail", "<select><option>tail</option></select>" },
+        { "<table><th><optgroup>tail",
+          "<select><optgroup>tail</optgroup></select>" },
+        { "<table><tr><td><optgroup>a</optgroup><option>b",
+          "<select><optgroup>a</optgroup><option>b</option></select>" },
+        { "<td><optgroup>tail", "<select><optgroup>tail</optgroup></select>" },
+        { "<table><td><ul><optgroup>x",
+          "<ul><li><select><optgroup>x</optgroup></select></li></ul>" },
+    };
+    for (String[] c : dropped) {
+      assertRoundTripAndBalanced(noTable, c[0], c[1]);
+    }
+    // Hostile content around the wrapper is still removed.
+    String[][] hostile = {
+        { "<span><option onmouseover=alert(1)>x</option>"
+          + "<a href=javascript:alert(1)>y</a></span>",
+          "<span><select><option>x</option>y</select></span>" },
+        { "<var><li onclick=alert(1)><img src=x onerror=alert(1)>x",
+          "<var><ul><li>x</li></ul></var>" },
+        { "<table><th><option>x</option></th></tr></table>"
+          + "<script>alert(1)</script>y",
+          "<table><tbody><tr><th><select><option>x</option></select></th>"
+          + "</tr></tbody></table>y" },
+        // The style inside an option is text there, as CVE-2021-42575 requires,
+        // with or without the select around it.
+        { "<u><option>x<style>*{}</style>y",
+          "<u><select><option>x*{}y</option></select></u>" },
+    };
+    for (String[] c : hostile) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(c[1].contains("alert"), c[1]);
+    }
   }
 
   /**

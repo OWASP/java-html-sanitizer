@@ -2,6 +2,14 @@
 
 Most recent at top.
   * Next release
+    * An `option` or `optgroup` under any element but a `select`, `optgroup`
+      or `option` now gets its `select`, a list item under any element but a
+      list its list, and a table cell its table structure, whatever the
+      container's name.  The containment metadata read a container whose
+      index lay past the end of the wrapper's set of allowed containers, such
+      as `span`, `td`, `th` or `ul` for an option, as one of them, so an
+      option in a dropped table cell came out bare and the next pass wrapped
+      it (#492, item 9).
     * Content a `select` cannot hold, such as bare text or an SVG or MathML
       root with text inside it, no longer grows a list level on every
       sanitization.  The tag balancer's containment metadata answers such
