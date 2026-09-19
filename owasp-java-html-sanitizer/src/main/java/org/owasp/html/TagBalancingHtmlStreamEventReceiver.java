@@ -2973,22 +2973,18 @@ public class TagBalancingHtmlStreamEventReceiver
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
     }
-    if ((child == CAPTION_TAG || child == COLGROUP_TAG
-            || child == OPTION_TAG || child == OPTGROUP_TAG)
+    if ((child == OPTION_TAG || child == OPTGROUP_TAG)
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG
         && sentToUnderlying.get(containerIndexOnStack)) {
-      // A template holds a caption, column group, option or optgroup
-      // directly, so the containment metadata implies no table or select
-      // for one there, but a template the policy dropped or renamed
-      // establishes none in the output: the part lands where the template
-      // was, or in what the template became, and is judged there, so it gets
-      // the table or select it gets in that place instead of coming out bare
-      // for the output parser to drop and the next pass to wrap (#492).  The
-      // other table parts already get their table under a template through
-      // the metadata.
+      // A template holds an option or optgroup directly, so the containment
+      // metadata implies no select for one there, but a template the policy
+      // dropped or renamed establishes none in the output: the option lands
+      // where the template was, or in what the template became, and is
+      // judged there, so it gets the select it gets in that place instead
+      // of coming out bare for the next pass to wrap (#492).
       if (underlying instanceof OpenTagOutputPolicy) {
         @Nullable String outputContainerName =
             ((OpenTagOutputPolicy) underlying).outputContainerElementName();

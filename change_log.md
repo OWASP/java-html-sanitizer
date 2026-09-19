@@ -14,12 +14,7 @@ Most recent at top.
       its option gets its select there.  With the table kept and only the
       cell or template dropped, the select is pushed out of the table as a
       browser foster-parents one written in a row, instead of being emitted
-      inside the row and moved out by the next pass (#492, item 9).  A
-      caption or column group under a `template` the policy dropped is
-      judged the same way, where the template was, and gets its table there,
-      instead of coming out as an orphan part that a browser drops and the
-      next pass wraps; `Sanitizers.TABLES` now emits on the first pass what
-      it emitted on the second (#492, item 2).
+      inside the row and moved out by the next pass (#492, item 9).
     * Content a `select` cannot hold, such as bare text or an SVG or MathML
       root with text inside it, no longer grows a list level on every
       sanitization.  The tag balancer's containment metadata answers such
