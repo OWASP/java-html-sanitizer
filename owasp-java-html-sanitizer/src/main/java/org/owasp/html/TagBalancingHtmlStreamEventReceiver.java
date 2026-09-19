@@ -679,7 +679,7 @@ public class TagBalancingHtmlStreamEventReceiver
           // The policy-only suppression entry owns a stack entry below even
           // though nothing is emitted for it.
           tablePolicyAtStart.openTagWithoutOutputOrContent(
-              elementName, attrs);
+              canonElementName, attrs);
           droppedSuppressedOptionOwnsPolicyEntry = true;
           droppedSuppressedOptionStackDepth = openElements.size();
           droppedSuppressedOptionPassthroughDepth = passthroughNames.size();

@@ -1605,6 +1605,55 @@ class TagBalancingHtmlStreamRendererTest {
   }
 
   /**
+   * An option suppressed at the limit inside a table mapped to a foreign
+   * select owns a policy entry.  That entry is opened under the canonical
+   * name, like every other start tag, so the end tag the balancer sends under
+   * that name closes it, and the listener hears the same name a
+   * pre-processor's recasing cannot change.
+   */
+  @Test
+  void testSuppressedOptionAtLimitIsForwardedUnderTheCanonicalName() {
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        discarded.add(elementName);
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        fail("Unexpected discarded attributes on " + tagName);
+      }
+    };
+    PolicyFactory factory = new HtmlPolicyBuilder()
+        .allowElements("svg", "table", "option")
+        .allowElements((name, attrs) -> "select", "table")
+        .allowTextIn("svg", "table", "option")
+        .allowWithoutAttributes("svg", "table", "option")
+        .toFactory();
+    StringBuilder output = new StringBuilder();
+    List<String> open = new ArrayList<>();
+    int[] eventCounts = new int[3];
+    TagBalancingHtmlStreamEventReceiver limited =
+        new TagBalancingHtmlStreamEventReceiver(
+            factory.apply(
+                strictRenderer(output, open, eventCounts), listener, null));
+    limited.setNestingLimit(2);
+    limited.openDocument();
+    limited.openTag("svg", j8().listOf());
+    limited.openTag("table", j8().listOf());
+    limited.openTag("OPTION", j8().listOf());
+    limited.text("dropped");
+    limited.closeTag("OPTION");
+    limited.closeTag("table");
+    limited.closeTag("svg");
+    limited.closeDocument();
+
+    assertEquals("<svg><select></select></svg>", output.toString());
+    assertEquals(j8().listOf("option"), discarded);
+    assertEquals(eventCounts[0], eventCounts[1]);
+  }
+
+  /**
    * Runs events through a balancer over the policy, both directly and through
    * the change reporter, checking that the emitted events stay balanced.
    */
