@@ -2122,8 +2122,11 @@ class HtmlSanitizerTest {
   /**
    * A link pushed out of a table is closed when the table resumes, and is
    * not written again around another link or inside one: nested links do
-   * not survive a browser's parse.  Text is pushed out likewise, and needs
-   * nothing closed.
+   * not survive a browser's parse.  Nor is it written again after that
+   * link: a browser drops the earlier link from its list of active
+   * formatting elements when the next one starts, so the text after the
+   * second link is plain, as it is here.  Text is pushed out likewise, and
+   * needs nothing closed.
    */
   @Test
   void testPushedOutLinkIsNotResumedAroundAnotherLink() throws Exception {
@@ -2132,13 +2135,14 @@ class HtmlSanitizerTest {
         .allowAttributes("href").onElements("a")
         .allowWithoutAttributes("a")
         .toFactory();
-    String out = p.sanitize(
-        "<table><a href=u>x<tr><td><a href=v>y</a>z</td></tr></table>w");
+    String input =
+        "<table><a href=u>x<tr><td><a href=v>y</a>z</td></tr></table>w";
+    String out = p.sanitize(input);
 
     assertEquals(
         "<table></table><a href=\"u\">x</a>"
-        + "<table><tbody><tr><td><a href=\"v\">y</a><a>z</a></td></tr></tbody>"
-        + "</table><a>w</a>",
+        + "<table><tbody><tr><td><a href=\"v\">y</a>z</td></tr></tbody>"
+        + "</table>w",
         out);
     assertEquals(out, p.sanitize(out));
     assertEquals(
@@ -5489,5 +5493,48 @@ class HtmlSanitizerTest {
     assertRoundTripAndBalanced(
         noTextInCells, "<div><table><form><tr><td>y",
         "<div><form><tbody><tr><td></td></tr></tbody></form></div>");
+  }
+
+  /**
+   * A formatting element closed with an earlier container is queued to
+   * resume around later content, as a browser reconstructs its active
+   * formatting elements.  A browser also drops such an element from that list
+   * when its own end tag arrives, and drops a link when the next link starts,
+   * so neither is reconstructed afterwards; the queue now forgets them too.
+   * Before, {@code <math><b>x</math></b><li>y</li>} bolded {@code y} and
+   * {@code <foo><a href=x>x</foo><li><a href=y>y</a>z} linked {@code z}.
+   */
+  @Test
+  void testQueuedFormattingIsForgottenByItsEndTagOrByANewLink()
+      throws Exception {
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    assertRoundTripAndBalanced(
+        blocks, "<math><b>x</math></b><li>y</li>",
+        "<b>x</b><ul><li>y</li></ul>");
+    assertRoundTripAndBalanced(
+        blocks, "<math><b>x</math><li>y</li></b>z",
+        "<b>x</b><ul><li><b>y</b></li><li>z</li></ul>");
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("foo", "b", "i", "div", "p", "ul", "li", "a")
+        .allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols()
+        .toFactory();
+    String[][] cases = {
+        { "<foo><b>x</foo></b>y", "<foo><b>x</b></foo>y" },
+        { "<div><b>x</div></b><p>y</p>", "<div><b>x</b></div><p>y</p>" },
+        { "<foo><a href=x>x</foo><li><a href=y>y</a>z",
+          "<foo><a href=\"x\">x</a></foo><ul><li><a href=\"y\">y</a>z</li>"
+          + "</ul>" },
+        // An end tag for another element leaves the queue alone.
+        { "<foo><b>x</foo></i>y", "<foo><b>x</b></foo><b>y</b>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    for (String input : new String[] {
+        "<foo><b>x</foo></b>y", "<div><b>x</div></b><p>y</p>" }) {
+      assertEquals(parseAsBrowser(input), parseAsBrowser(p.sanitize(input)),
+          input);
+    }
   }
 }

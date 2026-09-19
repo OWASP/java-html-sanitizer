@@ -904,6 +904,13 @@ public class TagBalancingHtmlStreamEventReceiver
       return;
     }
 
+    if (elIndex == A_TAG) {
+      // A browser ends a link when the next begins, and drops the old link
+      // from its list of active formatting elements, so a link closed with an
+      // earlier container and queued to resume is not resumed around content
+      // after the new one either.
+      forgetQueuedFormatting(A_TAG);
+    }
     int formTableContext = elIndex == FORM_TAG
         ? formStartTagTableContext(
             usesForeignContentRules, outputUsesForeignContentRules)
@@ -2285,6 +2292,16 @@ public class TagBalancingHtmlStreamEventReceiver
     return mayOpenAtNestingLimit;
   }
 
+  /** Drops the innermost queued formatting element with this index, if any. */
+  private void forgetQueuedFormatting(int elIndex) {
+    for (int i = toResumeInReverse.size(); --i >= 0;) {
+      if (toResumeInReverse.get(i) == elIndex) {
+        toResumeInReverse.remove(i);
+        return;
+      }
+    }
+  }
+
   /** Closes an output wrapper whose required child did not fit the limit. */
   private void retireContainerForUnemittedListChild(int child) {
     if (child != LI_TAG && child != OPTION_TAG) { return; }
@@ -3514,6 +3531,11 @@ public class TagBalancingHtmlStreamEventReceiver
           }
         }
       }
+      // A formatting element closed with an earlier container and queued to
+      // resume is not open, but the end tag is its: a browser drops such an
+      // element from its list of active formatting elements, so it is not
+      // reconstructed around later content.  Forget it here too.
+      if (METADATA.resumable(elIndex)) { forgetQueuedFormatting(elIndex); }
       return;  // Don't close unopened tags.
     }
 
