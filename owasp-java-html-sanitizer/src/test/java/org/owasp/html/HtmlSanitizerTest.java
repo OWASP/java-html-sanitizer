@@ -4269,6 +4269,30 @@ class HtmlSanitizerTest {
     }
   }
 
+  /**
+   * The name of the parent of the first {@code name} element in the browser
+   * tree of {@code html}, or "" when it is a child of the fragment.
+   */
+  private static String browserParentOf(String html, String name)
+      throws Exception {
+    String[] lines = parseAsBrowser(html).split("\n");
+    for (int i = 0; i < lines.length; ++i) {
+      String line = lines[i];
+      int indent = line.length() - line.replaceAll("^ +", "").length();
+      if (!line.trim().equals("<" + name + ">")) { continue; }
+      for (int j = i; --j >= 0;) {
+        String above = lines[j];
+        int aboveIndent =
+            above.length() - above.replaceAll("^ +", "").length();
+        if (aboveIndent == indent - 2 && above.trim().startsWith("<")) {
+          return above.trim().replaceAll("^<([a-zA-Z0-9:-]+).*$", "$1");
+        }
+      }
+      return "";
+    }
+    return null;
+  }
+
   /** The element names in {@code html}, except the list and root names. */
   private static List<String> foreignNamesIn(String html) {
     List<String> names = new ArrayList<String>();
@@ -5548,6 +5572,305 @@ class HtmlSanitizerTest {
         },
         null);
     assertEquals(Collections.<String>emptyList(), discarded);
+  }
+
+  /**
+   * Item 9 of #492.  The containment metadata's select around a free option
+   * or optgroup, and its list around a free list item, apply under any
+   * container that is not one of the few that hold the element directly.
+   * Those few were kept as a bit set only as long as its highest member,
+   * and an ancestor past its end was read as one of them, so an option
+   * under a span, a th or a ul, and a list item under a var, got no wrapper.
+   * Under a ul the list's own item was implied instead, and the next pass,
+   * seeing the option in that item, added the select: not a fixed point.
+   * The table parts' wrappers keep the old reading, since the balancer
+   * returns a part to a table in scope first and its handling of parts in
+   * dropped tables was built on it.
+   */
+  @Test
+  void testFreeWrappersApplyUnderEveryOtherContainer() throws Exception {
+    String[] names = {
+        "ul", "ol", "li", "select", "option", "optgroup", "table", "tbody",
+        "tr", "td", "th", "span", "u", "var", "video", "tt", "div", "p", "b" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] cases = {
+        // Containers whose element index is past the wrapper's set.
+        { "<ul><option>x", "<ul><li><select><option>x</option></select></li></ul>" },
+        { "<ul><optgroup>x",
+          "<ul><li><select><optgroup>x</optgroup></select></li></ul>" },
+        { "<span><option>x", "<span><select><option>x</option></select></span>" },
+        { "<u><optgroup>x", "<u><select><optgroup>x</optgroup></select></u>" },
+        { "<var><li>x", "<var><ul><li>x</li></ul></var>" },
+        { "<video><li>x", "<video><ul><li>x</li></ul></video>" },
+        { "<table><th><option>x",
+          "<table><tbody><tr><th><select><option>x</option></select></th></tr>"
+          + "</tbody></table>" },
+        { "<table><td>x<option>y",
+          "<table><tbody><tr><td>x<select><option>y</option></select></td>"
+          + "</tr></tbody></table>" },
+        { "<ul><li>x</li><option>y",
+          "<ul><li>x</li><li><select><option>y</option></select></li></ul>" },
+        // Containers before it, and the containers that hold the element
+        // directly, are as they were.
+        { "<div><option>x", "<div><select><option>x</option></select></div>" },
+        { "<u><li>x", "<u><ul><li>x</li></ul></u>" },
+        { "<ul><li>x", "<ul><li>x</li></ul>" },
+        { "<select><option>x", "<select><option>x</option></select>" },
+        { "<select><optgroup><option>x",
+          "<select><optgroup><option>x</option></optgroup></select>" },
+        { "<table><tr><td>x",
+          "<table><tbody><tr><td>x</td></tr></tbody></table>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // The issue's shape: the option's cell is dropped by the policy, and
+    // an optgroup beside it, or in the cell's place, gets its select too.
+    PolicyFactory noTable = new HtmlPolicyBuilder()
+        .allowElements("select", "option", "optgroup", "p", "b", "div", "ul",
+            "li")
+        .allowWithoutAttributes("select", "option", "optgroup", "p", "b",
+            "div", "ul", "li")
+        .toFactory();
+    String[][] dropped = {
+        { "<table><th><option>tail", "<select><option>tail</option></select>" },
+        { "<table><th><optgroup>tail",
+          "<select><optgroup>tail</optgroup></select>" },
+        { "<table><tr><td><optgroup>a</optgroup><option>b",
+          "<select><optgroup>a</optgroup><option>b</option></select>" },
+        { "<td><optgroup>tail", "<select><optgroup>tail</optgroup></select>" },
+        { "<table><td><ul><optgroup>x",
+          "<ul><li><select><optgroup>x</optgroup></select></li></ul>" },
+    };
+    for (String[] c : dropped) {
+      assertRoundTripAndBalanced(noTable, c[0], c[1]);
+    }
+    // With the table kept and only the cell dropped, the option's select
+    // lands where a browser foster-parents one written in a row: before the
+    // table, not inside the row.
+    PolicyFactory noCell = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "select", "option",
+            "optgroup")
+        .allowWithoutAttributes("table", "tbody", "tr", "td", "select",
+            "option", "optgroup")
+        .toFactory();
+    String[][] droppedCell = {
+        { "<table><th><option>tail",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>tail</option></select>" },
+        { "<table><th><optgroup>tail",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><optgroup>tail</optgroup></select>" },
+        { "<table><caption><option>tail",
+          "<table></table><select><option>tail</option></select>" },
+        { "<table><td><table><th><option>tail",
+          "<table><tbody><tr><td><table><tbody><tr></tr></tbody></table>"
+          + "<select><option>tail</option></select></td></tr></tbody></table>" },
+        // The balancer closes a table it pushes content out of, as it does
+        // for text, so the cell after the option opens a new one.
+        { "<table><th><option>a</option></th><td>b",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>"
+          + "<table><tbody><tr><td>b</td></tr></tbody></table>" },
+        // The dropped cell still closes what it holds at its end tag: text
+        // after it is not the option's.
+        { "<table><th><option>a</th>b",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>b" },
+        // Dropped elements between the cell and the option, of any name,
+        // change nothing: the output's row is what holds the option.
+        { "<table><th><p><option>a</p></th>b",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>b" },
+        { "<table><th><b><i><optgroup>a",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><optgroup>a</optgroup></select>" },
+        { "<table><th><template><option>a",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>a</option></select>" },
+    };
+    for (String[] c : droppedCell) {
+      assertRoundTripAndBalanced(noCell, c[0], c[1]);
+      // The select is not in table structure in the output's browser tree.
+      String parent = browserParentOf(noCell.sanitize(c[0]), "select");
+      assertTrue(
+          "".equals(parent) || "td".equals(parent), c[0] + " -> " + parent);
+    }
+    // A kept element around the table holds the select; a kept formatting
+    // element inside the dropped cell is pushed out with it; a row holding
+    // the option directly is closed and the next row opens a new table.
+    String[] names3 = {
+        "table", "tbody", "tr", "td", "select", "option", "div", "b" };
+    PolicyFactory noCellDiv = new HtmlPolicyBuilder()
+        .allowElements(names3).allowWithoutAttributes(names3).toFactory();
+    String[][] around = {
+        { "<div><table><th><option>x",
+          "<div><table><tbody><tr></tr></tbody></table>"
+          + "<select><option>x</option></select></div>" },
+        { "<table><th><b><option>x</b>y</th>z",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<b><select><option>x</option></select></b>yz" },
+        { "<table><tr><option>x</option></tr><tr><td>y",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>x</option></select>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>" },
+    };
+    for (String[] c : around) {
+      assertRoundTripAndBalanced(noCellDiv, c[0], c[1]);
+    }
+    assertEquals(
+        "div", browserParentOf(noCellDiv.sanitize("<div><table><th><option>x"),
+        "select"));
+    // Hostile content around the wrapper is still removed, with the link
+    // allowed so that its URL is what the policy judges.
+    PolicyFactory withLinks = p.and(new HtmlPolicyBuilder()
+        .allowElements("a").allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols().allowWithoutAttributes("a")
+        .toFactory());
+    assertRoundTripAndBalanced(
+        withLinks,
+        "<span><option onmouseover=alert(1)>x</option>"
+        + "<a href=javascript:alert(1)>y</a><a href=https://e/>z</a></span>",
+        "<span><select><option>x</option><a>y</a>"
+        + "<a href=\"https://e/\">z</a></select></span>");
+    String[][] hostile = {
+        { "<span><option onmouseover=alert(1)>x</option>"
+          + "<a href=javascript:alert(1)>y</a></span>",
+          "<span><select><option>x</option>y</select></span>" },
+        { "<var><li onclick=alert(1)><img src=x onerror=alert(1)>x",
+          "<var><ul><li>x</li></ul></var>" },
+        { "<table><th><option>x</option></th></tr></table>"
+          + "<script>alert(1)</script>y",
+          "<table><tbody><tr><th><select><option>x</option></select></th>"
+          + "</tr></tbody></table>y" },
+        // The style inside an option is text there, as CVE-2021-42575 requires,
+        // with or without the select around it.
+        { "<u><option>x<style>*{}</style>y",
+          "<u><select><option>x*{}y</option></select></u>" },
+    };
+    for (String[] c : hostile) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert"), c[0]);
+    }
+  }
+
+  /**
+   * Items 9 and 2 of #492.  A template holds an option directly, as a
+   * browser's does, so no select is implied for one there.  A template the
+   * policy dropped or renamed establishes none in the output, though: the
+   * option is judged where the template was, or in what it became, and gets
+   * its select there; inside table structure the select is pushed out of the
+   * table, as a browser foster-parents one written in a row.
+   */
+  @Test
+  void testOptionUnderDroppedTemplateGetsItsSelect() throws Exception {
+    String[] names = {
+        "u", "table", "tbody", "tr", "td", "select", "option", "optgroup" };
+    PolicyFactory noTemplate = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] dropped = {
+        { "<u><template><option>x", "<u><select><option>x</option></select></u>" },
+        { "<u><template><optgroup>x",
+          "<u><select><optgroup>x</optgroup></select></u>" },
+        { "<table><template><option>x",
+          "<table></table><select><option>x</option></select>" },
+        { "<table><tr><template><option>x",
+          "<table><tbody><tr></tr></tbody></table>"
+          + "<select><option>x</option></select>" },
+        { "<table><td><template><option>x",
+          "<table><tbody><tr><td><select><option>x</option></select></td></tr>"
+          + "</tbody></table>" },
+        { "<table><template><option>a</option></template><tr><td>b",
+          "<table></table><select><option>a</option></select>"
+          + "<table><tbody><tr><td>b</td></tr></tbody></table>" },
+        // Hostile content in the option's place is still removed.  The
+        // script inside the option is text there, as CVE-2021-42575 requires
+        // of a literal-content element in a select, with or without the
+        // template.
+        { "<u><template><option onclick=alert(1)>x<script>alert(1)</script>y",
+          "<u><select><option>xalert(1)y</option></select></u>" },
+        { "<table><template><option>x<img src=x onerror=alert(1)>",
+          "<table></table><select><option>x</option></select>" },
+    };
+    for (String[] c : dropped) {
+      assertRoundTripAndBalanced(noTemplate, c[0], c[1]);
+      String out = noTemplate.sanitize(c[0]);
+      assertFalse(
+          out.contains("<script") || out.contains("onclick")
+          || out.contains("onerror") || out.contains("<img"),
+          out);
+      String parent = browserParentOf(out, "select");
+      assertTrue(
+          "".equals(parent) || "td".equals(parent) || "u".equals(parent),
+          c[0] + " -> " + parent);
+    }
+    // A template the policy renames is the option's container in the
+    // output, and holds no option directly; renamed into table structure it
+    // cannot hold the select either, which is pushed out of it.
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowElements(
+            new ElementPolicy() {
+              public String apply(String elementName, List<String> attrs) {
+                return "u";
+              }
+            },
+            "template")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed, "<u><template><option>x",
+        "<u><u><select><option>x</option></select></u></u>");
+    PolicyFactory renamedToTable = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowElements(
+            new ElementPolicy() {
+              public String apply(String elementName, List<String> attrs) {
+                return "table";
+              }
+            },
+            "template")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamedToTable, "<u><template><option>x",
+        "<u><table></table><select><option>x</option></select></u>");
+    // With the cell dropped as well, the select is pushed out of the table
+    // that remains.
+    PolicyFactory noCellNoTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "select", "option")
+        .allowWithoutAttributes("table", "tbody", "tr", "select", "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        noCellNoTemplate, "<table><td><template><option>x",
+        "<table><tbody><tr></tr></tbody></table>"
+        + "<select><option>x</option></select>");
+    // Under a select, the template sits above the select's own logical
+    // list item, which has no output; the option's judgment stops there.
+    String[][] inSelect = {
+        { "<select><template><option>x",
+          "<select><template><option>x</option></template></select>" },
+        { "<select><optgroup><template><option>x",
+          "<select><optgroup><template><option>x</option></template>"
+          + "</optgroup></select>" },
+    };
+    PolicyFactory pOnly = new HtmlPolicyBuilder().allowElements("p")
+        .toFactory();
+    PolicyFactory selectOnly = new HtmlPolicyBuilder()
+        .allowElements("select", "option").toFactory();
+    for (String[] c : inSelect) {
+      assertRoundTripAndBalanced(pOnly, c[0], "x");
+      assertRoundTripAndBalanced(
+          selectOnly, c[0], "<select><option>x</option></select>");
+      assertRoundTripAndBalanced(
+          Sanitizers.BLOCKS.and(Sanitizers.TABLES), c[0], "x");
+    }
+    // A template the policy keeps still holds the option directly.
+    PolicyFactory withTemplate = new HtmlPolicyBuilder()
+        .allowElements("u", "template", "select", "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        withTemplate, "<u><template><option>x",
+        "<u><template><option>x</option></template></u>");
   }
 
   /**
