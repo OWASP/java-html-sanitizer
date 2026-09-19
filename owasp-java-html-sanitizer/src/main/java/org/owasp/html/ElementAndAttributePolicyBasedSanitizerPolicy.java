@@ -1231,6 +1231,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
           push(elementName, null);
           skipText = !allowedTextContainers.contains(elementName)
               || disallowedTextContainers.contains(elementName)
+              // No tag is written for this element, so its text lands in
+              // the nearest emitted element.  Text the policy disallows
+              // there stays out: judging only by this element's gate let a
+              // suppressed cell admit text into a form the policy disallows
+              // text in, which the next pass then removed.
+              || (outputContainerElementName != null
+                  && disallowedTextContainers.contains(
+                      outputContainerElementName))
               // An emitted HTML breakout can leave the renderer's lexical
               // SVG/Math nesting open after the browser context has left it.
               // Text from a suppressed table part cannot be placed safely in

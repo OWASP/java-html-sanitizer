@@ -5434,4 +5434,60 @@ class HtmlSanitizerTest {
         "<table><tbody><tr><td><select><form>x</form></select></td></tr>"
         + "</tbody></table>");
   }
+
+  /**
+   * A table part opened without output, because a browser would drop it where
+   * it lands, writes no tag, so its text goes to the nearest emitted element.
+   * Text the policy disallows there stays out: judging only by the suppressed
+   * part's own gate let a cell admit text into a form the policy disallows
+   * text in, and the next pass removed it.  The part's own gate still applies
+   * as well, and a table renamed to a container that holds text keeps the
+   * text of its suppressed cells, as before.
+   */
+  @Test
+  void testTextInASuppressedTablePartFollowsTheGateOfWhereItLands()
+      throws Exception {
+    HtmlPolicyBuilder base = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "desc", "math", "mtext",
+            "form", "tbody", "tr", "td", "p", "b", "div");
+    PolicyFactory noTextInForms = base.disallowTextIn("form").toFactory();
+    String[][] cases = {
+        { "<svg><foreignObject><table><form><tr><td>y",
+          "<svg><foreignObject><form></form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><form><tr><td><p>y</p>z",
+          "<svg><foreignObject><form><p>y</p></form></foreignObject></svg>" },
+        { "<math><mtext><table><form><tr><td>y</td></tr></table>",
+          "<math><mtext><form></form></mtext></math>" },
+        { "<svg><foreignObject><table><form><tr><td><b>y</b>",
+          "<svg><foreignObject><form><b>y</b></form></foreignObject></svg>" },
+        // A cell the output keeps still decides for its own text.
+        { "<div><table><form><tr><td>y",
+          "<div><form><tbody><tr><td>y</td></tr></tbody></form></div>" },
+        { "<form>y<b>z</b></form>", "<form><b>z</b></form>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(noTextInForms, c[0], c[1]);
+    }
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("form", "tbody", "tr", "td", "div")
+        .allowElements((name, attrs) -> "div", "table")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed, "<table><form id=a></form><tr><td>y</td></tr></table>",
+        "<div><form id=\"a\"></form>y</div>");
+    // A part that writes no tag still applies its own gate, as on main: the
+    // author disallowed text in cells, and the text is in one in the input.
+    PolicyFactory noTextInCells = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "form", "tbody", "tr", "td", "div")
+        .disallowTextIn("td").toFactory();
+    assertRoundTripAndBalanced(
+        noTextInCells, "<svg><foreignObject><table><form><tr><td>y",
+        "<svg><foreignObject><form></form></foreignObject></svg>");
+    assertRoundTripAndBalanced(
+        noTextInCells, "<div><table><form><tr><td>y",
+        "<div><form><tbody><tr><td></td></tr></tbody></form></div>");
+  }
 }
