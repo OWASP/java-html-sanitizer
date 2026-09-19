@@ -5441,6 +5441,104 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Residuals from #494 under policies that keep {@code li} but drop its
+   * usual wrappers.  A dropped inferred list must not capture later text or
+   * a following select after its emitted item.  An inferred item inside an
+   * output select is just as browser-invisible as the select's synthetic
+   * item.  Neither may hide the select's end tag.  Finally, a kept option
+   * below a dropped nested select must close the option open in the output,
+   * and a dropped list after a closed select must not nest its inferred item
+   * in the item that held the select.
+   */
+  @Test
+  void testDroppedListAndSelectContextsAreStable() throws Exception {
+    PolicyFactory liOnly = new HtmlPolicyBuilder()
+        .allowElements("li").toFactory();
+    PolicyFactory liOption = new HtmlPolicyBuilder()
+        .allowElements("li", "option").toFactory();
+    PolicyFactory liSelect = new HtmlPolicyBuilder()
+        .allowElements("li", "select").toFactory();
+    String droppedSelect =
+        "<ul><li onclick=alert(1)></li></ul><select>"
+        + "<img src=x onerror=alert(1)>tail</select>";
+    assertRoundTripAndBalanced(
+        liOnly, droppedSelect, "<li></li>tail");
+    assertRoundTripAndBalanced(
+        liOption, droppedSelect, "<li></li>tail");
+    assertRoundTripAndBalanced(
+        liOption, "<select><option>one<select><option>two",
+        "<option>one</option><option>two</option>");
+    assertRoundTripAndBalanced(
+        liSelect, "<form><li onclick=alert(1)></form><select>"
+            + "<img src=x onerror=alert(1)>tail</select>",
+        "<li></li><select>tail</select>");
+    assertRoundTripAndBalanced(
+        liSelect, "<select>x<ul><img src=x onerror=alert(1)>tail",
+        "<select>xtail</select>");
+    assertRoundTripAndBalanced(
+        liSelect, "<select><li></li></select>tail",
+        "<select><li></li></select>tail");
+    assertRoundTripAndBalanced(
+        liSelect, "<ol><select></select><ul>tail",
+        "<li><select></select></li>tail");
+  }
+
+  /**
+   * The eight residual flags recorded for #499 reduce to an inferred list
+   * whose emitted item closes while the inferred wrapper produces no output.
+   * Later text, option or select output must not become that list's next item
+   * only when the output is sanitized again.
+   */
+  @Test
+  void testDroppedTemplateListResidualsAreStable() throws Exception {
+    PolicyFactory liOnly = new HtmlPolicyBuilder()
+        .allowElements("li").toFactory();
+    PolicyFactory liOption = new HtmlPolicyBuilder()
+        .allowElements("li", "option").toFactory();
+    PolicyFactory liSelect = new HtmlPolicyBuilder()
+        .allowElements("li", "select").toFactory();
+    String droppedTemplateColumn =
+        "<template><col><ol><br><table><option>"
+        + "<img src=x onerror=alert(1)>tail";
+    assertRoundTripAndBalanced(
+        liOnly, droppedTemplateColumn, "<li></li>tail");
+    assertRoundTripAndBalanced(
+        liOption, droppedTemplateColumn,
+        "<li></li><option>tail</option>");
+    assertRoundTripAndBalanced(
+        liSelect, droppedTemplateColumn,
+        "<li></li><select>tail</select>");
+    assertRoundTripAndBalanced(
+        liOnly,
+        "<svg><li onclick=alert(1)></svg><template>"
+            + "<img src=x onerror=alert(1)>tail",
+        "<li></li>tail");
+  }
+
+  /**
+   * A nested item start has already ended the output item for a browser.
+   * When the list around that nested item has no output, keeping its logical
+   * context lets later text acquire its own item too.  Retiring the list
+   * instead moved the text outside any item when the first output was parsed,
+   * so its tree changed on the next sanitization.
+   */
+  @Test
+  void testDroppedNestedListKeepsBrowserItemContext() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("ul", "li", "p").toFactory();
+    String input =
+        "<li onclick=alert(1)><ol><tbody></li>"
+        + "<img src=x onerror=alert(1)>&amp;";
+    String out = p.sanitize(input);
+    String again = p.sanitize(out);
+    assertEquals(parseAsBrowser(out), parseAsBrowser(again));
+    assertTrue(out.contains("&amp;"));
+    assertFalse(out.contains("alert") || out.contains("<img"));
+    assertBalancedPolicyEvents(p, input);
+    assertBalancedPolicyEvents(p, out);
+  }
+
+  /**
    * Input, keygen and textarea starts make a browser leave its in-select
    * insertion mode; another select start closes the open select and is
    * ignored.  The serialized output has to retire the same select before the
