@@ -5484,6 +5484,38 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * The eight residual flags recorded for #499 reduce to an inferred list
+   * whose emitted item closes while the inferred wrapper produces no output.
+   * Later text, option or select output must not become that list's next item
+   * only when the output is sanitized again.
+   */
+  @Test
+  void testDroppedTemplateListResidualsAreStable() throws Exception {
+    PolicyFactory liOnly = new HtmlPolicyBuilder()
+        .allowElements("li").toFactory();
+    PolicyFactory liOption = new HtmlPolicyBuilder()
+        .allowElements("li", "option").toFactory();
+    PolicyFactory liSelect = new HtmlPolicyBuilder()
+        .allowElements("li", "select").toFactory();
+    String droppedTemplateColumn =
+        "<template><col><ol><br><table><option>"
+        + "<img src=x onerror=alert(1)>tail";
+    assertRoundTripAndBalanced(
+        liOnly, droppedTemplateColumn, "<li></li>tail");
+    assertRoundTripAndBalanced(
+        liOption, droppedTemplateColumn,
+        "<li></li><option>tail</option>");
+    assertRoundTripAndBalanced(
+        liSelect, droppedTemplateColumn,
+        "<li></li><select>tail</select>");
+    assertRoundTripAndBalanced(
+        liOnly,
+        "<svg><li onclick=alert(1)></svg><template>"
+            + "<img src=x onerror=alert(1)>tail",
+        "<li></li>tail");
+  }
+
+  /**
    * Input, keygen and textarea starts make a browser leave its in-select
    * insertion mode; another select start closes the open select and is
    * ignored.  The serialized output has to retire the same select before the
