@@ -5450,7 +5450,7 @@ class HtmlSanitizerTest {
   @Test
   void testSelectExitStartsRestoreTheBrowserTextGate() throws Exception {
     String[] names = {
-        "table", "tbody", "tr", "th", "foo", "select", "option",
+        "table", "tbody", "tr", "td", "th", "foo", "select", "option",
         "optgroup",
         "input", "keygen", "textarea", "hr", "button", "b", "svg", "math",
     };
@@ -5503,6 +5503,23 @@ class HtmlSanitizerTest {
         { "<foo><select><table><optgroup><tbody><input>hidden",
           "<foo><select><table></table><optgroup></optgroup></select>"
           + "<table><tbody></tbody></table><input /></foo>" },
+        // Synthetic table context inside the select is gone after the exit;
+        // a later table part gets a new, stable implied table.
+        { "<foo><select><td><input><tr>",
+          "<foo><select><table><tbody><tr><td></td></tr></tbody></table>"
+          + "</select><input /><table><tbody><tr></tr></tbody></table>"
+          + "</foo>" },
+        // A select retired while table context is pushed out must not hide
+        // the implied select around a later option in a cell.
+        { "<foo><select><tr><option><td><option>shown",
+          "<foo><select><table><tbody><tr></tr></tbody></table>"
+          + "<option></option></select><table><tbody><tr><td><select>"
+          + "<option>shown</option></select></td></tr></tbody></table></foo>" },
+        // Outputless containment entries between an option and its implied
+        // select are not element metadata and must not be indexed as such.
+        { "<foo><option><optgroup><option>",
+          "<foo><select><option><optgroup><option></option></optgroup>"
+          + "</option></select></foo>" },
         // These starts stay in select mode, so their text remains in select.
         { "<foo><select><hr>kept",
           "<foo><select><hr />kept</select></foo>" },
@@ -5528,6 +5545,58 @@ class HtmlSanitizerTest {
       assertRoundTripAndBalanced(textInFoo, c[0], c[1]);
       assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
     }
+
+    // A retained HTML template bounds the select's scope.  An exit-looking
+    // start inside it belongs to the template and must not retire the select
+    // below it or restore foo's text gate around the template's contents.
+    String[] templateNames = {
+        "foo", "select", "template", "option",
+        "input", "keygen", "textarea", "u",
+    };
+    PolicyFactory keptTemplate = new HtmlPolicyBuilder()
+        .allowElements(templateNames).allowWithoutAttributes(templateNames)
+        .disallowTextIn("foo").toFactory();
+    String[][] scopedByTemplate = {
+        { "<foo><select><template><input>shown</template></select>hidden",
+          "<foo><select><template><input />shown</template></select></foo>" },
+        { "<foo><select><template><keygen>shown</template></select>hidden",
+          "<foo><select><template><keygen />shown</template></select></foo>" },
+        { "<foo><select><template><textarea>shown</textarea></template>"
+          + "</select>hidden",
+          "<foo><select><template><textarea></textarea>shown</template>"
+          + "</select></foo>" },
+        { "<foo><select><template><select><option>shown</option></select>"
+          + "</template></select>hidden",
+          "<foo><select><template><select><option>shown</option></select>"
+          + "</template></select></foo>" },
+        // The nested select start is ignored after closing the outer one; it
+        // cannot hide the surrounding option from the option that follows.
+        { "<foo><template><option><select><select><option>",
+          "<foo><template><option><select></select></option>"
+          + "<option></option></template></foo>" },
+        // The outer select is likewise out of scope when containment implies
+        // an inner select for an option below another template descendant.
+        { "<foo><select><template><u><option>shown",
+          "<foo><select><template><u><select><option>shown</option>"
+          + "</select></u></template></select></foo>" },
+    };
+    for (String[] c : scopedByTemplate) {
+      assertRoundTripAndBalanced(keptTemplate, c[0], c[1]);
+    }
+
+    // Table and MathML-looking starts are ignored by an output parser in
+    // select mode, so the later option still closes the earlier option.
+    PolicyFactory ignoredSelectStarts = new HtmlPolicyBuilder()
+        .allowElements("foo", "select", "option", "math", "mtext", "table")
+        .allowWithoutAttributes(
+            "foo", "select", "option", "math", "mtext", "table")
+        .disallowTextIn("foo").toFactory();
+    assertRoundTripAndBalanced(
+        ignoredSelectStarts,
+        "<foo><option><math><mtext><mtext><table><option>",
+        "<foo><select><option><math><mtext><mtext><table></table>"
+        + "</mtext></mtext></math></option><option></option></select>"
+        + "</foo>");
 
     // The output name decides.  A custom element mapped to input exits the
     // select; an input mapped to a div is ignored there like any other child.
