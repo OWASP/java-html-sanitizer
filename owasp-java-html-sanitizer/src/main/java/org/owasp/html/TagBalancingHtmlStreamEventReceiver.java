@@ -2126,7 +2126,12 @@ public class TagBalancingHtmlStreamEventReceiver
           && (container < 0 || !canHold(elIndex, top, container))) {
         // A dropped raw-text container cannot hide an emitted paragraph from
         // the implied table that the output parser will place beside it.
+        // A dropped template is not such a container: the part under it is
+        // judged where the template stood, and its own content is the
+        // part's, so suppressing it would delete the text of a caption the
+        // policy keeps (#492, item 2).
         if (container >= 0
+            && !isDroppedTemplate(container)
             && outputElements.get(container) == NO_OUTPUT_ELEMENT
             && contentIsSkippable(
                 METADATA.canonNameForIndex(openElements.get(container)))) {
@@ -3097,19 +3102,25 @@ public class TagBalancingHtmlStreamEventReceiver
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG) {
       return BODY_TAG;
     }
-    if ((child == OPTION_TAG || child == OPTGROUP_TAG)
+    if ((child == OPTION_TAG || child == OPTGROUP_TAG
+            || child == CAPTION_TAG || child == COLGROUP_TAG
+            || child == COL_TAG)
         && !isOutputInForeignContent()
         && containerIndexOnStack >= 0
         && containerIndexOnStack < openElements.size()
         && openElements.get(containerIndexOnStack) == TEMPLATE_TAG
         && outputElements.get(containerIndexOnStack) != TEMPLATE_TAG
         && sentToUnderlying.get(containerIndexOnStack)) {
-      // A template holds an option or optgroup directly, so the containment
-      // metadata implies no select for one there, but a template the policy
-      // dropped or renamed establishes none in the output: the option lands
-      // where the template was, or in what the template became, and is
-      // judged there, so it gets the select it gets in that place instead
-      // of coming out bare for the next pass to wrap (#492).
+      // A template holds an option, optgroup, caption, column group or col
+      // directly, so the containment metadata implies no select or table
+      // for one there, but a template the policy dropped or renamed
+      // establishes none in the output: the element lands where the
+      // template was, or in what the template became, and is judged there,
+      // so it gets the select or table it gets in that place instead of
+      // coming out bare, an orphan caption that the output parser drops,
+      // for the next pass to wrap (#492, items 9 and 2).  The other table
+      // parts already get their table under a template through the
+      // metadata.
       int outputContainer = outputContainerIndex();
       return outputContainer != UNRECOGNIZED_TAG ? outputContainer : BODY_TAG;
     }
@@ -3215,6 +3226,15 @@ public class TagBalancingHtmlStreamEventReceiver
     int innermost = implied.length == 0
         ? container : implied[implied.length - 1];
     return METADATA.canContain(innermost, child);
+  }
+
+  /** Whether the entry is a template the policy dropped. */
+  private boolean isDroppedTemplate(int stackIndex) {
+    return stackIndex >= 0
+        && stackIndex < openElements.size()
+        && openElements.get(stackIndex) == TEMPLATE_TAG
+        && outputElements.get(stackIndex) == NO_OUTPUT_ELEMENT
+        && sentToUnderlying.get(stackIndex);
   }
 
   /** Whether a dropped logical template contains the stack entry. */

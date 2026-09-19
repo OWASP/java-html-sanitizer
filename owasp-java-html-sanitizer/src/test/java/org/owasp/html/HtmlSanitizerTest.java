@@ -5785,6 +5785,130 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 2 of #492.  A template holds a caption or column group directly,
+   * so the containment metadata implies no table for one there.  A template
+   * the policy dropped establishes no template in the output, though: the
+   * caption landed where the template was, as an orphan that a browser
+   * drops, and the next pass gave it its table.  Parts under a dropped
+   * template are now judged where the template was.  The prepackaged
+   * policies drop the template and, being allowed no `table` they did not
+   * emit before, the output narrows to what the second pass already gave.
+   */
+  @Test
+  void testTablePartUnderDroppedTemplateGetsItsTable() throws Exception {
+    String[][] tables = {
+        { "<template><ul><math><caption>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        { "<template><ul><svg><caption>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        { "<template><ul><math><colgroup>TEXT",
+          "<table><colgroup></colgroup></table>TEXT" },
+        { "<template><caption>TEXT", "<table><caption>TEXT</caption></table>" },
+        { "<template><caption>TEXT</caption></template>after",
+          "<table><caption>TEXT</caption></table>after" },
+        { "<div><template><caption>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        // A cell already got its table there.
+        { "<template><ul><math><td>TEXT",
+          "<table><tbody><tr><td>TEXT</td></tr></tbody></table>" },
+        // Hostile content in the caption's place is still removed.
+        { "<template><caption><script>alert(1)</script>TEXT",
+          "<table><caption>TEXT</caption></table>" },
+        { "<template><ul><math><caption onclick=alert(1)>TEXT"
+          + "<img src=x onerror=alert(1)>",
+          "<table><caption>TEXT</caption></table>" },
+    };
+    for (String[] c : tables) {
+      assertRoundTripAndBalanced(Sanitizers.TABLES, c[0], c[1]);
+    }
+    // A dropped template bounds no table scope in the output: a part under
+    // it inside an open table returns to that table, closing a column
+    // group, or comes out beside the table it was written in.
+    String[][] inTable = {
+        { "<table><colgroup><template><caption>x",
+          "<table><colgroup></colgroup></table>"
+          + "<table><caption>x</caption></table>" },
+        // A col is held directly by a template too.
+        { "<template><col>x", "<table><colgroup><col /></colgroup></table>x" },
+        { "<template><ul><math><col>x",
+          "<table><colgroup><col /></colgroup></table>x" },
+        { "<template><colgroup onclick=alert(1)><col onclick=alert(1)>"
+          + "<script>alert(1)</script>x",
+          "<table><colgroup><col /></colgroup></table>x" },
+    };
+    for (String[] c : inTable) {
+      assertRoundTripAndBalanced(Sanitizers.TABLES, c[0], c[1]);
+      assertFalse(
+          Sanitizers.TABLES.sanitize(c[0]).contains("alert"), c[0]);
+    }
+    // Text the policy disallows in the template is not the caption's, so
+    // the caption a template holds keeps its own, as it does without one.
+    PolicyFactory noTemplateText = new HtmlPolicyBuilder()
+        .allowElements("table", "caption", "colgroup", "col")
+        .disallowTextIn("template").toFactory();
+    assertEquals(
+        noTemplateText.sanitize("<caption>TEXT</caption>"),
+        noTemplateText.sanitize("<template><caption>TEXT</caption></template>"));
+    assertRoundTripAndBalanced(
+        noTemplateText, "<template><caption>TEXT</caption></template>",
+        "<table><caption>TEXT</caption></table>");
+    // A part under a template inside an open table keeps the shape it has
+    // without this change: the template still bounds table scope, so the
+    // part stays in the cell and the next pass moves it, as it does on its
+    // own.  Closing that scope belongs with the other five scans that read
+    // it, not with this rule.
+    String[] inCell = {
+        "<table><tr><td><template><caption>x",
+        "<table><tbody><template><colgroup>x",
+    };
+    for (String c : inCell) {
+      assertEquals(
+          Sanitizers.TABLES.sanitize(c.replace("<template>", "")),
+          Sanitizers.TABLES.sanitize(
+              Sanitizers.TABLES.sanitize(c)),
+          c);
+    }
+    // The template's place is judged in the output: under a container the
+    // policy drops, the caption gets its table there.  A formatting
+    // element the policy keeps is the container in the output, and a
+    // browser drops a caption written in one, so that shape is left as it
+    // was, non-idempotent here as on its own.
+    assertRoundTripAndBalanced(
+        Sanitizers.TABLES, "<u><template><caption>TEXT",
+        "<table><caption>TEXT</caption></table>");
+    assertRoundTripAndBalanced(
+        Sanitizers.TABLES, "<u><template><colgroup>TEXT",
+        "<table><colgroup></colgroup></table>TEXT");
+    // A policy that drops the caption itself still gets the part's table,
+    // as it does for a bare caption without the template.
+    PolicyFactory noCaption = new HtmlPolicyBuilder()
+        .allowElements("table", "tr", "td", "u").toFactory();
+    assertEquals(
+        noCaption.sanitize("<caption>x"),
+        noCaption.sanitize("<template><caption>x"));
+    assertRoundTripAndBalanced(
+        noCaption, "<template><caption>x", "<table></table>x");
+    // With the list kept, the caption's table stands beside the list, as it
+    // does for <ul><caption> without the template.
+    assertRoundTripAndBalanced(
+        Sanitizers.BLOCKS.and(Sanitizers.TABLES),
+        "<template><ul><math><caption>TEXT",
+        "<ul><li></li></ul><table><caption>TEXT</caption></table>");
+    // A template the policy keeps still holds the caption directly, as a
+    // browser does.
+    PolicyFactory withTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "caption", "colgroup", "template")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        withTemplate, "<template><caption>TEXT</caption></template>",
+        "<template><caption>TEXT</caption></template>");
+    assertEquals(
+        parseAsBrowser("<template><caption>TEXT</caption></template>"),
+        parseAsBrowser(
+            withTemplate.sanitize("<template><caption>TEXT</caption></template>")));
+  }
+
+  /**
    * Item 1 of #492.  The list item the containment metadata implies for a
    * list's content landed inside a forwarded SVG or MathML root: the root
    * has no entry on the balancer's stack, so the text or foreign child inside
