@@ -2103,8 +2103,11 @@ public class TagBalancingHtmlStreamEventReceiver
               && sentToUnderlying.get(below)) {
             --below;
           }
+          // The scan stops at the select's own logical list item too, which
+          // has no output and is not the policy's.
           if (below >= 0
               && !pushedOut.get(below)
+              && outputElements.get(below) != NO_OUTPUT_ELEMENT
               && TABLE_CONTEXT.get(outputElements.get(below))) {
             outputTableEntry = below;
           }

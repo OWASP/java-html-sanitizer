@@ -5640,6 +5640,26 @@ class HtmlSanitizerTest {
         noCellNoTemplate, "<table><td><template><option>x",
         "<table><tbody><tr></tr></tbody></table>"
         + "<select><option>x</option></select>");
+    // Under a select, the template sits above the select's own logical
+    // list item, which has no output; the option's judgment stops there.
+    String[][] inSelect = {
+        { "<select><template><option>x",
+          "<select><template><option>x</option></template></select>" },
+        { "<select><optgroup><template><option>x",
+          "<select><optgroup><template><option>x</option></template>"
+          + "</optgroup></select>" },
+    };
+    PolicyFactory pOnly = new HtmlPolicyBuilder().allowElements("p")
+        .toFactory();
+    PolicyFactory selectOnly = new HtmlPolicyBuilder()
+        .allowElements("select", "option").toFactory();
+    for (String[] c : inSelect) {
+      assertRoundTripAndBalanced(pOnly, c[0], "x");
+      assertRoundTripAndBalanced(
+          selectOnly, c[0], "<select><option>x</option></select>");
+      assertRoundTripAndBalanced(
+          Sanitizers.BLOCKS.and(Sanitizers.TABLES), c[0], "x");
+    }
     // A template the policy keeps still holds the option directly.
     PolicyFactory withTemplate = new HtmlPolicyBuilder()
         .allowElements("u", "template", "select", "option")
