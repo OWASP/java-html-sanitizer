@@ -755,19 +755,27 @@ public class TagBalancingHtmlStreamEventReceiver
       // imply a list item or select wrapper around it, is not consulted.
       mayOpenAtNestingLimit = prepareForContent(elIndex);
     }
-    if (outputUsesForeignContentRules
+    if ((usesForeignContentRules
+            || foreignContent.outermostForeignElementName() != null
+            || foreignRootPendingTableReturn != null
+            || hasPushedOutputlessTableWithEmittedParts())
+        && outputUsesForeignContentRules
         && TABLE_PARTS.get(elIndex)
-        && isOutputInForeignContent()) {
+        && isOutputInForeignContent()
+        && !containerHasSpecialTextMode()) {
       // HTML table balancing does not apply to SVG or MathML descendants, even
-      // when a local name happens to be a table part.  What decides is the
-      // output: a part whose output would be foreign is forwarded as the
-      // foreign element the output parser makes of it, whether the input
-      // had it under foreign rules too, or at an integration point the
-      // policy dropped, or under an HTML element inside one, where a browser
-      // ignores the part in the input and an implied HTML table in the output
-      // would break out of the root and turn every SVG or MathML sibling
-      // after it into HTML (#492).  An integration point the output keeps
-      // makes the output rules HTML too, so the part takes the table path.
+      // when a local name happens to be a table part.  A part whose output
+      // would be foreign is forwarded as the foreign element the output
+      // parser makes of it, whether the input had it under foreign rules
+      // too, or at an integration point the policy dropped, or under an HTML
+      // element inside one, where a browser ignores the part in the input
+      // and an implied HTML table in the output would break out of the root
+      // and turn every SVG or MathML sibling after it into HTML (#492).  An
+      // integration point the output keeps makes the output rules HTML too,
+      // so the part takes the table path; so does a part arriving once the
+      // input parser's context is unknown, where the input tracker names no
+      // root, and one in a node this receiver's lexer reads as raw text, a
+      // recased SVG textArea, where HTML containment closes that node first.
       if (effectiveNestingDepth() >= nestingLimit) {
         reportDroppedStartTag(canonElementName);
         return;
