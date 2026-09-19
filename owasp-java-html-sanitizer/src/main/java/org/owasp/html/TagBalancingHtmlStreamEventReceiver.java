@@ -387,6 +387,9 @@ public class TagBalancingHtmlStreamEventReceiver
     /** Whether a prior suppressed start still suppresses its input subtree. */
     boolean isSuppressingOutputAndContent();
 
+    /** Whether the current policy text gate suppresses text. */
+    boolean isSuppressingText();
+
     /** Emits a synthetic table only if policy keeps it as a table. */
     void openReopenedTable(List<String> attrs);
 
@@ -2209,6 +2212,25 @@ public class TagBalancingHtmlStreamEventReceiver
       boolean impliedTableEscapesSyntheticSelect, int foreignRootBoundary) {
     boolean mayOpenAtNestingLimit = true;
     boolean retiredFormattingForImplicitOutputTable = false;
+    if (elIndex == HtmlElementTables.TEXT_NODE
+        && hasOutputlessTableWithEmittedPartsInScope()) {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      if (tablePolicy != null && !tablePolicy.isSuppressingText()) {
+        int textContainer = containerIndex();
+        if (textContainer >= 0
+            && TABLE_CONTEXT.get(openElements.get(textContainer))
+            && textIsInLoneHtmlForeignObjectPassthrough(textContainer)) {
+          // The output has no physical table insertion mode.  Leave text in
+          // this standalone integration point instead of foster-parenting it
+          // only when the bare parts came directly from the input.
+          return true;
+        }
+        int maskedTableContext = tableContextMaskedForText();
+        if (maskedTableContext >= 0) {
+          pushOutTable(maskedTableContext);
+        }
+      }
+    }
     impliedTableEscapesSyntheticSelect |=
         elIndex == COL_TAG
         && isInSyntheticSelectListItemContext();
@@ -3108,6 +3130,57 @@ public class TagBalancingHtmlStreamEventReceiver
       if ((SCOPES_BY_ELEMENT[openElement] & tableScope) != 0) { return false; }
     }
     return false;
+  }
+
+  /** Whether the nearest logical table emitted parts but no table element. */
+  private boolean hasOutputlessTableWithEmittedPartsInScope() {
+    if (outputlessTablesWithEmittedParts.isEmpty()) { return false; }
+    for (int i = openElements.size(); --i >= 0;) {
+      int openElement = openElements.get(i);
+      if (openElement == TABLE_TAG) {
+        return outputElements.get(i) != TABLE_TAG
+            && outputlessTablesWithEmittedParts.get(i);
+      }
+      if (openElement == TEMPLATE_TAG) { return false; }
+    }
+    return false;
+  }
+
+  /** Whether text is in the only HTML foreignObject passthrough. */
+  private boolean textIsInLoneHtmlForeignObjectPassthrough(
+      int logicalContainer) {
+    if (!(underlying instanceof OpenTagOutputPolicy)) { return false; }
+    @Nullable String name = ((OpenTagOutputPolicy) underlying)
+        .outputContainerElementName();
+    return "foreignObject".equals(name)
+        && outputForeignContentRootName() == null
+        && passthroughNames.size() == 1
+        && "foreignObject".equals(passthroughNames.get(0))
+        && passthroughDepths.get(0) == logicalContainer + 1;
+  }
+
+  /** Output table context hidden by logical entries that emitted no node. */
+  private int tableContextMaskedForText() {
+    if (!(underlying instanceof OpenTagOutputPolicy)) { return -1; }
+    @Nullable String name = ((OpenTagOutputPolicy) underlying)
+        .outputContainerElementName();
+    if (name == null) { return -1; }
+    int actualOutputContainer = METADATA.indexForName(
+        HtmlLexer.canonicalElementName(name));
+    boolean sawOutputlessEntry = false;
+    for (int i = containerIndex(); i >= 0; --i) {
+      if (!sentToUnderlying.get(i) || pushedOut.get(i)) { continue; }
+      int outputElement = outputElements.get(i);
+      if (outputElement == NO_OUTPUT_ELEMENT) {
+        sawOutputlessEntry = true;
+        continue;
+      }
+      return sawOutputlessEntry
+          && outputElement == actualOutputContainer
+          && TABLE_CONTEXT.get(openElements.get(i))
+          && TABLE_CONTEXT.get(outputElement) ? i : -1;
+    }
+    return -1;
   }
 
   /** Whether a nested missing table hides parts emitted for an outer one. */

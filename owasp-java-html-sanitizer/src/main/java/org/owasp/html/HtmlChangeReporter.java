@@ -461,6 +461,11 @@ public final class HtmlChangeReporter<T> {
           && tablePolicy.isSuppressingOutputAndContent();
     }
 
+    public boolean isSuppressingText() {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null && tablePolicy.isSuppressingText();
+    }
+
     public void openReopenedTable(List<String> attrs) {
       openTag("table", attrs, OpenTagMode.REOPENED_TABLE);
     }
