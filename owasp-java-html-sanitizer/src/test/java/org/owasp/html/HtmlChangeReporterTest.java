@@ -484,6 +484,59 @@ class HtmlChangeReporterTest {
   }
 
   /**
+   * The balancer asks this channel what the policy emitted, and the channel
+   * used to answer from what reached the renderer.  Behind a postprocessor
+   * that drops an element the two differ, so merely attaching a listener
+   * changed the sanitized output.  An audit listener must never do that.
+   */
+  @Test
+  void testListenerDoesNotChangeOutputBehindAPostprocessor() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "colgroup", "col", "ul", "li", "div", "textarea", "tr",
+            "td")
+        .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            if (!"div".equals(elementName)) {
+              underlying.openTag(elementName, attrs);
+            }
+          }
+
+          @Override
+          public void closeTag(String elementName) {
+            if (!"div".equals(elementName)) {
+              underlying.closeTag(elementName);
+            }
+          }
+        })
+        .toFactory();
+    String input = "<table><col><li><div></tr><textarea><foreignObject>";
+    String plain = policy.sanitize(input);
+    Result result = sanitizeVerbose(policy, input);
+
+    assertEquals(plain, result.html);
+  }
+
+  /**
+   * A form start the balancer ignores because the form element pointer is
+   * already set never reaches the policy, so, as for a tag dropped at the
+   * nesting limit, the balancer reports it here itself.  It used to vanish
+   * without a notification.
+   */
+  @Test
+  void testFormStartIgnoredForTheFormPointerIsReported() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("form")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    Result result = sanitize(policy, "<form id=a><form id=b>x</form></form>");
+
+    assertEquals("<form id=\"a\">x</form>", result.html);
+    assertEquals("<form> ", result.log);
+  }
+
+  /**
    * The reported container is the literal name emitted by an element policy.
    */
   @Test

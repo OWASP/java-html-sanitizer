@@ -1981,18 +1981,23 @@ class HtmlPolicyBuilderTest {
 
   /**
    * The other side of the gate following the nearest kept element: text inside
-   * a dropped child of a kept element that cannot hold text itself is dropped
-   * too, where it used to be written straight into that element.  A browser
-   * would not keep text directly inside a {@code <tr>} either.  Policies that
-   * allow the cells are unaffected.
+   * a dropped child of a kept element that cannot hold text itself is not
+   * written straight into that element.  A browser would not keep text
+   * directly inside a {@code <tr>} either: it foster-parents the text out of
+   * the table.  The balancer closes the table's output ahead of such text, so
+   * it is written beside the table rather than dropped, and the output is a
+   * fixed point.  Policies that allow the cells are unaffected.
    */
   @Test
-  void testTextInADroppedCellOfAKeptRowIsDropped() {
+  void testTextInADroppedCellOfAKeptRowIsKeptBesideTheTable() {
     String table = "<table><tr><td>cell</td></tr></table>";
+    String out = apply(
+        new HtmlPolicyBuilder().allowElements("table", "tbody", "tr"), table);
+    assertEquals("<table><tbody><tr></tr></tbody></table>cell", out);
     assertEquals(
-        "<table><tbody><tr></tr></tbody></table>",
+        out,
         apply(new HtmlPolicyBuilder().allowElements("table", "tbody", "tr"),
-              table));
+              out));
     assertEquals(
         "<table><tbody><tr><td>cell</td></tr></tbody></table>",
         apply(

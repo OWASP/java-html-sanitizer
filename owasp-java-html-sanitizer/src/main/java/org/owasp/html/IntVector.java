@@ -20,6 +20,13 @@ final class IntVector {
     return contents[(i + left) % contents.length];
   }
 
+  public void set(int i, int value) {
+    if (i < 0 || i >= size) {
+      throw new IllegalArgumentException("Invalid index");
+    }
+    contents[(i + left) % contents.length] = value;
+  }
+
   private void makeSpace() {
     int bufsize = contents.length;
     if (size == bufsize) {

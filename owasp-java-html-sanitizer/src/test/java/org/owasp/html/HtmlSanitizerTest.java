@@ -1064,6 +1064,40 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * A preprocessor can hand the balancer a name in a case the lexer would
+   * not, such as {@code CusTom}.  The policy prepares its result under the
+   * canonical name, so the start has to be forwarded under it too.  Forwarded
+   * as written, the prepared result was never consumed, the policy was
+   * applied to the tag a second time, and the next start tag threw
+   * {@code IllegalStateException} out of {@code sanitize}.
+   */
+  @Test
+  void testPreprocessorMayRecaseAnUnrecognizedTag() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("custom", "p")
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            underlying.openTag(recase(elementName), attrs);
+          }
+
+          @Override
+          public void closeTag(String elementName) {
+            underlying.closeTag(recase(elementName));
+          }
+
+          private String recase(String elementName) {
+            return "custom".equals(elementName) ? "CusTom" : elementName;
+          }
+        })
+        .toFactory();
+    String out = p.sanitize("<custom><p>x</p></custom><custom>y</custom>");
+    assertEquals("<custom><p>x</p></custom><custom>y</custom>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(out), parseAsBrowser(p.sanitize(out)));
+  }
+
+  /**
    * Test #16:
    * The renderer itself refuses literal content holding the end tag of an
    * element that a browser reads as raw text, so a policy that never runs
@@ -2088,8 +2122,11 @@ class HtmlSanitizerTest {
   /**
    * A link pushed out of a table is closed when the table resumes, and is
    * not written again around another link or inside one: nested links do
-   * not survive a browser's parse.  Text is pushed out likewise, and needs
-   * nothing closed.
+   * not survive a browser's parse.  Nor is it written again after that
+   * link: a browser drops the earlier link from its list of active
+   * formatting elements when the next one starts, so the text after the
+   * second link is plain, as it is here.  Text is pushed out likewise, and
+   * needs nothing closed.
    */
   @Test
   void testPushedOutLinkIsNotResumedAroundAnotherLink() throws Exception {
@@ -2098,13 +2135,14 @@ class HtmlSanitizerTest {
         .allowAttributes("href").onElements("a")
         .allowWithoutAttributes("a")
         .toFactory();
-    String out = p.sanitize(
-        "<table><a href=u>x<tr><td><a href=v>y</a>z</td></tr></table>w");
+    String input =
+        "<table><a href=u>x<tr><td><a href=v>y</a>z</td></tr></table>w";
+    String out = p.sanitize(input);
 
     assertEquals(
         "<table></table><a href=\"u\">x</a>"
-        + "<table><tbody><tr><td><a href=\"v\">y</a><a>z</a></td></tr></tbody>"
-        + "</table><a>w</a>",
+        + "<table><tbody><tr><td><a href=\"v\">y</a>z</td></tr></tbody>"
+        + "</table>w",
         out);
     assertEquals(out, p.sanitize(out));
     assertEquals(
@@ -2293,6 +2331,1677 @@ class HtmlSanitizerTest {
         .append("<table><tbody><tr><td>y</td></tr></tbody></table>z");
     assertEquals(expected.toString(), out);
     assertEquals(out, p.sanitize(out));
+  }
+
+  /** Issue #484: a form inserted by the table modes is popped at once. */
+  @Test
+  void testFormStartIsPoppedInTableModes() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<table><form><tr><td>y</td></tr></table>",
+          "<table><form></form><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><thead><form><tr><td>y</td></tr></thead></table>",
+          "<table><thead><form></form><tr><td>y</td></tr></thead></table>",
+        },
+        {
+          "<table><tbody><form><tr><td>y</td></tr></tbody></table>",
+          "<table><tbody><form></form><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><tfoot><form><tr><td>y</td></tr></tfoot></table>",
+          "<table><tfoot><form></form><tr><td>y</td></tr></tfoot></table>",
+        },
+        {
+          "<table><tr><form><td>y</td></tr></table>",
+          "<table><tbody><tr><form></form><td>y</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /** The reported text and row are not children of the table-mode form. */
+  @Test
+  void testTableFormDoesNotContainFollowingContent() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><form id=f>x<tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table><form id=\"f\"></form></table>x"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+    // A browser foster-parents "x" in front of the table it arrives in.  The
+    // sanitizer serializes content pushed out of a table after the table it
+    // was pushed out of, as it has for text since #481, so the browser's tree
+    // of the output is not the tree of the input: the table is split around
+    // "x".  What must agree is that the form has no children and that nothing
+    // is lost or reordered.
+    assertEquals(
+        "<table>\n"
+        + "  <form id=f>\n"
+        + "\"x\"\n"
+        + "<table>\n"
+        + "  <tbody>\n"
+        + "    <tr>\n"
+        + "      <td>\n"
+        + "        \"y\"\n"
+        + "\"tail\"\n",
+        parseAsBrowser(out));
+    assertEquals(textOf(parseAsBrowser(input)), textOf(parseAsBrowser(out)));
+
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    assertEquals(out, p.sanitize(input, ignore, null));
+  }
+
+  /** Cells and captions use in-body form nesting; templates bound the scope. */
+  @Test
+  void testFormsInCellsCaptionsAndTemplates() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<table><tr><td><form>x</form>y</td></tr></table>",
+          "<table><tbody><tr><td><form>x</form>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><caption><form>x</form>y</caption></table>",
+          "<table><caption><form>x</form>y</caption></table>",
+        },
+        {
+          "<template><form>x</form></template>",
+          "<template><form>x</form></template>",
+        },
+        {
+          "<template><table><form><tr><td>y</td></tr></table></template>",
+          "<template><table><form></form><tbody><tr><td>y</td></tr></tbody>"
+          + "</table></template>",
+        },
+        {
+          "<table><template><form>x</form></template>"
+          + "<tr><td>y</td></tr></table>",
+          "<table><template><form>x</form></template>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /** The input form pointer stays set until an input end tag clears it. */
+  @Test
+  void testTableFormsKeepBrowserFormPointerSemantics() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<table><form id=a><form id=b><tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><tbody><tr><td>y</td></tr></tbody>"
+          + "</table>",
+        },
+        {
+          "<table><form id=a></form><form id=b><tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><form id=\"b\"></form>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><form id=a></table><form id=b>x",
+          "<table><form id=\"a\"></form></table>x",
+        },
+        {
+          "<form id=a><table><form id=b><tr><td>y</td></tr></table>"
+          + "<form id=c>x",
+          "<form id=\"a\"><table><tbody><tr><td>y</td></tr></tbody></table>"
+          + "x</form>",
+        },
+        {
+          "<table><form id=a><template></template><form id=b>"
+          + "<tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><template></template>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><form id=a><template></template></form><form id=b>"
+          + "<tr><td>y</td></tr></table>",
+          "<table><form id=\"a\"></form><template></template>"
+          + "<form id=\"b\"></form>"
+          + "<tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<form id=a><table></form><form id=b>"
+          + "<tr><td>y</td></tr></table>",
+          "<form id=\"a\"><table><form></form><form id=\"b\"></form>"
+          + "<tbody><tr><td>y</td></tr></tbody></table></form>",
+        },
+        {
+          "<form id=a><table></form></table><div><form id=b>x",
+          "<form id=\"a\"><table><form></form></table><div>"
+          + "<form id=\"b\">x</form></div></form>",
+        },
+      };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+  }
+
+  /**
+   * A form the nesting limit drops is not in the output, so it must not
+   * latch the form pointer: the output parser's pointer stays null, and a
+   * later form is inserted.  The pointer used to stay set, which silently
+   * discarded every form for the rest of the document.
+   */
+  @Test
+  void testFormDroppedAtNestingLimitDoesNotLatchThePointer() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("form", "div")
+        .allowWithoutAttributes("form", "div")
+        .toFactory();
+    // At depth 255 the form fits, sets the pointer as a browser would, and
+    // the later form is ignored for it.  From 256 on the form is dropped at
+    // the limit, so the pointer stays clear and the later form is kept.
+    String fits = p.sanitize(
+        stringRepeatedTimes("<div>", 255) + "<form>a"
+        + stringRepeatedTimes("</div>", 255) + "<form>b</form>");
+    assertEquals(
+        stringRepeatedTimes("<div>", 255) + "<form>a</form>"
+        + stringRepeatedTimes("</div>", 255) + "b",
+        fits);
+    assertEquals(fits, p.sanitize(fits));
+    for (int depth : new int[] { 256, 300 }) {
+      String out = p.sanitize(
+          stringRepeatedTimes("<div>", depth) + "<form>a"
+          + stringRepeatedTimes("</div>", depth) + "<form>b</form>");
+      assertEquals(
+          stringRepeatedTimes("<div>", 256) + "a"
+          + stringRepeatedTimes("</div>", 256) + "<form>b</form>",
+          out, "depth " + depth);
+      assertEquals(out, p.sanitize(out), "depth " + depth);
+    }
+  }
+
+  /**
+   * A stray table end tag inside SVG makes the input tracker give up on the
+   * namespace.  The forms that follow are still SVG elements, which a browser
+   * inserts without consulting the form pointer, so they are all kept, as
+   * they are when the output is parsed.  Applying the HTML rule dropped the
+   * second form and merged its text into the first.
+   */
+  @Test
+  void testForeignFormsAfterUnknownContextAreNotDroppedByThePointer()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("svg", "form", "b")
+        .allowWithoutAttributes("svg", "form", "b")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<svg></tr><form><form>",
+          "<svg><form></form><form></form></svg>",
+        },
+        {
+          "<svg></tr><form><b></b><form>x</form></form>",
+          "<svg><form><b></b></form><form>x</form></svg>",
+        },
+        // Once the foreign root is closed the output is HTML again, and the
+        // pointer rule applies: the second form is ignored.
+        {
+          "<svg></tr></svg><form><form>x",
+          "<svg></svg><form>x</form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          parseAsBrowser(out), parseAsBrowser(p.sanitize(out)), c[0]);
+    }
+  }
+
+  /**
+   * A form in an HTML integration point sets the pointer under HTML rules.
+   * If the tracker then gives up, its end tag arrives while the output is
+   * still inside the foreign root, and judging the end tag by the output
+   * alone called it foreign, left the pointer set, and dropped every form
+   * after it.  The end tag closes the form its start was judged by.
+   */
+  @Test
+  void testFormEndInIntegrationPointClearsThePointerWhenTrackerIsUnknown()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("svg", "foreignObject", "form", "div")
+        .allowWithoutAttributes("svg", "foreignObject", "form", "div")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<svg><foreignObject><form>a</tr></form></foreignObject></svg>"
+          + "<form>b</form>",
+          "<svg><foreignObject><form>a</form></foreignObject></svg>"
+          + "<form>b</form>",
+        },
+        {
+          "<svg><foreignObject><form>a</tr></form></foreignObject></svg>"
+          + "<div><form>b</form></div>",
+          "<svg><foreignObject><form>a</form></foreignObject></svg>"
+          + "<div><form>b</form></div>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          parseAsBrowser(out), parseAsBrowser(p.sanitize(out)), c[0]);
+    }
+  }
+
+  /** A form end inside template contents does not clear an outer pointer. */
+  @Test
+  void testFormEndInsideTemplateDoesNotClearOuterPointer() {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><form id=a><template></form></template><form id=b>"
+        + "<tr><td>y</td></tr></table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table><form id=\"a\"></form><template></template>"
+        + "<tbody><tr><td>y</td></tr></tbody></table>",
+        out);
+    assertEquals(out, p.sanitize(out));
+    // validator.nu 1.4 does not model template contents closely enough for
+    // this form-pointer comparison; the current tree-construction rule keeps
+    // the outer pointer set because the end tag is inside template contents.
+  }
+
+  /** A form in content foster-parented out of a table is also popped at once. */
+  @Test
+  void testFormInPushedOutTableContentIsPopped() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><div><form>x<tr><td>y</td></tr></table>tail";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><div><form></form>x</div>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>tail",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+  }
+
+  /** A pushed-out table cannot leave its outer output form pointer stale. */
+  @Test
+  void testLaterFormAfterPushedOutTableIsIdempotent() {
+    PolicyFactory p = formTablePolicy();
+    String[][] cases = {
+        {
+          "<form id=a><table><div></form></table><div><form id=b>x",
+          "<form id=\"a\"><table></table><div></div><div></div></form>"
+          + "<form id=\"b\">x</form>",
+        },
+        {
+          "<form id=a><strong><table><div></form></table>"
+          + "<div><form id=b>x",
+          "<form id=\"a\"><strong><table></table><div></div><div></div>"
+          + "</strong></form><form id=\"b\"><strong>x</strong></form>",
+        },
+        {
+          "<form id=a><a><table><div></form></table><div><form id=b>x",
+          "<form id=\"a\"><table></table><div></div><div></div></form>"
+          + "<form id=\"b\">x</form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+
+  }
+
+  /**
+   * Dropping an empty table-mode form does not leave a policy stack entry.
+   * The text around it is pushed out of the table as a browser foster-parents
+   * it, and none of it is lost.
+   */
+  @Test
+  void testDroppedTableModeForm() throws Exception {
+    PolicyFactory p = tableFormReplacementPolicy(null);
+    String[][] cases = {
+        {
+          "<table><form>F<tr><td>R</td></tr></table>T",
+          "<table></table>F<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<table><tbody><form>F<tr><td>R</td></tr></tbody></table>T",
+          "<table><tbody></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<table><tr><form>F<td>R</td></tr></table>T",
+          "<table><tbody><tr></tr></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>PF</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "<template><table><form>F<tr><td>R</td></tr></table></template>T",
+          "<template><table></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table></template>T",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(
+          textOf(parseAsBrowser(c[0])), textOf(parseAsBrowser(out)), c[0]);
+    }
+  }
+
+  /** Table-mode detection follows the table and template policy emitted. */
+  @Test
+  void testTableModeFormUsesEmittedTableContext() {
+    PolicyFactory droppedTable = new HtmlPolicyBuilder()
+        .allowElements("tbody", "form")
+        .toFactory();
+    String noTable = droppedTable.sanitize(
+        "<table><tbody><form></form></table><form>x");
+    assertEquals("<tbody><form></form></tbody><form>x</form>", noTable);
+    assertEquals(noTable, droppedTable.sanitize(noTable));
+
+    PolicyFactory droppedTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .toFactory();
+    String noTemplate = droppedTemplate.sanitize(
+        "<table><template><form>x");
+    // The dropped template changes the insertion mode, so the table is
+    // closed for the content after the form; that content is kept.
+    assertEquals("<table><form></form></table>x", noTemplate);
+    assertEquals(noTemplate, droppedTemplate.sanitize(noTemplate));
+  }
+
+  /**
+   * Text after a table-mode form is foster-parented out of the table, and a
+   * table part the policy dropped between them does not change that.  When
+   * the output table is closed for it, the text lands beside the table; it
+   * used to be judged as if still inside the table and silently dropped.
+   * The same held for text in a dropped caption or cell of a kept table.
+   */
+  @Test
+  void testTextAfterRetiredOutputTableIsKept() throws Exception {
+    PolicyFactory tableAndForm = new HtmlPolicyBuilder()
+        .allowElements("table", "form").toFactory();
+    String[][] tableAndFormCases = {
+        { "<tbody><form>B", "<table><form></form></table>B" },
+        { "<tbody><form>B</form>C", "<table><form></form></table>BC" },
+        { "<tr><form>B", "<table><form></form></table>B" },
+        { "<table><tbody><form>B</form>C", "<table><form></form></table>BC" },
+    };
+    for (String[] c : tableAndFormCases) {
+      assertRoundTripAndBalanced(tableAndForm, c[0], c[1]);
+    }
+    PolicyFactory tableOnly = new HtmlPolicyBuilder()
+        .allowElements("table").toFactory();
+    String[][] tableOnlyCases = {
+        { "<table><caption>E", "<table></table>E" },
+        { "<td>E", "<table></table>E" },
+        { "<caption>E", "<table></table>E" },
+    };
+    for (String[] c : tableOnlyCases) {
+      assertRoundTripAndBalanced(tableOnly, c[0], c[1]);
+    }
+    PolicyFactory tableAndList = new HtmlPolicyBuilder()
+        .allowElements("table", "ul", "li").toFactory();
+    assertRoundTripAndBalanced(
+        tableAndList, "<ul><caption>E", "<ul><li></li></ul><table></table>E");
+  }
+
+  /**
+   * A row group or row the policy drops does not change the table insertion
+   * mode: the output parser implies it again.  The in-table form rule used
+   * to retire the output table for any such mismatch, so a form in a row
+   * whose tbody was dropped split the table in two, with the cells before
+   * and after it in different tables.  Only a dropped boundary that changes
+   * the mode, such as a template, still retires the table.
+   */
+  @Test
+  void testTableModeFormWithDroppedRowGroupKeepsOneTable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tr", "td", "form")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    String[][] browserAgrees = {
+        {
+          "<table><tr><form id=f><td>c</td></tr></table>",
+          "<table><tr><form id=\"f\"></form><td>c</td></tr></table>",
+        },
+        {
+          "<table><tr><td>a</td><form id=f><td>b</td></tr></table>",
+          "<table><tr><td>a</td><form id=\"f\"></form><td>b</td></tr></table>",
+        },
+    };
+    for (String[] c : browserAgrees) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(out), c[0]);
+    }
+    // With the form directly in the dropped tbody, the output parser implies
+    // the tbody only at the row, so the form becomes a child of the table
+    // rather than of the row group.  The table is still one table, as on
+    // main; the output is compared with its own reparse.
+    String input =
+        "<table><tbody><form id=f><tr><td>c</td></tr></tbody></table>";
+    String out = p.sanitize(input);
+    assertEquals(
+        "<table><form id=\"f\"></form><tr><td>c</td></tr></table>", out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(parseAsBrowser(out), parseAsBrowser(p.sanitize(out)));
+  }
+
+  /**
+   * A dropped thead or tfoot is not what the output parser implies again: it
+   * implies a tbody in its place, and a policy that keeps tbody emits one on
+   * the next pass.  So the table is still retired for the form there, as it
+   * is for a dropped template, and the output is a fixed point.
+   */
+  @Test
+  void testTableModeFormWithDroppedHeaderGroupStillRetiresTheTable() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .allowWithoutAttributes("table", "tbody", "tr", "td", "form")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<table><thead><form><tr><td>x",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+        {
+          "<table><tfoot><form><tr><td>x",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+  }
+
+  /** Content after a form cannot remain in a policy-produced output table. */
+  @Test
+  void testFormInPolicyProducedTableIsRoundTripStable() throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "template")
+        .allowElements(
+            "form", "table", "tbody", "tr", "td", "div", "strong")
+        .allowTextIn("form", "td", "div", "strong")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<template><form>x",
+          "<table><form></form></table>x",
+        },
+        {
+          "<form><table></form></table><template><form>x",
+          "<form><table><form></form></table>"
+          + "<table><form></form></table>x</form>",
+        },
+        {
+          "<template><form></form><tbody><tr><td>x</td></tr></tbody>",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+        {
+          "<template><form></form><table><tr><td>x</td></tr></table>",
+          "<table><form></form></table>"
+          + "<table><tbody><tr><td>x</td></tr></tbody></table>",
+        },
+        {
+          "<template><form></form><form>x</form>",
+          "<table><form></form></table><form>x</form>",
+        },
+        {
+          "<template><form></form><strong>x</strong>",
+          "<table><form></form></table><strong>x</strong>",
+        },
+        {
+          "<form><table><div></form><template><form>x</form></template>"
+          + "<div><form>y</form></div></table>",
+          "<form><table></table><div>x<div>y</div></div></form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      String again = p.sanitize(out);
+      assertEquals(out, again, c[0]);
+      assertEquals(parseAsBrowser(out), parseAsBrowser(again), c[0]);
+    }
+  }
+
+  /** Foreign input names renamed to an HTML table use its output form rules. */
+  @Test
+  void testFormInForeignElementRenamedToTableIsRoundTripStable() {
+    String[][] cases = {
+        { "svg", "<svg><form>x", "<table><form></form></table>x" },
+        { "math", "<math><form>x", "<table><form></form></table>x" },
+        {
+          "foreignObject", "<svg><foreignObject><form>x",
+          "<svg></svg><table><form></form></table>x",
+        },
+        {
+          "g", "<svg><g><form>x",
+          "<svg></svg><table><form></form></table>x",
+        },
+        {
+          "textArea", "<svg><textArea><form>x",
+          "<svg></svg><table><form></form></table>x",
+        },
+    };
+    for (String[] c : cases) {
+      HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+          .allowElements((name, attrs) -> "table", c[0])
+          .allowElements("form", "table")
+          .allowTextIn("form");
+      if (!"svg".equals(c[0])) { b.allowElements("svg"); }
+      PolicyFactory p = b.toFactory();
+      String out = p.sanitize(c[1]);
+      assertEquals(c[2], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+
+    PolicyFactory mappedSvg = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "svg")
+        .allowElements(
+            "form", "table", "template", "foreignObject", "g", "textArea")
+        .allowTextIn("form")
+        .toFactory();
+    String[][] nestedSvgCases = {
+        {
+          "<svg><foreignObject><form>x",
+          "<table></table><foreignObject><form>x</form></foreignObject>",
+        },
+        {
+          "<svg><g><form>x",
+          "<table></table><g><form>x</form></g>",
+        },
+        {
+          "<svg><textArea><form>x",
+          "<table></table><textArea><form>x</form></textArea>",
+        },
+        {
+          "<template><svg><form>x",
+          "<template><form>x</form></template>",
+        },
+    };
+    for (String[] c : nestedSvgCases) {
+      String out = mappedSvg.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, mappedSvg.sanitize(out), c[0]);
+    }
+
+    PolicyFactory suppressMappedDescendantText = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "svg")
+        .allowElements("form", "table", "foreignObject")
+        .allowTextIn("form")
+        .disallowTextIn("foreignObject")
+        .toFactory();
+    String suppressedInput =
+        "<svg><foreignObject><form>x</form>after</foreignObject>tail";
+    String suppressed = suppressMappedDescendantText.sanitize(suppressedInput);
+    assertEquals(
+        "<table></table><foreignObject><form>x</form></foreignObject>tail",
+        suppressed);
+    assertEquals(
+        suppressed, suppressMappedDescendantText.sanitize(suppressed));
+
+    PolicyFactory mappedMath = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "table", "math")
+        .allowElements("form", "table", "template", "mrow", "mtext")
+        .allowTextIn("form")
+        .toFactory();
+    String[][] nestedMathCases = {
+        {
+          "<math><mrow><form>x",
+          "<table></table><mrow><form>x</form></mrow>",
+        },
+        {
+          "<math><mtext><form>x",
+          "<table></table><mtext><form>x</form></mtext>",
+        },
+        {
+          "<template><math><form>x",
+          "<template><form>x</form></template>",
+        },
+    };
+    for (String[] c : nestedMathCases) {
+      String out = mappedMath.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, mappedMath.sanitize(out), c[0]);
+    }
+  }
+
+  /** A foreign form beside a pushed-out table keeps its text. */
+  @Test
+  void testForeignFormDoesNotUsePushedOutHtmlTableRules() throws Exception {
+    PolicyFactory p = formTablePolicy();
+    String input = "<table><svg><form>x</form></svg>"
+        + "<tr><td>y</td></tr></table>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<table></table><svg><form>x</form></svg>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        out);
+    assertEquals(out, p.sanitize(out));
+    assertEquals(
+        parseAsBrowser("<table></table>" + input), parseAsBrowser(out));
+  }
+
+  /** A form introduced by policy can make a later table form start ignored. */
+  @Test
+  void testPolicyProducedFormPointerBlocksTableForm() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "form", "div")
+        .allowElements(
+            "form", "table", "strong", "template", "svg", "g", "math",
+            "mrow")
+        .allowTextIn("form", "div", "strong")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<div><table><form>x",
+          "<form><table></table>x</form>",
+        },
+        {
+          "<div><table><strong><form>x",
+          "<form><table></table><strong>x</strong></form>",
+        },
+        {
+          "<table><div><form>x",
+          "<table></table><form>x</form>",
+        },
+        {
+          "<form><table></form></table><div><form>x",
+          "<form><table><form></form></table><form>x</form></form>",
+        },
+        {
+          "<form><table></form></table><div><table><form>x",
+          "<form><table><form></form></table>"
+          + "<form><table></table>x</form></form>",
+        },
+        {
+          "<form><table><div></form></table>"
+          + "<template><div><table><strong><form>x",
+          "<form><table></table><template><form><table></table>"
+          + "<strong><form></form>x</strong></form></template></form>",
+        },
+        {
+          "<form><table></form></table><svg><g><div><form>x",
+          "<form><table><form></form></table><svg><g>"
+          + "<form><form>x</form></form></g></svg></form>",
+        },
+        {
+          "<form><table></form></table><math><mrow><div><form>x",
+          "<form><table><form></form></table><math><mrow>"
+          + "<form><form>x</form></form></mrow></math></form>",
+        },
+        {
+          "<form><table><div></form></table><svg><g><div><form>x",
+          "<form><table></table><svg><g>"
+          + "<form><form>x</form></form></g></svg></form>",
+        },
+        {
+          "<form><table><div></form></table><math><mrow><div><form>x",
+          "<form><table></table><math><mrow>"
+          + "<form><form>x</form></form></mrow></math></form>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    assertEquals(cases[1][1], p.sanitize(cases[1][0], ignore, null));
+  }
+
+  /** Policy-produced form starts obey output pointer and namespace rules. */
+  @Test
+  void testPolicyProducedFormStartUsesOutputContext() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "form", "div")
+        .allowElements("form", "template", "svg")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String[][] cases = {
+        { "<form><div>x", "<form>x</form>" },
+        {
+          "<template><form><div>x",
+          "<template><form><form>x</form></form></template>",
+        },
+        {
+          "<svg><form><div>x",
+          "<svg><form><form>x</form></form></svg>",
+        },
+    };
+    for (String[] c : cases) {
+      String out = p.sanitize(c[0]);
+      assertEquals(c[1], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+    }
+  }
+
+  /** A pointer-reset pair requires a table in the policy's output scope. */
+  @Test
+  void testFormPointerResetRequiresEmittedTable() {
+    PolicyFactory droppedTable = new HtmlPolicyBuilder()
+        .allowElements("form")
+        .allowTextIn("form")
+        .toFactory();
+    String dropped = droppedTable.sanitize(
+        "<form><table></form></table>x");
+    assertEquals("<form>x</form>", dropped);
+    assertEquals(dropped, droppedTable.sanitize(dropped));
+
+    PolicyFactory renamedTable = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "div", "table")
+        .allowElements("form", "div")
+        .allowTextIn("form")
+        .toFactory();
+    String renamed = renamedTable.sanitize(
+        "<form><table></form></table>x");
+    assertEquals("<form><div></div>x</form>", renamed);
+    assertEquals(renamed, renamedTable.sanitize(renamed));
+  }
+
+  /** A later emitted form retires a pointer that no output table could clear. */
+  @Test
+  void testDeferredFormPointerRetirementFollowsPolicyOutput() {
+    String input = "<form><table></form></table><div>q<form>x";
+
+    PolicyFactory droppedTable = new HtmlPolicyBuilder()
+        .allowElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String dropped = droppedTable.sanitize(input);
+    assertEquals("<form><div>q</div></form><form>x</form>", dropped);
+    assertEquals(dropped, droppedTable.sanitize(dropped));
+
+    PolicyFactory renamedTable = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "div", "table")
+        .allowElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String renamed = renamedTable.sanitize(input);
+    assertEquals(
+        "<form><div></div><div>q</div></form><form>x</form>", renamed);
+    assertEquals(renamed, renamedTable.sanitize(renamed));
+  }
+
+  /** A dropped or renamed later form does not shorten the outer form. */
+  @Test
+  void testDeferredFormPointerRetirementRequiresOutputForm() {
+    String input = "<form id=a><table></form></table>"
+        + "<div>q<form id=b>x";
+
+    PolicyFactory droppedForm = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> hasId(attrs, "b") ? null : name, "form")
+        .allowElements("div")
+        .allowAttributes("id").onElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String dropped = droppedForm.sanitize(input);
+    assertEquals("<form id=\"a\"><div>qx</div></form>", dropped);
+    assertEquals(dropped, droppedForm.sanitize(dropped));
+
+    PolicyFactory renamedForm = new HtmlPolicyBuilder()
+        .allowElements(
+            (name, attrs) -> hasId(attrs, "b") ? "div" : name, "form")
+        .allowElements("div")
+        .allowAttributes("id").onElements("form", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String renamed = renamedForm.sanitize(input);
+    assertEquals(
+        "<form id=\"a\"><div>q<div id=\"b\">x</div></div></form>",
+        renamed);
+    assertEquals(renamed, renamedForm.sanitize(renamed));
+  }
+
+  /** Dropping an input template makes its form ordinary in the output. */
+  @Test
+  void testDroppedTemplateDoesNotHideOutputFormPointer() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("form", "table", "div")
+        .allowTextIn("form", "div")
+        .toFactory();
+    String input = "<form><table></form></table>"
+        + "<template><form>x</form></template>"
+        + "<div><form>y</form></div>";
+    String out = p.sanitize(input);
+
+    assertEquals(
+        "<form><table><form></form></table>"
+        + "<form>x</form><div><form>y</form></div></form>",
+        out);
+    assertEquals(out, p.sanitize(out));
+  }
+
+  /** A renamed table-mode form is closed under its emitted output name. */
+  @Test
+  void testRenamedTableModeFormIsEmpty() {
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    String[][] cases = {
+        {
+          "style", "<table><form>F<tr><td>R</td></tr></table>T",
+          "<table><style></style></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "div", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<div></div>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "textarea", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<textarea></textarea>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "svg", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<svg></svg>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "math", "<table><div>P<form>F<tr><td>R</td></tr></table>T",
+          "<table></table><div>P<math></math>F</div>"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "tbody", "<table><form>F<tr><td>R</td></tr></table>T",
+          "<table><tbody></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+        {
+          "tr", "<table><tbody><form>F<tr><td>R</td></tr></tbody></table>T",
+          "<table><tbody><tr></tr></tbody></table>F"
+          + "<table><tbody><tr><td>R</td></tr></tbody></table>T",
+        },
+    };
+    for (String[] c : cases) {
+      PolicyFactory p = tableFormReplacementPolicy(c[0]);
+      String out = p.sanitize(c[1]);
+      assertEquals(c[2], out, c[0]);
+      assertEquals(out, p.sanitize(out), c[0]);
+      assertEquals(out, p.sanitize(c[1], ignore, null), c[0]);
+    }
+  }
+
+  /** Literal and foreign content after a table form remains separate from it. */
+  @Test
+  void testTableFormBeforeLiteralAndForeignContent() {
+    PolicyFactory p = formTablePolicy();
+    String literal = "<table><form><style>x{}</style><script>f()</script>"
+        + "<textarea>&lt;b&gt;</textarea><noscript><b>n</b></noscript>"
+        + "<tr><td>y</td></tr></table>";
+    String literalOut = p.sanitize(literal);
+    assertEquals(
+        "<table><form></form><style>x{}</style><script>f()</script></table>"
+        + "<textarea>&lt;b&gt;</textarea><noscript><b>n</b></noscript>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        literalOut);
+    assertEquals(literalOut, p.sanitize(literalOut));
+
+    String foreign = "<table><form><svg><g>s</g></svg>"
+        + "<math><mrow>m</mrow></math><tr><td>y</td></tr></table>";
+    String foreignOut = p.sanitize(foreign);
+    assertEquals(
+        "<table><form></form></table><svg><g>s</g></svg>"
+        + "<math><mrow>m</mrow></math>"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        foreignOut);
+    assertEquals(foreignOut, p.sanitize(foreignOut));
+  }
+
+  /** The balanced policy event stream contains an empty form. */
+  @Test
+  void testTableFormOpenAndCloseEventsAreBalanced() {
+    final List<String> events = new ArrayList<>();
+    HtmlSanitizer.Policy recorder = new HtmlSanitizer.Policy() {
+      public void openDocument() { events.add("openDocument"); }
+      public void closeDocument() { events.add("closeDocument"); }
+      public void openTag(String elementName, List<String> attrs) {
+        events.add("open " + elementName + " " + attrs);
+      }
+      public void closeTag(String elementName) {
+        events.add("close " + elementName);
+      }
+      public void text(String text) { events.add("text " + text); }
+    };
+
+    HtmlSanitizer.sanitize(
+        "<table><form id=f><tr><td>y</td></tr></table>", recorder);
+
+    assertEquals(
+        Arrays.asList(
+            "openDocument", "open table []", "open form [id, f]", "close form",
+            "open tbody []", "open tr []", "open td []", "text y", "close td",
+            "close tr", "close tbody", "close table", "closeDocument"),
+        events);
+  }
+
+  /** The synthetic pointer reset is balanced through the reporter wrapper. */
+  @Test
+  void testTableFormPointerResetEventsAreBalanced() {
+    StringBuilder html = new StringBuilder();
+    final int[] counts = new int[2];
+    HtmlStreamEventReceiver renderer = HtmlStreamRenderer.create(
+        html, x -> fail("Unexpected renderer error: " + x));
+    HtmlStreamEventReceiver counter = new HtmlStreamEventReceiverWrapper(
+        renderer) {
+      @Override
+      public void openTag(String elementName, List<String> attrs) {
+        super.openTag(elementName, attrs);
+        if (!HtmlTextEscapingMode.isVoidElement(elementName)) { ++counts[0]; }
+      }
+
+      @Override
+      public void closeTag(String elementName) {
+        super.closeTag(elementName);
+        ++counts[1];
+      }
+    };
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    HtmlSanitizer.Policy policy = formTablePolicy().apply(
+        counter, ignore, null);
+
+    HtmlSanitizer.sanitize(
+        "<form id=a><table></form><form id=b>"
+        + "<tr><td>y</td></tr></table>",
+        policy);
+
+    assertEquals(
+        "<form id=\"a\"><table><form></form><form id=\"b\"></form>"
+        + "<tbody><tr><td>y</td></tr></tbody></table></form>",
+        html.toString());
+    assertEquals(counts[0], counts[1]);
+  }
+
+  /**
+   * An HTML table renamed to a foreign select cannot safely preserve its
+   * table-shaped contents.  Keep the renamed element, but fail closed for the
+   * subtree so a second browser parse cannot rearrange it.
+   */
+  @Test
+  void testForeignSelectRenamedFromTableHasStableEmptyContents()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "select", "table", "select");
+    String[][] cases = {
+        {
+          "<svg><table><td><option><tr></option> ",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><td><select><div></div><tr><i><tr>",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><td><tbody><b><caption><th></caption><option>",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><td><style>a{b:c}</style><script>alert(1)</script>"
+          + "<textarea>&lt;b&gt;</textarea><noscript><b>x</b></noscript>"
+          + "<textArea>y</textArea></table></svg>",
+          "<svg><select></select></svg>",
+        },
+        {
+          "<svg><table><tr><td>a</td></tr></table><g>kept</g>"
+          + "<table><caption>b</caption></table></svg>",
+          "<svg><select></select><g>kept</g><select></select></svg>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+  }
+
+  /** A literal replacement closes before a part of its implied table returns. */
+  @Test
+  void testImpliedTableRenamedToLiteralDoesNotCaptureDeferredTablePart()
+      throws Exception {
+    String input = "<tfoot><form><svg><th><table><caption>";
+    for (String literal : new String[] { "style", "script", "iframe" }) {
+      PolicyFactory p = tableMutationPolicy(
+          "table", literal, "table", literal);
+      assertRoundTripAndBalanced(
+          p, input, "<" + literal + "></" + literal + ">");
+    }
+  }
+
+  /** An explicit literal table owner must not hide a later orphan option. */
+  @Test
+  void testExplicitTableRenamedToLiteralStillPreparesFollowingTablePart()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "style", "table", "style");
+    assertRoundTripAndBalanced(
+        p,
+        "<table><colgroup><option>",
+        "<style></style><select><option></option></select>");
+  }
+
+  /** Retained template contents have their own foreign-content context. */
+  @Test
+  void testForeignSelectRenamedFromTableInsideRetainedTemplateIsStable()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "select", "table", "select");
+    String[][] cases = {
+        {
+          "<template><svg><table><style>x{}</style>"
+          + "<script>alert(1)</script><textarea>&lt;b&gt;</textarea>"
+          + "<noscript><b>x</b></noscript><b>after</b></table></svg>"
+          + "</template><i>tail</i>",
+          "<template><svg><select></select></svg></template><i>tail</i>",
+        },
+        {
+          "<template><math><mtext><svg><table><style>x{}</style></table>"
+          + "</svg></mtext></math></template><i>tail</i>",
+          "<template><math><mtext><svg><select></select></svg></mtext>"
+          + "</math></template><i>tail</i>",
+        },
+        {
+          "<template><svg><foreignObject><template><svg><table>"
+          + "<noscript><b>x</b></noscript><b>first</b></table></svg>"
+          + "</template><svg><table><b>second</b></table></svg>"
+          + "</foreignObject></svg></template><i>tail</i>",
+          "<template><svg><foreignObject><template><svg><select></select>"
+          + "</svg></template><svg><select></select></svg></foreignObject>"
+          + "</svg></template><i>tail</i>",
+        },
+        {
+          "<template><svg><textArea><svg><table><textarea>x</textarea>"
+          + "<b>after</b></table></svg></textArea></svg></template>"
+          + "<i>tail</i>",
+          "<template><svg><textArea><svg><select></select></svg></textArea>"
+          + "</svg></template><i>tail</i>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+  }
+
+  /** A policy close can clear the form pointer below a synthetic table. */
+  @Test
+  void testPolicyCloseReconcilesTheMatchingFormPointer() throws Exception {
+    PolicyFactory p = tableMutationPolicy("svg", "div", "p", "table");
+    assertRoundTripAndBalanced(
+        p,
+        "<form><thead></form><form>;"
+        + "<foreignObject></form><form></foreignObject><col>",
+        "<form><table><thead><form></form><form></form></thead></table>;"
+        + "<foreignObject><form></form></foreignObject>"
+        + "<table><colgroup><col /></colgroup></table></form>");
+  }
+
+  /** A policy-produced template cannot leak an implied table from a select. */
+  @Test
+  void testImpliedTableEscapingSelectStaysSuppressedThroughPolicyRename()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "table", "template", "template", "div");
+    assertRoundTripAndBalanced(
+        p, "<select><strong><col>",
+        "<select><strong></strong></select>");
+  }
+
+  /** A dropped implied list item cannot remain on the balancer's stack. */
+  @Test
+  void testDroppedImpliedListItemDoesNotOutliveForeignSelect()
+      throws Exception {
+    PolicyFactory p = tableMutationPolicy("div", "svg", "svg", null);
+    assertRoundTripAndBalanced(
+        p,
+        "<select><mtext><tr><math><select><bar>;<b><tr>",
+        "<select><mtext><table><tbody><tr></tr></tbody></table>"
+        + "<math><select><bar>;<b></b></bar></select></math>"
+        + "<table><tbody><tr></tr></tbody></table></mtext></select>");
+  }
+
+  /** A table section cannot be pushed out after losing its owning table. */
+  @Test
+  void testOrphanTableSectionIsClosedInsteadOfPushedOut() throws Exception {
+    PolicyFactory p = tableMutationPolicy(
+        "template", "div", "foo", "foo");
+    assertRoundTripAndBalanced(
+        p,
+        "<tr><math><template><foreignObject><em><thead>"
+        + "</foreignObject>><tr>",
+        "<table><tbody><tr></tr></tbody></table><math></math><div>&gt;"
+        + "<table><tbody><tr></tr></tbody></table></div>");
+  }
+
+  /** An implied wrapper under a policy-produced select must not recurse. */
+  @Test
+  void testImpliedWrapperUnderMappedSelectDoesNotRecurse() throws Exception {
+    // Input select is allowed so the policy accepts its own emitted names.
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "select", "table")
+        .allowElements("select", "form", "noscript")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        p, "<table><form><noscript></form><form><col>",
+        "<select><form><noscript></noscript></form><form></form></select>");
+
+    // The same shape recursed with the table mapped to a list.  A list can
+    // hold a form only through an item on the next pass, so that pass is
+    // checked for balance rather than for exact idempotence.
+    for (String list : new String[] { "ul", "ol" }) {
+      PolicyFactory q = new HtmlPolicyBuilder()
+          .allowElements((name, attrs) -> list, "table")
+          .allowElements(list, "li", "form", "noscript")
+          .toFactory();
+      String input = "<table><form><noscript></form><form><col>";
+      String out = q.sanitize(input);
+      assertEquals(
+          "<" + list + "><form><noscript></noscript></form><form></form>"
+          + "<li></li></" + list + ">",
+          out, list);
+      assertBalancedPolicyEvents(q, input);
+      assertBalancedPolicyEvents(q, out);
+      assertBalancedPolicyEvents(q, q.sanitize(out));
+    }
+  }
+
+  /** A foreign end tag must not close an older HTML element of its name. */
+  @Test
+  void testForeignEndTagDoesNotReachOlderHtmlAncestor() throws Exception {
+    String[] names = { "noscript", "td", "svg", "tr", "table", "tbody" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowTextIn("noscript").toFactory();
+    // A browser drops the raw td and tr, which are outside any table, so the
+    // output is compared with its own reparse only.
+    assertRoundTripAndBalanced(
+        p, "<noscript><td><svg><noscript></svg><tr>",
+        "<noscript><table><tbody><tr><td><svg><noscript></noscript></svg>"
+        + "</td></tr><tr></tr></tbody></table></noscript>");
+
+    // Content after the foreign close belongs to the outer noscript, and its
+    // end tag still finds that element.
+    String input = "<noscript><svg><noscript></svg>x</noscript>y";
+    String expected = "<noscript><svg><noscript></noscript></svg>x</noscript>y";
+    assertRoundTripAndBalanced(p, input, expected);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
+  }
+
+  /** A wrapper the policy already closed cannot alias an older wrapper. */
+  @Test
+  void testPolicyClosedSyntheticWrapperDoesNotAliasOlderWrapper()
+      throws Exception {
+    String[] names = { "select", "textArea", "foreignObject", "form", "table" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    // A browser reads the mixed-case name outside SVG as an HTML textarea and
+    // its contents as text, so the output is compared with its own reparse.
+    assertRoundTripAndBalanced(
+        p, "<select><textArea><select><foreignObject><form></textArea><table>",
+        "<select><textArea><select><foreignObject><form></form>"
+        + "</foreignObject></select></textArea><table></table></select>");
+  }
+
+  /**
+   * A foreign end tag pops nodes by identity.  A node the nesting limit
+   * dropped or the policy already closed matches nothing, so it cannot reach
+   * an older element with the same local name.
+   */
+  @Test
+  void testForeignEndTagClosesPoppedElementsByIdentity() throws Exception {
+    String[] names = {
+        "svg", "g", "path", "noscript", "select", "foreignObject", "td",
+        "textArea",
+    };
+    PolicyFactory keep = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names)
+        .allowTextIn("noscript").toFactory();
+    String[][] browserAgrees = {
+        {
+          "<svg><noscript><noscript>x</noscript>y</noscript>z</svg>w",
+          "<svg><noscript><noscript>x</noscript>y</noscript>z</svg>w",
+        },
+        {
+          "<svg><noscript><g><noscript></g></noscript><path></path></svg>",
+          "<svg><noscript><g><noscript></noscript></g></noscript>"
+          + "<path></path></svg>",
+        },
+        // Table parts forwarded directly into foreign output have no entry
+        // on the balancer's stack, so their end tags are forwarded for them.
+        {
+          "<svg><td><noscript></td>x</svg>",
+          "<svg><td><noscript></noscript></td>x</svg>",
+        },
+        {
+          "<svg><textArea><noscript></textArea>x</svg>",
+          "<svg><textArea><noscript></noscript></textArea>x</svg>",
+        },
+    };
+    for (String[] c : browserAgrees) {
+      assertRoundTripAndBalanced(keep, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+
+    // The policy closes the inner mapped select at </g>.  That entry must not
+    // be mistaken for the outer one, which </noscript> then closes, so the
+    // path follows the outer select instead of nesting inside it.
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("svg", "select", "foreignObject", "path")
+        .allowElements((name, attrs) -> "select", "noscript")
+        .allowElements((name, attrs) -> "foreignObject", "g")
+        .allowWithoutAttributes(
+            "svg", "select", "foreignObject", "path", "noscript", "g")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed,
+        "<svg><noscript><g><noscript></g></noscript><path></path></svg>",
+        "<svg><select><foreignObject><select></select></foreignObject>"
+        + "</select><path></path></svg>");
+  }
+
+  /**
+   * An unrecognized end tag closes the policy's stack down to its target.
+   * The balancer mirrors exactly the entries closed there, so no stale entry
+   * can later close an older element with the same name, and formatting
+   * closed that way resumes as a browser reconstructs it.
+   */
+  @Test
+  void testUnrecognizedEndTagMirrorsPolicyStack() throws Exception {
+    String[] names = { "foo", "b", "i", "template" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] browserAgrees = {
+        { "<foo><b>x</foo>y", "<foo><b>x</b></foo><b>y</b>" },
+        { "<b><foo><b>x</foo>y</b>z", "<b><foo><b>x</b></foo><b>y</b>z</b>" },
+        {
+          "<foo><i><b>x</foo>y",
+          "<foo><i><b>x</b></i></foo><i><b>y</b></i>",
+        },
+    };
+    for (String[] c : browserAgrees) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // Formatting inside template contents does not resume outside them.  A
+    // browser ignores this end tag at the template boundary, so the output
+    // is compared with its own reparse only.
+    assertRoundTripAndBalanced(
+        p, "<foo><template><b>x</foo>y",
+        "<foo><template><b>x</b></template></foo>y");
+  }
+
+  /**
+   * A long run of unrecognized tags the policy drops must not make each later
+   * end tag rescan every one of them.  They are indexed by name, so finding
+   * the element an end tag closes takes constant time however many are open,
+   * and the run is linear in the input.  The old scan took 5 seconds for
+   * 32,000 repeats and quadrupled per doubling; both runs below are well over
+   * a minute on it.
+   * <p>
+   * Each case keeps a control suffix, so a regression that emitted nothing at
+   * all, or that let the run exhaust the nesting limit, fails here instead of
+   * passing with an empty result.
+   */
+  @Test
+  void testRunOfUnrecognizedTagsIsLinear() {
+    PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
+    final String tail = "<p>kept <b>text</b></p>";
+    for (String unit : new String[] { "<foo></div>", "<x-y></b>" }) {
+      final String html = stringRepeatedTimes(unit, 100_000) + tail;
+      assertEquals(
+          tail,
+          assertTimeoutPreemptively(
+              Duration.ofSeconds(20), () -> p.sanitize(html)),
+          unit);
+    }
+  }
+
+  /**
+   * Nothing is emitted for an unknown tag the policy drops, so it nests
+   * nothing and must not consume the output nesting budget.  Counting them
+   * made a run of such tags strip the rest of the document: pasted word
+   * processor markup opens a run of {@code o:p} elements, and 256 of them
+   * silently deleted everything that followed.
+   */
+  @Test
+  void testDroppedUnknownTagsDoNotConsumeTheNestingLimit() {
+    PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
+    String tail = "<p>Hello <b>world</b></p>";
+    for (int n : new int[] { 255, 256, 300, 1000 }) {
+      assertEquals(
+          tail, p.sanitize(stringRepeatedTimes("<o:p>", n) + tail),
+          n + " dropped unknown tags");
+    }
+    assertEquals(
+        "<p>para</p><a href=\"http://x/\" rel=\"nofollow\">link</a>"
+        + "<table><tbody><tr><td>c</td></tr></tbody></table>",
+        p.sanitize(
+            stringRepeatedTimes("<my-widget>", 256)
+            + "<p>para</p><a href=\"http://x/\">link</a>"
+            + "<table><tr><td>c"));
+    // The elements the policy keeps are still bounded by the limit.
+    String deep = p.sanitize(stringRepeatedTimes("<div>", 300) + "x");
+    int divs = 0;
+    for (int i = deep.indexOf("<div>"); i >= 0;
+         i = deep.indexOf("<div>", i + 1)) {
+      ++divs;
+    }
+    assertEquals(256, divs, "kept elements are still bounded");
+  }
+
+  /**
+   * An SVG or MathML root that HTML rules insert is put where it arrives,
+   * except in a table insertion mode, where a browser foster-parents it.
+   * The containment metadata has no entry for it, and consulting it anyway
+   * implied a list item around a root in a list, and around one in a select
+   * a list item that the next pass wrapped in a list again, without end.
+   */
+  @Test
+  void testForeignRootIsNotWrappedOutsideTableModes() throws Exception {
+    String[] names = {
+        "ul", "li", "select", "option", "svg", "math", "mi", "table", "tbody",
+        "tr", "td", "colgroup", "col", "b",
+    };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String[][] browserAgrees = {
+        { "<ul><svg></svg></ul>", "<ul><svg></svg></ul>" },
+        { "<ul><math></math></ul>", "<ul><math></math></ul>" },
+        {
+          "<ul><li><math><mi>x</mi></math></li></ul>",
+          "<ul><li><math><mi>x</mi></math></li></ul>",
+        },
+        { "<b>x<svg>y</svg></b>", "<b>x<svg>y</svg></b>" },
+    };
+    for (String[] c : browserAgrees) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+    // In a table mode the root is foster-parented in front of the table,
+    // popping an open column group first.  Content pushed out of a table is
+    // serialized after the table it was pushed out of, as for text since
+    // #481, so these compare the output with its own reparse only.
+    String[][] fosterParented = {
+        {
+          "<table><svg>x</svg><tr><td>y",
+          "<table></table><svg>x</svg>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><colgroup><svg>x</svg><tr><td>y",
+          "<table><colgroup></colgroup></table><svg>x</svg>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+        {
+          "<table><tr><svg>x</svg><td>y",
+          "<table><tbody><tr></tr></tbody></table><svg>x</svg>"
+          + "<table><tbody><tr><td>y</td></tr></tbody></table>",
+        },
+    };
+    for (String[] c : fosterParented) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // A browser drops an svg inside a select, so these too are compared with
+    // their own reparse only; the point is that they no longer grow.
+    assertRoundTripAndBalanced(
+        p, "<select><svg>", "<select><svg></svg></select>");
+    assertRoundTripAndBalanced(
+        p, "<select><math>", "<select><math></math></select>");
+  }
+
+  /**
+   * After an HTML breakout pops a nested foreign root, its end tag reaches
+   * the outer foreign root, as in a browser, rather than the nearest element
+   * that happens to share its name.
+   */
+  @Test
+  void testForeignEndTagAfterBreakoutReachesOuterRoot() throws Exception {
+    String[] names = { "svg", "foreignObject", "i", "b" };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    String input =
+        "<svg><foreignObject><svg><i></i></svg><b>x</b></foreignObject></svg>y";
+    String expected =
+        "<svg><foreignObject><svg><i></i></svg></foreignObject></svg><b>x</b>y";
+    assertRoundTripAndBalanced(p, input, expected);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
+  }
+
+  /**
+   * Formatting closed by the end tag of an integration point stays queued
+   * while content is inserted under SVG or MathML rules, where a browser
+   * neither reconstructs it nor keeps a formatting start tag inside the
+   * foreign root, and resumes where HTML content is inserted again.
+   */
+  @Test
+  void testFormattingIsNotResumedInForeignContent() throws Exception {
+    String[] names = {
+        "svg", "desc", "foreignObject", "g", "math", "mtext", "mrow", "b",
+        "i", "p",
+    };
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(names).allowWithoutAttributes(names).toFactory();
+    // validator.nu closes desc and mtext on their end tags, which is the
+    // tree these expectations follow; a browser treating them as special
+    // ignores the end tag instead, and neither ever resumes the formatting
+    // inside the foreign root.
+    String[][] cases = {
+        {
+          "<svg><desc><b>x</desc><g>z</g></svg>w",
+          "<svg><desc><b>x</b></desc><g>z</g></svg><b>w</b>",
+        },
+        {
+          "<math><mtext><i>x</mtext><mrow>z</mrow></math>w",
+          "<math><mtext><i>x</i></mtext><mrow>z</mrow></math><i>w</i>",
+        },
+        {
+          "<svg><desc><b>x</desc><foreignObject>y</foreignObject></svg>",
+          "<svg><desc><b>x</b></desc><foreignObject><b>y</b></foreignObject>"
+          + "</svg>",
+        },
+        // A tag that breaks out of foreign content is inserted after the
+        // browser pops the foreign nodes, so the formatting resumes for the
+        // text inside it rather than in front of it.
+        {
+          "<svg><desc><b>x</desc><p>z</p></svg>",
+          "<svg><desc><b>x</b></desc><p><b>z</b></p></svg>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertEquals(parseAsBrowser(c[0]), parseAsBrowser(c[1]), c[0]);
+    }
+  }
+
+  private static void assertRoundTripAndBalanced(
+      PolicyFactory p, String input, String expected) throws Exception {
+    String out = p.sanitize(input);
+    assertEquals(expected, out, input);
+    String again = p.sanitize(out);
+    assertEquals(out, again, input);
+    assertEquals(parseAsBrowser(out), parseAsBrowser(again), input);
+
+    HtmlChangeListener<Object> ignore = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        // Output through the reporter decorator is under test.
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Output through the reporter decorator is under test.
+      }
+    };
+    assertEquals(out, p.sanitize(input, ignore, null), input);
+    assertBalancedPolicyEvents(p, input);
+    assertBalancedPolicyEvents(p, out);
+  }
+
+  private static void assertBalancedPolicyEvents(
+      PolicyFactory p, String input) {
+    final List<String> open = new ArrayList<>();
+    final int[] counts = new int[2];
+    HtmlStreamEventReceiver checked = new HtmlStreamEventReceiver() {
+      public void openDocument() {
+        assertTrue(open.isEmpty());
+      }
+
+      public void closeDocument() {
+        assertTrue(open.isEmpty(), "unclosed elements " + open);
+        assertEquals(counts[0], counts[1]);
+      }
+
+      public void openTag(String elementName, List<String> attrs) {
+        String canonName = HtmlLexer.canonicalElementName(elementName);
+        if (!HtmlTextEscapingMode.isVoidElement(canonName)) {
+          open.add(canonName);
+          ++counts[0];
+        }
+      }
+
+      public void closeTag(String elementName) {
+        String canonName = HtmlLexer.canonicalElementName(elementName);
+        assertFalse(open.isEmpty(), "unmatched close " + canonName);
+        assertEquals(
+            open.remove(open.size() - 1), canonName, "close order");
+        ++counts[1];
+      }
+
+      public void text(String text) {
+        // Only event balance is under test.
+      }
+    };
+    HtmlSanitizer.sanitize(input, p.apply(checked));
+  }
+
+  private static PolicyFactory tableMutationPolicy(
+      String firstInput, final @Nullable String firstOutput,
+      String secondInput, final @Nullable String secondOutput) {
+    String[] all = {
+        "table", "caption", "colgroup", "col", "thead", "tbody", "tfoot",
+        "tr", "td", "th", "form", "template", "div", "p", "span", "b",
+        "strong", "i", "select", "option", "svg", "g", "foreignObject",
+        "textArea", "math", "mrow", "mtext", "style", "script",
+        "textarea", "noscript", "title", "xmp", "iframe", "foo", "bar",
+    };
+    List<String> unchanged = new ArrayList<>(Arrays.asList(all));
+    unchanged.remove(firstInput);
+    if (!secondInput.equals(firstInput)) { unchanged.remove(secondInput); }
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements(unchanged.toArray(new String[unchanged.size()]))
+        .allowElements((name, attrs) -> firstOutput, firstInput);
+    if (!secondInput.equals(firstInput)) {
+      b.allowElements((name, attrs) -> secondOutput, secondInput);
+    }
+    return b.allowTextIn(
+            "form", "td", "th", "div", "p", "span", "b", "strong", "i",
+            "style", "script", "textarea", "noscript", "title", "xmp",
+            "iframe")
+        .allowWithoutAttributes(all)
+        .toFactory();
+  }
+
+  private static PolicyFactory formTablePolicy() {
+    return new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th",
+            "form", "div", "template", "style", "script", "textarea",
+            "noscript", "b", "strong", "a", "svg", "g", "foreignObject",
+            "math", "mrow", "mtext")
+        .allowAttributes("id").onElements("form")
+        .allowTextIn("style", "script", "noscript")
+        .toFactory();
+  }
+
+  private static boolean hasId(List<String> attrs, String value) {
+    for (int i = 0; i + 1 < attrs.size(); i += 2) {
+      if ("id".equals(attrs.get(i)) && value.equals(attrs.get(i + 1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static PolicyFactory tableFormReplacementPolicy(
+      @Nullable final String replacement) {
+    return new HtmlPolicyBuilder()
+        .allowElements((elementName, attrs) -> replacement, "form")
+        .allowElements(
+            "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th",
+            "div", "template", "style", "script", "textarea", "noscript",
+            "svg", "math")
+        .allowTextIn("form", "style", "script", "noscript")
+        .toFactory();
   }
 
   private static PolicyFactory tablePolicy() {
@@ -2497,6 +4206,22 @@ class HtmlSanitizerTest {
   }
 
   /** The tree a browser builds from html, one node per line. */
+  /**
+   * The text of a browser tree from {@link #parseAsBrowser}, in document
+   * order with the markup removed: what a reader sees, whatever the elements
+   * around it became.
+   */
+  private static String textOf(String browserTree) {
+    StringBuilder sb = new StringBuilder();
+    for (String line : browserTree.split("\n")) {
+      String node = line.trim();
+      if (node.length() >= 2 && node.startsWith("\"") && node.endsWith("\"")) {
+        sb.append(node, 1, node.length() - 1);
+      }
+    }
+    return sb.toString();
+  }
+
   private static String parseAsBrowser(String html) throws Exception {
     Node fragment = new HtmlDocumentBuilder().parseFragment(
         new InputSource(new StringReader(html)), "body");
@@ -2889,6 +4614,9 @@ class HtmlSanitizerTest {
     };
     HtmlSanitizer.sanitize(
         "<svg><path d=\"M0 0\"/>x</svg><path/>y", recorder);
+    // The self-closing flag is honored in SVG, so the first path closes at
+    // once.  HTML ignores it, so the second path stays open around the text
+    // and is closed only with everything else at the end of the document.
     assertEquals(
         Arrays.asList(
             "openDocument",
@@ -2899,6 +4627,7 @@ class HtmlSanitizerTest {
             "closeTag svg",
             "openTag path []",
             "text y",
+            "closeTag path",
             "closeDocument"),
         events);
   }
@@ -3422,5 +5151,390 @@ class HtmlSanitizerTest {
       sb.append(s);
     }
     return sb.toString();
+  }
+
+  /**
+   * A select the policy drops leaves no list item behind.  The option's
+   * container in the output was judged to be the body, and the containment
+   * metadata answers an option there with an implied select, which the same
+   * policy drops again.  Preparing that select under the dropped one also
+   * implied a synthetic list item, which was emitted and held everything up
+   * to the enclosing block: an ordinary dropdown under
+   * {@code Sanitizers.BLOCKS} came out as {@code <li>x<p>y</p></li>} and grew
+   * a {@code <ul>} on the next pass.
+   */
+  @Test
+  void testDroppedSelectDoesNotImplyAListItem() throws Exception {
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    String[][] cases = {
+        { "<select><option>x</option></select>", "x" },
+        { "<select><option>x</option><option>y</option></select>", "xy" },
+        { "<select><option>x</option></select><p>y</p><p>z</p>",
+          "x<p>y</p><p>z</p>" },
+        { "<p>a</p><select><option>x</option></select><p>y</p>",
+          "<p>a</p>x<p>y</p>" },
+        { "<form><select><option>x</option></select></form><p>y</p>",
+          "x<p>y</p>" },
+        { "<select><option>x</select><p>y</p>", "x<p>y</p>" },
+        { "<select><option></option></select><p>y</p>", "<p>y</p>" },
+        { "<select><option>x</option></select><h1>y</h1><ul><li>z</li></ul>",
+          "x<h1>y</h1><ul><li>z</li></ul>" },
+        { "<select name=s onchange=alert(1)><option value=1>One</option>"
+          + "<option value=2>Two</option></select><b>after</b>",
+          "OneTwo<b>after</b>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(blocks, c[0], c[1]);
+    }
+    // Nothing changes for a select the policy keeps, or one nested in a
+    // container the policy keeps.
+    PolicyFactory selects = new HtmlPolicyBuilder()
+        .allowElements("select", "option", "p", "div").toFactory();
+    assertRoundTripAndBalanced(
+        selects, "<select><option>x</option></select><p>y</p>",
+        "<select><option>x</option></select><p>y</p>");
+    assertRoundTripAndBalanced(
+        blocks, "<div><select><option>x</option></select></div><p>y</p>",
+        "<div>x</div><p>y</p>");
+    // An option the policy keeps under a dropped select is emitted where
+    // the select was, with no implied wrapper around it.
+    PolicyFactory options = new HtmlPolicyBuilder()
+        .allowElements("option", "p").toFactory();
+    assertEquals(
+        "<option>x</option><p>y</p>",
+        options.sanitize("<select><option>x</option></select><p>y</p>"));
+  }
+
+  /**
+   * A foreign root that HTML rules foster-parent out of a table is dropped
+   * or renamed by the policy, and holds an element the policy keeps but this
+   * receiver does not recognize.  That child was judged a foreign breakout
+   * beside the pushed-out table and suppressed with everything in it, though
+   * with no foreign root in the output there is nothing to break out of: it
+   * is ordinary HTML beside the table, like its siblings, and lands where a
+   * browser puts the root.
+   */
+  @Test
+  void testChildrenOfADroppedForeignRootBesideATableAreKept()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "tbody", "tfoot", "tr", "td", "colgroup", "col",
+            "o:p", "foo", "b", "div")
+        .toFactory();
+    String before = "<table><tbody><tr></tr></tbody></table>";
+    String after = "<table><tbody><tr><td>y</td></tr></tbody></table>";
+    String[][] cases = {
+        { "<table><tr><svg><o:p>x</o:p></svg><td>y",
+          before + "<o:p>x</o:p>" + after },
+        { "<table><tr><math><foo>x</foo></math><td>y",
+          before + "<foo>x</foo>" + after },
+        { "<table><tr><svg><g><foo>x</foo></g></svg><td>y",
+          before + "<foo>x</foo>" + after },
+        { "<table><tr><svg><foo>x</foo></svg><b>q</b><td>y",
+          before + "<foo>x</foo><b>q</b>" + after },
+        { "<table><tr><svg><foo><b>x</b></foo></svg><td>y",
+          before + "<foo><b>x</b></foo>" + after },
+        { "<table><tr><svg><foo>x", before + "<foo>x</foo>" },
+        { "<table><svg><o:p>tail", "<table></table><o:p>tail</o:p>" },
+        { "<table><tfoot><svg><o:p>tail</o:p></svg><tr><td>y",
+          "<table><tfoot></tfoot></table><o:p>tail</o:p>"
+          + "<table><tfoot><tr><td>y</td></tr></tfoot></table>" },
+        { "<table><tr><svg><o:p onclick=alert(1)>x</o:p></svg><td>y",
+          before + "<o:p>x</o:p>" + after },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // The same when the root is renamed to an HTML element.
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "o:p", "div")
+        .allowElements((name, attrs) -> "div", "svg")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed, "<table><tr><svg><o:p>x</o:p></svg><td>y",
+        before + "<div><o:p>x</o:p></div>" + after);
+    // A root the policy keeps still carries its children with it.
+    PolicyFactory kept = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "svg", "foo", "b")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        kept, "<table><tr><svg><foo>x</foo></svg><td>y",
+        before + "<svg><foo>x</foo></svg>" + after);
+  }
+
+  /**
+   * A table the policy drops inside an SVG or MathML integration point has
+   * its rows and cells suppressed, since a browser reading the output drops
+   * them there, but their text still goes where the browser puts it.  The
+   * policy's fail-closed rule for text in a suppressed table part, meant for
+   * the renderer's lexical SVG nesting left open after an emitted breakout,
+   * also fired inside an integration point, where the root is still on the
+   * browser's stack and HTML rules apply, and deleted the cell text.
+   */
+  @Test
+  void testCellTextOfADroppedTableInAnIntegrationPointIsKept()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "desc", "math", "mtext",
+            "form", "tbody", "tr", "td", "p", "b", "div")
+        .toFactory();
+    String[][] cases = {
+        { "<svg><foreignObject><table><form><tr><td>y</td></tr></table>",
+          "<svg><foreignObject><form>y</form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><form>y<tr><td>z",
+          "<svg><foreignObject><form>yz</form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><tbody><form><tr><td>y",
+          "<svg><foreignObject><form>y</form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><tr><form><td>y</td></tr></table>z",
+          "<svg><foreignObject><form>yz</form></foreignObject></svg>" },
+        { "<svg><desc><table><form><tr><td>y",
+          "<svg><desc><form>y</form></desc></svg>" },
+        { "<math><mtext><table><form><tr><td>y</td></tr></table>",
+          "<math><mtext><form>y</form></mtext></math>" },
+        { "<svg><foreignObject><table><form><tr><td>y</td></tr></table>"
+          + "</foreignObject></svg><p>after</p>",
+          "<svg><foreignObject><form>y</form></foreignObject></svg>"
+          + "<p>after</p>" },
+        { "<svg><foreignObject><table><form action=x onsubmit=alert(1)>"
+          + "<tr><td><p>para</p></td></tr></table>",
+          "<svg><foreignObject><form><p>para</p></form></foreignObject>"
+          + "</svg>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    // Outside an integration point the parts themselves survive, as before.
+    assertRoundTripAndBalanced(
+        p, "<div><table><form><tr><td>y</td></tr></table>",
+        "<div><form><tbody><tr><td>y</td></tr></tbody></form></div>");
+    // A table the policy keeps is unchanged: the form is inserted and
+    // popped in the table, as a browser does, and the cell keeps its text.
+    PolicyFactory tables = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "table", "form", "tbody", "tr", "td")
+        .toFactory();
+    String input = "<svg><foreignObject><table><form><tr><td>y</td></tr>"
+        + "</table>";
+    String out = "<svg><foreignObject><table><form></form><tbody><tr><td>y"
+        + "</td></tr></tbody></table></foreignObject></svg>";
+    assertRoundTripAndBalanced(tables, input, out);
+    assertEquals(parseAsBrowser(input), parseAsBrowser(out), input);
+  }
+
+  /**
+   * Formatting closed by a foreign or unrecognized end tag resumes around
+   * later content, as a browser reconstructs it.  It was resumed for a tag
+   * the resumed element cannot hold directly: for a list item the element
+   * went inside the list implied for the item and a second list was implied
+   * inside it, so {@code <math><b>x</math><li>y</li>} became
+   * {@code <b>x</b><ul><b><ul><li>y</li></ul></b></ul>} under
+   * {@code Sanitizers.BLOCKS} and grew another item on the next pass.  An
+   * element that would need a wrapper implied inside it now stays queued for
+   * the content inside the tag, where a browser reconstructs it.
+   */
+  @Test
+  void testFormattingIsNotResumedAroundAWrapperImpliedForTheNextTag()
+      throws Exception {
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    String[][] published = {
+        { "<math><b>x</math><li>y</li>", "<b>x</b><ul><li><b>y</b></li></ul>" },
+        { "<math><b>x</math><li>y</li><li>z</li>",
+          "<b>x</b><ul><li><b>y</b></li><li><b>z</b></li></ul>" },
+        { "<math><i><b>x</math><li>y",
+          "<i><b>x</b></i><ul><li><i><b>y</b></i></li></ul>" },
+        { "<math><b onclick=alert(1)>x</math><li onclick=alert(1)>y",
+          "<b>x</b><ul><li><b>y</b></li></ul>" },
+        // The same rule for a list item that closes the item before it,
+        // which was not a fixed point before either.
+        { "<ol><li><b>x</li><li>y</li></ol>",
+          "<ol><li><b>x</b></li><li><b>y</b></li></ol>" },
+    };
+    for (String[] c : published) {
+      assertRoundTripAndBalanced(blocks, c[0], c[1]);
+    }
+    assertEquals(
+        parseAsBrowser("<ol><li><b>x</li><li>y</li></ol>"),
+        parseAsBrowser(blocks.sanitize("<ol><li><b>x</li><li>y</li></ol>")));
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "math", "foo", "b", "i", "ul", "li", "dt", "p",
+            "select", "option", "hr", "table", "tbody", "tr", "td")
+        .toFactory();
+    String[][] cases = {
+        { "<svg><b></svg><li>x", "<svg><b></b></svg><ul><li><b>x</b></li></ul>" },
+        { "<foo><b>x</foo><li>y", "<foo><b>x</b></foo><ul><li><b>y</b></li></ul>" },
+        { "<ul><li><b>x</li><li>y", "<ul><li><b>x</b></li><li><b>y</b></li></ul>" },
+        { "<foo><b>x</foo><option>y",
+          "<foo><b>x</b></foo><select><option><b>y</b></option></select>" },
+        { "<foo><b>x</foo><td>y",
+          "<foo><b>x</b></foo>"
+          + "<table><tbody><tr><td><b>y</b></td></tr></tbody></table>" },
+        // An element that holds the tag directly still resumes around it.
+        { "<foo><b>x</foo><p>y</p>z", "<foo><b>x</b></foo><b><p>y</p>z</b>" },
+        { "<foo><b>x</foo><dt>y", "<foo><b>x</b></foo><b><dt>y</dt></b>" },
+        { "<foo><b><i>x</foo>y<hr>z",
+          "<foo><b><i>x</i></b></foo><b><i>y<hr />z</i></b>" },
+        // Nothing to resume once the formatting element closed itself.
+        { "<b><foo>x</foo></b><li>y", "<b><foo>x</foo></b><ul><li>y</li></ul>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    for (String input : new String[] {
+        "<ul><li><b>x</li><li>y", "<foo><b><i>x</foo>y<hr>z" }) {
+      assertEquals(parseAsBrowser(input), parseAsBrowser(p.sanitize(input)));
+    }
+  }
+
+  /**
+   * The policy keeps a logical entry for every element it drops, including
+   * unknown tags, and that stack is not bounded by the nesting limit.  Its
+   * check of whether a form start is in a table scope walked the whole stack
+   * from the top, and the balancer asks it for every recognized start tag,
+   * so a run of unclosed unknown tags followed by ordinary markup was
+   * quadratic: 128,000 {@code <foo>} then 128,000 {@code <li>} took twelve
+   * seconds where main takes 42 ms.  The names that decide the check are now
+   * indexed, so the walk is bounded by the emitted depth.  Both cases below
+   * exceed the timeout several times over on the old scan.
+   */
+  @Test
+  void testRecognizedTagsAfterARunOfUnrecognizedTagsAreLinear()
+      throws Exception {
+    PolicyFactory p = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING)
+        .and(Sanitizers.LINKS).and(Sanitizers.TABLES);
+    final int n = 200_000;
+    final String items = stringRepeatedTimes("<foo>", n)
+        + stringRepeatedTimes("<li>", n);
+    assertEquals(
+        "<ul>" + stringRepeatedTimes("<li></li>", n) + "</ul>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(items)),
+        "list items after unknown tags");
+    final String options = stringRepeatedTimes("<my-widget>", n)
+        + stringRepeatedTimes("<option>x</option>", n);
+    assertEquals(
+        stringRepeatedTimes("x", n),
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(options)),
+        "options after unknown tags");
+    // The scope check itself still answers as before, across a run of
+    // dropped unknown tags: a form directly in a table is popped at once,
+    // one inside a cell is an ordinary container.
+    PolicyFactory forms = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form", "select",
+            "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        forms,
+        stringRepeatedTimes("<foo>", 300) + "<table><form>x<tr><td>y",
+        "<table><form></form></table>x"
+        + "<table><tbody><tr><td>y</td></tr></tbody></table>");
+    assertRoundTripAndBalanced(
+        forms,
+        stringRepeatedTimes("<foo>", 300)
+        + "<table><tr><td><select><form>x</form></select></td></tr></table>",
+        "<table><tbody><tr><td><select><form>x</form></select></td></tr>"
+        + "</tbody></table>");
+  }
+
+  /**
+   * A table part opened without output, because a browser would drop it where
+   * it lands, writes no tag, so its text goes to the nearest emitted element.
+   * Text the policy disallows there stays out: judging only by the suppressed
+   * part's own gate let a cell admit text into a form the policy disallows
+   * text in, and the next pass removed it.  The part's own gate still applies
+   * as well, and a table renamed to a container that holds text keeps the
+   * text of its suppressed cells, as before.
+   */
+  @Test
+  void testTextInASuppressedTablePartFollowsTheGateOfWhereItLands()
+      throws Exception {
+    HtmlPolicyBuilder base = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "desc", "math", "mtext",
+            "form", "tbody", "tr", "td", "p", "b", "div");
+    PolicyFactory noTextInForms = base.disallowTextIn("form").toFactory();
+    String[][] cases = {
+        { "<svg><foreignObject><table><form><tr><td>y",
+          "<svg><foreignObject><form></form></foreignObject></svg>" },
+        { "<svg><foreignObject><table><form><tr><td><p>y</p>z",
+          "<svg><foreignObject><form><p>y</p></form></foreignObject></svg>" },
+        { "<math><mtext><table><form><tr><td>y</td></tr></table>",
+          "<math><mtext><form></form></mtext></math>" },
+        { "<svg><foreignObject><table><form><tr><td><b>y</b>",
+          "<svg><foreignObject><form><b>y</b></form></foreignObject></svg>" },
+        // A cell the output keeps still decides for its own text.
+        { "<div><table><form><tr><td>y",
+          "<div><form><tbody><tr><td>y</td></tr></tbody></form></div>" },
+        { "<form>y<b>z</b></form>", "<form><b>z</b></form>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(noTextInForms, c[0], c[1]);
+    }
+    PolicyFactory renamed = new HtmlPolicyBuilder()
+        .allowElements("form", "tbody", "tr", "td", "div")
+        .allowElements((name, attrs) -> "div", "table")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        renamed, "<table><form id=a></form><tr><td>y</td></tr></table>",
+        "<div><form id=\"a\"></form>y</div>");
+    // A part that writes no tag still applies its own gate, as on main: the
+    // author disallowed text in cells, and the text is in one in the input.
+    PolicyFactory noTextInCells = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "form", "tbody", "tr", "td", "div")
+        .disallowTextIn("td").toFactory();
+    assertRoundTripAndBalanced(
+        noTextInCells, "<svg><foreignObject><table><form><tr><td>y",
+        "<svg><foreignObject><form></form></foreignObject></svg>");
+    assertRoundTripAndBalanced(
+        noTextInCells, "<div><table><form><tr><td>y",
+        "<div><form><tbody><tr><td></td></tr></tbody></form></div>");
+  }
+
+  /**
+   * A formatting element closed with an earlier container is queued to
+   * resume around later content, as a browser reconstructs its active
+   * formatting elements.  A browser also drops such an element from that list
+   * when its own end tag arrives, and drops a link when the next link starts,
+   * so neither is reconstructed afterwards; the queue now forgets them too.
+   * Before, {@code <math><b>x</math></b><li>y</li>} bolded {@code y} and
+   * {@code <foo><a href=x>x</foo><li><a href=y>y</a>z} linked {@code z}.
+   */
+  @Test
+  void testQueuedFormattingIsForgottenByItsEndTagOrByANewLink()
+      throws Exception {
+    PolicyFactory blocks = Sanitizers.BLOCKS.and(Sanitizers.FORMATTING);
+    assertRoundTripAndBalanced(
+        blocks, "<math><b>x</math></b><li>y</li>",
+        "<b>x</b><ul><li>y</li></ul>");
+    assertRoundTripAndBalanced(
+        blocks, "<math><b>x</math><li>y</li></b>z",
+        "<b>x</b><ul><li><b>y</b></li><li>z</li></ul>");
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("foo", "b", "i", "div", "p", "ul", "li", "a")
+        .allowAttributes("href").onElements("a")
+        .allowStandardUrlProtocols()
+        .toFactory();
+    String[][] cases = {
+        { "<foo><b>x</foo></b>y", "<foo><b>x</b></foo>y" },
+        { "<div><b>x</div></b><p>y</p>", "<div><b>x</b></div><p>y</p>" },
+        { "<foo><a href=x>x</foo><li><a href=y>y</a>z",
+          "<foo><a href=\"x\">x</a></foo><ul><li><a href=\"y\">y</a>z</li>"
+          + "</ul>" },
+        // An end tag for another element leaves the queue alone.
+        { "<foo><b>x</foo></i>y", "<foo><b>x</b></foo><b>y</b>" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+    for (String input : new String[] {
+        "<foo><b>x</foo></b>y", "<div><b>x</div></b><p>y</p>" }) {
+      assertEquals(parseAsBrowser(input), parseAsBrowser(p.sanitize(input)),
+          input);
+    }
   }
 }

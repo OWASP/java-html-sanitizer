@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.OpenTagOutputPolicy;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.PushedOutTablePolicy;
+import org.owasp.html.TagBalancingHtmlStreamEventReceiver.FormPointerPolicy;
 import org.owasp.html.TagBalancingHtmlStreamEventReceiver.TextSuppressionPolicy;
 
 /**
@@ -130,6 +131,7 @@ public final class HtmlChangeReporter<T> {
                  TagBalancingHtmlStreamEventReceiver.NestingLimitListener,
                  OpenTagOutputPolicy,
                  PushedOutTablePolicy,
+                 FormPointerPolicy,
                  TextSuppressionPolicy,
                  HtmlStreamRenderer.DropListener {
     HtmlStreamEventReceiver policy;
@@ -140,11 +142,16 @@ public final class HtmlChangeReporter<T> {
     final List<String> pendingDroppedText = new ArrayList<>();
     /** Output name produced in response to the most recent input start tag. */
     private @Nullable String outputElementNameForLastOpenTag;
+    /** Start whose policy result was prepared before balancing output context. */
+    private @Nullable String preparedElementName;
+    private @Nullable List<String> preparedElementAttrs;
 
     private enum OpenTagMode {
       NORMAL,
       REOPENED_TABLE,
       SUPPRESS,
+      SUPPRESS_SUBTREE,
+      EMIT_SUPPRESS_SUBTREE,
     }
 
     InputChannel(
@@ -158,7 +165,8 @@ public final class HtmlChangeReporter<T> {
     /**
      * The tag balancer sits upstream of this channel, so a tag it drops for
      * exceeding the nesting limit never reaches the policy and would otherwise
-     * go unreported.  It tells us directly instead.
+     * go unreported.  It tells us directly instead.  The same goes for a form
+     * start it ignores because the browser's form element pointer is set.
      */
     public void nestingLimitReached(String elementName) {
       listener.discardedTag(context, elementName);
@@ -205,8 +213,32 @@ public final class HtmlChangeReporter<T> {
       output.attributeLeftOff(name, value);
     }
 
+    /**
+     * The balancer mirrors the policy's own stack, so this answers from the
+     * policy when it can say, not from what reached the renderer: a
+     * postprocessor between them can filter that, and attaching a listener
+     * must not change how the output is balanced.
+     */
     public @Nullable String outputElementNameForLastOpenTag() {
-      return outputElementNameForLastOpenTag;
+      return policy instanceof OpenTagOutputPolicy
+          ? ((OpenTagOutputPolicy) policy).outputElementNameForLastOpenTag()
+          : outputElementNameForLastOpenTag;
+    }
+
+    public boolean outputElementForLastOpenTagUsedForeignContentRules() {
+      return policy instanceof OpenTagOutputPolicy
+          && ((OpenTagOutputPolicy) policy)
+              .outputElementForLastOpenTagUsedForeignContentRules();
+    }
+
+    public int outputNestingDepth() {
+      return policy instanceof OpenTagOutputPolicy
+          ? ((OpenTagOutputPolicy) policy).outputNestingDepth() : 0;
+    }
+
+    public @Nullable String outputContainerElementName() {
+      return policy instanceof OpenTagOutputPolicy
+          ? ((OpenTagOutputPolicy) policy).outputContainerElementName() : null;
     }
 
     public boolean supportsPushedOutTableOperations() {
@@ -234,14 +266,112 @@ public final class HtmlChangeReporter<T> {
               elementName, attrs);
     }
 
+    public boolean outputTemplateStartTagUsesForeignContentRules(
+        String elementName, List<String> attrs) {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null
+          && tablePolicy.outputTemplateStartTagUsesForeignContentRules(
+              elementName, attrs);
+    }
+
+    public boolean outputStartTagUsesHtmlIntegrationPointRules(
+        String elementName, List<String> attrs) {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null
+          && tablePolicy.outputStartTagUsesHtmlIntegrationPointRules(
+              elementName, attrs);
+    }
+
     private @Nullable PushedOutTablePolicy pushedOutTablePolicy() {
       return policy instanceof PushedOutTablePolicy
           ? (PushedOutTablePolicy) policy : null;
     }
 
+    public boolean formStartTagUsesTableRules() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).formStartTagUsesTableRules();
+    }
+
+    public boolean outputFormElementPointerIsSet() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).outputFormElementPointerIsSet();
+    }
+
+    public boolean clearFormPointerWithBalancedPair() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).clearFormPointerWithBalancedPair();
+    }
+
+    public boolean retireOutputSelectKeepingLogicalDescendants() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy)
+              .retireOutputSelectKeepingLogicalDescendants();
+    }
+
+    public boolean retireOutputTableForForm(boolean allowInputTable) {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy)
+              .retireOutputTableForForm(allowInputTable);
+    }
+
+    public boolean prepareForFormStart(List<String> attrs) {
+      if (!(policy instanceof FormPointerPolicy)) { return false; }
+      if (preparedElementAttrs != null) {
+        throw new IllegalStateException("A start tag is already prepared");
+      }
+      output.expectAttributes(attrs);
+      preparedElementName = "form";
+      preparedElementAttrs = attrs;
+      return ((FormPointerPolicy) policy).prepareForFormStart(attrs);
+    }
+
+    public @Nullable String prepareForStartTag(
+        String elementName, List<String> attrs) {
+      if (!(policy instanceof FormPointerPolicy)) { return null; }
+      if (preparedElementAttrs != null) {
+        throw new IllegalStateException("A start tag is already prepared");
+      }
+      // Attribute policies run during preparation.  Snapshot first so the
+      // later open call reports the attributes they removed exactly once.
+      output.expectAttributes(attrs);
+      preparedElementName = elementName;
+      preparedElementAttrs = attrs;
+      return ((FormPointerPolicy) policy)
+          .prepareForStartTag(elementName, attrs);
+    }
+
+    public boolean isInKeptLiteralElement() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).isInKeptLiteralElement();
+    }
+
+    public boolean preparedFormStartWillEmitAsHtml() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy)
+              .preparedFormStartWillEmitAsHtml();
+    }
+
+    public void discardPreparedFormStart() {
+      preparedElementName = null;
+      preparedElementAttrs = null;
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).discardPreparedFormStart();
+      }
+    }
+
+    public void prepareOutputForHtmlStart(
+        String adjustedElementName, List<String> attrs) {
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy)
+            .prepareOutputForHtmlStart(adjustedElementName, attrs);
+      }
+    }
+
     public void openDocument() {
       pendingDroppedText.clear();
       outputElementNameForLastOpenTag = null;
+      preparedElementName = null;
+      preparedElementAttrs = null;
       policy.openDocument();
       if (policy instanceof DroppedTextSource) {
         ((DroppedTextSource) policy).reportDroppedTextTo(this);
@@ -272,6 +402,8 @@ public final class HtmlChangeReporter<T> {
       }
       output.listenForDrops(null);
       dispatchDroppedText();
+      preparedElementName = null;
+      preparedElementAttrs = null;
     }
 
     public void openTag(String elementName, List<String> attrs) {
@@ -283,8 +415,29 @@ public final class HtmlChangeReporter<T> {
       openTag(elementName, attrs, OpenTagMode.SUPPRESS);
     }
 
+    public void openTagWithoutOutputOrContent(
+        String elementName, List<String> attrs) {
+      openTag(elementName, attrs, OpenTagMode.SUPPRESS_SUBTREE);
+    }
+
+    public void openTagWithSuppressedContent(
+        String elementName, List<String> attrs) {
+      openTag(elementName, attrs, OpenTagMode.EMIT_SUPPRESS_SUBTREE);
+    }
+
+    public boolean isSuppressingOutputAndContent() {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null
+          && tablePolicy.isSuppressingOutputAndContent();
+    }
+
     public void openReopenedTable(List<String> attrs) {
       openTag("table", attrs, OpenTagMode.REOPENED_TABLE);
+    }
+
+    public boolean reopenedTableWasRenamed() {
+      PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
+      return tablePolicy != null && tablePolicy.reopenedTableWasRenamed();
     }
 
     private void openTag(
@@ -292,7 +445,16 @@ public final class HtmlChangeReporter<T> {
       output.openedElementName = null;
       // Copied before the policy runs: it removes rejected attributes from
       // attrs in place, and their values are wanted for the report.
-      output.expectAttributes(attrs);
+      boolean usesPreparedStart = mode != OpenTagMode.REOPENED_TABLE
+          && elementName.equals(preparedElementName)
+          && attrs == preparedElementAttrs;
+      // Balancing the prepared output name can insert or reopen elements
+      // before the original input start is emitted.  Keep the prepared
+      // start's attribute accounting across those nested events.
+      @Nullable OutputChannel.AttributeAccounting preparedAccounting =
+          preparedElementAttrs != null && !usesPreparedStart
+          ? output.saveAttributeAccounting() : null;
+      if (!usesPreparedStart) { output.expectAttributes(attrs); }
       if (mode == OpenTagMode.REOPENED_TABLE) {
         PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
         if (tablePolicy == null
@@ -301,14 +463,22 @@ public final class HtmlChangeReporter<T> {
               "Policy cannot safely reopen a table");
         }
         tablePolicy.openReopenedTable(attrs);
-      } else if (mode == OpenTagMode.SUPPRESS) {
+      } else if (mode == OpenTagMode.SUPPRESS
+          || mode == OpenTagMode.SUPPRESS_SUBTREE
+          || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
         PushedOutTablePolicy tablePolicy = pushedOutTablePolicy();
         if (tablePolicy == null
             || !tablePolicy.supportsPushedOutTableOperations()) {
           throw new IllegalStateException(
               "Policy cannot suppress a table-structure tag");
         }
-        tablePolicy.openTagWithoutOutput(elementName, attrs);
+        if (mode == OpenTagMode.SUPPRESS_SUBTREE) {
+          tablePolicy.openTagWithoutOutputOrContent(elementName, attrs);
+        } else if (mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
+          tablePolicy.openTagWithSuppressedContent(elementName, attrs);
+        } else {
+          tablePolicy.openTagWithoutOutput(elementName, attrs);
+        }
       } else {
         policy.openTag(elementName, attrs);
       }
@@ -341,6 +511,10 @@ public final class HtmlChangeReporter<T> {
             : ZERO_STRINGS;
         int nDiscarded = discardedAttrs.length / 2;
         output.clearExpectedAttributes();
+        if (usesPreparedStart) {
+          preparedElementName = null;
+          preparedElementAttrs = null;
+        }
         // Dispatch notifications to the listener, under the input name,
         // which is the one the listener can relate to what came in.
         if (discarded) {
@@ -358,6 +532,9 @@ public final class HtmlChangeReporter<T> {
                 context, elementName,
                 discardedAttrs[i * 2], discardedAttrs[i * 2 + 1]);
           }
+        }
+        if (preparedAccounting != null) {
+          output.restoreAttributeAccounting(preparedAccounting);
         }
       }
     }
@@ -421,6 +598,24 @@ public final class HtmlChangeReporter<T> {
     /** True if the renderer refused the tag the policy opened. */
     boolean tagRefusedByRenderer;
 
+    /** Attribute-reporting state saved across a nested balancing event. */
+    private static final class AttributeAccounting {
+      final List<String> expectedAttrs;
+      final BitSet rejectedAttrs;
+      final BitSet emittedAttrs;
+      final List<String> addedThenLeftOffAttrs;
+      final boolean tagRefusedByRenderer;
+
+      AttributeAccounting(OutputChannel output) {
+        expectedAttrs = new ArrayList<>(output.expectedAttrs);
+        rejectedAttrs = (BitSet) output.rejectedAttrs.clone();
+        emittedAttrs = (BitSet) output.emittedAttrs.clone();
+        addedThenLeftOffAttrs =
+            new ArrayList<>(output.addedThenLeftOffAttrs);
+        tagRefusedByRenderer = output.tagRefusedByRenderer;
+      }
+    }
+
     OutputChannel(HtmlStreamEventReceiver renderer) {
       super(renderer);
     }
@@ -433,6 +628,22 @@ public final class HtmlChangeReporter<T> {
       emittedAttrs.clear();
       addedThenLeftOffAttrs.clear();
       tagRefusedByRenderer = false;
+    }
+
+    AttributeAccounting saveAttributeAccounting() {
+      return new AttributeAccounting(this);
+    }
+
+    void restoreAttributeAccounting(AttributeAccounting saved) {
+      expectedAttrs.clear();
+      expectedAttrs.addAll(saved.expectedAttrs);
+      rejectedAttrs.clear();
+      rejectedAttrs.or(saved.rejectedAttrs);
+      emittedAttrs.clear();
+      emittedAttrs.or(saved.emittedAttrs);
+      addedThenLeftOffAttrs.clear();
+      addedThenLeftOffAttrs.addAll(saved.addedThenLeftOffAttrs);
+      tagRefusedByRenderer = saved.tagRefusedByRenderer;
     }
 
     /** Records that the renderer wrote no tag for the one the policy opened. */

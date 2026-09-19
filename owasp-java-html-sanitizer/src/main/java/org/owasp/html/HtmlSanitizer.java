@@ -264,6 +264,31 @@ public final class HtmlSanitizer {
     /** The form pointer's target, when that element is in the tracked region. */
     private @Nullable OpenElement trackedFormElement;
 
+    /** Whether the known HTML context has a non-null form element pointer. */
+    boolean formElementPointerIsSet() {
+      return formElementPointerSet;
+    }
+
+    /**
+     * True once the browser's context can no longer be derived from the
+     * tracked elements, after which tags are judged under the legacy HTML
+     * rules whatever namespace the browser is really in.
+     */
+    boolean isUnknown() {
+      return unknown;
+    }
+
+    /** Records a form pointer whose target may be outside the tracked region. */
+    void markFormElementPointerSet() {
+      formElementPointerSet = true;
+    }
+
+    /** Clears the form pointer and any target that is still tracked. */
+    void clearFormElementPointer() {
+      formElementPointerSet = false;
+      trackedFormElement = null;
+    }
+
     /** A table inserted in known in-body mode, before any child tag. */
     private @Nullable OpenElement simpleTable;
 
@@ -295,12 +320,88 @@ public final class HtmlSanitizer {
     /** Whether the most recently processed tag used foreign-content rules. */
     private boolean lastTagUsedForeignContentRules;
 
+    /** Whether the most recent foreign start pushed a tracked element. */
+    private boolean lastForeignStartTagPushedElement;
+
+    /** Opaque identity of the node pushed by the most recent start, or zero. */
+    private int lastStartTagPushedSerial;
+
+    /** Next opaque identity assigned to a tracked tree-construction node. */
+    private int nextElementSerial = 1;
+
+    /** Foreign element names popped by the most recent end tag, inner first. */
+    private final List<String> foreignElementsPoppedByLastEndTag
+        = new ArrayList<>();
+
+    /** Identities parallel to {@link #foreignElementsPoppedByLastEndTag}. */
+    private final List<Integer> foreignElementSerialsPoppedByLastEndTag
+        = new ArrayList<>();
+
     /**
      * True when the most recent start or end tag was processed in SVG or
      * MathML rather than under the HTML tree-building rules.
      */
     boolean lastTagUsedForeignContentRules() {
       return lastTagUsedForeignContentRules;
+    }
+
+    /** Whether the most recent foreign start established an integration point. */
+    boolean lastStartTagOpenedIntegrationPoint() {
+      if (!lastTagUsedForeignContentRules
+          || !lastForeignStartTagPushedElement) {
+        return false;
+      }
+      OpenElement current = currentElement();
+      return current != null
+          && (current.mathTextIntegrationPoint || current.htmlIntegrationPoint);
+    }
+
+    /**
+     * Opaque identity of the tree-construction node pushed by the most recent
+     * start tag, in any namespace, or zero if that tag pushed nothing that is
+     * still tracked.  The balancer stores it with the logical entry it stacks
+     * for the same tag so a later foreign end tag can find that exact entry.
+     */
+    int lastStartTagPushedSerial() {
+      return lastStartTagPushedSerial;
+    }
+
+    /**
+     * Pops the node with this identity and every node above it.  The
+     * balancer calls this after it has sent an end tag for a forwarded
+     * element that these rules ignored, so that this context keeps
+     * describing the output actually written rather than the tree a browser
+     * builds from the input, which the output no longer reproduces there.
+     */
+    void popNodeWithSerial(int serial) {
+      if (unknown || serial == 0) { return; }
+      for (int i = openElements.size(); --i >= 0;) {
+        if (openElements.get(i).serial != serial) { continue; }
+        for (int j = i, n = openElements.size(); j < n; ++j) {
+          OpenElement popped = openElements.get(j);
+          if (popped == trackedFormElement) { trackedFormElement = null; }
+          if (popped == simpleTable) {
+            simpleTable = null;
+            htmlInsertionMode = simpleTableReturnMode;
+          }
+        }
+        openElements.subList(i, openElements.size()).clear();
+        return;
+      }
+    }
+
+    /**
+     * Foreign element names popped by the most recent end tag, inner first,
+     * ending with the end tag's own target.  Empty unless
+     * {@link #lastTagUsedForeignContentRules} is true.
+     */
+    List<String> foreignElementsPoppedByLastEndTag() {
+      return foreignElementsPoppedByLastEndTag;
+    }
+
+    /** Opaque identity of the foreign element popped at {@code index}. */
+    int foreignElementSerialPoppedByLastEndTag(int index) {
+      return foreignElementSerialsPoppedByLastEndTag.get(index);
     }
 
     /** Whether a known current node is in SVG or MathML. */
@@ -316,6 +417,28 @@ public final class HtmlSanitizer {
       OpenElement current = currentElement();
       return !usesHtmlRulesForStartTag(current, elementName)
           && !breaksOutOfForeignContent(elementName, attrs);
+    }
+
+    /** Number of foreign elements an HTML breakout start would pop. */
+    int foreignElementsPoppedByStartTag(
+        String elementName, List<String> attrs) {
+      if (unknown) { return 0; }
+      OpenElement current = currentElement();
+      if (usesHtmlRulesForStartTag(current, elementName)
+          || !breaksOutOfForeignContent(elementName, attrs)) {
+        return 0;
+      }
+      int count = 0;
+      for (int i = openElements.size(); --i >= 0;) {
+        OpenElement open = openElements.get(i);
+        if (open.namespace == Namespace.HTML
+            || open.mathTextIntegrationPoint
+            || open.htmlIntegrationPoint) {
+          break;
+        }
+        ++count;
+      }
+      return count;
     }
 
     /** The outermost SVG or MathML element in the tracked foreign region. */
@@ -341,6 +464,8 @@ public final class HtmlSanitizer {
     /** Records an HTML end tag known to be ignored without changing context. */
     void ignoreEndTagUnderHtmlRules() {
       lastTagUsedForeignContentRules = false;
+      foreignElementsPoppedByLastEndTag.clear();
+      foreignElementSerialsPoppedByLastEndTag.clear();
     }
 
     /**
@@ -350,6 +475,10 @@ public final class HtmlSanitizer {
     boolean processStartTag(
         String elementName, List<String> attrs, boolean selfClosing) {
       lastTagUsedForeignContentRules = false;
+      lastForeignStartTagPushedElement = false;
+      lastStartTagPushedSerial = 0;
+      foreignElementsPoppedByLastEndTag.clear();
+      foreignElementSerialsPoppedByLastEndTag.clear();
       if (unknown) {
         return selfClosing && isForeignContentRoot(elementName);
       }
@@ -370,7 +499,11 @@ public final class HtmlSanitizer {
       // namespace, even one named "svg" or "math".
       lastTagUsedForeignContentRules = true;
       if (!selfClosing) {
-        push(new OpenElement(elementName, current.namespace, attrs));
+        OpenElement opened = new OpenElement(
+            elementName, current.namespace, attrs);
+        push(opened);
+        lastForeignStartTagPushedElement = !unknown
+            && currentElement() == opened;
       }
       return selfClosing;
     }
@@ -378,6 +511,8 @@ public final class HtmlSanitizer {
     /** Updates the context using the foreign-content or HTML end-tag rules. */
     void processEndTag(String elementName) {
       lastTagUsedForeignContentRules = false;
+      foreignElementsPoppedByLastEndTag.clear();
+      foreignElementSerialsPoppedByLastEndTag.clear();
       if (unknown) { return; }
       if (openElements.isEmpty()) {
         if ("form".equals(elementName)) {
@@ -408,6 +543,11 @@ public final class HtmlSanitizer {
         if (open.namespace == Namespace.HTML) { break; }
         if (asciiEqualsIgnoreCase(open.elementName, elementName)) {
           lastTagUsedForeignContentRules = true;
+          for (int j = openElements.size(); --j >= i;) {
+            OpenElement popped = openElements.get(j);
+            foreignElementsPoppedByLastEndTag.add(popped.elementName);
+            foreignElementSerialsPoppedByLastEndTag.add(popped.serial);
+          }
           openElements.subList(i, openElements.size()).clear();
           return;
         }
@@ -903,7 +1043,10 @@ public final class HtmlSanitizer {
 
     private void becomeUnknown() {
       openElements.clear();
-      formElementPointerSet = false;
+      // Whether the browser has a form pointer does not become unknowable with
+      // the stack.  Keep the bit so the balancer can apply the form start rule
+      // after an unmodeled context such as template contents.  Its target can
+      // no longer be located within this bounded stack.
       trackedFormElement = null;
       simpleTable = null;
       untrackedTables.clear();
@@ -926,6 +1069,9 @@ public final class HtmlSanitizer {
       if (openElements.size() == MAX_DEPTH) {
         becomeUnknown();
       } else {
+        element.serial = nextElementSerial++;
+        if (nextElementSerial == 0) { nextElementSerial = 1; }
+        lastStartTagPushedSerial = element.serial;
         openElements.add(element);
       }
     }
@@ -972,6 +1118,8 @@ public final class HtmlSanitizer {
     final boolean htmlIntegrationPoint;
     /** In the special category, which bounds every scope. */
     final boolean special;
+    /** Opaque identity assigned when this node enters the tracked stack. */
+    int serial;
 
     OpenElement(
         String elementName, Namespace namespace, List<String> attrs) {
