@@ -2126,7 +2126,12 @@ public class TagBalancingHtmlStreamEventReceiver
           && (container < 0 || !canHold(elIndex, top, container))) {
         // A dropped raw-text container cannot hide an emitted paragraph from
         // the implied table that the output parser will place beside it.
+        // A dropped template is not such a container: the part under it is
+        // judged where the template stood, and its own content is the
+        // part's, so suppressing it would delete the text of a caption the
+        // policy keeps (#492, item 2).
         if (container >= 0
+            && !isDroppedTemplate(container)
             && outputElements.get(container) == NO_OUTPUT_ELEMENT
             && contentIsSkippable(
                 METADATA.canonNameForIndex(openElements.get(container)))) {
@@ -2356,11 +2361,7 @@ public class TagBalancingHtmlStreamEventReceiver
     while (true) {
       int container = containerIndex();
       if (container < 0 || container < foreignRootBoundary) { break; }
-      // A template the policy dropped is no container in the output: what
-      // it can hold is judged where its content lands (#492, item 2).
-      int top = isDroppedTemplate(container)
-          ? effectiveContainer(elIndex, container)
-          : openElements.get(container);
+      int top = openElements.get(container);
       // A link ends the link open before it, wherever that is: nested links
       // do not survive a browser's parse, so a table between them cannot
       // stay open either.
@@ -2854,12 +2855,7 @@ public class TagBalancingHtmlStreamEventReceiver
         table = i;
         break;
       }
-      if ((SCOPES_BY_ELEMENT[openElementIndex] & tableScope) != 0
-          && !isDroppedTemplate(i)) {
-        // A template the policy dropped establishes no template in the
-        // output, so it bounds no table scope there: a part under it
-        // returns to the open table as a browser reading the output does
-        // (#492, item 2).
+      if ((SCOPES_BY_ELEMENT[openElementIndex] & tableScope) != 0) {
         return true;
       }
     }
@@ -3234,7 +3230,9 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /** Whether the entry is a template the policy dropped. */
   private boolean isDroppedTemplate(int stackIndex) {
-    return openElements.get(stackIndex) == TEMPLATE_TAG
+    return stackIndex >= 0
+        && stackIndex < openElements.size()
+        && openElements.get(stackIndex) == TEMPLATE_TAG
         && outputElements.get(stackIndex) == NO_OUTPUT_ELEMENT
         && sentToUnderlying.get(stackIndex);
   }
