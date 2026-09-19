@@ -2094,17 +2094,18 @@ public class TagBalancingHtmlStreamEventReceiver
 
     // Content that goes into a forwarded SVG or MathML root is contained by
     // the foreign element, or the integration point, inside that root, not
-    // by the HTML entries below it: nothing is implied for it from those,
-    // and closing stops at the root.  Formatting still resumes for it below,
-    // as a browser reconstructs it at an integration point.
+    // by the HTML entries below it: those imply nothing for it, so it is
+    // judged as in a fresh body, where a list item or an option still gets
+    // the list or select it must never be emitted without, and closing
+    // stops at the root.  Formatting still resumes for it below, as a
+    // browser reconstructs it at an integration point.
     int stackDepthBeforeImpliedElements = openElements.size();
     {
       int container = containerIndex();
-      int top = effectiveContainer(elIndex, container);
+      int top = container < foreignRootBoundary
+          ? BODY_TAG : effectiveContainer(elIndex, container);
       // Open implied elements, such as list-items and table cells & rows.
-      int[] impliedElIndices = container < foreignRootBoundary
-          ? HtmlElementTables.ZERO_INTS
-          : METADATA.impliedElements(top, elIndex);
+      int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
       if (impliedElIndices.length != 0) {
         int startPos = 0;
         for (int i = 0, n = impliedElIndices.length; i < n; ++i) {
