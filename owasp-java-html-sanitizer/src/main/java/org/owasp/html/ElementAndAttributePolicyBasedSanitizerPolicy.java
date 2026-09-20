@@ -181,6 +181,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private transient @Nullable String outputElementNameForLastOpenTag;
   /** Whether that element was inserted using SVG or MathML rules. */
   private transient boolean outputElementForLastOpenTagUsedForeignContentRules;
+  /** Whether the most recent open closed a previously emitted HTML select. */
+  private transient boolean outputSelectRetiredForLastOpenTag;
+  /** Whether that output select was also the matching logical input select. */
+  private transient boolean inputSelectRetiredForLastOpenTag;
   /** Number of non-void elements currently open in the emitted event stream. */
   private transient int outputNestingDepth;
   /** Innermost non-void element currently open in the emitted event stream. */
@@ -246,6 +250,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     discardedAttributeListener = null;
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputSelectRetiredForLastOpenTag = false;
+    inputSelectRetiredForLastOpenTag = false;
     outputNestingDepth = 0;
     outputContainerElementName = null;
     clearPreparedFormStart();
@@ -288,6 +294,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     inForeignContent = false;
     outputElementNameForLastOpenTag = null;
     outputElementForLastOpenTagUsedForeignContentRules = false;
+    outputSelectRetiredForLastOpenTag = false;
+    inputSelectRetiredForLastOpenTag = false;
     outputNestingDepth = 0;
     outputContainerElementName = null;
     outputContainerBeforeOpen.clear();
@@ -314,6 +322,25 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public boolean outputElementForLastOpenTagUsedForeignContentRules() {
     return outputElementForLastOpenTagUsedForeignContentRules;
+  }
+
+  public boolean outputSelectRetiredForLastOpenTag() {
+    return outputSelectRetiredForLastOpenTag;
+  }
+
+  public boolean inputSelectRetiredForLastOpenTag() {
+    return inputSelectRetiredForLastOpenTag;
+  }
+
+  public boolean hasOpenHtmlOutputSelect() {
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int i = tableScopeOutputEntries.get(k);
+      if (outputElementInForeignContent.get(i / 2)) { continue; }
+      String adjustedElementName = openElementStack.get(i);
+      if ("template".equals(adjustedElementName)) { return false; }
+      if ("select".equals(adjustedElementName)) { return true; }
+    }
+    return false;
   }
 
   public int outputNestingDepth() {
@@ -346,11 +373,27 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     return outputForeignContent.formElementPointerIsSet();
   }
 
-  public boolean retireOutputSelectKeepingLogicalDescendants() {
-    for (int i = openElementStack.size() - 1; i > 0; i -= 2) {
-      if (!outputElementInForeignContent.get(i / 2)
-          && "select".equals(openElementStack.get(i))) {
-        retireOutputSuffixKeepingLogical(i - 1);
+  public boolean retireOutputSelectForHtmlStart() {
+    inputSelectRetiredForLastOpenTag = false;
+    // The logical stack also contains every dropped unknown element and is
+    // not depth-bounded.  The indexed output entries keep this check bounded
+    // by the emitted depth when no select is open.
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int i = tableScopeOutputEntries.get(k);
+      if (outputElementInForeignContent.get(i / 2)) { continue; }
+      String adjustedElementName = openElementStack.get(i);
+      if ("template".equals(adjustedElementName)) {
+        // A retained HTML template bounds the scope of the select below it.
+        return false;
+      }
+      if ("select".equals(adjustedElementName)) {
+        int inputNameIndex = i - 1;
+        if ("select".equals(openElementStack.get(inputNameIndex))) {
+          closeStackFromInputIndex(inputNameIndex);
+          inputSelectRetiredForLastOpenTag = true;
+        } else {
+          retireOutputSuffixKeepingLogical(inputNameIndex);
+        }
         return true;
       }
     }
@@ -471,6 +514,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public @Nullable String prepareForStartTag(
       String elementName, List<String> attrs) {
+    outputSelectRetiredForLastOpenTag = false;
+    inputSelectRetiredForLastOpenTag = false;
     if (preparedElementAttrs != null) {
       throw new IllegalStateException("A start tag is already prepared");
     }
@@ -1164,6 +1209,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     openTag(elementName, attrs, OpenTagMode.SUPPRESS);
   }
 
+  public void openTagWithoutOutputWithInheritedTextGate(
+      String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.SUPPRESS_INHERIT_TEXT_GATE);
+  }
+
   public void openTagWithoutOutputOrContent(
       String elementName, List<String> attrs) {
     openTag(elementName, attrs, OpenTagMode.SUPPRESS_SUBTREE);
@@ -1174,8 +1224,17 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     openTag(elementName, attrs, OpenTagMode.EMIT_SUPPRESS_SUBTREE);
   }
 
+  public void openTablePartWithInheritedTextGate(
+      String elementName, List<String> attrs) {
+    openTag(elementName, attrs, OpenTagMode.INHERIT_TEXT_GATE);
+  }
+
   public boolean isSuppressingOutputAndContent() {
     return suppressOutputAndContent;
+  }
+
+  public boolean isSuppressingText() {
+    return skipText;
   }
 
   public void openReopenedTable(List<String> attrs) {
@@ -1188,12 +1247,16 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   private void openTag(
       String elementName, List<String> attrs, OpenTagMode mode) {
-    outputElementNameForLastOpenTag = null;
-    outputElementForLastOpenTagUsedForeignContentRules = false;
-    reopenedTableWasRenamed = false;
     boolean usesPreparedStart = mode != OpenTagMode.REOPENED_TABLE
         && elementName.equals(preparedElementName)
         && attrs == preparedElementAttrs;
+    outputElementNameForLastOpenTag = null;
+    outputElementForLastOpenTagUsedForeignContentRules = false;
+    if (!usesPreparedStart) {
+      outputSelectRetiredForLastOpenTag = false;
+      inputSelectRetiredForLastOpenTag = false;
+    }
+    reopenedTableWasRenamed = false;
     if (inKeptLiteralElement) {
       skippedLastTagAsAttributeless = false;
       if (usesPreparedStart) { clearPreparedFormStart(); }
@@ -1227,6 +1290,20 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       if (!skippedLastTagAsAttributeless
           && !(attrs.isEmpty()
                && policies.htmlTagSkipType.skipAvailability())) {
+        boolean inheritedTextGate = skipText;
+        boolean ignoreNestedSelect = modeEmitsOutput(mode)
+            && prepareForSelectExit(adjustedElementName);
+        boolean inheritRetiredSelectTextGate =
+            inputSelectRetiredForLastOpenTag && skipText;
+        if (ignoreNestedSelect) {
+          // The browser ignores an actual nested select start after it pops
+          // the outer select.  A differently named input element mapped to
+          // select still needs a logical entry for its own end tag.
+          if (!"select".equals(elementName)) {
+            deferOpenTag(elementName);
+          }
+          return;
+        }
         if (mode == OpenTagMode.NORMAL
             && outputFormStartWouldBeIgnored(adjustedElementName, attrs)) {
           // An element policy can introduce a form where the input parser has
@@ -1246,16 +1323,30 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         }
         if (mode == OpenTagMode.NORMAL
             || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE
+            || mode == OpenTagMode.INHERIT_TEXT_GATE
             || (mode == OpenTagMode.REOPENED_TABLE
                 && "table".equals(adjustedElementName))) {
           writeOpenTag(policies, adjustedElementName, attrs);
+          if (inheritRetiredSelectTextGate) { skipText = true; }
+          if (mode == OpenTagMode.INHERIT_TEXT_GATE
+              && isHtmlTablePart(adjustedElementName)
+              && !outputElementForLastOpenTagUsedForeignContentRules
+              && !HtmlTextEscapingMode.isVoidElement(elementName)) {
+            // Outside a physical table a browser ignores these start tags, so
+            // their ordinary structural text rules do not create containers.
+            // Carry the gate from where their text lands, while retaining an
+            // explicit rule on the author's current input name.
+            skipText = inheritedTextGate
+                || disallowedTextContainers.contains(elementName);
+          }
           if (mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE) {
             suppressOutputAndContent = true;
             skipText = true;
           }
         } else if (!HtmlTextEscapingMode.isVoidElement(elementName)) {
           push(elementName, null);
-          skipText = disallowedTextContainers.contains(elementName)
+          if (mode != OpenTagMode.SUPPRESS_INHERIT_TEXT_GATE) {
+            skipText = disallowedTextContainers.contains(elementName)
               || (!allowedTextContainers.contains(elementName)
                   && !holdsTextAsForeignElement(elementName, attrs))
               // No tag is written for this element, so its text lands in
@@ -1277,6 +1368,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
                   && !outputForeignContent.isInForeignContent()
                   && outputForeignContent.outermostForeignElementName()
                       == null);
+          }
         }
         return;
       }
@@ -1358,6 +1450,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     for (int i = inputNameIndex; i < n; i += 2) {
       logicalSuffix.add(openElementStack.get(i));
       suffixSuppression.add(suppressionAfterOpen(i / 2, n / 2));
+      if (i + 1 < n
+          && "select".equals(openElementStack.get(i + 1))
+          && !outputElementInForeignContent.get(i / 2)) {
+        outputSelectRetiredForLastOpenTag = true;
+      }
     }
     closeStackFromInputIndex(inputNameIndex);
     for (int i = 0; i < logicalSuffix.size(); ++i) {
@@ -1392,12 +1489,55 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     preparedSkippedAsAttributeless = false;
   }
 
+  /** Prepares an emitted start that changes the HTML in-select insertion mode. */
+  private boolean prepareForSelectExit(String adjustedElementName) {
+    String htmlName = Strings.toLowerCase(adjustedElementName);
+    boolean exitsSelect = "input".equals(htmlName)
+        || "keygen".equals(htmlName)
+        || "select".equals(htmlName)
+        || "textarea".equals(htmlName);
+    if (!exitsSelect) { return false; }
+    // Search the emitted stack for an HTML select instead of trusting the
+    // current lexical namespace.  SVG and MathML roots written inside a select
+    // are ignored by tree construction, although the lexical tracker enters
+    // them, so an input after either root still exits the select.
+    outputSelectRetiredForLastOpenTag =
+        retireOutputSelectForHtmlStart();
+    // A select start seen in the in-select insertion mode closes the open
+    // select but is not reprocessed, so it produces no element of its own.
+    return outputSelectRetiredForLastOpenTag && "select".equals(htmlName);
+  }
+
+  /** Whether this mode may serialize the adjusted start tag. */
+  private static boolean modeEmitsOutput(OpenTagMode mode) {
+    return mode == OpenTagMode.NORMAL
+        || mode == OpenTagMode.EMIT_SUPPRESS_SUBTREE
+        || mode == OpenTagMode.INHERIT_TEXT_GATE;
+  }
+
+  /** Whether HTML tree construction gives this local name table semantics. */
+  private static boolean isHtmlTablePart(String elementName) {
+    String htmlName = Strings.toLowerCase(elementName);
+    return "caption".equals(htmlName)
+        || "col".equals(htmlName)
+        || "colgroup".equals(htmlName)
+        || "table".equals(htmlName)
+        || "tbody".equals(htmlName)
+        || "td".equals(htmlName)
+        || "tfoot".equals(htmlName)
+        || "th".equals(htmlName)
+        || "thead".equals(htmlName)
+        || "tr".equals(htmlName);
+  }
+
   private enum OpenTagMode {
     NORMAL,
     REOPENED_TABLE,
     SUPPRESS,
+    SUPPRESS_INHERIT_TEXT_GATE,
     SUPPRESS_SUBTREE,
     EMIT_SUPPRESS_SUBTREE,
+    INHERIT_TEXT_GATE,
   }
 
   public boolean skippedLastTagAsAttributeless() {

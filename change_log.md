@@ -31,6 +31,33 @@ Most recent at top.
       have come out as that element's text: a browser inserts those
       elements beside the formatting and reconstructs it for the text after
       them, and so does this (#492, item 8).
+    * A second form start that the output parser ignores at an SVG or MathML
+      integration point no longer leaves a logical form inside dropped table
+      structure, so text following that table is retained (#492, item 7).
+    * List and option output contexts left by dropped wrappers now remain
+      stable: later content does not enter an inferred list or an earlier
+      item, browser-ignored inferred items are not serialized, and an
+      `option` below a dropped nested `select` closes its output sibling
+      (#494, #499).
+    * Text following bare table parts from a dropped or renamed table now
+      keeps a stable serialized position across sanitization passes while
+      respecting the inherited text-policy gate.
+    * Text-policy gates now follow the browser's output context when table
+      parts are serialized without a physical table and when an `input`,
+      `keygen`, `textarea` or nested `select` exits an HTML `select`.  Text
+      that reparses directly in an ancestor where the policy disallows it is
+      removed, while text inside a retained descendant or a physical table
+      keeps that descendant's rule.
+    * A caption, column group or `col` under a `template` the policy dropped
+      or renamed is judged in the output, where the template stood, and gets
+      its table there, instead of coming out as an orphan part that a
+      browser drops and the next pass wraps.  `Sanitizers.TABLES` emits on
+      the first pass what it emitted on the second for those shapes, and a
+      policy that drops the part itself, or disallows text in the template,
+      gets what it gets for the same part without the template.  A part
+      under a template inside an open table keeps the shape it had: the
+      template still bounds table scope, which five other scans read the
+      same way (#492, item 2).
     * An `option` or `optgroup` under any element but a `select`, `optgroup`
       or `option` now gets its `select`, and a list item under any element
       but a list its list, whatever the container's name (a list the policy
