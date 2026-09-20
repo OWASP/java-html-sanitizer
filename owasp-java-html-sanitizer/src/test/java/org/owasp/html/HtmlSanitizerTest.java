@@ -6723,6 +6723,83 @@ class HtmlSanitizerTest {
     assertEquals(parseAsBrowser(input), parseAsBrowser(out), input);
   }
 
+  /** An ignored second form must not make text after a dropped table vanish. */
+  @Test
+  void testTextAfterDroppedTableWithIgnoredSecondFormIsKept()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "math", "mtext", "form", "tr", "td",
+            "p", "b")
+        .allowAttributes("id").onElements("form")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<svg><foreignObject><table><form id=a><tr><form id=r>"
+          + "<td>y</td></tr></table>z",
+          "<svg><foreignObject><form id=\"a\">yz</form>"
+          + "</foreignObject></svg>",
+        },
+        {
+          "<math><mtext><table><form id=a><tr><form id=r>"
+          + "<td>y</td></tr></table>z",
+          "<math><mtext><form id=\"a\">yz</form></mtext></math>",
+        },
+        {
+          "<svg><foreignObject><table><form id=a><tr><form id=r></form>"
+          + "<td>y</td></tr></table>z",
+          "<svg><foreignObject><form id=\"a\"></form>yz"
+          + "</foreignObject></svg>",
+        },
+        {
+          "<svg><foreignObject><table><form id=a onsubmit=alert(1)>"
+          + "<tr><form id=r onclick=alert(1)><td>"
+          + "<p onclick=alert(1)>y<img src=x onerror=alert(1)></p>"
+          + "</td></tr></table>z<script>alert(1)</script>",
+          "<svg><foreignObject><form id=\"a\"><p>y</p>z</form>"
+          + "</foreignObject></svg>",
+        },
+        {
+          "<svg><foreignObject><table><form id=a><tr><form id=r>"
+          + "<td><b>y</b></td></tr></table>z",
+          "<svg><foreignObject><form id=\"a\"><b>y</b>z</form>"
+          + "</foreignObject></svg>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert"), c[0]);
+    }
+  }
+
+  /** An ignored form must not expose parts of the table that contains it. */
+  @Test
+  void testIgnoredSecondFormDoesNotExposeDroppedTableParts()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "svg", "foreignObject", "desc", "math", "mtext", "form",
+            "tbody", "tr", "td", "p", "b", "div")
+        .disallowTextIn("form")
+        .toFactory();
+    String[][] cases = {
+        {
+          "<svg><foreignObject><table><form><table></form><form><thead>"
+          + "<tr><td>tail</td></tr></thead></table>z",
+          "<svg><foreignObject><form></form></foreignObject></svg>",
+        },
+        {
+          "<table><template><form><p><math><label><caption><mtext>"
+          + "<form><mtext><td>tail",
+          "<form><p><math><mtext><mtext>tail</mtext></mtext></math>"
+          + "</p></form>",
+        },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+  }
+
   /**
    * Formatting closed by a foreign or unrecognized end tag resumes around
    * later content, as a browser reconstructs it.  It was resumed for a tag

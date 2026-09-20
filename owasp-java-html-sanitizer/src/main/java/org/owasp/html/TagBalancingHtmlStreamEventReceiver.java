@@ -1162,6 +1162,24 @@ public class TagBalancingHtmlStreamEventReceiver
           preparingPreparedPolicyStart = false;
         }
       }
+      if (elIndex == FORM_TAG
+          && formPolicy != null
+          && formStartPrepared
+          && preparedFormWillEmitAsHtml
+          && foreignContent.isUnknown()
+          && outputForeignRootBefore != null
+          && hasUnavailableInputTableInScope()
+          && formPolicy.outputFormElementPointerIsSet()) {
+        // The input tracker cannot decide whether this form is HTML, but the
+        // prepared output is at an integration point and has a form pointer.
+        // A browser ignores the start there.  Do not leave a logical policy
+        // entry that would imply a second dropped table around later cells,
+        // and do not emit later table parts without the missing table.
+        markNearestInputTableUnavailable();
+        formPolicy.discardPreparedFormStart();
+        reportDroppedStartTag(canonElementName);
+        return;
+      }
       if (!mayOpenAtNestingLimit
           || effectiveNestingDepth() >= nestingLimit) {
         retireContainerForUnemittedListChild(elIndex);
@@ -3019,6 +3037,19 @@ public class TagBalancingHtmlStreamEventReceiver
       }
     }
     return false;
+  }
+
+  /** Prevents later parts of the nearest missing input table from emitting. */
+  private void markNearestInputTableUnavailable() {
+    int tableScope = SCOPE_FOR_END_TAG[TABLE_TAG];
+    for (int i = openElements.size(); --i >= 0;) {
+      int openElement = openElements.get(i);
+      if (openElement == TABLE_TAG) {
+        outputTableUnavailable.set(i);
+        return;
+      }
+      if ((SCOPES_BY_ELEMENT[openElement] & tableScope) != 0) { return; }
+    }
   }
 
   /** Whether the nearest input table became a foreign {@code select}. */
