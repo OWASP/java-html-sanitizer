@@ -2,6 +2,9 @@
 
 Most recent at top.
   * Next release
+    * A second form start that the output parser ignores at an SVG or MathML
+      integration point no longer leaves a logical form inside dropped table
+      structure, so text following that table is retained (#492, item 7).
     * List and option output contexts left by dropped wrappers now remain
       stable: later content does not enter an inferred list or an earlier
       item, browser-ignored inferred items are not serialized, and an
