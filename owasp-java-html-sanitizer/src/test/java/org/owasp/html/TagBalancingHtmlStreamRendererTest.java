@@ -356,6 +356,45 @@ class TagBalancingHtmlStreamRendererTest {
         "<table></table><div><p>x</p></div>", htmlOutputBuffer.toString());
   }
 
+  /** A sibling item keeps enough physical budget for its nested list item. */
+  @Test
+  void testListItemSiblingAtNestingLimitKeepsNestedListStable() {
+    assertEquals(
+        "<form><label><ul><li><span></span></li><li><table><tbody>"
+        + "</tbody></table><ol><li>x</li></ol></li></ul></label></form>",
+        renderBalancedEvents(
+            7, "form", "label", "li", "span", "li", "tbody", "ol", "#x"));
+  }
+
+  /** Unemitted queued formatting retains the depth of a later limit change. */
+  @Test
+  void testDeferredFormattingKeepsDynamicNestingDepth() {
+    balancer.setNestingLimit(5);
+    balancer.openDocument();
+    balancer.openTag("table", j8().listOf());
+    balancer.openTag("form", j8().listOf());
+    balancer.openTag("b", j8().listOf());
+    balancer.setNestingLimit(5);
+    balancer.openTag("pre", j8().listOf());
+    balancer.openTag("s", j8().listOf());
+    balancer.openTag("col", j8().listOf());
+    balancer.setNestingLimit(2);
+    balancer.openTag("ul", j8().listOf());
+    balancer.openTag("br", j8().listOf());
+    balancer.text("x");
+    balancer.setNestingLimit(8);
+    balancer.openTag("ul", j8().listOf());
+    balancer.openTag("noscript", j8().listOf());
+    balancer.text("x");
+    IllegalStateException ex = assertThrows(
+        IllegalStateException.class, () -> balancer.setNestingLimit(5));
+    assertEquals(
+        "Cannot set the nesting limit to 5: elements are already open 7 deep",
+        ex.getMessage());
+    balancer.closeDocument();
+    assertEquals(emittedOpenElements, emittedCloseElements);
+  }
+
   /** Implied table structure never opens past a small nesting limit. */
   @Test
   void testPushedOutTableImpliedElementsRespectSmallNestingLimits() {

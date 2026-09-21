@@ -125,6 +125,8 @@ public class TagBalancingHtmlStreamEventReceiver
    * known to nest the output: see {@link #effectiveNestingDepth}.
    */
   private final List<String> passthroughNames = new ArrayList<>();
+  /** Number of forwarded elements whose content this lexer reads as text. */
+  private int passthroughSpecialTextModeDepth;
   /** Indices into {@link #passthroughNames}, innermost last, by name. */
   private final Map<String, IntVector> passthroughIndicesByName =
       new HashMap<>();
@@ -179,6 +181,14 @@ public class TagBalancingHtmlStreamEventReceiver
    */
   private final BitSet staleOutputFormPointerTargets = new BitSet();
   private final IntVector toResumeInReverse = new IntVector();
+  /** Parallel flags: formatting queued by the list-item-start walk. */
+  private final IntVector resumeOnlyOutsideRawText = new IntVector();
+  /** Formatting, or the item, opened after a list-item-start closure. */
+  private final BitSet resumedFormattingFromListItemStart = new BitSet();
+  /** True while that walk is closing the preceding item. */
+  private boolean closingListItemForStart;
+  /** True when the current start closed the preceding list item. */
+  private boolean currentStartClosedListItem;
   /**
    * Bit {@code i} is set while the element at {@code i} of
    * {@link #openElements} is closed in the output but still open here.
@@ -379,6 +389,12 @@ public class TagBalancingHtmlStreamEventReceiver
 
     /** Whether the current serialized-output scope has an HTML select open. */
     boolean hasOpenHtmlOutputSelect();
+
+    /** Whether an HTML list item is still open in the emitted stream. */
+    boolean hasOpenHtmlOutputListItem();
+
+    /** Whether an HTML ordered or unordered list is open in the output. */
+    boolean hasOpenHtmlOutputList();
 
     /** Number of non-void elements currently open in the emitted stream. */
     int outputNestingDepth();
@@ -608,6 +624,21 @@ public class TagBalancingHtmlStreamEventReceiver
     return depth;
   }
 
+  /** Number of elements that are physically open in the emitted stream. */
+  private int outputNestingDepth() {
+    if (underlying instanceof OpenTagOutputPolicy) {
+      return ((OpenTagOutputPolicy) underlying).outputNestingDepth();
+    }
+    int depth = passthroughNames.size();
+    for (int i = openElements.size(); --i >= 0;) {
+      if (sentToUnderlying.get(i) && !pushedOut.get(i)
+          && outputElements.get(i) != NO_OUTPUT_ELEMENT) {
+        ++depth;
+      }
+    }
+    return depth;
+  }
+
   /**
    * How many browser-ignored implied list items are on the stack.  They are
    * never sent below, so they nest nothing in the output and must not consume
@@ -678,7 +709,12 @@ public class TagBalancingHtmlStreamEventReceiver
     outputlessImpliedSelects.clear();
     outputTableUnavailable.clear();
     toResumeInReverse.clear();
+    resumeOnlyOutsideRawText.clear();
+    resumedFormattingFromListItemStart.clear();
+    closingListItemForStart = false;
+    currentStartClosedListItem = false;
     passthroughNames.clear();
+    passthroughSpecialTextModeDepth = 0;
     passthroughIndicesByName.clear();
     passthroughDepths.clear();
     passthroughSerials.clear();
@@ -715,6 +751,7 @@ public class TagBalancingHtmlStreamEventReceiver
     resetMappedForeignTableSuppressionIfPolicyEnded();
     resetDroppedSuppressedTableIfPolicyEnded();
     syncOutputSelectState();
+    currentStartClosedListItem = false;
     ++openTagEvent;
     if (DEBUG) {
       dumpState("open " + elementName);
@@ -1295,6 +1332,8 @@ public class TagBalancingHtmlStreamEventReceiver
         openElements.add(elIndex);
         inputElementSerials.add(startSerial);
         outputElements.add(outputElementIndex);
+        resumedFormattingFromListItemStart.set(
+            stackIndex, elIndex == LI_TAG && currentStartClosedListItem);
         outputlessTablesWithEmittedParts.clear(stackIndex);
         outputlessImpliedSelects.clear(stackIndex);
         pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -1504,6 +1543,7 @@ public class TagBalancingHtmlStreamEventReceiver
     openElements.add(FORM_TAG);
     inputElementSerials.add(serial);
     outputElements.add(NO_OUTPUT_ELEMENT);
+    resumedFormattingFromListItemStart.clear(stackIndex);
     outputlessTablesWithEmittedParts.clear(stackIndex);
     pushedMappedTemplateOutputOpen.clear(stackIndex);
     suppressedMappedForeignSubtrees.clear(stackIndex);
@@ -1527,6 +1567,7 @@ public class TagBalancingHtmlStreamEventReceiver
     openElements.add(element);
     inputElementSerials.add(serial);
     outputElements.add(NO_OUTPUT_ELEMENT);
+    resumedFormattingFromListItemStart.clear(stackIndex);
     sentToUnderlying.set(stackIndex);
     inputElementsInForeignContent.set(
         stackIndex, inputUsesForeignContentRules);
@@ -1552,6 +1593,7 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.remove(i);
       inputElementSerials.remove(i);
       outputElements.remove(i);
+      resumedFormattingFromListItemStart.clear(i);
       sentToUnderlying.clear(i);
       inputElementsInForeignContent.clear(i);
       outputElementsInForeignContent.clear(i);
@@ -1617,6 +1659,7 @@ public class TagBalancingHtmlStreamEventReceiver
       while (toResumeInReverse.size()
           > suppressedMappedForeignTableResumeDepth) {
         toResumeInReverse.removeLast();
+        resumeOnlyOutsideRawText.removeLast();
       }
     }
     droppedSuppressedTableDepth = 0;
@@ -1647,6 +1690,7 @@ public class TagBalancingHtmlStreamEventReceiver
       while (toResumeInReverse.size()
           > droppedSuppressedOptionResumeDepth) {
         toResumeInReverse.removeLast();
+        resumeOnlyOutsideRawText.removeLast();
       }
     }
     droppedSuppressedOptionDepth = 0;
@@ -2263,7 +2307,19 @@ public class TagBalancingHtmlStreamEventReceiver
       impliesItem = implied[i] == LI_TAG;
     }
     if (impliesItem) {
-      closeStackFrom(item, openElements.get(item));
+      closeListItemForStart(item);
+    }
+  }
+
+  /** Closes an item while marking its formatting as raw-text-sensitive. */
+  private void closeListItemForStart(int item) {
+    currentStartClosedListItem = true;
+    boolean wasClosingListItemForStart = closingListItemForStart;
+    closingListItemForStart = true;
+    try {
+      closeStackFrom(item, LI_TAG);
+    } finally {
+      closingListItemForStart = wasClosingListItemForStart;
     }
   }
 
@@ -2375,9 +2431,15 @@ public class TagBalancingHtmlStreamEventReceiver
     // containment metadata answered the open formatting element with a
     // fresh list inside it, and each following item nested one level
     // deeper (#492).
-    if (elIndex == LI_TAG && mayCloseOpenListItem) {
+    boolean closedListItemForStart = false;
+    if (elIndex == LI_TAG && mayCloseOpenListItem
+        && !contentGoesIntoRawTextElement()
+        && !listItemStartPoppedForwardedForeignRoot()) {
       int itemToClose = listItemToCloseForStart(foreignRootBoundary);
-      if (itemToClose >= 0) { closeStackFrom(itemToClose, LI_TAG); }
+      if (itemToClose >= 0) {
+        closeListItemForStart(itemToClose);
+        closedListItemForStart = true;
+      }
     }
 
     // Content that goes into a forwarded SVG or MathML root is contained by
@@ -2392,6 +2454,21 @@ public class TagBalancingHtmlStreamEventReceiver
       int container = containerIndex();
       int top = container < foreignRootBoundary
           ? BODY_TAG : effectiveContainer(elIndex, container);
+      if (closedListItemForStart
+          && underlying instanceof OpenTagOutputPolicy) {
+        OpenTagOutputPolicy outputPolicy = (OpenTagOutputPolicy) underlying;
+        if (outputPolicy.hasOpenHtmlOutputList()
+            || outputlessListIsCurrentContainer()) {
+          // The list-item start algorithm inserts the new item at the
+          // current insertion point after popping the prior item, even if
+          // non-special elements sit between that point and the list.
+          top = UL_TAG;
+        } else {
+          int outputContainer = outputContainerIndex();
+          top = outputContainer != UNRECOGNIZED_TAG
+              ? outputContainer : BODY_TAG;
+        }
+      }
       // Open implied elements, such as list-items and table cells & rows.
       int[] impliedElIndices = METADATA.impliedElements(top, elIndex);
       if (impliedElIndices.length != 0) {
@@ -2504,7 +2581,11 @@ public class TagBalancingHtmlStreamEventReceiver
               && hasOpenHtmlOutputSelect();
           boolean keepsLogicalOnlyListItem = keepsSyntheticSelectListItem
               || ignoredImpliedListItemInOutputSelect;
-          if (!keepsLogicalOnlyListItem
+          boolean physicalListItemFits = impliedElIndex == LI_TAG
+              && !pushedOut.isEmpty()
+              && isInsideItemOpenedAfterListItemStart()
+              && outputNestingDepth() < nestingLimit;
+          if (!keepsLogicalOnlyListItem && !physicalListItemFits
               && effectiveNestingDepth() >= nestingLimit) {
             mayOpenAtNestingLimit = false;
             break;
@@ -2573,6 +2654,7 @@ public class TagBalancingHtmlStreamEventReceiver
           openElements.add(impliedElIndex);
           inputElementSerials.add(0);
           outputElements.add(outputElementIndex);
+          resumedFormattingFromListItemStart.clear(stackIndex);
           outputlessTablesWithEmittedParts.clear(stackIndex);
           pushedMappedTemplateOutputOpen.clear(stackIndex);
           suppressedMappedForeignSubtrees.clear(stackIndex);
@@ -2631,6 +2713,8 @@ public class TagBalancingHtmlStreamEventReceiver
       forgetListOutputContextsFrom(container);
       for (int i = openElements.size(); --i >= container;) {
         int unclosed = openElements.get(i);
+        boolean resumedFromListItemStart =
+            resumedFormattingFromListItemStart.get(i);
         closePassthroughsInside(i, true);
         if (shouldSendClose(i)) {
           underlying.closeTag(METADATA.canonNameForIndex(unclosed));
@@ -2639,6 +2723,7 @@ public class TagBalancingHtmlStreamEventReceiver
         openElements.remove(i);
         inputElementSerials.remove(i);
         outputElements.remove(i);
+        resumedFormattingFromListItemStart.clear(i);
         sentToUnderlying.clear(i);
         inputElementsInForeignContent.clear(i);
         outputElementsInForeignContent.clear(i);
@@ -2654,7 +2739,7 @@ public class TagBalancingHtmlStreamEventReceiver
         pushedMappedTemplateOutputOpen.clear(i);
         suppressedMappedForeignSubtrees.clear(i);
         if (METADATA.resumable(unclosed) && unclosed != elIndex) {
-          queueForResumption(unclosed);
+          queueForResumption(unclosed, resumedFromListItemStart);
         }
       }
     }
@@ -2672,7 +2757,11 @@ public class TagBalancingHtmlStreamEventReceiver
     if (retiredFormattingForImplicitOutputTable) {
       resumeFormatting = false;
     }
-    if (elIndex != HtmlElementTables.TEXT_NODE
+    boolean formattingWaitsUntilAfterRawText =
+        !toResumeInReverse.isEmpty()
+        && resumeOnlyOutsideRawText.getLast() != 0;
+    if (formattingWaitsUntilAfterRawText
+        && elIndex != HtmlElementTables.TEXT_NODE
         && elIndex != UNRECOGNIZED_TAG
         && writtenAsRawTextElement(elIndex)) {
       // A browser does not reconstruct formatting for an element whose
@@ -2687,6 +2776,7 @@ public class TagBalancingHtmlStreamEventReceiver
     // nothing the loop opens is such an element.
     boolean intoRawTextElement = resumeFormatting
         && !toResumeInReverse.isEmpty()
+        && formattingWaitsUntilAfterRawText
         && contentGoesIntoRawTextElement();
     while (resumeFormatting
         && !insertionPointIsInForeignContent
@@ -2711,14 +2801,21 @@ public class TagBalancingHtmlStreamEventReceiver
               // between the container and it, such as the item a list
               // gives its content, is left queued for the content that
               // implies that wrapper, which is where a browser puts it.
-              && METADATA.impliedElements(
-                  openElements.get(nOpen - 1), toResume).length == 0))
+              // Once the nesting limit prevents emitting it, keeping the
+              // logical formatting entry costs no output wrapper and
+              // preserves the stack seen by a later dynamic limit change.
+              && (effectiveNestingDepth() >= nestingLimit
+                  || METADATA.impliedElements(
+                      openElements.get(nOpen - 1), toResume).length == 0)))
           && canContain(elIndex, toResume, nOpen)
           && canHold(elIndex, toResume, nOpen)
           && !(toResume == A_TAG
                && (elIndex == A_TAG
                    || hasOpenLinkInFormattingScope(foreignRootBoundary)))) {
+        boolean resumesFromListItemStart =
+            resumeOnlyOutsideRawText.getLast() != 0;
         toResumeInReverse.removeLast();
+        resumeOnlyOutsideRawText.removeLast();
         int outputElementIndex = NO_OUTPUT_ELEMENT;
         boolean sent = effectiveNestingDepth() < nestingLimit;
         if (sent) {
@@ -2736,6 +2833,8 @@ public class TagBalancingHtmlStreamEventReceiver
         openElements.add(toResume);
         inputElementSerials.add(0);
         outputElements.add(outputElementIndex);
+        resumedFormattingFromListItemStart.set(
+            stackIndex, resumesFromListItemStart);
         outputlessTablesWithEmittedParts.clear(stackIndex);
         outputlessImpliedSelects.clear(stackIndex);
         pushedMappedTemplateOutputOpen.clear(stackIndex);
@@ -2775,6 +2874,12 @@ public class TagBalancingHtmlStreamEventReceiver
    * the innermost first, so the earliest is the last of the alike.
    */
   private void queueForResumption(int elIndex) {
+    queueForResumption(elIndex, false);
+  }
+
+  /** Queues formatting and retains whether raw-text starts must precede it. */
+  private void queueForResumption(
+      int elIndex, boolean resumedFromListItemStart) {
     int alike = 0;
     int earliest = -1;
     for (int i = toResumeInReverse.size(); --i >= 0;) {
@@ -2783,8 +2888,13 @@ public class TagBalancingHtmlStreamEventReceiver
         if (earliest < 0) { earliest = i; }
       }
     }
-    if (alike >= 3) { toResumeInReverse.remove(earliest); }
+    if (alike >= 3) {
+      toResumeInReverse.remove(earliest);
+      resumeOnlyOutsideRawText.remove(earliest);
+    }
     toResumeInReverse.add(elIndex);
+    resumeOnlyOutsideRawText.add(
+        closingListItemForStart || resumedFromListItemStart ? 1 : 0);
   }
 
   /** Drops the innermost queued formatting element with this index, if any. */
@@ -2792,6 +2902,7 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = toResumeInReverse.size(); --i >= 0;) {
       if (toResumeInReverse.get(i) == elIndex) {
         toResumeInReverse.remove(i);
+        resumeOnlyOutsideRawText.remove(i);
         return;
       }
     }
@@ -3039,6 +3150,8 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.set(destination, openElements.get(source));
       inputElementSerials.set(destination, inputElementSerials.get(source));
       outputElements.set(destination, outputElements.get(source));
+      resumedFormattingFromListItemStart.set(
+          destination, resumedFormattingFromListItemStart.get(source));
       sentToUnderlying.set(destination, sentToUnderlying.get(source));
       inputElementsInForeignContent.set(
           destination, inputElementsInForeignContent.get(source));
@@ -3065,6 +3178,7 @@ public class TagBalancingHtmlStreamEventReceiver
       ++destination;
     }
     while (openElements.size() > destination) {
+      resumedFormattingFromListItemStart.clear(openElements.size() - 1);
       openElements.removeLast();
       inputElementSerials.removeLast();
       outputElements.removeLast();
@@ -3083,6 +3197,7 @@ public class TagBalancingHtmlStreamEventReceiver
     outputlessTablesWithEmittedParts.clear(destination, oldSize);
     pushedMappedTemplateOutputOpen.clear(destination, oldSize);
     suppressedMappedForeignSubtrees.clear(destination, oldSize);
+    resumedFormattingFromListItemStart.clear(destination, oldSize);
   }
 
   /** Closes a mapped HTML output container and its logical descendants. */
@@ -3387,8 +3502,10 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     if (formatting < 0) { return false; }
     int formattingElement = openElements.get(formatting);
+    boolean resumedFromListItemStart =
+        resumedFormattingFromListItemStart.get(formatting);
     closeStackFrom(formatting, formattingElement);
-    queueForResumption(formattingElement);
+    queueForResumption(formattingElement, resumedFromListItemStart);
     return true;
   }
 
@@ -3444,6 +3561,7 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.remove(i);
       inputElementSerials.remove(i);
       outputElements.remove(i);
+      resumedFormattingFromListItemStart.clear(i);
       if (sendClose) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
@@ -3500,7 +3618,14 @@ public class TagBalancingHtmlStreamEventReceiver
         return -1;
       }
       int openElement = openElements.get(i);
-      if (openElement == LI_TAG && !isNeverSentImpliedListItem(i)) {
+      if (openElement == LI_TAG
+          && !isNeverSentImpliedListItem(i)
+          && shouldSendClose(i)
+          && outputElements.get(i) == LI_TAG
+          && !outputElementsInForeignContent.get(i)
+          && (!(underlying instanceof OpenTagOutputPolicy)
+              || ((OpenTagOutputPolicy) underlying)
+                  .hasOpenHtmlOutputListItem())) {
         return i;
       }
       // An element with no output, one the policy dropped or one this
@@ -3509,6 +3634,16 @@ public class TagBalancingHtmlStreamEventReceiver
       // output can see, so they bound nothing here: leaving them barriers
       // made a first pass keep an item that the second pass closed.
       if (outputElements.get(i) == NO_OUTPUT_ELEMENT || pushedOut.get(i)) {
+        // A select that the policy drops, and the option or optgroup it
+        // implies around content, still determine which list item the
+        // balancer writes.  Crossing one here makes a first pass nest an
+        // item and the next pass close it after the dropped wrapper is no
+        // longer present (#494, #502).
+        if (outputElements.get(i) == NO_OUTPUT_ELEMENT
+            && (openElement == SELECT_TAG || openElement == OPTION_TAG
+                || openElement == OPTGROUP_TAG)) {
+          return -1;
+        }
         continue;
       }
       // The emitted element is what bounds the walk, not the name the
@@ -3517,6 +3652,29 @@ public class TagBalancingHtmlStreamEventReceiver
       if (LIST_ITEM_START_BARRIERS.get(outputElements.get(i))) { return -1; }
     }
     return -1;
+  }
+
+  /** Whether the current stack is inside the sibling opened by this rule. */
+  private boolean isInsideItemOpenedAfterListItemStart() {
+    for (int i = openElements.size(); --i >= 0;) {
+      if (openElements.get(i) == LI_TAG
+          && resumedFormattingFromListItemStart.get(i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether this start just broke out of a forwarded output foreign root. */
+  private boolean listItemStartPoppedForwardedForeignRoot() {
+    for (int i = passthroughForeignRoots.size(); --i >= 0;) {
+      int root = passthroughForeignRoots.get(i);
+      if (passthroughOutputForeign.get(root)
+          && !foreignContent.isNodeOpen(passthroughSerials.get(root))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Whether a browser would foster-parent this token out of an open table. */
@@ -3572,14 +3730,12 @@ public class TagBalancingHtmlStreamEventReceiver
    * which has no entry on the stack.
    */
   private boolean contentGoesIntoRawTextElement() {
-    for (int i = passthroughNames.size(); --i >= 0;) {
-      // Every forwarded element still open contains what arrives now, so
-      // one anywhere above it decides, not only the innermost.
-      int forwarded = METADATA.indexForName(
-          Strings.toLowerCase(passthroughNames.get(i)));
-      if (hasSpecialTextMode(forwarded)) { return true; }
-    }
-    return containerHasSpecialTextMode();
+    // Every forwarded element still open contains what arrives now, so one
+    // anywhere above it decides, not only the innermost.  Keep a count as
+    // starts and ends arrive: scanning here makes a long run of forwarded
+    // elements followed by list items quadratic.
+    return passthroughSpecialTextModeDepth != 0
+        || containerHasSpecialTextMode();
   }
 
   /**
@@ -3962,9 +4118,12 @@ public class TagBalancingHtmlStreamEventReceiver
     for (int i = openElements.size(); --i > top;) {
       closePassthroughsInside(i, true);
       forgetListOutputContextsFrom(i);
+      boolean resumedFromListItemStart =
+          resumedFormattingFromListItemStart.get(i);
       int unclosed = openElements.remove(i);
       inputElementSerials.remove(i);
       outputElements.remove(i);
+      resumedFormattingFromListItemStart.clear(i);
       if (sentToUnderlying.get(i)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
@@ -3978,7 +4137,7 @@ public class TagBalancingHtmlStreamEventReceiver
       impliedInputTables.clear(i);
       outputlessImpliedSelects.clear(i);
       if (METADATA.resumable(unclosed)) {
-        queueForResumption(unclosed);
+        queueForResumption(unclosed, resumedFromListItemStart);
       }
       outputTableUnavailable.clear(i);
       outputlessTablesWithEmittedParts.clear(i);
@@ -3997,6 +4156,7 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.remove(top);
       inputElementSerials.remove(top);
       outputElements.remove(top);
+      resumedFormattingFromListItemStart.clear(top);
       sentToUnderlying.clear(top);
       inputElementsInForeignContent.clear(top);
       outputElementsInForeignContent.clear(top);
@@ -4047,6 +4207,7 @@ public class TagBalancingHtmlStreamEventReceiver
     int[] runOutputElements = new int[n];
     boolean[] runOutputForeign = new boolean[n];
     boolean[] runOutputStartsForeign = new boolean[n];
+    boolean[] runFormattingFromListItemStart = new boolean[n];
     for (int i = n; --i >= 0;) {
       runInputForeign[i] = inputElementsInForeignContent.get(start + i);
       runFormPointerTarget[i] = formPointerTargets.get(start + i);
@@ -4065,6 +4226,8 @@ public class TagBalancingHtmlStreamEventReceiver
       runOutputForeign[i] = outputElementsInForeignContent.get(start + i);
       runOutputStartsForeign[i] =
           outputElementsStartForeignContent.get(start + i);
+      runFormattingFromListItemStart[i] =
+          resumedFormattingFromListItemStart.get(start + i);
       if (isRetiredInputTable(start + i)) {
         underlying.closeTag("table");
       }
@@ -4073,6 +4236,7 @@ public class TagBalancingHtmlStreamEventReceiver
       run[i] = openElements.remove(start + i);
       inputElementSerials.remove(start + i);
       outputElements.remove(start + i);
+      resumedFormattingFromListItemStart.clear(start + i);
       sentToUnderlying.clear(start + i);
       inputElementsInForeignContent.clear(start + i);
       outputElementsInForeignContent.clear(start + i);
@@ -4112,6 +4276,8 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.add(run[i]);
       inputElementSerials.add(runSerials[i]);
       outputElements.add(outputElementIndex);
+      resumedFormattingFromListItemStart.set(
+          stackIndex, runFormattingFromListItemStart[i]);
       sentToUnderlying.set(stackIndex, sent);
       inputElementsInForeignContent.set(stackIndex, runInputForeign[i]);
       outputElementsInForeignContent.set(
@@ -4542,6 +4708,11 @@ public class TagBalancingHtmlStreamEventReceiver
     int index = passthroughNames.size();
     indices.add(index);
     passthroughNames.add(canonElementName);
+    int passthroughElement = METADATA.indexForName(
+        Strings.toLowerCase(canonElementName));
+    if (hasSpecialTextMode(passthroughElement)) {
+      ++passthroughSpecialTextModeDepth;
+    }
     passthroughDepths.add(openElements.size());
     passthroughSerials.add(serial);
     passthroughOutputForeign.set(
@@ -4603,6 +4774,11 @@ public class TagBalancingHtmlStreamEventReceiver
   private void popPassthrough(boolean emitCloseTag) {
     int last = passthroughNames.size() - 1;
     String canonElementName = passthroughNames.remove(last);
+    int passthroughElement = METADATA.indexForName(
+        Strings.toLowerCase(canonElementName));
+    if (hasSpecialTextMode(passthroughElement)) {
+      --passthroughSpecialTextModeDepth;
+    }
     IntVector indices = passthroughIndicesByName.get(canonElementName);
     indices.removeLast();
     if (indices.isEmpty()) {
@@ -4677,9 +4853,12 @@ public class TagBalancingHtmlStreamEventReceiver
     if (closesTemplate) {
       // Formatting inside template content must not resume outside it.
       toResumeInReverse.clear();
+      resumeOnlyOutsideRawText.clear();
     }
     for (int i = openElements.size(); --i >= fromIndex;) {
       int unclosed = openElements.get(i);
+      boolean resumedFromListItemStart =
+          resumedFormattingFromListItemStart.get(i);
       closePassthroughsInside(i, emitCloseTags);
       if (emitCloseTags && shouldSendClose(i)) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
@@ -4687,7 +4866,7 @@ public class TagBalancingHtmlStreamEventReceiver
       if (unclosed == TEMPLATE_TAG) {
         closesTemplate = false;
       } else if (!closesTemplate && METADATA.resumable(unclosed)) {
-        queueForResumption(unclosed);
+        queueForResumption(unclosed, resumedFromListItemStart);
       }
       discardStackSuffix(i);
     }
@@ -4768,15 +4947,19 @@ public class TagBalancingHtmlStreamEventReceiver
     if (closedElement == TEMPLATE_TAG) {
       // Formatting inside template content must not resume outside it.
       toResumeInReverse.clear();
+      resumeOnlyOutsideRawText.clear();
     }
     int last = openElements.size();
     while (--last > index) {
       int unclosed = openElements.get(last);
+      boolean resumedFromListItemStart =
+          resumedFormattingFromListItemStart.get(last);
       boolean sendClose = emitCloseTags && shouldSendClose(last);
       closePassthroughsInside(last, emitCloseTags);
       openElements.remove(last);
       inputElementSerials.remove(last);
       outputElements.remove(last);
+      resumedFormattingFromListItemStart.clear(last);
       if (sendClose) {
         underlying.closeTag(METADATA.canonNameForIndex(unclosed));
       }
@@ -4795,7 +4978,7 @@ public class TagBalancingHtmlStreamEventReceiver
       pushedMappedTemplateOutputOpen.clear(last);
       suppressedMappedForeignSubtrees.clear(last);
       if (closedElement != TEMPLATE_TAG && METADATA.resumable(unclosed)) {
-        queueForResumption(unclosed);
+        queueForResumption(unclosed, resumedFromListItemStart);
       }
     }
     closePassthroughsInside(index, emitCloseTags);
@@ -4819,6 +5002,7 @@ public class TagBalancingHtmlStreamEventReceiver
     openElements.remove(index);
     inputElementSerials.remove(index);
     outputElements.remove(index);
+    resumedFormattingFromListItemStart.clear(index);
     if (emittedItemList >= 0) {
       outputlessImpliedListAfterEmittedItem = emittedItemList;
     }
@@ -4904,6 +5088,8 @@ public class TagBalancingHtmlStreamEventReceiver
         new boolean[descendantCount];
     boolean[] descendantSuppressedMappedForeignTemplates =
         new boolean[descendantCount];
+    boolean[] descendantFormattingFromListItemStart =
+        new boolean[descendantCount];
     for (int i = 0; i < descendantCount; ++i) {
       int stackIndex = formIndex + 1 + i;
       descendants[i] = openElements.get(stackIndex);
@@ -4931,6 +5117,8 @@ public class TagBalancingHtmlStreamEventReceiver
           outputlessTablesWithEmittedParts.get(stackIndex);
       descendantSuppressedMappedForeignTemplates[i] =
           suppressedMappedForeignSubtrees.get(stackIndex);
+      descendantFormattingFromListItemStart[i] =
+          resumedFormattingFromListItemStart.get(stackIndex);
     }
     // Close the output suffix explicitly.  The library policy would do this
     // itself when it sees </form>, but an arbitrary receiver only sees the
@@ -4950,6 +5138,7 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.remove(i);
       inputElementSerials.remove(i);
       outputElements.remove(i);
+      resumedFormattingFromListItemStart.clear(i);
       sentToUnderlying.clear(i);
       inputElementsInForeignContent.clear(i);
       outputElementsInForeignContent.clear(i);
@@ -4967,7 +5156,8 @@ public class TagBalancingHtmlStreamEventReceiver
     }
     for (int i = descendantCount; --i >= 0;) {
       if (METADATA.resumable(descendants[i])) {
-        queueForResumption(descendants[i]);
+        queueForResumption(
+            descendants[i], descendantFormattingFromListItemStart[i]);
       }
     }
     for (int i = 0; i < descendantCount; ++i) {
@@ -4976,6 +5166,8 @@ public class TagBalancingHtmlStreamEventReceiver
       openElements.add(descendants[i]);
       inputElementSerials.add(descendantSerials[i]);
       outputElements.add(descendantOutputs[i]);
+      resumedFormattingFromListItemStart.set(
+          stackIndex, descendantFormattingFromListItemStart[i]);
       sentToUnderlying.set(
           stackIndex, descendantsArePushedOut[i] && descendantsWereSent[i]);
       inputElementsInForeignContent.set(

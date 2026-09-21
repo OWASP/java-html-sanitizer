@@ -6303,6 +6303,53 @@ class HtmlSanitizerTest {
         "<ul><li>x</li><li>y</li><li>z</li></ul>");
   }
 
+  /** The item-start walk keeps the output contexts that make it a fixed point. */
+  @Test
+  void testListItemStartKeepsSelectAndForeignOutputContexts() throws Exception {
+    PolicyFactory droppedSelect = new HtmlPolicyBuilder()
+        .allowElements("ul", "li", "script")
+        .allowWithoutAttributes("ul", "li", "script")
+        .allowTextIn("script")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        droppedSelect,
+        "<li><optgroup><li><script><hr>",
+        "<ul><li><ul><li><script></script>&lt;hr&gt;</li></ul></li></ul>");
+
+    // A breakout start has already popped the input's SVG root, but closing
+    // the output item across that still-open root would turn foreign PCDATA
+    // into HTML raw text.  Keep the stable foreign path, where hostile tags
+    // remain escaped text rather than live markup.
+    PolicyFactory foreignRaw = new HtmlPolicyBuilder()
+        .allowElements("ul", "li", "u", "label", "svg", "script", "style")
+        .allowWithoutAttributes(
+            "ul", "li", "u", "label", "svg", "script", "style")
+        .allowTextIn("script", "style")
+        .toFactory();
+    String hostile =
+        "<li><u><Svg><li><script></col><img src=x onerror=alert(1)></script>";
+    String escaped =
+        "<ul><li><u><svg><ul><li><script>&lt;/col&gt;&lt;img src&#61;x "
+        + "onerror&#61;alert(1)&gt;</script></li></ul></svg></u></li></ul>";
+    assertRoundTripAndBalanced(foreignRaw, hostile, escaped);
+    assertFalse(foreignRaw.sanitize(hostile).contains("<img"));
+    assertRoundTripAndBalanced(
+        foreignRaw,
+        "<li><label><svg><li><svg></svg><style></ul>",
+        "<ul><li><label><svg><ul><li><svg></svg><style>&lt;/ul&gt;</style>"
+        + "</li></ul></svg></label></li></ul>");
+
+    // The reduced li/option residual from #494 stays nested on both passes.
+    PolicyFactory itemsAndOptions = new HtmlPolicyBuilder()
+        .allowElements("li", "option")
+        .allowWithoutAttributes("li", "option")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        itemsAndOptions,
+        "<ul><option></select><strong><textArea><li>",
+        "<li><option></option><li></li></li>");
+  }
+
   /**
    * Item 2 of #492.  A template holds a caption or column group directly,
    * so the containment metadata implies no table for one there.  A template

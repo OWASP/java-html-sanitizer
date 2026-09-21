@@ -343,6 +343,29 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     return false;
   }
 
+  public boolean hasOpenHtmlOutputListItem() {
+    return hasOpenHtmlOutputElement("li");
+  }
+
+  public boolean hasOpenHtmlOutputList() {
+    return hasOpenHtmlOutputElement("ol")
+        || hasOpenHtmlOutputElement("ul");
+  }
+
+  private boolean hasOpenHtmlOutputElement(String elementName) {
+    @Nullable String outputContainer = outputContainerElementName;
+    for (int i = openElementStack.size() - 1;
+         i > 0 && outputContainer != null; i -= 2) {
+      if (!outputContainer.equals(openElementStack.get(i))) { continue; }
+      if (!outputElementInForeignContent.get(i / 2)
+          && elementName.equals(outputContainer)) {
+        return true;
+      }
+      outputContainer = outputContainerBeforeOpen.get(i / 2);
+    }
+    return false;
+  }
+
   public int outputNestingDepth() {
     return suppressOutputAndContent
         ? Math.max(outputNestingDepth, openElementStack.size() / 2)

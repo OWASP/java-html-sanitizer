@@ -11,13 +11,15 @@ Most recent at top.
       does, at an element in its special category, other than `address`,
       `div` and `p`, which it steps over, and other than the two names the
       algorithm calls special but current browsers do not.  It reads the
-      output: an element the policy dropped or renamed, and a table already
-      closed to put content in front of it, bound nothing a browser reading
-      that output can see.  An item written inside a heading, a form or a
-      template still nests as a browser nests it; one written after a table
-      that was closed for it does not, since the output no longer says
-      there is a table.  An `option` still holds the list item this
-      balancer writes for a list's content inside it.
+      output: an ordinary element the policy dropped or renamed, and a table
+      already closed to put content in front of it, bound nothing a browser
+      reading that output can see.  A dropped `select`, `option` or
+      `optgroup` still bounds the synthetic list context it determines, and
+      an emitted foreign root still bounds the walk when crossing it would
+      reinterpret foreign text as HTML raw text.  An item written inside a
+      heading, a form or a template still nests as a browser nests it; one
+      written after a table that was closed for it does not, since the output
+      no longer says there is a table.
     * The elements queued for reconstruction keep at most three of a name,
       as a browser's list of active formatting elements does through its
       Noah's Ark clause.  Without that bound one list item after another
@@ -31,6 +33,11 @@ Most recent at top.
       have come out as that element's text: a browser inserts those
       elements beside the formatting and reconstructs it for the text after
       them, and so does this (#492, item 8).
+    * At a nesting limit, formatting that cannot be emitted remains a
+      logical reconstruction entry, so raising and lowering the limit later
+      sees the same depth.  A sibling list item created by the new item-start
+      walk may still emit a required nested item when the physical output has
+      room, keeping that limited output a fixed point.
     * A second form start that the output parser ignores at an SVG or MathML
       integration point no longer leaves a logical form inside dropped table
       structure, so text following that table is retained (#492, item 7).
