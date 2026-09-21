@@ -251,6 +251,16 @@ public final class HtmlChangeReporter<T> {
           && ((OpenTagOutputPolicy) policy).hasOpenHtmlOutputSelect();
     }
 
+    public boolean hasOpenHtmlOutputListItem() {
+      return policy instanceof OpenTagOutputPolicy
+          && ((OpenTagOutputPolicy) policy).hasOpenHtmlOutputListItem();
+    }
+
+    public boolean hasOpenHtmlOutputList() {
+      return policy instanceof OpenTagOutputPolicy
+          && ((OpenTagOutputPolicy) policy).hasOpenHtmlOutputList();
+    }
+
     public int outputNestingDepth() {
       return policy instanceof OpenTagOutputPolicy
           ? ((OpenTagOutputPolicy) policy).outputNestingDepth() : 0;

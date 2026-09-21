@@ -1275,6 +1275,14 @@ public final class HtmlSanitizer {
           "xmp");
 
   /**
+   * The HTML elements in the special category, for the tag balancer, which
+   * walks its own stack by the same rule when a list item starts.
+   */
+  static Set<String> specialHtmlElementNames() {
+    return SPECIAL_HTML_ELEMENT_NAMES;
+  }
+
+  /**
    * Elements the specification puts in the special category but current
    * Chrome does not, so a walk that reaches one has an uncertain outcome.
    * {@code dialog} and {@code search} are both special in the WHATWG parsing
@@ -1282,6 +1290,11 @@ public final class HtmlSanitizer {
    */
   private static final Set<String> AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES
       = j8().setOf("dialog", "search");
+
+  /** Those names, for the tag balancer, which follows Chrome as this does. */
+  static Set<String> ambiguouslySpecialHtmlElementNames() {
+    return AMBIGUOUSLY_SPECIAL_HTML_ELEMENT_NAMES;
+  }
 
   /** Start tags whose HTML stack effect this bounded tracker cannot derive. */
   private static final Set<String> UNMODELED_CONTEXT_CHANGING_START_TAG_NAMES
