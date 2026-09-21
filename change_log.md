@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20260921.1
     * A list item start tag closes the list item that is open, as a browser
       does, even when a formatting element such as `b` is open inside that
       item: the two items come out as siblings, with the formatting
