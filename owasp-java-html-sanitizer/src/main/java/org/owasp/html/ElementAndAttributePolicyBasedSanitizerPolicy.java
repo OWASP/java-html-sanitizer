@@ -143,8 +143,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    * walks these instead of the whole stack, which holds an entry for every
    * element the policy dropped and is not bounded by the nesting limit: a run
    * of unclosed unknown tags made every later start tag rescan all of them.
-   */
+  */
   private final IntVector tableScopeOutputEntries = new IntVector();
+  /**
+   * Indices of emitted elements that bound the output scope of a form end.
+   * Keeping only boundaries makes the retired-form check constant-time even
+   * when the logical stack contains an unbounded run of dropped elements.
+   */
+  private final IntVector formScopeOutputEntries = new IntVector();
   /**
    * Bit {@code k} is the value {@link #skipText} had before the {@code k}-th
    * element on {@link #openElementStack} was pushed, so that popping back to
@@ -198,6 +204,14 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private transient @Nullable ElementAndAttributePolicies preparedPolicies;
   private transient @Nullable String preparedAdjustedElementName;
   private transient boolean preparedSkippedAsAttributeless;
+  /**
+   * Input-name index of the logical form whose serialized start was popped by
+   * the in-table rule in a table the balancer implied, or -1.  This is a real
+   * stack entry: the ordinary saved text gate applies in constant time.
+   */
+  private transient int retiredFormInputIndex = -1;
+  /** Whether retained output formatting supplies the current text gate. */
+  private transient boolean retiredFormDefersToOutputFormatting;
 
   ElementAndAttributePolicyBasedSanitizerPolicy(
       HtmlStreamEventReceiver out,
@@ -255,10 +269,13 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputNestingDepth = 0;
     outputContainerElementName = null;
     clearPreparedFormStart();
+    retiredFormInputIndex = -1;
+    retiredFormDefersToOutputFormatting = false;
     skippedLastTagAsAttributeless = false;
     reopenedTableWasRenamed = false;
     openElementStack.clear();
     tableScopeOutputEntries.clear();
+    formScopeOutputEntries.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
     suppressOutputAndContentBeforeOpen.clear();
@@ -279,6 +296,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
     openElementStack.clear();
     tableScopeOutputEntries.clear();
+    formScopeOutputEntries.clear();
     skipTextBeforeOpen.clear();
     inKeptLiteralBeforeOpen.clear();
     suppressOutputAndContentBeforeOpen.clear();
@@ -300,6 +318,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputContainerElementName = null;
     outputContainerBeforeOpen.clear();
     clearPreparedFormStart();
+    retiredFormInputIndex = -1;
+    retiredFormDefersToOutputFormatting = false;
     reopenedTableWasRenamed = false;
     outputTemplateForeignContents.clear();
     outputTemplateForeignContentDepths.clear();
@@ -394,6 +414,125 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   public boolean outputFormElementPointerIsSet() {
     return outputForeignContent.formElementPointerIsSet();
+  }
+
+  public void openRetiredFormTextContext() {
+    if (retiredFormInputIndex >= 0
+        || !disallowedTextContainers.contains("form")) {
+      return;
+    }
+    deferOpenTag("form");
+    retiredFormInputIndex = openElementStack.size() - 2;
+    deferRetiredFormToOutputFormatting();
+  }
+
+  /** Lets retained formatting around the fostered text apply its own gate. */
+  private void deferRetiredFormToOutputFormatting() {
+    int inputIndex = retiredFormInputIndex;
+    if (inputIndex < 0) { return; }
+    int depth = inputIndex / 2;
+    @Nullable String outputContainer = outputContainerBeforeOpen.get(depth);
+    if (outputContainer == null
+        || !METADATA.resumable(METADATA.indexForName(
+            HtmlLexer.canonicalElementName(outputContainer)))) {
+      retiredFormDefersToOutputFormatting = false;
+      return;
+    }
+    // Formatting that surrounds the implied table also surrounds its
+    // foster-parented text in the serialized output.  Its own text policy is
+    // therefore nearer than the logical form until that formatting closes.
+    skipText = skipTextBeforeOpen.get(depth);
+    retiredFormDefersToOutputFormatting = true;
+  }
+
+  public boolean pushOutTableAroundRetiredForm() {
+    if (retiredFormInputIndex < 0
+        || retiredFormInputIndex != openElementStack.size() - 2) {
+      return false;
+    }
+    int tableInputIndex = -1;
+    for (int k = tableScopeOutputEntries.size(); --k >= 0;) {
+      int adjustedIndex = tableScopeOutputEntries.get(k);
+      if (adjustedIndex >= retiredFormInputIndex) { continue; }
+      if (outputElementInForeignContent.get(adjustedIndex / 2)) { continue; }
+      String adjustedElementName = openElementStack.get(adjustedIndex);
+      if ("table".equals(adjustedElementName)) {
+        tableInputIndex = adjustedIndex - 1;
+      }
+      break;
+    }
+    if (tableInputIndex < 0) { return false; }
+    // Closing the synthetic output table is not an input ancestor close: the
+    // browser never opened that table.  Move the form's logical entry beside
+    // it so the existing stack gate judges the foster-parented content.
+    closeStackFromInputIndex(tableInputIndex);
+    deferOpenTag("form");
+    retiredFormInputIndex = openElementStack.size() - 2;
+    deferRetiredFormToOutputFormatting();
+    return true;
+  }
+
+  public boolean closeRetiredFormTextContext() {
+    int inputIndex = retiredFormInputIndex;
+    if (inputIndex < 0 || inputIndex + 1 >= openElementStack.size()
+        || !"form".equals(openElementStack.get(inputIndex))
+        || openElementStack.get(inputIndex + 1) != null) {
+      retiredFormInputIndex = -1;
+      retiredFormDefersToOutputFormatting = false;
+      return false;
+    }
+    int depth = inputIndex / 2;
+    int depthCount = openElementStack.size() / 2;
+    boolean outerSkipText = skipTextBeforeOpen.get(depth);
+    openElementStack.remove(inputIndex + 1);
+    openElementStack.remove(inputIndex);
+    keptCdataNameBeforeOpen.remove(depth);
+    outputContainerBeforeOpen.remove(depth);
+    removeBitAt(skipTextBeforeOpen, depth, depthCount);
+    removeBitAt(inKeptLiteralBeforeOpen, depth, depthCount);
+    removeBitAt(suppressOutputAndContentBeforeOpen, depth, depthCount);
+    removeBitAt(inKeptCdataBeforeOpen, depth, depthCount);
+    removeBitAt(inForeignContentBeforeOpen, depth, depthCount);
+    removeBitAt(outputElementInForeignContent, depth, depthCount);
+    for (int k = 0; k < tableScopeOutputEntries.size(); ++k) {
+      int adjustedIndex = tableScopeOutputEntries.get(k);
+      if (adjustedIndex > inputIndex) {
+        tableScopeOutputEntries.set(k, adjustedIndex - 2);
+      }
+    }
+    for (int k = 0; k < formScopeOutputEntries.size(); ++k) {
+      int adjustedIndex = formScopeOutputEntries.get(k);
+      if (adjustedIndex > inputIndex) {
+        formScopeOutputEntries.set(k, adjustedIndex - 2);
+      }
+    }
+    if (depth == depthCount - 1) {
+      skipText = outerSkipText;
+    } else {
+      // The direct child's saved parent gate included the form.  It now
+      // restores the gate that preceded the form when that child closes.
+      skipTextBeforeOpen.set(depth, outerSkipText);
+    }
+    retiredFormInputIndex = -1;
+    retiredFormDefersToOutputFormatting = false;
+    return true;
+  }
+
+  public boolean hasRetiredFormTextContext() {
+    return retiredFormInputIndex >= 0;
+  }
+
+  public boolean retiredFormTextContextAllowsEndTag() {
+    return retiredFormInputIndex < 0 || formScopeOutputEntries.isEmpty()
+        || formScopeOutputEntries.getLast() < retiredFormInputIndex;
+  }
+
+  /** Removes one logical depth from a parallel stack bit set. */
+  private static void removeBitAt(BitSet bits, int index, int size) {
+    for (int i = index; i + 1 < size; ++i) {
+      bits.set(i, bits.get(i + 1));
+    }
+    bits.clear(size - 1);
   }
 
   public boolean retireOutputSelectForHtmlStart() {
@@ -500,7 +639,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
     openElementStack.subList(tableInputIndex + 2, n).clear();
     openElementStack.set(tableInputIndex + 1, null);
-    forgetTableScopeOutputEntriesFrom(tableInputIndex + 1);
+    forgetIndexedOutputEntriesFrom(tableInputIndex + 1);
     outputElementInForeignContent.clear(tableDepth, n / 2);
     skipText = tableSkipText;
     suppressOutputAndContent = tableSuppressOutputAndContent;
@@ -1468,6 +1607,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /** Retires an output suffix without consuming its logical input entries. */
   private void retireOutputSuffixKeepingLogical(int inputNameIndex) {
     int n = openElementStack.size();
+    int retiredFormOffset = retiredFormInputIndex >= inputNameIndex
+        ? (retiredFormInputIndex - inputNameIndex) / 2 : -1;
     List<String> logicalSuffix = new ArrayList<>();
     List<Boolean> suffixSuppression = new ArrayList<>();
     for (int i = inputNameIndex; i < n; i += 2) {
@@ -1482,6 +1623,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     closeStackFromInputIndex(inputNameIndex);
     for (int i = 0; i < logicalSuffix.size(); ++i) {
       deferOpenTag(logicalSuffix.get(i));
+      if (i == retiredFormOffset) {
+        retiredFormInputIndex = openElementStack.size() - 2;
+        deferRetiredFormToOutputFormatting();
+      }
       suppressOutputAndContent = suffixSuppression.get(i);
       if (suppressOutputAndContent) { skipText = true; }
     }
@@ -1624,6 +1769,24 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       i -= 2;
       String openElementName = openElementStack.get(i);
       if (elementName.equals(openElementName)) {
+        if (retiredFormDefersToOutputFormatting
+            && retiredFormInputIndex == n - 2
+            && i == retiredFormInputIndex - 2
+            && METADATA.resumable(METADATA.indexForName(
+                HtmlLexer.canonicalElementName(elementName)))
+            && openElementStack.get(i + 1) != null
+            && METADATA.resumable(METADATA.indexForName(
+                openElementStack.get(i + 1)))) {
+          // The serialized formatting element is outside the implied table,
+          // but a browser's adoption-agency rules can put its fostered text
+          // inside that formatting and its later text directly in the form.
+          // Close the output formatting without consuming the logical form,
+          // then make the form's own gate current again.
+          closeRetiredFormTextContext();
+          closeStackFromInputIndex(i);
+          openRetiredFormTextContext();
+          break;
+        }
         closeStackFromInputIndex(i);
         break;
       }
@@ -1639,8 +1802,12 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         closeOutputElement(tagNameToClose, j);
       }
     }
+    if (retiredFormInputIndex >= inputNameIndex) {
+      retiredFormInputIndex = -1;
+      retiredFormDefersToOutputFormatting = false;
+    }
     openElementStack.subList(inputNameIndex, n).clear();
-    forgetTableScopeOutputEntriesFrom(inputNameIndex);
+    forgetIndexedOutputEntriesFrom(inputNameIndex);
     int depth = inputNameIndex / 2;
     outputElementInForeignContent.clear(depth, n / 2);
     skipText = skipTextBeforeOpen.get(depth);
@@ -1745,6 +1912,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputElementInForeignContent.set(
         openElementStack.size() / 2 - 1,
         outputElementForLastOpenTagUsedForeignContentRules);
+    if (isFormScopeOutputBoundary(
+            adjustedElementName,
+            outputElementForLastOpenTagUsedForeignContentRules)) {
+      formScopeOutputEntries.add(openElementStack.size() - 1);
+    }
     out.openTag(adjustedElementName, attrs);
     ++outputNestingDepth;
     outputContainerElementName = adjustedElementName;
@@ -1849,11 +2021,31 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         || "th".equals(adjustedElementName);
   }
 
-  /** Drops the indexed entries at or above {@code stackIndex}. */
-  private void forgetTableScopeOutputEntriesFrom(int stackIndex) {
+  /** Whether an emitted element bounds the scope of an HTML form end tag. */
+  private static boolean isFormScopeOutputBoundary(
+      String adjustedElementName, boolean usesForeignContentRules) {
+    return usesForeignContentRules
+        || "applet".equals(adjustedElementName)
+        || "caption".equals(adjustedElementName)
+        || "html".equals(adjustedElementName)
+        || "marquee".equals(adjustedElementName)
+        || "object".equals(adjustedElementName)
+        || "select".equals(adjustedElementName)
+        || "table".equals(adjustedElementName)
+        || "td".equals(adjustedElementName)
+        || "template".equals(adjustedElementName)
+        || "th".equals(adjustedElementName);
+  }
+
+  /** Drops the indexed output entries at or above {@code stackIndex}. */
+  private void forgetIndexedOutputEntriesFrom(int stackIndex) {
     while (!tableScopeOutputEntries.isEmpty()
         && tableScopeOutputEntries.getLast() >= stackIndex) {
       tableScopeOutputEntries.removeLast();
+    }
+    while (!formScopeOutputEntries.isEmpty()
+        && formScopeOutputEntries.getLast() >= stackIndex) {
+      formScopeOutputEntries.removeLast();
     }
   }
 
