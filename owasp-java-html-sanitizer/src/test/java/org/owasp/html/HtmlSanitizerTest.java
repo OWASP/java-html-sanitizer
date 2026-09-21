@@ -7202,6 +7202,191 @@ class HtmlSanitizerTest {
   }
 
   /**
+   * Item 3 of #492.  A form written in a table the balancer implied is
+   * inserted and popped by that table's rules, but a browser reading the
+   * input sees no table and leaves the form open.  When the table is closed
+   * to put later text beside it, the form's text policy must therefore stay
+   * in force until an effective form end tag.
+   */
+  @Test
+  void testRetiredImpliedTableFormKeepsItsTextPolicy()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .disallowTextIn("form")
+        .toFactory();
+    String tableAndEmptyForm =
+        "<table><tbody><form></form></tbody></table>";
+    String[][] cases = {
+        { "<tbody><form>B", tableAndEmptyForm },
+        { "<tr><form>B",
+          "<table><tbody><tr><form></form></tr></tbody></table>" },
+        { "<colgroup><form>B", "<table><form></form></table>" },
+        { "<thead><form>B", "<table><form></form></table>" },
+        { "<tfoot><form>B", "<table><form></form></table>" },
+        { "<caption><form>B", "<table><form></form></table>" },
+        { "<th><form>B",
+          "<table><tbody><tr><form></form></tr></tbody></table>" },
+        { "<td><form>B",
+          "<table><tbody><tr><td><form></form></td></tr></tbody></table>" },
+        // A descendant the policy drops does not hide the form's gate.
+        { "<tbody><form><p>B", tableAndEmptyForm },
+        { "<tbody><form><my-widget>B", tableAndEmptyForm },
+        // The form end restores the gate outside it; a stray row-group end
+        // does not end the form a browser opened without a table.
+        { "<tbody><form>B</form>C", tableAndEmptyForm + "C" },
+        { "<tbody><form>B</tbody>C", tableAndEmptyForm },
+        // Tags, attributes, raw-text bodies and encoded markup cannot use
+        // the retired output context to surface hostile text or markup.
+        { "<tbody><form action=javascript:alert(1) onsubmit=alert(2)>"
+          + "B<script>alert(3)</script><img src=x onerror=alert(4)>"
+          + "&lt;img src=x onerror=alert(5)&gt;",
+          tableAndEmptyForm },
+        // A table the author supplied is a negative control: a browser pops
+        // the form there too, so the foster-parented text is not form text.
+        { "<table><tbody><form>B", tableAndEmptyForm + "B" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+      assertFalse(p.sanitize(c[0]).contains("alert"), c[0]);
+    }
+
+    // disallowTextIn applies to a named input element even when the policy
+    // drops that element itself.
+    PolicyFactory droppedForm = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td")
+        .disallowTextIn("form")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        droppedForm, "<tbody><form>B",
+        "<table><tbody></tbody></table>");
+    assertRoundTripAndBalanced(
+        droppedForm, "<tbody><form>B</form>C",
+        "<table><tbody></tbody></table>C");
+
+    final List<String> discarded = new ArrayList<>();
+    HtmlChangeListener<Object> listener = new HtmlChangeListener<Object>() {
+      public void discardedTag(Object context, String elementName) {
+        discarded.add(elementName);
+      }
+
+      public void discardedAttributes(
+          Object context, String tagName, String... attributeNames) {
+        // Not under test.
+      }
+    };
+    assertEquals(tableAndEmptyForm, p.sanitize("<tbody><form>B", listener, null));
+    assertEquals(Arrays.asList(), discarded);
+  }
+
+  /** Kept descendants and template contents retain their own text policy. */
+  @Test
+  void testRetiredImpliedTableFormUsesTheNearestOutputTextPolicy()
+      throws Exception {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements(
+            "table", "tbody", "tr", "td", "form", "template", "b",
+            "div", "p", "select", "option", "object", "svg")
+        .disallowTextIn("form")
+        .toFactory();
+    String prefix = "<table><tbody><form></form></tbody></table>";
+    String[][] cases = {
+        { "<tbody><form><b>B</b>C", prefix + "<b>B</b>" },
+        { "<tbody><form>B<b>x</b></form>C", prefix + "<b>x</b>C" },
+        { "<tbody><form>B<b>x</form>y</b>C", prefix + "<b>xy</b>C" },
+        // A retained template has a separate contents document: its text is
+        // not direct text in the outer form, while C is.
+        { "<tbody><form><template><b>B</b></template>C",
+          "<table><tbody><form></form><template><b>B</b></template>"
+          + "</tbody></table>" },
+        { "<tbody><form><template><form>B</form>C</template>D",
+          "<table><tbody><form></form><template><form></form>C</template>"
+          + "</tbody></table>" },
+        // An effective end tag may remove the form from the middle of the
+        // logical policy stack without closing a retained descendant.
+        { "<tbody><form><b>B</form>C</b>D", prefix + "<b>BC</b>D" },
+        { "<tbody><form>B<svg></form></svg>D", prefix + "<svg></svg>D" },
+        // A form end behind a real table or cell scope boundary is ignored;
+        // later direct text therefore remains governed by the form.
+        { "<tbody><form>A<table></form>B</table>C",
+          prefix + "<table></table>" },
+        { "<tbody><form>A<table><tr><td></form>B</td></tr></table>C",
+          prefix + "<table><tbody><tr><td>B</td></tr></tbody></table>" },
+        { "<tbody><form>A<my-widget><object></form>B</object>C",
+          prefix + "<object>B</object>" },
+        // Formatting around the implied table is still the nearest retained
+        // output context for its text.  Its end exposes the form's gate for C.
+        { "<b><tbody><form>B</b>C", "<b>" + prefix + "B</b>" },
+        // In select and template modes the input form does not establish this
+        // retired context, so their text is not removed by the form's rule.
+        { "<select><tbody><form>B</select>C",
+          "<select>" + prefix + "BC</select>" },
+        { "<template><tbody><form>B</template>C",
+          "<template>" + prefix + "B</template>C" },
+        // Closing the real input ancestor ends the logical form too; the
+        // later text must not stay behind a latched policy gate.
+        { "<div><tbody><form>B</div>C</div>D",
+          "<div>" + prefix + "</div>CD" },
+    };
+    for (String[] c : cases) {
+      assertRoundTripAndBalanced(p, c[0], c[1]);
+    }
+
+    PolicyFactory droppedTemplate = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .disallowTextIn("form")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        droppedTemplate, "<tbody><form><template>B</template>C", prefix);
+
+    PolicyFactory textAllowed = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        textAllowed, "<tbody><form>B", prefix + "B");
+
+    PolicyFactory droppedAncestor = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form", "b")
+        .disallowTextIn("form")
+        .toFactory();
+    assertRoundTripAndBalanced(
+        droppedAncestor, "<b><div><tbody><form>A</div>B</b>C",
+        "<b>" + prefix + "AB</b>C");
+    assertRoundTripAndBalanced(
+        droppedAncestor, "<select><tbody><form>B</select>C",
+        prefix + "BC");
+    // The parser-context check is not a text gate: an explicit select end or
+    // a select-exit start makes the following form effective again.
+    assertRoundTripAndBalanced(
+        droppedAncestor, "<select><tbody></select><form>B</form>C",
+        prefix + "C");
+    assertRoundTripAndBalanced(
+        droppedAncestor, "<select><tbody><input><form>B</form>C",
+        "<table><tbody></tbody></table><form></form>C");
+    assertRoundTripAndBalanced(
+        droppedAncestor, "<select><tbody><select><form>B</form>C",
+        "<table><tbody></tbody></table><form></form>C");
+    assertRoundTripAndBalanced(
+        droppedAncestor, "<template><tbody><form>B</template>C",
+        prefix + "BC");
+  }
+
+  /** The retired form's ordinary stack gate makes each text run constant-time. */
+  @Test
+  void testRetiredImpliedTableFormTextIsLinear() {
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("table", "tbody", "tr", "td", "form")
+        .disallowTextIn("form")
+        .toFactory();
+    final int n = 600_000;
+    String input = "<tbody><form>B" + stringRepeatedTimes("<zz>t", n);
+    assertEquals(
+        "<table><tbody><form></form></tbody></table>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> p.sanitize(input)));
+  }
+
+  /**
    * A table part that produces no browser node, whether the policy suppresses
    * it or it is serialized outside a physical table, sends its text to the
    * nearest real output element.  Text the policy disallows there stays out.

@@ -389,6 +389,34 @@ public final class HtmlChangeReporter<T> {
       }
     }
 
+    public void openRetiredFormTextContext() {
+      if (policy instanceof FormPointerPolicy) {
+        ((FormPointerPolicy) policy).openRetiredFormTextContext();
+      }
+    }
+
+    public boolean pushOutTableAroundRetiredForm() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy)
+              .pushOutTableAroundRetiredForm();
+    }
+
+    public boolean closeRetiredFormTextContext() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).closeRetiredFormTextContext();
+    }
+
+    public boolean hasRetiredFormTextContext() {
+      return policy instanceof FormPointerPolicy
+          && ((FormPointerPolicy) policy).hasRetiredFormTextContext();
+    }
+
+    public boolean retiredFormTextContextAllowsEndTag() {
+      return !(policy instanceof FormPointerPolicy)
+          || ((FormPointerPolicy) policy)
+              .retiredFormTextContextAllowsEndTag();
+    }
+
     public void prepareOutputForHtmlStart(
         String adjustedElementName, List<String> attrs) {
       if (policy instanceof FormPointerPolicy) {

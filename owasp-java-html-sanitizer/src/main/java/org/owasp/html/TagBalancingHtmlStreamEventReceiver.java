@@ -89,6 +89,12 @@ public class TagBalancingHtmlStreamEventReceiver
   private boolean outputSelectWasOpen;
   /** Free output item that remains open after an output select closes. */
   private int outputListItemAfterClosedSelect = -1;
+  /**
+   * Whether the input parser is in an HTML select outside template contents.
+   * This is parser context, not an output text gate: the containment stack may
+   * remove a dropped select while browsers keep using its insertion mode.
+   */
+  private boolean htmlInputSelectIsOpen;
   /** Pushed logical tables whose mapped template remains physically open. */
   private final BitSet pushedMappedTemplateOutputOpen = new BitSet();
   /** Logical roots whose mapped foreign output has suppressed contents. */
@@ -483,6 +489,32 @@ public class TagBalancingHtmlStreamEventReceiver
     /** Discards a prepared form result when the output ignores its start. */
     void discardPreparedFormStart();
 
+    /**
+     * Keeps a logical policy entry for an HTML form that the in-table rule
+     * popped from an implied table.  The form was already opened, closed and
+     * reported; this entry carries only its input-name text policy.
+     */
+    default void openRetiredFormTextContext() {}
+
+    /**
+     * Moves that logical form outside an output table as the table is pushed
+     * out for foster-parented content.  Returns true when this method emitted
+     * the table suffix's close events itself.
+     */
+    default boolean pushOutTableAroundRetiredForm() { return false; }
+
+    /**
+     * Removes that logical form for an effective HTML form end tag without
+     * closing the output elements that remain above it.
+     */
+    default boolean closeRetiredFormTextContext() { return false; }
+
+    /** Whether that logical form entry is still open in the policy. */
+    default boolean hasRetiredFormTextContext() { return false; }
+
+    /** Whether the current output scope lets an HTML form end reach it. */
+    default boolean retiredFormTextContextAllowsEndTag() { return true; }
+
     /** True while an emitted literal-output element suppresses nested starts. */
     default boolean isInKeptLiteralElement() { return false; }
 
@@ -725,6 +757,7 @@ public class TagBalancingHtmlStreamEventReceiver
     outputSelectHasText = false;
     outputSelectWasOpen = false;
     outputListItemAfterClosedSelect = -1;
+    htmlInputSelectIsOpen = false;
     pushedMappedTemplateOutputOpen.clear();
     suppressedMappedForeignSubtrees.clear();
     foreignContent = new HtmlSanitizer.ForeignContentContext();
@@ -759,6 +792,12 @@ public class TagBalancingHtmlStreamEventReceiver
     String canonElementName = HtmlLexer.canonicalElementName(elementName);
 
     int elIndex = METADATA.indexForName(canonElementName);
+    boolean inputTemplateWasOpen = hasOpenTemplateElement();
+    boolean inputSelectWasOpen = htmlInputSelectIsOpen;
+    if (inputSelectWasOpen && !inputTemplateWasOpen
+        && exitsHtmlSelect(canonElementName)) {
+      htmlInputSelectIsOpen = false;
+    }
     closeOpenHtmlOptionForStart(elIndex);
     boolean parsingTemplateContents =
         elIndex == FORM_TAG && hasOpenTemplateElement();
@@ -777,6 +816,10 @@ public class TagBalancingHtmlStreamEventReceiver
     foreignContent.processStartTag(canonElementName, attrs, false);
     boolean usesForeignContentRules =
         foreignContent.lastTagUsedForeignContentRules();
+    if (elIndex == SELECT_TAG && !inputSelectWasOpen
+        && !inputTemplateWasOpen && !usesForeignContentRules) {
+      htmlInputSelectIsOpen = true;
+    }
     // The HTML form-pointer rules apply to an HTML form outside template
     // contents.  When the input tracker can no longer tell HTML from foreign
     // content, follow the output: a browser parsing it consults the pointer
@@ -1321,8 +1364,24 @@ public class TagBalancingHtmlStreamEventReceiver
         // The in-table rule inserts the form and immediately pops it.  Send a
         // balanced empty element downstream, but leave the input form pointer
         // set until an actual </form> arrives.
+        boolean keepRetiredFormTextContext = !usesForeignContentRules
+            && formTableContext >= 0
+            && impliedInputTables.get(formTableContext)
+            && !outputElementIsForeign
+            && !hasOpenTemplateElement()
+            && !hasOpenHtmlInputSelect()
+            && !hasOpenHtmlOutputSelect()
+            && formPolicy != null;
         underlying.closeTag(canonElementName);
         retireOutputTableForForm(formTableContext);
+        if (keepRetiredFormTextContext) {
+          // The table exists only because this receiver supplied it.  A
+          // browser reading the input has no table here, so its form stays on
+          // the stack and owns later text even though the serialized form is
+          // the balanced empty element above.  Keep that input context only
+          // in the policy; putting it on this stack changes containment.
+          formPolicy.openRetiredFormTextContext();
+        }
         if (usesForeignContentRules) {
           stackForeignFormWithoutOutput(startSerial);
         }
@@ -1867,6 +1926,15 @@ public class TagBalancingHtmlStreamEventReceiver
 
   /** A synthetic scope boundary that established no boundary in the output. */
   private boolean isOutputlessSyntheticScopeBoundary(int stackIndex) {
+    if (impliedInputTables.get(stackIndex)
+        && pushedOut.get(stackIndex)
+        && underlying instanceof FormPointerPolicy
+        && ((FormPointerPolicy) underlying).hasRetiredFormTextContext()) {
+      // The form is outside this receiver's implied table in the input
+      // browser.  Once that table is pushed out it cannot keep an end tag
+      // from reaching the form's real input ancestor.
+      return true;
+    }
     if (outputElements.get(stackIndex) != NO_OUTPUT_ELEMENT) { return false; }
     return (impliedInputTables.get(stackIndex)
             && !(pushedOut.get(stackIndex)
@@ -2998,6 +3066,19 @@ public class TagBalancingHtmlStreamEventReceiver
     return false;
   }
 
+  /** Whether a start token exits the HTML in-select insertion mode. */
+  private static boolean exitsHtmlSelect(String canonElementName) {
+    return "input".equals(canonElementName)
+        || "keygen".equals(canonElementName)
+        || "select".equals(canonElementName)
+        || "textarea".equals(canonElementName);
+  }
+
+  /** Whether a real input select makes a form start browser-ignored. */
+  private boolean hasOpenHtmlInputSelect() {
+    return htmlInputSelectIsOpen;
+  }
+
   /** Records output-select closure that happened in the preceding event. */
   private void syncOutputSelectState() {
     boolean outputSelectIsOpen = hasOpenHtmlOutputSelect();
@@ -4067,6 +4148,18 @@ public class TagBalancingHtmlStreamEventReceiver
       closeStackFrom(topIndex, openElements.get(topIndex));
       return;
     }
+    FormPointerPolicy formPolicy = underlying instanceof FormPointerPolicy
+        ? (FormPointerPolicy) underlying : null;
+    boolean policyPushedOutTableAroundRetiredForm = false;
+    if (formPolicy != null && formPolicy.hasRetiredFormTextContext()) {
+      // Unrecognized descendants are forwarded without a balancer stack
+      // entry.  End them first so the retired form is again the top logical
+      // policy entry; this is the same close they would receive below before
+      // the table itself is closed.
+      closePassthroughsInside(topIndex, true);
+      policyPushedOutTableAroundRetiredForm =
+          formPolicy.pushOutTableAroundRetiredForm();
+    }
     for (int i = topIndex; i >= 0; --i) {
       int elIndex = openElements.get(i);
       if (!TABLE_CONTEXT.get(elIndex)) { break; }
@@ -4076,7 +4169,8 @@ public class TagBalancingHtmlStreamEventReceiver
             && outputElements.get(i) == TEMPLATE_TAG
             && !outputElementsInForeignContent.get(i)
             && hasOutputlessTemplateBelow(i);
-        if (sentToUnderlying.get(i) && !leaveMappedTemplateOpen) {
+        if (sentToUnderlying.get(i) && !leaveMappedTemplateOpen
+            && !policyPushedOutTableAroundRetiredForm) {
           closePassthroughsInside(i, true);
           underlying.closeTag(METADATA.canonNameForIndex(elIndex));
         }
@@ -4396,11 +4490,21 @@ public class TagBalancingHtmlStreamEventReceiver
     int elIndex = METADATA.indexForName(canonElementName);
     if (elIndex == SELECT_TAG) {
       retireOutputlessImpliedListBeforeContent();
+      if (!hasOpenTemplateElement()) {
+        htmlInputSelectIsOpen = false;
+      }
     }
     boolean parsingTemplateContents =
         elIndex == FORM_TAG && hasOpenTemplateElement();
     boolean formElementPointerWasSet =
         elIndex == FORM_TAG && foreignContent.formElementPointerIsSet();
+    FormPointerPolicy retiredFormPolicy =
+        elIndex == FORM_TAG && underlying instanceof FormPointerPolicy
+        ? (FormPointerPolicy) underlying : null;
+    boolean hasRetiredFormTextContext = retiredFormPolicy != null
+        && retiredFormPolicy.hasRetiredFormTextContext();
+    boolean retiredFormEndIsInScope = !hasRetiredFormTextContext
+        || retiredFormPolicy.retiredFormTextContextAllowsEndTag();
     String foreignRootBefore = foreignContent.outermostForeignElementName();
     String outputForeignRootBefore = outputForeignContentRootName();
     int forwardedPart = TABLE_PARTS.get(elIndex)
@@ -4447,7 +4551,7 @@ public class TagBalancingHtmlStreamEventReceiver
         && (!(foreignContent.isUnknown() && outputForeignRootBefore != null)
             || formPointerTargets.previousSetBit(openElements.size() - 1)
                 >= 0);
-    if (formUsesHtmlPointerRules) {
+    if (formUsesHtmlPointerRules && retiredFormEndIsInScope) {
       foreignContent.clearFormElementPointer();
     }
     if (elIndex == TABLE_TAG
@@ -4499,6 +4603,19 @@ public class TagBalancingHtmlStreamEventReceiver
       // so cannot reach an older element with the same name.
       closeForeignElementsPoppedByLastEndTag();
       return;
+    }
+    if (elIndex == FORM_TAG
+        && formUsesHtmlPointerRules
+        && formElementPointerWasSet
+        && hasRetiredFormTextContext) {
+      if (!retiredFormEndIsInScope) { return; }
+      if (retiredFormPolicy.closeRetiredFormTextContext()) {
+        // The input form was inserted outside the table this receiver implied,
+        // then popped only from the serialized output.  The policy kept its
+        // logical text context, and this effective form end removes precisely
+        // that entry without disturbing descendants left open by the browser.
+        return;
+      }
     }
     if (elIndex == UNRECOGNIZED_TAG) {
       // Forwarded only for an element the receiver below still has open,

@@ -55,6 +55,13 @@ Most recent at top.
       that reparses directly in an ancestor where the policy disallows it is
       removed, while text inside a retained descendant or a physical table
       keeps that descendant's rule.
+    * A form inserted and immediately popped from a table implied for an
+      orphan table part now keeps its logical text-policy context after that
+      table is closed for foster-parented content.  Text a browser reads in
+      the still-open input form therefore continues to obey
+      `disallowTextIn("form")` until an effective form end, while retained
+      descendants, template contents and text beside a real input table keep
+      their own rules (#492, item 3).
     * A caption, column group or `col` under a `template` the policy dropped
       or renamed is judged in the output, where the template stood, and gets
       its table there, instead of coming out as an orphan part that a
