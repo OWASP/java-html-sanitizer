@@ -6,7 +6,7 @@ Only the latest version is supported with updates.
 
 | Version    | Supported          |
 | ---------- | ------------------ |
-| 20260921.1 | :white_check_mark: |
+| 20260922.1 | :white_check_mark: |
 
 
 

@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20260922.1
     * CSS URLs in style attributes now percent-encode single quotes,
       backslashes, and control characters after rewriting so they stay
       within their quoted URL value.
