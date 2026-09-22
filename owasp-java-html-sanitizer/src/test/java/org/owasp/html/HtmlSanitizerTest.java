@@ -1128,6 +1128,52 @@ class HtmlSanitizerTest {
     assertEquals("<style>a{} </noscripts> </no b{}</style>", sb.toString());
   }
 
+  /**
+   * Test #17:
+   * GHSA-vqwm-jvq2-mfwc reported the first fix incomplete.  Under the
+   * reporter's policy an allowed element's tag inside style text came through
+   * verbatim, so neither its attribute policy nor its URL policy ran, and a
+   * {@code >} inside a quoted attribute value ended the scan for the tag
+   * early.  Every tag goes now; what is left of the quoted one is text with
+   * no {@code <} to start a tag.
+   */
+  @Test
+  void testCVE202566021_17AllowedElementInStyleTextBypassesNoPolicy() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("style", "img")
+        .allowAttributes("src").onElements("img")
+        .allowTextIn("style")
+        .toFactory();
+
+    assertEquals(
+        "<style>x{}</style>",
+        policy.sanitize("<style>x{}<img src=x onerror=alert(1)>"));
+    assertEquals(
+        "<style>x{}</style>",
+        policy.sanitize("<style>x{}<img src=javascript:alert(1)>"));
+    assertEquals(
+        "<style>x{}\" onerror=alert(1)></style>",
+        policy.sanitize("<style>x{}<img src=\"x>\" onerror=alert(1)>"));
+  }
+
+  /**
+   * Test #18:
+   * The same report's script case: text kept inside a script element loses an
+   * allowed element's tag too.
+   */
+  @Test
+  void testCVE202566021_18AllowedElementInScriptTextIsRemoved() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("script", "img")
+        .allowAttributes("src").onElements("img")
+        .allowTextIn("script")
+        .toFactory();
+
+    assertEquals(
+        "<script>1</script>",
+        policy.sanitize("<script>1<img src=x onerror=alert(1)></script>"));
+  }
+
   /** Allows noscript, style with its text, and img with src. */
   private static PolicyFactory noscriptStyleImg() {
     return new HtmlPolicyBuilder()
