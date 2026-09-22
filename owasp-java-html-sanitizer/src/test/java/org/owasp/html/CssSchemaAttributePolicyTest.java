@@ -144,6 +144,46 @@ final class CssSchemaAttributePolicyTest {
             + "x</div>"));
   }
 
+  @Test
+  void testCssEscapedQuoteStaysInsideUrl() {
+    final AttributePolicy urlPolicy = new FilterUrlByProtocolAttributePolicy(
+        Arrays.asList("https"));
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style")
+            .matching(IMAGE_SCHEMA.toAttributePolicy(
+                url -> urlPolicy.apply("img", "src", url)))
+            .onElements("div")
+        .toFactory();
+
+    String sanitized = policy.sanitize(
+        "<div style=\"background-image:url('https://example.com/i\\27)"
+        + ";color:red;x:(')\">x</div>");
+    assertEquals(
+        "<div style=\"background-image:url(&#39;"
+        + "https://example.com/i%27%29;color:red;x:%28&#39;)\">x</div>",
+        sanitized);
+    assertEquals(sanitized, policy.sanitize(sanitized));
+  }
+
+  @Test
+  void testUrlRewriterOutputIsCssEncoded() {
+    PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowAttributes("style")
+            .matching(IMAGE_SCHEMA.toAttributePolicy(
+                url -> "https://example.com/a'\\\r\n b"))
+            .onElements("div")
+        .toFactory();
+
+    assertEquals(
+        "<div style=\"background-image:url(&#39;"
+        + "https://example.com/a%27%5c%0d%0a%20b&#39;)\">x</div>",
+        policy.sanitize(
+            "<div style=\"background-image:url(https://example.com/i.png)\">"
+            + "x</div>"));
+  }
+
   /** A rewriter never has to cope with a null URL, so it may not be null. */
   @Test
   void testNullUrlRewriterRejected() {

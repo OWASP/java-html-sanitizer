@@ -43,6 +43,8 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
 @TCB
 final class StylingPolicy implements JoinableAttributePolicy {
 
+  private static final String HEX_DIGITS = "0123456789abcdef";
+
   /**
    * The longest {@code url(...)} kept in a style attribute; longer ones are
    * dropped along with the property that contains them.
@@ -105,8 +107,25 @@ final class StylingPolicy implements JoinableAttributePolicy {
           String rewrittenUrl = urlRewriter.apply(urlContent);
           if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
             if (hasTokens) { sanitizedCss.append(' '); }
-            sanitizedCss.append("url('").append(rewrittenUrl).append("')");
+            sanitizedCss.append("url('");
+            appendCssUrlContent(rewrittenUrl);
+            sanitizedCss.append("')");
             hasTokens = true;
+          }
+        }
+      }
+
+      private void appendCssUrlContent(String url) {
+        // The URL rewriter may return characters that end or escape the CSS
+        // string.  Encode them after rewriting, before adding the delimiters.
+        for (int i = 0, n = url.length(); i < n; ++i) {
+          char ch = url.charAt(i);
+          if (ch == '\'' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
+            sanitizedCss.append('%')
+                .append(HEX_DIGITS.charAt(ch >> 4))
+                .append(HEX_DIGITS.charAt(ch & 0xf));
+          } else {
+            sanitizedCss.append(ch);
           }
         }
       }

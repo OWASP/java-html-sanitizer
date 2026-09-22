@@ -1,6 +1,10 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * CSS URLs in style attributes now percent-encode single quotes,
+      backslashes, and control characters after rewriting so they stay
+      within their quoted URL value.
   * Release 20260921.1
     * A list item start tag closes the list item that is open, as a browser
       does, even when a formatting element such as `b` is open inside that
