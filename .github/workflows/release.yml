@@ -103,6 +103,7 @@ jobs:
           echo "bumped=true" >> "$GITHUB_OUTPUT"
 
       - name: Build
+        id: build
         run: ./mvnw -ntp -B -Ppublication
 
       - name: Release
@@ -137,13 +138,12 @@ jobs:
           git commit -m "Prepare for next development version"
           git push origin main
 
-      - name: Undo the release commit after a failure
-        if: failure() && steps.set_version.outputs.bumped == 'true'
+      - name: Undo the release commit after a build failure
+        if: failure() && steps.set_version.outputs.bumped == 'true' && steps.build.outcome == 'failure'
         run: |
-          # The build or the release failed after "Release version X" was pushed.
-          # Put main back so PR builds do not run at a release version. If
-          # JReleaser had already pushed the tag, delete it by hand before
-          # retrying; the Validate step will refuse to reuse it.
+          # The build failed before JReleaser ran, so nothing was published.
+          # A failure during or after JReleaser needs manual review because
+          # the release may already have been published or tagged.
           if [ "$(git log -1 --format=%s)" != "Release version $VERSION" ]; then
             echo "::warning::HEAD is not the release commit; leaving main alone"
             exit 0
