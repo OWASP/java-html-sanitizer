@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -37,6 +38,7 @@ import org.owasp.html.CssTokens.TokenType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.owasp.html.CssTokens.TokenType.COLUMN;
 import static org.owasp.html.CssTokens.TokenType.IDENT;
 import static org.owasp.html.CssTokens.TokenType.LEFT_PAREN;
@@ -230,6 +232,33 @@ class CssTokensTest {
   @Test
   void testOrphanedCloseBrackets() {
     assertEquals("{foo bar}", lex("{foo]bar").normalizedCss);
+    // A close with no open partner is dropped; one whose partner is below
+    // other opens closes those first.
+    assertEquals("((( )))", lex("(((]]]").normalizedCss);
+    assertEquals("[()]", lex("[(])").normalizedCss);
+    assertEquals("a(b c)d", lex("a(b]c)d").normalizedCss);
+    assertEquals("rgb(1 2)", lex("rgb(1]2)").normalizedCss);
+    assertEquals("foo bar", lex("foo)bar").normalizedCss);
+    assertEquals("((()))", lex(")))(((").normalizedCss);
+    assertEquals("{[()]}", lex("{[(}])").normalizedCss);
+    assertEquals("x y z", lex("x]y)z}").normalizedCss);
+  }
+
+  /**
+   * Dropping a close bracket with no open partner used to walk the whole
+   * stack of open brackets, so a run of unmatched closes after a run of
+   * opens took time quadratic in the input: 320 KB took twenty seconds.
+   */
+  @Test
+  void testOrphanedCloseBracketsAreDroppedInLinearTime() {
+    int n = 400000;
+    StringBuilder sb = new StringBuilder(2 * n);
+    for (int i = 0; i < n; ++i) { sb.append('('); }
+    for (int i = 0; i < n; ++i) { sb.append(']'); }
+    final String css = sb.toString();
+    CssTokens tokens = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> CssTokens.lex(css));
+    assertEquals(2 * n + 1, tokens.normalizedCss.length());
   }
 
   @Test

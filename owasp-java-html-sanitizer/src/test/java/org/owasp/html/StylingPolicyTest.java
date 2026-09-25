@@ -768,11 +768,12 @@ class StylingPolicyTest {
   }
 
   /**
-   * A shape that would make the depth scan quadratic.  A semicolon inside
-   * a bare bracket ends a declaration, so a scan for the end of the
-   * declaration that ran on to the matching close would read the rest of
-   * the input once per declaration: seconds at a few hundred kilobytes,
-   * and well under a second here.
+   * Shapes that made the CSS path quadratic.  A semicolon inside a bare
+   * bracket ends a declaration, so a scan for the end of the declaration
+   * that ran on to the matching close read the rest of the input once per
+   * declaration.  And the lexer walked the whole stack of open brackets
+   * for every close bracket that had no partner.  Each takes seconds at a
+   * few hundred kilobytes when quadratic and well under a second here.
    */
   @Test
   void testHostileBracketShapesAreLinear() {
@@ -782,6 +783,13 @@ class StylingPolicyTest {
         assertTimeoutPreemptively(
             Duration.ofSeconds(20),
             () -> sanitizeCss("color: red;" + rescan)));
+    final String orphans =
+        "color: " + repeat("(", 400000) + repeat("]", 400000);
+    assertEquals(
+        "color:red",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20),
+            () -> sanitizeCss("color: red;" + orphans)));
   }
 
   private static String repeat(String s, int n) {

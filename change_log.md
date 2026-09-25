@@ -9,6 +9,10 @@ Most recent at top.
       stack and 5 KB on a 256 KB one, and the `StackOverflowError` escaped
       from `sanitize()`.  Nothing in the schema has a use for anything like
       that depth.  The declarations before and after the deep one are kept.
+    * The CSS lexer drops a close bracket that has no open partner without
+      walking the stack of open brackets, so a run of unmatched closes after
+      a run of opens no longer takes time quadratic in the input: 320 KB of
+      `(` then `]` took twenty seconds.
   * Release 20260922.1
     * CSS URLs in style attributes now percent-encode single quotes,
       backslashes, and control characters after rewriting so they stay

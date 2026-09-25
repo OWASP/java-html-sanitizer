@@ -326,6 +326,14 @@ final class CssTokens implements Iterable<String> {
      * {@code open[openLimit:]} is garbage space that the stack can grow into.
      */
     private int openLimit = 0;
+    /**
+     * For each close bracket character, how many brackets on {@link #open}
+     * it would close, so that a close bracket with no open partner is
+     * dropped without walking the stack.  Walking it made a run of
+     * unmatched closes after a run of opens take time quadratic in the
+     * input.  Indexed by the close bracket character.
+     */
+    private final int[] openCounts = new int['}' + 1];
 
     Lexer(String css) {
       this.css = css;
@@ -347,6 +355,7 @@ final class CssTokens implements Iterable<String> {
       open = expandIfNecessary(open, openLimit, 2);
       open[openLimit++] = bracketsLimit;
       open[openLimit++] = close;
+      ++openCounts[close];
       brackets[bracketsLimit++] = tokenBreaksLimit;
       brackets[bracketsLimit++] = -1;
       sb.append(bracketChar);
@@ -354,6 +363,11 @@ final class CssTokens implements Iterable<String> {
     }
 
     void closeBracket(char bracketChar) {
+      if (openCounts[bracketChar] == 0) {
+        // Drop an orphaned close bracket.
+        breakOutput();
+        return;
+      }
       int openLimitAfterClose = openLimit;
       do {
         if (openLimitAfterClose == 0) {
@@ -376,6 +390,7 @@ final class CssTokens implements Iterable<String> {
         // Pop the stack.
         int closeBracket = open[--openLimit];
         int openBracketIndex = open[--openLimit];
+        --openCounts[closeBracket];
         int openTokenIndex = brackets[openBracketIndex];
         // Update open bracket to point to its partner.
         brackets[openBracketIndex + 1] = closeTokenIndex;
