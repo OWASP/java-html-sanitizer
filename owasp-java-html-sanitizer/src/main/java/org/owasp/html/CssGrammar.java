@@ -27,7 +27,7 @@
 
 package org.owasp.html;
 
-import java.util.BitSet;
+import java.util.Arrays;
 
 final class CssGrammar {
 
@@ -80,7 +80,6 @@ final class CssGrammar {
 
     CssTokens tokens = CssTokens.lex(css);
     CssTokens.TokenIterator it = tokens.iterator();
-    BitSet functionAt = new BitSet();
     propertyNameLoop:
     while (it.hasTokenAfterSpace()) {
       // Check that we have an identifier that might be a property name.
@@ -98,7 +97,7 @@ final class CssGrammar {
       }
       it.advance();
 
-      if (skipIfNestedTooDeeply(it, functionAt)) {
+      if (skipIfNestedTooDeeply(it)) {
         continue;
       }
 
@@ -125,19 +124,22 @@ final class CssGrammar {
    * <p>The lexer pairs every bracket, closing what the input left open and
    * dropping what it never opened, so a close bracket here always closes
    * the innermost open one.  {@code functionAt} records, per depth, whether
-   * that open bracket is a function.  Each bit is written at the open before
-   * it is read at the matching close, so the set needs no clearing between
-   * declarations.  A close bracket with no open partner in this value is
-   * left over from an earlier declaration that ended inside it, and is
-   * ignored, as the value parse ignores it.
+   * that open bracket is a function.  It is a plain array grown by
+   * doubling, so every open and close costs constant time however deep the
+   * value goes: a {@code BitSet} would not, since clearing a bit makes it
+   * look back for its highest set word, which on a value that opens deep,
+   * then sets and clears its top mark over and over, is quadratic.  A close
+   * bracket with no open partner in this value is left over from an
+   * earlier declaration that ended inside it, and is ignored, as the value
+   * parse ignores it.
    *
    * <p>Every function the value parse recurses into lies in this range and
    * is counted here, so the recursion that follows goes no more than
    * {@code MAX_FUNCTION_DEPTH} frames deep, however long the input.
    */
-  private static boolean skipIfNestedTooDeeply(
-      CssTokens.TokenIterator it, BitSet functionAt) {
+  private static boolean skipIfNestedTooDeeply(CssTokens.TokenIterator it) {
     int start = it.tokenIndex();
+    boolean[] functionAt = new boolean[16];
     int depth = 0;
     int functionDepth = 0;
     boolean tooDeep = false;
@@ -150,18 +152,20 @@ final class CssGrammar {
           if (functionDepth == 0) { break declaration; }
           break;
         case FUNCTION:
-          functionAt.set(depth++);
-          if (++functionDepth > MAX_FUNCTION_DEPTH) { tooDeep = true; }
-          break;
         case LEFT_CURLY:
         case LEFT_PAREN:
         case LEFT_SQUARE:
-          functionAt.clear(depth++);
+          if (depth == functionAt.length) {
+            functionAt = Arrays.copyOf(functionAt, depth * 2);
+          }
+          if (functionAt[depth++] = (type == CssTokens.TokenType.FUNCTION)) {
+            if (++functionDepth > MAX_FUNCTION_DEPTH) { tooDeep = true; }
+          }
           break;
         case RIGHT_CURLY:
         case RIGHT_PAREN:
         case RIGHT_SQUARE:
-          if (depth != 0 && functionAt.get(--depth)) { --functionDepth; }
+          if (depth != 0 && functionAt[--depth]) { --functionDepth; }
           break;
         default:
           break;
