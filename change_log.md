@@ -1,6 +1,16 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * Follow-ups to the CSS nesting limit in 20260924.1, with no change in
+      output.  The CSS lexer keeps a bound on its search for a close
+      bracket's partner, so that if its count of open brackets ever
+      drifted, the bracket would be dropped rather than an exception thrown
+      out of `sanitize()`.  And the limit is now documented as able to drop
+      valid CSS: it counts functions after a semicolon inside a function,
+      such as the later branches of `if()`, which the parser never reads,
+      so such a declaration can be dropped whole for nesting the parser
+      would not have reached.
   * Release 20260924.1
     * A CSS declaration whose value nests functions more than sixteen deep
       is dropped whole instead of parsed.  The CSS grammar recurses once per
