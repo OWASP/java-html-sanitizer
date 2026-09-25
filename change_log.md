@@ -1,6 +1,14 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * A CSS declaration whose value nests functions more than sixteen deep
+      is dropped whole instead of parsed.  The CSS grammar recurses once per
+      function, so a style attribute that nested functions without bound
+      overflowed the thread's stack, about 60 KB of `rgb(` on a default-sized
+      stack and 5 KB on a 256 KB one, and the `StackOverflowError` escaped
+      from `sanitize()`.  Nothing in the schema has a use for anything like
+      that depth.  The declarations before and after the deep one are kept.
   * Release 20260922.1
     * CSS URLs in style attributes now percent-encode single quotes,
       backslashes, and control characters after rewriting so they stay

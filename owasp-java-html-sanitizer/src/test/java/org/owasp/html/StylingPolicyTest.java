@@ -27,12 +27,14 @@
 
 package org.owasp.html;
 
+import java.time.Duration;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 class StylingPolicyTest {
   @Test
@@ -693,6 +695,95 @@ class StylingPolicyTest {
     assertSanitizedCss(null, "background-image: url(" + over + ")");
   }
 
+  /**
+   * The grammar recurses once per function, so a declaration may nest
+   * functions only so deep; one at the limit still parses as it always has.
+   */
+  @Test
+  void testNestingAtTheLimitIsKept() {
+    int depth = CssGrammar.MAX_FUNCTION_DEPTH;
+    // As before: the schema lets no colour function nest, so the inner
+    // ones go and the outer one stays.
+    assertSanitizedCss(
+        "color:rgb( )",
+        "color: " + repeat("rgb(", depth) + "1" + repeat(")", depth));
+    // Bare brackets are punctuation, not recursion, and do not count.
+    assertSanitizedCss(
+        "width:calc(" + repeat(" (", 2 * depth) + " 1px"
+        + repeat(" )", 2 * depth + 1),
+        "width: calc(" + repeat("(", 2 * depth) + "1px"
+        + repeat(")", 2 * depth + 1));
+  }
+
+  /**
+   * One level past the limit drops the declaration whole, and only that
+   * declaration: the ones before and after it are untouched.
+   */
+  @Test
+  void testNestingBeyondTheLimitDropsTheDeclaration() {
+    int depth = CssGrammar.MAX_FUNCTION_DEPTH + 1;
+    assertSanitizedCss(
+        null,
+        "color: " + repeat("rgb(", depth) + "1" + repeat(")", depth));
+    assertSanitizedCss(
+        "color:red;background:blue",
+        "color: red; width: " + repeat("rgb(", depth) + "1"
+        + repeat(")", depth) + "; background: blue");
+    // A semicolon inside a function ends only that function's arguments,
+    // so the declaration runs on to the one after the closes, and nothing
+    // inside the dropped value comes back as a declaration of its own.
+    assertSanitizedCss(
+        "color:red;background:blue",
+        "color: red; width: " + repeat("rgb(", depth) + "; color: blue"
+        + repeat(")", depth) + "; background: blue");
+    // A semicolon inside a bare bracket ends the declaration, as it always
+    // has, so what follows is parsed on its own and is not too deep.
+    assertSanitizedCss(
+        "color:red;background:rgb( )",
+        "width: (; color: red; background: " + repeat("rgb(", depth - 1)
+        + "1" + repeat(")", depth - 1));
+  }
+
+  /**
+   * A value that nests functions without bound used to overflow the stack
+   * and let a {@code StackOverflowError} escape {@code sanitize()}: about
+   * 60 KB of {@code rgb(} on a default-sized thread stack, 5 KB on a small
+   * one.  Now it is dropped, in linear time, with or without its closes.
+   */
+  @Test
+  void testUnboundedNestingDoesNotOverflowTheStack() {
+    int depth = 200000;
+    String opens = repeat("rgb(", depth);
+    assertSanitizedCss(null, "color: " + opens + "1" + repeat(")", depth));
+    assertSanitizedCss(null, "color: " + opens + "1");
+    assertSanitizedCss(
+        "color:red;background:blue",
+        "color: red; width: " + opens + "1" + repeat(")", depth)
+        + "; background: blue");
+    // Bare brackets are punctuation, and the semicolon inside them ends the
+    // declaration, as it always has.
+    assertSanitizedCss(
+        "color:red;background:blue",
+        "color: red; width: " + repeat("(", depth) + "; background: blue");
+  }
+
+  /**
+   * A shape that would make the depth scan quadratic.  A semicolon inside
+   * a bare bracket ends a declaration, so a scan for the end of the
+   * declaration that ran on to the matching close would read the rest of
+   * the input once per declaration: seconds at a few hundred kilobytes,
+   * and well under a second here.
+   */
+  @Test
+  void testHostileBracketShapesAreLinear() {
+    final String rescan = repeat("a:(;a:)", 200000);
+    assertEquals(
+        "color:red",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20),
+            () -> sanitizeCss("color: red;" + rescan)));
+  }
+
   private static String repeat(String s, int n) {
     StringBuilder sb = new StringBuilder(s.length() * n);
     for (int i = 0; i < n; ++i) {
@@ -708,6 +799,14 @@ class StylingPolicyTest {
 
   private static void assertSanitizedCss(
       CssSchema cssSchema, @Nullable String expectedCss, String css) {
+    assertEquals(expectedCss, sanitizeCss(cssSchema, css));
+  }
+
+  private static @Nullable String sanitizeCss(String css) {
+    return sanitizeCss(CssSchema.DEFAULT, css);
+  }
+
+  private static @Nullable String sanitizeCss(CssSchema cssSchema, String css) {
     StylingPolicy stylingPolicy = new StylingPolicy(
         cssSchema,
         url -> {
@@ -715,6 +814,6 @@ class StylingPolicyTest {
               StandardUrlAttributePolicy.INSTANCE.apply("img", "src", url);
           return safeUrl != null ? safeUrl + "#sanitized" : null;
         });
-    assertEquals(expectedCss, stylingPolicy.sanitizeCssProperties(css));
+    return stylingPolicy.sanitizeCssProperties(css);
   }
 }

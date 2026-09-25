@@ -454,6 +454,38 @@ class SanitizersTest {
     assertEquals(want, policy.sanitize(input));
   }
 
+  /**
+   * Deeply nested CSS functions in a style attribute used to overflow the
+   * stack in the CSS grammar and let the {@code StackOverflowError} escape
+   * {@code sanitize()}.  The declaration is now dropped and the rest of the
+   * attribute kept.
+   */
+  @Test
+  void testDeeplyNestedCssFunctionsDoNotOverflowTheStack() {
+    PolicyFactory policy = Sanitizers.STYLES.and(Sanitizers.BLOCKS);
+    int depth = 200000;
+    StringBuilder opens = new StringBuilder(depth * 4);
+    StringBuilder closes = new StringBuilder(depth);
+    for (int i = 0; i < depth; ++i) {
+      opens.append("rgb(");
+      closes.append(')');
+    }
+    assertEquals(
+        "<div>x</div>",
+        policy.sanitize(
+            "<div style=\"color:" + opens + "1" + closes + "\">x</div>"));
+    assertEquals(
+        "<div style=\"color:red;background:blue\">x</div>",
+        policy.sanitize(
+            "<div style=\"color: red; width: " + opens + "1" + closes
+            + "; background: blue\">x</div>"));
+    // Unclosed, the lexer closes the functions at the end of the attribute.
+    assertEquals(
+        "<div style=\"color:red\">x</div>",
+        policy.sanitize(
+            "<div style=\"color: red; width: " + opens + "1\">x</div>"));
+  }
+
   @Test
   void testIssue30() {
     String test = "&nbsp;&gt;";
