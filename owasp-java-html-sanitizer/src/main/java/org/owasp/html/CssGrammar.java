@@ -27,7 +27,23 @@
 
 package org.owasp.html;
 
+import java.util.Arrays;
+
 final class CssGrammar {
+
+  /**
+   * The deepest a declaration's value may nest functions before the
+   * declaration is dropped without being parsed.
+   *
+   * <p>{@link #parsePropertyValue} recurses once per function, so a value
+   * that nests functions without bound would overflow the thread's stack:
+   * about 60&nbsp;KB of {@code rgb(} did on a default-sized stack, and about
+   * 5&nbsp;KB on a 256&nbsp;KB one, and the {@code StackOverflowError}
+   * escaped from {@code sanitize()}.  Nothing in {@link CssSchema} has a use
+   * for anything like this depth: a colour function inside a gradient, or a
+   * {@code calc()} inside a transform, nests two or three levels.
+   */
+  static final int MAX_FUNCTION_DEPTH = 16;
 
   private static void errorRecoveryUntilSemiOrCloseBracket(
       CssTokens.TokenIterator it) {
@@ -81,10 +97,82 @@ final class CssGrammar {
       }
       it.advance();
 
+      if (skipIfNestedTooDeeply(it)) {
+        continue;
+      }
+
       handler.startProperty(Strings.toLowerCase(name));
       parsePropertyValue(it, handler);
       handler.endProperty();
     }
+  }
+
+  /**
+   * If the value at the iterator's position nests functions deeper than
+   * {@link #MAX_FUNCTION_DEPTH}, moves the iterator past the end of the
+   * declaration and returns true, so the handler never hears of it.
+   * Otherwise leaves the iterator where it was and returns false.
+   *
+   * <p>The declaration ends where {@link #parsePropertyValue} would stop:
+   * at the first semicolon that is inside no function, or at the end of the
+   * input.  A semicolon inside a function ends only that function's
+   * arguments, and one inside a bare bracket ends the declaration.
+   * Stopping exactly there matters: stopping later and seeking back would
+   * read the same tokens again for the next declaration, and again for the
+   * one after, which is quadratic.
+   *
+   * <p>The lexer pairs every bracket, closing what the input left open and
+   * dropping what it never opened, so a close bracket here always closes
+   * the innermost open one.  {@code functionAt} records, per depth, whether
+   * that open bracket is a function.  It is a plain array grown by
+   * doubling, so every open and close costs constant time however deep the
+   * value goes: a {@code BitSet} would not, since clearing a bit makes it
+   * look back for its highest set word, which on a value that opens deep,
+   * then sets and clears its top mark over and over, is quadratic.  A close
+   * bracket with no open partner in this value is left over from an
+   * earlier declaration that ended inside it, and is ignored, as the value
+   * parse ignores it.
+   *
+   * <p>Every function the value parse recurses into lies in this range and
+   * is counted here, so the recursion that follows goes no more than
+   * {@code MAX_FUNCTION_DEPTH} frames deep, however long the input.
+   */
+  private static boolean skipIfNestedTooDeeply(CssTokens.TokenIterator it) {
+    int start = it.tokenIndex();
+    boolean[] functionAt = new boolean[16];
+    int depth = 0;
+    int functionDepth = 0;
+    boolean tooDeep = false;
+    declaration:
+    while (it.hasNext()) {
+      CssTokens.TokenType type = it.type();
+      it.advance();
+      switch (type) {
+        case SEMICOLON:
+          if (functionDepth == 0) { break declaration; }
+          break;
+        case FUNCTION:
+        case LEFT_CURLY:
+        case LEFT_PAREN:
+        case LEFT_SQUARE:
+          if (depth == functionAt.length) {
+            functionAt = Arrays.copyOf(functionAt, depth * 2);
+          }
+          if (functionAt[depth++] = (type == CssTokens.TokenType.FUNCTION)) {
+            if (++functionDepth > MAX_FUNCTION_DEPTH) { tooDeep = true; }
+          }
+          break;
+        case RIGHT_CURLY:
+        case RIGHT_PAREN:
+        case RIGHT_SQUARE:
+          if (depth != 0 && functionAt[--depth]) { --functionDepth; }
+          break;
+        default:
+          break;
+      }
+    }
+    if (!tooDeep) { it.seek(start); }
+    return tooDeep;
   }
 
   private static void parsePropertyValue(
