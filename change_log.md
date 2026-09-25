@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20260924.2
     * Follow-ups to the CSS nesting limit in 20260924.1, with no change in
       output.  The CSS lexer keeps a bound on its search for a close
       bracket's partner, so that if its count of open brackets ever
