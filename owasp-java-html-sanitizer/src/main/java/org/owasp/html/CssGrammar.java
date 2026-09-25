@@ -119,7 +119,11 @@ final class CssGrammar {
    * arguments, and one inside a bare bracket ends the declaration.
    * Stopping exactly there matters: stopping later and seeking back would
    * read the same tokens again for the next declaration, and again for the
-   * one after, which is quadratic.
+   * one after, which is quadratic.  Within a function, the value parse
+   * reads nothing after a semicolon, while this scan still counts the
+   * functions there; so a declaration with such a semicolon can be dropped
+   * for nesting the parse would never have reached.  That errs towards
+   * dropping, and only on a value no browser would keep.
    *
    * <p>The lexer pairs every bracket, closing what the input left open and
    * dropping what it never opened, so a close bracket here always closes
@@ -156,10 +160,16 @@ final class CssGrammar {
         case LEFT_PAREN:
         case LEFT_SQUARE:
           if (depth == functionAt.length) {
-            functionAt = Arrays.copyOf(functionAt, depth * 2);
+            // Double, but never past what an array can hold.  No input gets
+            // near that: the lexer's token tables would fill memory first.
+            functionAt = Arrays.copyOf(
+                functionAt,
+                depth < (1 << 30) ? depth << 1 : Integer.MAX_VALUE - 8);
           }
-          if (functionAt[depth++] = (type == CssTokens.TokenType.FUNCTION)) {
-            if (++functionDepth > MAX_FUNCTION_DEPTH) { tooDeep = true; }
+          boolean isFunction = type == CssTokens.TokenType.FUNCTION;
+          functionAt[depth++] = isFunction;
+          if (isFunction && ++functionDepth > MAX_FUNCTION_DEPTH) {
+            tooDeep = true;
           }
           break;
         case RIGHT_CURLY:

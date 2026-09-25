@@ -793,13 +793,17 @@ class StylingPolicyTest {
             () -> sanitizeCss("color: red;" + orphans)));
     // Opens deep, then sets and clears the depth scan's top mark over and
     // over.  Bookkeeping that looks back from the top on each clear, as a
-    // BitSet does, makes each repeat cost the depth.
+    // BitSet does, makes each repeat cost the depth: with the BitSet this
+    // size took 27 s, and the array takes under a second, so the budget
+    // here is tighter than the others' or the test would not tell them
+    // apart.
     final String churn =
-        "color: red; width: " + repeat("(", 500000) + repeat("rgb()()", 500000);
+        "color: red; width: " + repeat("(", 3000000)
+        + repeat("rgb()()", 3000000);
     assertEquals(
         "color:red",
         assertTimeoutPreemptively(
-            Duration.ofSeconds(20), () -> sanitizeCss(churn)));
+            Duration.ofSeconds(10), () -> sanitizeCss(churn)));
   }
 
   private static String repeat(String s, int n) {
