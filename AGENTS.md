@@ -37,11 +37,12 @@ Hard rules. Never violate them, never refactor around them.
 5. **Encoding and rendering are part of the security boundary.** Changes to `Encoding`, `HtmlStreamRenderer`, `TagBalancingHtmlStreamEventReceiver`, `HtmlTextEscapingMode`, entity handling, or serialization are security changes and require adversarial tests.
 6. **The prepackaged policies in `Sanitizers` are published safety promises.** Never widen what they allow.
 7. **Round-trip safety:** sanitized output, re-parsed by a browser, must not mutate into a different, unsafe DOM (mXSS).
+8. **Any input terminates, in bounded stack, memory and time.** `sanitize()` must never throw, and never let a `StackOverflowError` or `OutOfMemoryError` out, for input of any size or shape. Recursion whose depth follows the input is forbidden: bound it with a small constant and drop what exceeds the bound, as `CssGrammar.MAX_FUNCTION_DEPTH` does, or walk with an explicit stack. Work that grows faster than linearly with the input, and output that grows without bound, are bugs of the same class; the tag balancer's quadratic paths and its formatting reconstruction were both found the hard way. A crash, a hang, or a blow-up on hostile input is a denial of service and is handled as a vulnerability.
 
 ## Change Rules
 
 - Small, single-purpose changes only. No drive-by refactors of parser, policy, or renderer code.
-- Any change touching parsing, policy enforcement, rendering, encoding, URL handling, or CSS handling requires new regression tests with hostile payloads, not just benign inputs.
+- Any change touching parsing, policy enforcement, rendering, encoding, URL handling, or CSS handling requires new regression tests with hostile payloads, not just benign inputs. Where the code walks the input recursively, keeps state per token, or re-scans what it has already seen, one of those tests runs at hostile size, hundreds of thousands of nested or repeated tokens, and shows no error and linear time.
 - Never weaken, delete, or loosen an existing test to make a change pass. A failing security test means the change is wrong.
 - No new dependencies. The published library has zero runtime dependencies. The only compile-time dependency is `spotbugs-annotations` (`provided` scope), which brings in JSR 305 (`com.google.code.findbugs:jsr305`) for the `javax.annotation` nullability and concurrency annotations. Both are annotations only and are not shipped. Test-scope dependencies (JUnit, commons-codec, validator.nu htmlparser) must stay test-scope. Keep it that way.
 - Follow the Contributing section of `README.md`: open an issue first to reach the maintainers, and include both positive and negative tests in any PR that changes behavior or adds functionality.
@@ -55,7 +56,7 @@ Hard rules. Never violate them, never refactor around them.
 - If you find a possible bypass while working, report it privately per `SECURITY.md` so a GitHub security advisory can coordinate the fix.
 - Regression tests for a vulnerability land publicly only after the advisory and fixed release are out.
 
-## Known Bypass Classes for Regression Testing
+## Known Bypass and Denial-of-Service Classes for Regression Testing
 
 Use these as targets when touching parser, policy, or renderer code:
 
@@ -65,4 +66,9 @@ Use these as targets when touching parser, policy, or renderer code:
 - SVG and MathML namespace and case tricks
 - `javascript:`, `data:`, and scheme-relative URLs in allowed attributes
 - Entity and encoding edge cases: malformed entities, entities without semicolons, null bytes, mixed case, nested and unbalanced tags
+- Denial of service: unbounded recursion over nested CSS functions (GHSA-x6fc-6qh4-g3wr), quadratic tag-balancer paths and unbounded formatting reconstruction (release 20260921.1, #490)
 - Full history: `docs/vulnerabilities.md`
+
+## Keeping This File Current
+
+When a bug, a vulnerability, or a review finding shows that a rule was missing here, add the rule, judiciously: one that would have prevented the mistake, stated once, in the section it belongs to, in the voice of its neighbours. Do not log the incident; `change_log.md`, `docs/vulnerabilities.md` and the git history hold that. Do not add a rule for a one-off that no rule would have caught, and do not restate a rule that is already here.
