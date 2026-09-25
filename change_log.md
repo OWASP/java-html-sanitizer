@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20260924.1
     * A CSS declaration whose value nests functions more than sixteen deep
       is dropped whole instead of parsed.  The CSS grammar recurses once per
       function, so a style attribute that nested functions without bound
