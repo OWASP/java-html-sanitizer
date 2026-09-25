@@ -162,13 +162,11 @@ final class CssGrammar {
         case FUNCTION:
         case LEFT_CURLY:
         case LEFT_PAREN:
-        case LEFT_SQUARE:
+        case LEFT_SQUARE: {
           if (depth == functionAt.length) {
-            // Double, but never past what an array can hold.  No input gets
-            // near that: the lexer's token tables would fill memory first.
-            functionAt = Arrays.copyOf(
-                functionAt,
-                depth < (1 << 30) ? depth << 1 : Integer.MAX_VALUE - 8);
+            // The lexer's tables, several ints per bracket, give out long
+            // before depth could get near overflowing this.
+            functionAt = Arrays.copyOf(functionAt, depth * 2);
           }
           boolean isFunction = type == CssTokens.TokenType.FUNCTION;
           functionAt[depth++] = isFunction;
@@ -176,6 +174,7 @@ final class CssGrammar {
             tooDeep = true;
           }
           break;
+        }
         case RIGHT_CURLY:
         case RIGHT_PAREN:
         case RIGHT_SQUARE:

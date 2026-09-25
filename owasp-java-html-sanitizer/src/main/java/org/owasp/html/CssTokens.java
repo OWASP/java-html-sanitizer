@@ -380,8 +380,15 @@ final class CssTokens implements Iterable<String> {
         return;
       }
       // The count says a partner is on the stack, so this walk ends at it.
+      // The bound stays as a second line of defence: were the count ever to
+      // drift from the stack, the bracket is dropped rather than the walk
+      // reading off the bottom of the stack and throwing out of sanitize().
       int openLimitAfterClose = openLimit;
       do {
+        if (openLimitAfterClose == 0) {
+          breakOutput();
+          return;
+        }
         openLimitAfterClose -= 2;
       } while (bracketChar != open[openLimitAfterClose + 1]);
       closeBrackets(openLimitAfterClose);
