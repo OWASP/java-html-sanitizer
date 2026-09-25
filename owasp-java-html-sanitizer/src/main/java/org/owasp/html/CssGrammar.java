@@ -121,9 +121,13 @@ final class CssGrammar {
    * read the same tokens again for the next declaration, and again for the
    * one after, which is quadratic.  Within a function, the value parse
    * reads nothing after a semicolon, while this scan still counts the
-   * functions there; so a declaration with such a semicolon can be dropped
-   * for nesting the parse would never have reached.  That errs towards
-   * dropping, and only on a value no browser would keep.
+   * functions there, so a declaration can be dropped for nesting the parse
+   * would never have reached.  That can lose valid CSS: {@code if()}
+   * separates its branches with semicolons, and a declaration such as
+   * {@code margin: 1px if(media(print): 2px; else: calc(...))} is dropped
+   * whole, {@code 1px} and all, once its later branch nests deep enough to
+   * pass the limit.  The loss is conservative, dropping what could have
+   * been kept, and only a value nested that deeply is affected.
    *
    * <p>The lexer pairs every bracket, closing what the input left open and
    * dropping what it never opened, so a close bracket here always closes
