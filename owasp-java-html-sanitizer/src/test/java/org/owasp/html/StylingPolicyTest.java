@@ -771,10 +771,9 @@ class StylingPolicyTest {
    * Shapes that made the CSS path quadratic.  A semicolon inside a bare
    * bracket ends a declaration, so a scan for the end of the declaration
    * that ran on to the matching close read the rest of the input once per
-   * declaration.  The lexer walked the whole stack of open brackets for
-   * every close bracket that had no partner.  And the depth scan's marks
-   * lived in a {@code BitSet}, whose clear looks back for the highest set
-   * word.  Each takes seconds when quadratic and well under a second here.
+   * declaration.  And the lexer walked the whole stack of open brackets
+   * for every close bracket that had no partner.  Each takes seconds when
+   * quadratic and well under a second here.
    */
   @Test
   void testHostileBracketShapesAreLinear() {
@@ -792,10 +791,15 @@ class StylingPolicyTest {
             Duration.ofSeconds(20),
             () -> sanitizeCss("color: red;" + orphans)));
     // Opens deep, then sets and clears the depth scan's top mark over and
-    // over.  Bookkeeping that looks back from the top on each clear, as a
-    // BitSet does, makes each repeat cost the depth.
+    // over.  This size catches bookkeeping whose work on each close grows
+    // with the depth.  It does not catch a BitSet, whose clear looks back
+    // a sixty-fourth as far and passed it in under a second: telling that
+    // apart by the clock takes an input needing about a gigabyte of heap,
+    // more than a test run can count on.  The javadoc on
+    // CssGrammar.skipIfNestedTooDeeply says why the marks are an array.
     final String churn =
-        "color: red; width: " + repeat("(", 500000) + repeat("rgb()()", 500000);
+        "color: red; width: " + repeat("(", 500000)
+        + repeat("rgb()()", 500000);
     assertEquals(
         "color:red",
         assertTimeoutPreemptively(

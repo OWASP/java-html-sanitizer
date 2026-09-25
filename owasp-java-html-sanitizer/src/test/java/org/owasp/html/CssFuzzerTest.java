@@ -82,6 +82,61 @@ class CssFuzzerTest extends FuzzyTestCase {
     }
   }
 
+  /**
+   * The lexer pairs brackets as a plain stack walk does: a close bracket
+   * with a partner closes everything opened after that partner, one without
+   * is dropped, and whatever is still open at the end is closed.  The lexer
+   * keeps a count of open brackets per kind so that it can drop an orphan
+   * without walking, so compare the two on random bracket soup, function
+   * openers included.  A count that fell behind the stack would drop a close
+   * that has a partner, and show up here.
+   */
+  @Test
+  void testBracketPairingMatchesAStackWalk() {
+    String[] parts = { "(", ")", "[", "]", "{", "}", "f(", " ", "x" };
+    for (int run = 0, nRuns = (1 << 14); run < nRuns; ++run) {
+      StringBuilder sb = new StringBuilder();
+      for (int j = rnd.nextInt(48); --j >= 0;) {
+        sb.append(parts[rnd.nextInt(parts.length)]);
+      }
+      String css = sb.toString();
+      assertEquals(
+          bracketsAfterAStackWalk(css),
+          bracketsOnly(CssTokens.lex(css).normalizedCss),
+          "seed=" + this.seed + ", css=`" + css + "`");
+    }
+  }
+
+  private static String bracketsOnly(String s) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0, n = s.length(); i < n; ++i) {
+      char ch = s.charAt(i);
+      if ("()[]{}".indexOf(ch) >= 0) { sb.append(ch); }
+    }
+    return sb.toString();
+  }
+
+  private static String bracketsAfterAStackWalk(String s) {
+    StringBuilder out = new StringBuilder();
+    // The close brackets owed, innermost last.
+    StringBuilder owed = new StringBuilder();
+    for (int i = 0, n = s.length(); i < n; ++i) {
+      char ch = s.charAt(i);
+      int open = "([{".indexOf(ch);
+      if (open >= 0) {
+        out.append(ch);
+        owed.append(")]}".charAt(open));
+      } else if (")]}".indexOf(ch) >= 0) {
+        int partner = owed.lastIndexOf(String.valueOf(ch));
+        if (partner >= 0) {
+          out.append(new StringBuilder(owed.substring(partner)).reverse());
+          owed.setLength(partner);
+        }
+      }
+    }
+    return out.append(owed.reverse()).toString();
+  }
+
   @Test
   void testUnderStress() {
     Random r = this.rnd;

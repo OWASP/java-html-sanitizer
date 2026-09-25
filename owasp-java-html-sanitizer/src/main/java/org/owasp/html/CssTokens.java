@@ -327,13 +327,24 @@ final class CssTokens implements Iterable<String> {
      */
     private int openLimit = 0;
     /**
-     * For each close bracket character, how many brackets on {@link #open}
+     * For each kind of close bracket, how many brackets on {@link #open}
      * it would close, so that a close bracket with no open partner is
      * dropped without walking the stack.  Walking it made a run of
      * unmatched closes after a run of opens take time quadratic in the
-     * input.  Indexed by the close bracket character.
+     * input.  Indexed by {@link #bracketKind}.
      */
-    private final int[] openCounts = new int['}' + 1];
+    private final int[] openCounts = new int[3];
+
+    /** An index into {@link #openCounts} for a close bracket character. */
+    private static int bracketKind(int closeBracket) {
+      switch (closeBracket) {
+        case ')': return 0;
+        case ']': return 1;
+        case '}': return 2;
+        default:
+          throw new AssertionError("Invalid close bracket " + closeBracket);
+      }
+    }
 
     Lexer(String css) {
       this.css = css;
@@ -355,7 +366,7 @@ final class CssTokens implements Iterable<String> {
       open = expandIfNecessary(open, openLimit, 2);
       open[openLimit++] = bracketsLimit;
       open[openLimit++] = close;
-      ++openCounts[close];
+      ++openCounts[bracketKind(close)];
       brackets[bracketsLimit++] = tokenBreaksLimit;
       brackets[bracketsLimit++] = -1;
       sb.append(bracketChar);
@@ -363,15 +374,18 @@ final class CssTokens implements Iterable<String> {
     }
 
     void closeBracket(char bracketChar) {
-      if (openCounts[bracketChar] == 0) {
+      if (openCounts[bracketKind(bracketChar)] == 0) {
         // Drop an orphaned close bracket.
         breakOutput();
         return;
       }
+      // The count says a partner is on the stack, so this walk ends at it.
+      // The bound stays as a second line of defence: were the count ever to
+      // drift from the stack, the bracket is dropped rather than the walk
+      // reading off the bottom of the stack and throwing out of sanitize().
       int openLimitAfterClose = openLimit;
       do {
         if (openLimitAfterClose == 0) {
-          // Drop an orphaned close bracket.
           breakOutput();
           return;
         }
@@ -390,7 +404,7 @@ final class CssTokens implements Iterable<String> {
         // Pop the stack.
         int closeBracket = open[--openLimit];
         int openBracketIndex = open[--openLimit];
-        --openCounts[closeBracket];
+        --openCounts[bracketKind(closeBracket)];
         int openTokenIndex = brackets[openBracketIndex];
         // Update open bracket to point to its partner.
         brackets[openBracketIndex + 1] = closeTokenIndex;

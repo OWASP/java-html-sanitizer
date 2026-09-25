@@ -119,7 +119,15 @@ final class CssGrammar {
    * arguments, and one inside a bare bracket ends the declaration.
    * Stopping exactly there matters: stopping later and seeking back would
    * read the same tokens again for the next declaration, and again for the
-   * one after, which is quadratic.
+   * one after, which is quadratic.  Within a function, the value parse
+   * reads nothing after a semicolon, while this scan still counts the
+   * functions there, so a declaration can be dropped for nesting the parse
+   * would never have reached.  That can lose valid CSS: {@code if()}
+   * separates its branches with semicolons, and a declaration such as
+   * {@code margin: 1px if(media(print): 2px; else: calc(...))} is dropped
+   * whole, {@code 1px} and all, once its later branch nests deep enough to
+   * pass the limit.  The loss is conservative, dropping what could have
+   * been kept, and only a value nested that deeply is affected.
    *
    * <p>The lexer pairs every bracket, closing what the input left open and
    * dropping what it never opened, so a close bracket here always closes
@@ -154,14 +162,19 @@ final class CssGrammar {
         case FUNCTION:
         case LEFT_CURLY:
         case LEFT_PAREN:
-        case LEFT_SQUARE:
+        case LEFT_SQUARE: {
           if (depth == functionAt.length) {
+            // The lexer's tables, several ints per bracket, give out long
+            // before depth could get near overflowing this.
             functionAt = Arrays.copyOf(functionAt, depth * 2);
           }
-          if (functionAt[depth++] = (type == CssTokens.TokenType.FUNCTION)) {
-            if (++functionDepth > MAX_FUNCTION_DEPTH) { tooDeep = true; }
+          boolean isFunction = type == CssTokens.TokenType.FUNCTION;
+          functionAt[depth++] = isFunction;
+          if (isFunction && ++functionDepth > MAX_FUNCTION_DEPTH) {
+            tooDeep = true;
           }
           break;
+        }
         case RIGHT_CURLY:
         case RIGHT_PAREN:
         case RIGHT_SQUARE:
