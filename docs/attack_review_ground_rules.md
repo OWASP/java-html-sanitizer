@@ -31,7 +31,7 @@ If you wish to remain anonymous, say so in your report.
 
 ## Out of Bounds
 
-The target is the sanitizer as written.  Attacks on the project's infrastructure, such as GitHub, the CI runners, or Bugcrowd, are out of bounds.
+The target is the sanitizer as written.  Attacks on the project's infrastructure, such as GitHub, the CI runners, or Bugcrowd, are out of bounds.  So are other OWASP repositories, projects, and websites, and information that is public by design, such as author and committer addresses in the commit history of a public git repository.  A report with no example input is closed as not applicable.
 
 ## Questions
 
