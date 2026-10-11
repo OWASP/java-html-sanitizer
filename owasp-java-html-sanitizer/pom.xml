@@ -141,12 +141,16 @@
                  wrong directory.  It is exactly where the JDK expects it,
                  so drop that one warning and no other. -->
             <_fixupmessages>Classes found in the wrong directory*module-info*;is:=ignore</_fixupmessages>
-            <!-- The jar is a multi-release jar for one reason: to carry the
-                 JPMS module descriptor compiled from src/main/java9 at
-                 META-INF/versions/9/module-info.class, which Java 9 and
-                 later read only when this header is present and Java 8
-                 never looks at.  There are no versioned copies of any
-                 class.  See issue #389. -->
+            <!-- The jar is a multi-release jar for two reasons, both read
+                 only when this header is present and neither seen by
+                 Java 8.  It carries the JPMS module descriptor compiled
+                 from src/main/java9 at META-INF/versions/9/module-info.class,
+                 which Java 9 and later read (issue #389).  And the shade
+                 plugin below adds java10-shim's ForJava10AndLater at
+                 META-INF/versions/10/, the only place a Java 8 build's
+                 bytecode check allows a class compiled for Java 10, and
+                 where Java 10 and later find it (issue #515).  Without the
+                 header every runtime falls back to the Java 8 shim. -->
             <Multi-Release>true</Multi-Release>
             <!-- Java 9 and later take the module name from the descriptor
                  and ignore this header.  It is kept so that tools which
@@ -198,6 +202,21 @@
                          pom.properties / pom.xml entries in the JAR -->
                     <exclude>META-INF/maven/com.googlecode.owasp-java-html-sanitizer/java*/**</exclude>
                   </excludes>
+                </filter>
+                <!-- java10-shim is compiled for Java 10.  Take only the copy
+                     of ForJava10AndLater it compiles into
+                     META-INF/versions/10/, which Java 10 and later read
+                     because bnd marked this jar Multi-Release, and which
+                     Java 8 and 9 never see.  Its classes at the root would
+                     fail a Java 8 build's bytecode check.  The filter takes
+                     every versioned directory rather than naming 10, so that
+                     a change to the shim's release moves the class instead
+                     of silently dropping it.  See issue #515. -->
+                <filter>
+                  <artifact>com.googlecode.owasp-java-html-sanitizer:java10-shim</artifact>
+                  <includes>
+                    <include>META-INF/versions/**</include>
+                  </includes>
                 </filter>
               </filters>
               <!-- Replace the original JAR with the shaded one as the
@@ -265,6 +284,50 @@
                 <argument>${project.build.directory}/${project.build.finalName}.jar${path.separator}${project.build.directory}/jpms-consumer</argument>
                 <argument>--module</argument>
                 <argument>org.owasp.html.jpmscheck/org.owasp.html.jpmscheck.JpmsConsumerCheck</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <!-- Compile and run src/it/java8-consumer against the packaged
+               jar on the class path.  Java8ConsumerCheck fails the build if
+               any class in the jar is newer than a Java 8 build allows, which
+               is Java 8 outside META-INF/versions/ and release N inside
+               META-INF/versions/N/, or if the sanitizer does not pick the
+               shim meant for the JDK running it.  CI also runs it on a Java 8
+               runtime.  See issue #515. -->
+          <execution>
+            <id>compile-java8-consumer</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/javac</executable>
+              <arguments>
+                <argument>--release</argument>
+                <argument>8</argument>
+                <!-- Newer JDKs warn that release 8 is obsolete. -->
+                <argument>-Xlint:-options</argument>
+                <argument>-d</argument>
+                <argument>${project.build.directory}/java8-consumer</argument>
+                <argument>-classpath</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                <argument>${project.basedir}/src/it/java8-consumer/org/owasp/html/java8check/Java8ConsumerCheck.java</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-java8-consumer</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/java</executable>
+              <arguments>
+                <argument>-classpath</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar${path.separator}${project.build.directory}/java8-consumer</argument>
+                <argument>org.owasp.html.java8check.Java8ConsumerCheck</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
               </arguments>
             </configuration>
           </execution>

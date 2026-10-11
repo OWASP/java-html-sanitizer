@@ -16,6 +16,14 @@ and otherwise uses the Java 8 fallback.  Both shim modules are shaded into the
 published sanitizer JAR; this module is not independently published and is not
 a supported consumer API.
 
+The sanitizer JAR is a Java 8 JAR, and Java 8 builds commonly reject any
+dependency with a class compiled for a later release outside
+`META-INF/versions/`.  So the build compiles `ForJava10AndLater` twice: into
+`META-INF/versions/10/`, the only copy shaded into the multi-release sanitizer
+JAR, where Java 10 and later find it and Java 8 and 9 never look; and into
+the root of this module's classes, the copy the reactor's tests load.  Nothing
+else in this module is shaded.  See issue #515.
+
 ## Build
 
 The [build requires JDK 11 or newer](../README.md#repository-layout).

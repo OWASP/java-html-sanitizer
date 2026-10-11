@@ -99,6 +99,24 @@ public final class JpmsConsumerCheck {
       throw new AssertionError("the shim did not fail in the expected way", e);
     }
 
+    // On Java 10 and later the module also holds the shim compiled for them,
+    // which the jar carries only in META-INF/versions/10/ so that Java 8
+    // builds accept it.  It is as encapsulated as the rest of its package,
+    // so load it, uninitialized, through the module's class loader.  See
+    // issue #515.
+    if (Runtime.version().major() >= 10) {
+      Class<?> shim;
+      try {
+        shim = Class.forName(
+            "org.owasp.shim.ForJava10AndLater", false, module.getClassLoader());
+      } catch (ClassNotFoundException e) {
+        throw new AssertionError("the module has no ForJava10AndLater on Java "
+            + Runtime.version().major(), e);
+      }
+      check(module.equals(shim.getModule()),
+          "ForJava10AndLater is in " + shim.getModule());
+    }
+
     // And the sanitizer works from the module path, which drives the shim
     // loader inside the module.
     String sanitized = Sanitizers.FORMATTING.sanitize(

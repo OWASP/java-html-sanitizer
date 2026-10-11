@@ -19,6 +19,14 @@ The sanitizer JAR is self-contained: the `java8-shim` and `java10-shim` artifact
 are bundled inside it and do **not** need to be declared as separate dependencies,
 including when using the JPMS module path.
 
+In releases after 20260924.2, every class outside `META-INF/versions/` is
+Java 8 bytecode, so a Java 8 build that checks its dependencies with the Maven
+Enforcer rule `enforceBytecodeVersion` and a `maxJdkVersion` of 1.8 accepts
+the JAR without `ignoreClasses`.  The shim for Java 10 and later is in
+`META-INF/versions/10/`, which Java 8 never reads and which that rule allows
+unless it is set to `strict`, which holds versioned classes to `maxJdkVersion`
+too.
+
 On the module path the JAR is an explicit module named
 `owasp.java.html.sanitizer` that exports the `org.owasp.html` package:
 

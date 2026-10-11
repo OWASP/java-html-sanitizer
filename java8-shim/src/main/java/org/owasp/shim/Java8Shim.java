@@ -19,7 +19,9 @@ public abstract class Java8Shim {
         Object _instance;
         try {
             try {
-                // This is compiled with -release 1.10 in a separate project.
+                // java10-shim compiles this for Java 10, and the sanitizer jar
+                // carries it in META-INF/versions/10/, so only Java 10 and
+                // later find it.
                 _instance = Class.forName("org.owasp.shim.ForJava10AndLater").newInstance();
             } catch (Throwable e) {
                 // This is co-located with this project and is a fall-back.
