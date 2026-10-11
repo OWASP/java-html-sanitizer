@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261011.1
     * The jar passes a Java 8 build's bytecode check again.  Since
       20260921.1 bundled the shims into it, its root held two classes
       compiled for Java 10, `org.owasp.shim.ForJava10AndLater` and an empty
