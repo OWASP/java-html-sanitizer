@@ -67,6 +67,8 @@ jobs:
             exit 1
           fi
           java -version
+          # Java 8's javac, unlike later ones, does not create the -d directory.
+          mkdir -p target/java8-consumer
           javac -d target/java8-consumer -classpath "$1" \
             owasp-java-html-sanitizer/src/it/java8-consumer/org/owasp/html/java8check/Java8ConsumerCheck.java
           java -classpath "$1:target/java8-consumer" \
