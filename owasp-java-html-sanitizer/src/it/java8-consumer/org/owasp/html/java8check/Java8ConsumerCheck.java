@@ -79,25 +79,27 @@ public final class Java8ConsumerCheck {
     check(classCount != 0, "no classes in " + jar);
     check(tooNew.isEmpty(), "a Java 8 build rejects this jar: " + tooNew);
 
-    // The classes below must come from the jar under test, not from a stray
-    // shim or class directory earlier on the class path.
-    for (Class<?> c : new Class<?>[] { Sanitizers.class, Java8Shim.class }) {
-      File source = new File(
-          c.getProtectionDomain().getCodeSource().getLocation().toURI())
-          .getCanonicalFile();
-      check(jar.equals(source), c.getName() + " loaded from " + source);
-    }
-
     // Java 10 and later read the versioned directory and find the shim that
     // uses their collection factories; Java 8 and 9 never see it and fall
     // back.
     int runtime = runtimeRelease();
     String expected = runtime >= 10
         ? "org.owasp.shim.ForJava10AndLater" : "org.owasp.shim.ForJava8";
-    String shim = Java8Shim.j8().getClass().getName();
+    Class<?> shimClass = Java8Shim.j8().getClass();
+    String shim = shimClass.getName();
     check(expected.equals(shim),
         "on Java " + runtime + " the sanitizer loaded " + shim
         + " rather than " + expected);
+
+    // Those classes must come from the jar under test, not from a stray shim
+    // or class directory earlier on the class path.
+    for (Class<?> c : new Class<?>[] {
+        Sanitizers.class, Java8Shim.class, shimClass }) {
+      File source = new File(
+          c.getProtectionDomain().getCodeSource().getLocation().toURI())
+          .getCanonicalFile();
+      check(jar.equals(source), c.getName() + " loaded from " + source);
+    }
 
     String sanitized = Sanitizers.FORMATTING.sanitize(
         "<b onclick=\"steal()\">safe</b><script>alert(1)</script>");
