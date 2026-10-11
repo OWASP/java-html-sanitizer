@@ -30,3 +30,44 @@ jobs:
 
       - name: Build
         run: ./mvnw -ntp -B verify
+
+  java8-runtime:
+    # The library targets Java 8, but building it takes JDK 11 or newer, so
+    # the matrix above never loads the jar on Java 8.  Package it with JDK 11,
+    # then run the Java 8 consumer check from src/it on a Java 8 runtime: it
+    # checks the jar's bytecode levels and that Java 8 picks the fallback
+    # shim, and sanitizes.  See #515.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'zulu'
+          cache: maven
+
+      - name: Package
+        run: ./mvnw -ntp -B -DskipTests -pl owasp-java-html-sanitizer -am package
+
+      - name: Setup Java 8
+        uses: actions/setup-java@v5
+        with:
+          java-version: '8'
+          distribution: 'zulu'
+
+      - name: Run the Java 8 consumer check on Java 8
+        run: |
+          set -- owasp-java-html-sanitizer/target/owasp-java-html-sanitizer-*.jar
+          if [ $# -ne 1 ] || [ ! -f "$1" ]; then
+            echo "::error::expected one packaged jar, found: $*"
+            exit 1
+          fi
+          java -version
+          javac -d target/java8-consumer -classpath "$1" \
+            owasp-java-html-sanitizer/src/it/java8-consumer/org/owasp/html/java8check/Java8ConsumerCheck.java
+          java -classpath "$1:target/java8-consumer" \
+            org.owasp.html.java8check.Java8ConsumerCheck "$1"

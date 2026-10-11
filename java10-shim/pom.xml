@@ -22,6 +22,41 @@
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <executions>
+          <!-- The sanitizer jar is Java 8, and Java 8 builds commonly reject
+               a dependency holding any class compiled for a later release
+               outside META-INF/versions/.  So ForJava10AndLater is compiled
+               a second time, into target/classes/META-INF/versions/10/, and
+               the sanitizer's shade configuration takes only that copy into
+               its multi-release jar, where Java 10 and later find it and
+               Java 8 and 9 never look.  The default execution still compiles
+               it to the root of target/classes, because that is the copy the
+               reactor's test class paths see: `mvn test` puts this module's
+               target/classes on them, a directory, and the JVM reads
+               versioned entries only from a jar.  See issue #515. -->
+          <execution>
+            <id>compile-versioned</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <multiReleaseOutput>true</multiReleaseOutput>
+              <includes>
+                <include>org/owasp/shim/ForJava10AndLater.java</include>
+              </includes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
   <dependencies>
     <dependency>
       <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>

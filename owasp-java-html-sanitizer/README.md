@@ -24,6 +24,11 @@ rendering to produce sanitized HTML.  See the
   against the packaged JAR during the `integration-test` phase, included in
   `verify`.  It checks the descriptor and confirms that the bundled shim
   package remains encapsulated.
+* The [Java 8 consumer](src/it/java8-consumer/) is compiled for Java 8 and run
+  against the packaged JAR on the class path in the same phase, and on a
+  Java 8 runtime in CI.  It fails if any class in the JAR is newer than a
+  Java 8 build allows, or if the sanitizer does not pick the shim meant for
+  the running JDK.
 
 `HtmlElementTablesCanned.java` is generated from browser observations.  Do
 not edit it directly; update the experiment or data in

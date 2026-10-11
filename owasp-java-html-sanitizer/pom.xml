@@ -199,6 +199,18 @@
                     <exclude>META-INF/maven/com.googlecode.owasp-java-html-sanitizer/java*/**</exclude>
                   </excludes>
                 </filter>
+                <!-- java10-shim is compiled for Java 10.  Take only the copy
+                     of ForJava10AndLater it compiles into
+                     META-INF/versions/10/, which Java 10 and later read
+                     because bnd marked this jar Multi-Release, and which
+                     Java 8 and 9 never see.  Its classes at the root would
+                     fail a Java 8 build's bytecode check.  See issue #515. -->
+                <filter>
+                  <artifact>com.googlecode.owasp-java-html-sanitizer:java10-shim</artifact>
+                  <includes>
+                    <include>META-INF/versions/10/**</include>
+                  </includes>
+                </filter>
               </filters>
               <!-- Replace the original JAR with the shaded one as the
                    main artifact; do not attach a separate shaded artifact -->
@@ -265,6 +277,50 @@
                 <argument>${project.build.directory}/${project.build.finalName}.jar${path.separator}${project.build.directory}/jpms-consumer</argument>
                 <argument>--module</argument>
                 <argument>org.owasp.html.jpmscheck/org.owasp.html.jpmscheck.JpmsConsumerCheck</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <!-- Compile and run src/it/java8-consumer against the packaged
+               jar on the class path.  Java8ConsumerCheck fails the build if
+               any class in the jar is newer than a Java 8 build allows, which
+               is Java 8 outside META-INF/versions/ and release N inside
+               META-INF/versions/N/, or if the sanitizer does not pick the
+               shim meant for the JDK running it.  CI also runs it on a Java 8
+               runtime.  See issue #515. -->
+          <execution>
+            <id>compile-java8-consumer</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/javac</executable>
+              <arguments>
+                <argument>--release</argument>
+                <argument>8</argument>
+                <!-- Newer JDKs warn that release 8 is obsolete. -->
+                <argument>-Xlint:-options</argument>
+                <argument>-d</argument>
+                <argument>${project.build.directory}/java8-consumer</argument>
+                <argument>-classpath</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                <argument>${project.basedir}/src/it/java8-consumer/org/owasp/html/java8check/Java8ConsumerCheck.java</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-java8-consumer</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/java</executable>
+              <arguments>
+                <argument>-classpath</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar${path.separator}${project.build.directory}/java8-consumer</argument>
+                <argument>org.owasp.html.java8check.Java8ConsumerCheck</argument>
+                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
               </arguments>
             </configuration>
           </execution>
