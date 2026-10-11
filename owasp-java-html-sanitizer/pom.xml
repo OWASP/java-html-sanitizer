@@ -208,11 +208,14 @@
                      META-INF/versions/10/, which Java 10 and later read
                      because bnd marked this jar Multi-Release, and which
                      Java 8 and 9 never see.  Its classes at the root would
-                     fail a Java 8 build's bytecode check.  See issue #515. -->
+                     fail a Java 8 build's bytecode check.  The filter takes
+                     every versioned directory rather than naming 10, so that
+                     a change to the shim's release moves the class instead
+                     of silently dropping it.  See issue #515. -->
                 <filter>
                   <artifact>com.googlecode.owasp-java-html-sanitizer:java10-shim</artifact>
                   <includes>
-                    <include>META-INF/versions/10/**</include>
+                    <include>META-INF/versions/**</include>
                   </includes>
                 </filter>
               </filters>
