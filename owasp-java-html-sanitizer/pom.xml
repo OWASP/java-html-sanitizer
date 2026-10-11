@@ -141,12 +141,16 @@
                  wrong directory.  It is exactly where the JDK expects it,
                  so drop that one warning and no other. -->
             <_fixupmessages>Classes found in the wrong directory*module-info*;is:=ignore</_fixupmessages>
-            <!-- The jar is a multi-release jar for one reason: to carry the
-                 JPMS module descriptor compiled from src/main/java9 at
-                 META-INF/versions/9/module-info.class, which Java 9 and
-                 later read only when this header is present and Java 8
-                 never looks at.  There are no versioned copies of any
-                 class.  See issue #389. -->
+            <!-- The jar is a multi-release jar for two reasons, both read
+                 only when this header is present and neither seen by
+                 Java 8.  It carries the JPMS module descriptor compiled
+                 from src/main/java9 at META-INF/versions/9/module-info.class,
+                 which Java 9 and later read (issue #389).  And the shade
+                 plugin below adds java10-shim's ForJava10AndLater at
+                 META-INF/versions/10/, the only place a Java 8 build's
+                 bytecode check allows a class compiled for Java 10, and
+                 where Java 10 and later find it (issue #515).  Without the
+                 header every runtime falls back to the Java 8 shim. -->
             <Multi-Release>true</Multi-Release>
             <!-- Java 9 and later take the module name from the descriptor
                  and ignore this header.  It is kept so that tools which
