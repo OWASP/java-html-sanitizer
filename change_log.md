@@ -9,13 +9,13 @@ Most recent at top.
       Enforcer rule `enforceBytecodeVersion` with `maxJdkVersion` 1.8 failed
       on this dependency unless it ignored them.  `ForJava10AndLater` now
       ships in `META-INF/versions/10/` of the jar, which is already
-      multi-release, and `Notice` is left out.  That rule, and Java 8 and 9,
-      ignore the versioned directory, while Java 10 and later find the shim
-      there as before, so which shim each runtime uses is unchanged.  A
-      `ignoreClasses` workaround for these two classes can be removed.  The
-      build fails if any class in the jar is newer than Java 8 outside
-      `META-INF/versions/`, and CI now runs the packaged jar on Java 8.
-      Closes #515.
+      multi-release, and `Notice` is left out.  That rule in its default,
+      non-strict mode, and Java 8 and 9, ignore the versioned directory,
+      while Java 10 and later find the shim there as before, so which shim
+      each runtime uses is unchanged.  An `ignoreClasses` workaround for
+      these two classes can be removed.  The build fails if any class in the
+      jar is newer than Java 8 outside `META-INF/versions/`, and CI now runs
+      the packaged jar on Java 8.  Closes #515.
   * Release 20260924.2
     * Follow-ups to the CSS nesting limit in 20260924.1, with no change in
       output.  The CSS lexer keeps a bound on its search for a close
