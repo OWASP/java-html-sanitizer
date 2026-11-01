@@ -28,8 +28,11 @@
 package org.owasp.html;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -678,6 +681,37 @@ public final class HtmlChangeReporter<T> {
     final List<String> addedThenLeftOffAttrs = new ArrayList<>();
     /** True if the renderer refused the tag the policy opened. */
     boolean tagRefusedByRenderer;
+    /**
+     * For a tag with more than {@link #SCAN_LIMIT} attributes, the input
+     * pairs grouped by name and value, so that {@link #discardedAttribute}
+     * finds its pair without scanning from the first.  It is called once for
+     * each attribute a policy rejects, and that scan made a tag with many
+     * rejected attributes take time quadratic in the tag.  Built on first
+     * use, and null again whenever the pairs or their accounting change.
+     */
+    private @Nullable Map<List<String>, PairsWithOneNameAndValue>
+        pairsByNameAndValue;
+
+    /**
+     * At or below this many input pairs, {@link #discardedAttribute} scans
+     * rather than building {@link #pairsByNameAndValue}.
+     */
+    private static final int SCAN_LIMIT = 16;
+
+    /** The indices of the input pairs with one name and value, in order. */
+    private static final class PairsWithOneNameAndValue {
+      int[] pairs = new int[2];
+      int size;
+      /** Every pair before this position is rejected or emitted. */
+      int cursor;
+
+      void add(int pair) {
+        if (size == pairs.length) {
+          pairs = Arrays.copyOf(pairs, size * 2);
+        }
+        pairs[size++] = pair;
+      }
+    }
 
     /** Attribute-reporting state saved across a nested balancing event. */
     private static final class AttributeAccounting {
@@ -703,6 +737,7 @@ public final class HtmlChangeReporter<T> {
 
     /** Starts accounting for the attributes on one input start tag. */
     void expectAttributes(List<String> attrs) {
+      pairsByNameAndValue = null;
       expectedAttrs.clear();
       expectedAttrs.addAll(attrs);
       rejectedAttrs.clear();
@@ -716,6 +751,7 @@ public final class HtmlChangeReporter<T> {
     }
 
     void restoreAttributeAccounting(AttributeAccounting saved) {
+      pairsByNameAndValue = null;
       expectedAttrs.clear();
       expectedAttrs.addAll(saved.expectedAttrs);
       rejectedAttrs.clear();
@@ -743,6 +779,14 @@ public final class HtmlChangeReporter<T> {
       for (int i = 0, n = expectedAttrs.size() / 2; i < n; ++i) {
         if (emittedAttrs.get(i) && name.equals(expectedAttrs.get(i * 2))) {
           emittedAttrs.clear(i);
+          if (pairsByNameAndValue != null) {
+            // Pair i can be rejected again, so its group's cursor goes back
+            // to it.
+            PairsWithOneNameAndValue group = pairsByNameAndValue.get(
+                Arrays.asList(name, expectedAttrs.get(i * 2 + 1)));
+            int pos = Arrays.binarySearch(group.pairs, 0, group.size, i);
+            group.cursor = Math.min(group.cursor, pos);
+          }
           return;
         }
       }
@@ -750,12 +794,48 @@ public final class HtmlChangeReporter<T> {
       addedThenLeftOffAttrs.add(value);
     }
 
+    /**
+     * Marks as rejected the first input pair with this name and value that
+     * is neither rejected nor emitted already.
+     */
     public void discardedAttribute(String name, String value) {
-      for (int i = 0, n = expectedAttrs.size() / 2; i < n; ++i) {
-        int pair = i * 2;
-        if (!rejectedAttrs.get(i) && !emittedAttrs.get(i)
-            && name.equals(expectedAttrs.get(pair))
-            && value.equals(expectedAttrs.get(pair + 1))) {
+      int n = expectedAttrs.size() / 2;
+      if (n <= SCAN_LIMIT) {
+        for (int i = 0; i < n; ++i) {
+          int pair = i * 2;
+          if (!rejectedAttrs.get(i) && !emittedAttrs.get(i)
+              && name.equals(expectedAttrs.get(pair))
+              && value.equals(expectedAttrs.get(pair + 1))) {
+            rejectedAttrs.set(i);
+            return;
+          }
+        }
+        return;
+      }
+      if (pairsByNameAndValue == null) {
+        pairsByNameAndValue = new HashMap<>();
+        for (int i = 0; i < n; ++i) {
+          List<String> key = Arrays.asList(
+              expectedAttrs.get(i * 2), expectedAttrs.get(i * 2 + 1));
+          PairsWithOneNameAndValue group = pairsByNameAndValue.get(key);
+          if (group == null) {
+            group = new PairsWithOneNameAndValue();
+            pairsByNameAndValue.put(key, group);
+          }
+          group.add(i);
+        }
+      }
+      PairsWithOneNameAndValue group =
+          pairsByNameAndValue.get(Arrays.asList(name, value));
+      if (group == null) { return; }
+      // While the group exists, rejected marks are only added, and emitted
+      // marks are only removed by attributeLeftOff, which moves the cursor
+      // back.  So a pair is passed over again only after that, which happens
+      // once per attribute the renderer leaves off, after the policy's
+      // rejections are done.
+      while (group.cursor < group.size) {
+        int i = group.pairs[group.cursor++];
+        if (!rejectedAttrs.get(i) && !emittedAttrs.get(i)) {
           rejectedAttrs.set(i);
           return;
         }
@@ -786,6 +866,7 @@ public final class HtmlChangeReporter<T> {
     }
 
     void clearExpectedAttributes() {
+      pairsByNameAndValue = null;
       expectedAttrs.clear();
       rejectedAttrs.clear();
       emittedAttrs.clear();
