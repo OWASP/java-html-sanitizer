@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261031.1
     * One tag carrying many attributes no longer takes time quadratic in
       the tag.  The sanitizer keeps a tag's attributes in a linked list,
       and the pass that drops repeated names read that list by index, so
