@@ -278,3 +278,6 @@ artifact.
 ## Credits
 
 [Thanks to everyone who has helped with criticism and code](docs/credits.md)
+
+[Security hall of fame](docs/hall_of_fame.md): researchers who reported
+vulnerabilities privately

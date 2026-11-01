@@ -31,5 +31,7 @@ is closed as not applicable.
 Please report successful attacks with example input via OWASP's bugcrowd queue or contact jim@owasp.org and I will create a repository security advisory to coordinate.
 
 If you wish to be credited, please provide a name or handle for me to credit.
+Reporters are credited on the advisory and in the
+[security hall of fame](docs/hall_of_fame.md).
 
 If you wish to remain anonymous, please create a sock account, and email the address above.

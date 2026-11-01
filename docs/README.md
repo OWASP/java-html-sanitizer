@@ -22,6 +22,8 @@ example and links to the current Javadoc.
 
 * [Known public vulnerabilities](vulnerabilities.md) lists published
   advisories and the first fixed versions.
+* [Security hall of fame](hall_of_fame.md) credits the researchers who
+  reported vulnerabilities privately.
 * [Attack review ground rules](attack_review_ground_rules.md) defines the
   scope for adversarial testing and links to the private reporting process.
 * [CVE-2011-4457](cve20114457.md) and
