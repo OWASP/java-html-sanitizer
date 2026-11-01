@@ -30,6 +30,7 @@ package org.owasp.html;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -2078,51 +2079,69 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    *   document.createTextNode(scriptElement.getAttribute('id')));
    * </script>}
    * Firefox, Safari and Chrome all show "first" so we eliminate from the right.
+   * <p>
+   * {@code attrs} is a {@link java.util.LinkedList} when called from
+   * {@link HtmlSanitizer}, so this walks it with an iterator and never reads
+   * it by index: {@code get(i)} walks the list, and indexing every attribute
+   * of one tag with thousands of repeated names took time quadratic in the
+   * tag.  The only other walk is over the names already kept, which are the
+   * part of the list before the cursor.  Each kept name is one the policy
+   * allows, so that walk is bounded by the policy, not the input.
    */
   private static void removeDuplicateAttributes(List<String> attrs) {
     int firstLetterMask = 0;
-    int n = attrs.size();
-    // attrs.subList(0, k) contains the non-duplicate parts of attrs that
-    // have been processed thus far.
-    int k = 0;
-    attrLoop:
-    for (int i = 0; i < n; i += 2) {
-      String name = attrs.get(i);
+    // The first keptPairs name/value pairs of attrs are the non-duplicate
+    // attributes processed thus far; everything after them is unprocessed.
+    int keptPairs = 0;
+    for (ListIterator<String> it = attrs.listIterator(); it.hasNext();) {
+      String name = it.next();
+      it.next();  // The value.
 
+      boolean duplicate;
       if (name.length() == 0) {
-        continue attrLoop;
-      }
-
-      int firstCharIndex = name.charAt(0) - 'a';
-      checkForDuplicate: {
-        // Don't be O(n**2) in the common case by checking whether the first
-        // letter has been seen on any other attribute.
-        if (0 <= firstCharIndex && firstCharIndex < 26) {
-          int firstCharBit = 1 << firstCharIndex;
-          if ((firstLetterMask & firstCharBit) == 0) {
-            firstLetterMask = firstLetterMask | firstCharBit;
-            break checkForDuplicate;
+        duplicate = true;
+      } else {
+        duplicate = false;
+        int firstCharIndex = name.charAt(0) - 'a';
+        checkForDuplicate: {
+          // Don't scan in the common case by checking whether the first
+          // letter has been seen on any other attribute.
+          if (0 <= firstCharIndex && firstCharIndex < 26) {
+            int firstCharBit = 1 << firstCharIndex;
+            if ((firstLetterMask & firstCharBit) == 0) {
+              firstLetterMask = firstLetterMask | firstCharBit;
+              break checkForDuplicate;
+            }
           }
-        }
-        // Look for a duplicate.  attrs alternates names and values, so step
-        // by two to compare against names only; comparing against a value
-        // would drop an attribute whose name matches an earlier value.
-        for (int j = k - 2; j >= 0; j -= 2) {
-          if (attrs.get(j).equals(name)) {
-            continue attrLoop;
-          }
+          duplicate = isKeptName(attrs, keptPairs, name);
         }
       }
 
-      // Preserve the attribute.
-      if (k != i) {
-        attrs.set(k, name);
-        attrs.set(k + 1, attrs.get(i + 1));
+      if (duplicate) {
+        it.remove();  // The value.
+        it.previous();
+        it.remove();  // The name.
+      } else {
+        ++keptPairs;
       }
-      k += 2;
     }
-    if (k != n) {
-      attrs.subList(k, n).clear();
+  }
+
+  /**
+   * True if name is among the first keptPairs names of attrs.  attrs
+   * alternates names and values, so this compares against names only;
+   * comparing against a value would drop an attribute whose name matches an
+   * earlier value.
+   */
+  private static boolean isKeptName(
+      List<String> attrs, int keptPairs, String name) {
+    Iterator<String> kept = attrs.iterator();
+    for (int i = 0; i < keptPairs; ++i) {
+      if (kept.next().equals(name)) {
+        return true;
+      }
+      kept.next();  // The value.
     }
+    return false;
   }
 }

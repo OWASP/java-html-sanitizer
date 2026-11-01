@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 class HtmlChangeReporterTest {
 
@@ -82,6 +84,31 @@ class HtmlChangeReporterTest {
         "<a href=\"https://www.example.org/\" rel=\"nofollow\">link</a>",
         result.html);
     assertEquals("<a href href> ", result.log);
+  }
+
+  /**
+   * Reporting every dropped copy of a name repeated many times on one tag
+   * stays linear, as sanitizing it does.
+   */
+  @Test
+  void testManyDuplicateAttributesAreReportedInLinearTime() {
+    final int n = 200000;
+    StringBuilder in = new StringBuilder("<a");
+    StringBuilder log = new StringBuilder("<a");
+    for (int i = 0; i < n; ++i) {
+      in.append(" href=x");
+      if (i != 0) {
+        log.append(" href");
+      }
+    }
+    in.append(">t</a>");
+    log.append("> ");
+    final String html = in.toString();
+    Result result = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> sanitize(Sanitizers.LINKS, html));
+
+    assertEquals("<a href=\"x\" rel=\"nofollow\">t</a>", result.html);
+    assertEquals(log.toString(), result.log);
   }
 
   /** Attributes the policy rejects and duplicates arrive in one report. */
