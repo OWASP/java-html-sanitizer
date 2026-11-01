@@ -7,7 +7,7 @@ Most recent at top.
       and the pass that drops repeated names read that list by index, so
       it walked the list once per attribute: 700 KB of `href=x` on one tag
       took over thirty seconds, under any policy that allows an attribute,
-      including `Sanitizers.LINKS`, in every release since 20151202.1.
+      including `Sanitizers.LINKS`, in every release since 20151202.2.
       Two more paths were quadratic in the same way.  With an
       `HtmlChangeListener`, matching each rejected attribute to the input
       for the report scanned the tag's attributes from the first, so
