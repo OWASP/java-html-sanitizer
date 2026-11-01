@@ -30,13 +30,16 @@ package org.owasp.html;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -44,6 +47,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.owasp.shim.Java8Shim.j8;
 
@@ -942,6 +946,135 @@ class HtmlPolicyBuilderTest {
             .allowAttributes("alt").onElements("img"),
             "<img alt=\"first\" ALT=\"second\" alt=\"third\">")
         );
+  }
+
+  /**
+   * One tag carrying many copies of an allowed attribute used to take time
+   * quadratic in the tag.  The sanitizer keeps a tag's attributes in a
+   * linked list, and the pass that drops repeated names read it by index,
+   * walking the list for every attribute: 700 KB of {@code href=x} on one
+   * {@code <a>} took over thirty seconds.  Each shape here takes well under
+   * a second now.  Repeated names the policy does not allow never reached
+   * that pass, and were already linear.
+   */
+  @Test
+  void testRepeatedAllowedAttributesOnOneTagAreLinear() {
+    final int n = 200000;
+    final String hrefs = "<a " + repeat("href=x ", n) + ">t</a>";
+    assertEquals(
+        "<a href=\"x\" rel=\"nofollow\">t</a>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> Sanitizers.LINKS.sanitize(hrefs)));
+    // The lexer lower-cases names, so case does not make them distinct.
+    final String upper = "<a " + repeat("HREF=x ", n) + ">t</a>";
+    assertEquals(
+        "<a href=\"x\" rel=\"nofollow\">t</a>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> Sanitizers.LINKS.sanitize(upper)));
+    // Two names, so each copy is compared against more than one kept name.
+    final PolicyFactory titled = new HtmlPolicyBuilder()
+        .allowElements("b")
+        .allowAttributes("title", "class", "_t").globally()
+        .toFactory();
+    final String pairs = "<b " + repeat("title=x class=y ", n) + ">t</b>";
+    assertEquals(
+        "<b title=\"x\" class=\"y\">t</b>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> titled.sanitize(pairs)));
+    // A name whose first letter is not a to z always takes the scan of the
+    // names kept so far, rather than the first-letter shortcut.
+    final String underscores = "<b " + repeat("_t=x ", n) + ">t</b>";
+    assertEquals(
+        "<b _t=\"x\">t</b>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> titled.sanitize(underscores)));
+  }
+
+  /**
+   * A preprocessor can hand the policy an {@code ArrayList} of attributes
+   * rather than the sanitizer's linked list.  Removing each rejected or
+   * repeated attribute where it stood shifted the rest of that list, which
+   * was quadratic in the tag, with or without a change listener.
+   */
+  @Test
+  void testAttributesInAnArrayListAreFilteredInLinearTime() {
+    final PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("b")
+        .allowAttributes("title").globally()
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            underlying.openTag(elementName, new ArrayList<>(attrs));
+          }
+        })
+        .toFactory();
+    final String in = "<b " + repeat("title=x onclick=y ", 300000) + ">t</b>";
+    assertEquals(
+        "<b title=\"x\">t</b>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> policy.sanitize(in)));
+    final int[] reported = new int[1];
+    final HtmlChangeListener<Void> listener = new HtmlChangeListener<Void>() {
+      @Override
+      public void discardedTag(Void context, String elementName) {
+        reported[0] = -1;
+      }
+
+      @Override
+      public void discardedAttributes(
+          Void context, String tagName, String... attributeNames) {
+        reported[0] += attributeNames.length;
+      }
+    };
+    assertEquals(
+        "<b title=\"x\">t</b>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20),
+            () -> policy.sanitize(in, listener, null)));
+    assertEquals(599999, reported[0]);
+  }
+
+  /**
+   * Checks duplicate removal against a plain model on many random tags:
+   * the first copy of each allowed name is kept, in input order, and every
+   * later copy is dropped.  The names share first letters, include names
+   * that skip the first-letter shortcut, differ only in case, and appear as
+   * values of other attributes, which must not count as names.
+   */
+  @Test
+  void testDuplicateRemovalKeepsTheFirstOfEachName() {
+    String[] allowed = { "a", "ab", "abc", "b", "ba", "title", "_u" };
+    String[] names = {
+        "a", "ab", "abc", "b", "ba", "title", "_u", "AB", "Title", "zz",
+        "onclick",
+    };
+    String[] values = { "v", "w", "ab", "title", "_u" };
+    HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+        .allowElements("p")
+        .allowAttributes(allowed).onElements("p");
+    List<String> allowedList = Arrays.asList(allowed);
+    Random random = new Random(0x5eed);
+    for (int trial = 0; trial < 2000; ++trial) {
+      StringBuilder in = new StringBuilder("<p");
+      Map<String, String> kept = new LinkedHashMap<>();
+      for (int i = random.nextInt(14); --i >= 0;) {
+        String name = names[random.nextInt(names.length)];
+        String value = values[random.nextInt(values.length)];
+        in.append(' ').append(name).append("=\"").append(value).append('"');
+        String canon = name.toLowerCase(Locale.ROOT);
+        if (allowedList.contains(canon) && !kept.containsKey(canon)) {
+          kept.put(canon, value);
+        }
+      }
+      in.append(">t</p>");
+      StringBuilder want = new StringBuilder("<p");
+      for (Map.Entry<String, String> e : kept.entrySet()) {
+        want.append(' ').append(e.getKey())
+            .append("=\"").append(e.getValue()).append('"');
+      }
+      want.append(">t</p>");
+      assertEquals(want.toString(), apply(b, in.toString()), in.toString());
+    }
   }
 
   @Test
@@ -2261,6 +2394,14 @@ class HtmlPolicyBuilderTest {
         }
       }
     }
+  }
+
+  private static String repeat(String s, int n) {
+    StringBuilder sb = new StringBuilder(s.length() * n);
+    for (int i = 0; i < n; ++i) {
+      sb.append(s);
+    }
+    return sb.toString();
   }
 
   private static String apply(HtmlPolicyBuilder b) {

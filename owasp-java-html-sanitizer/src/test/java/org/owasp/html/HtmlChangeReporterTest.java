@@ -27,6 +27,9 @@
 
 package org.owasp.html;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 class HtmlChangeReporterTest {
 
@@ -82,6 +86,180 @@ class HtmlChangeReporterTest {
         "<a href=\"https://www.example.org/\" rel=\"nofollow\">link</a>",
         result.html);
     assertEquals("<a href href> ", result.log);
+  }
+
+  /**
+   * Reporting every dropped copy of a name repeated many times on one tag
+   * stays linear, as sanitizing it does.
+   */
+  @Test
+  void testManyDuplicateAttributesAreReportedInLinearTime() {
+    final int n = 200000;
+    StringBuilder in = new StringBuilder("<a");
+    StringBuilder log = new StringBuilder("<a");
+    for (int i = 0; i < n; ++i) {
+      in.append(" href=x");
+      if (i != 0) {
+        log.append(" href");
+      }
+    }
+    in.append(">t</a>");
+    log.append("> ");
+    final String html = in.toString();
+    Result result = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> sanitize(Sanitizers.LINKS, html));
+
+    assertEquals("<a href=\"x\" rel=\"nofollow\">t</a>", result.html);
+    assertEquals(log.toString(), result.log);
+  }
+
+  /**
+   * The reporter matched each attribute a policy rejected to its input pair
+   * by scanning the tag's pairs from the first, which made a tag with many
+   * rejected attributes quadratic: 80,000 {@code href=x onclick=y} pairs
+   * took over ten seconds with a listener.
+   */
+  @Test
+  void testManyRejectedAttributesAreReportedInLinearTime() {
+    final int n = 200000;
+    StringBuilder in = new StringBuilder("<a");
+    StringBuilder log = new StringBuilder("<a");
+    for (int i = 0; i < n; ++i) {
+      in.append(" href=x onclick=").append(i);
+      // In input order: every copy of href but the first, the one kept.
+      log.append(i == 0 ? " onclick" : " href onclick");
+    }
+    in.append(">t</a>");
+    log.append("> ");
+    final String html = in.toString();
+    Result result = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> sanitize(Sanitizers.LINKS, html));
+
+    assertEquals("<a href=\"x\" rel=\"nofollow\">t</a>", result.html);
+    assertEquals(log.toString(), result.log);
+  }
+
+  /**
+   * The index of rejected attributes is a hash map over values the author
+   * chose.  Strings made of {@code Aa} and {@code BB} in any order of one
+   * length share a hash code, so many such values fill one bucket, and an
+   * index keyed by name and value together, which a bucket cannot keep in
+   * order, searched that bucket from end to end on every rejection: 20,000
+   * of them took nine seconds.
+   */
+  @Test
+  void testRejectedAttributesWithCollidingValuesAreReportedInLinearTime() {
+    final int n = 60000;
+    StringBuilder in = new StringBuilder("<a href=x");
+    StringBuilder log = new StringBuilder("<a");
+    for (int i = 0; i < n; ++i) {
+      in.append(" onclick=");
+      for (int bit = 0; bit < 16; ++bit) {
+        in.append(((i >> bit) & 1) == 0 ? "Aa" : "BB");
+      }
+      log.append(" onclick");
+    }
+    in.append(">t</a>");
+    log.append("> ");
+    final String html = in.toString();
+    Result result = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> sanitize(Sanitizers.LINKS, html));
+
+    assertEquals("<a href=\"x\" rel=\"nofollow\">t</a>", result.html);
+    assertEquals(log.toString(), result.log);
+  }
+
+  /**
+   * On a tag with many attributes the reporter finds the pair a rejection
+   * refers to through an index rather than a scan.  The sanitizer always
+   * reports rejections before the output tag accounts for its attributes,
+   * but the index keeps the scan's rules for any order: it passes over a
+   * pair already emitted, and a pair the renderer then leaves off can be
+   * rejected again.  Each case runs on a tag under and over the size at
+   * which the index takes over, and must come out the same.
+   */
+  @Test
+  void testRejectionAccountingIsTheSameWithAndWithoutTheIndex()
+      throws Exception {
+    for (int filler : new int[] { 0, 40 }) {
+      // A rejection passes over the pair already emitted for its name.
+      Object channel = outputChannel(filler, "a", "1", "a", "2", "a", "1");
+      emit(channel, "a");
+      invoke(channel, "discardedAttribute", "a", "1");
+      emit(channel, "a");
+      emit(channel, "a");
+      assertEquals(
+          "a=1", discardedNames(channel, filler), "filler " + filler);
+
+      // A pair the renderer leaves off can be rejected after all.
+      channel = outputChannel(filler, "a", "1", "a", "1");
+      emit(channel, "a");
+      invoke(channel, "discardedAttribute", "a", "1");
+      invoke(channel, "attributeLeftOff", "a", "1");
+      invoke(channel, "discardedAttribute", "a", "1");
+      emit(channel, "a");
+      assertEquals(
+          "a=1 a=1", discardedNames(channel, filler), "filler " + filler);
+    }
+  }
+
+  /**
+   * An output channel expecting the given pairs, then filler pairs that
+   * nothing matches.
+   */
+  private static Object outputChannel(int filler, String... pairs)
+      throws Exception {
+    Class<?> cls = Class.forName(
+        "org.owasp.html.HtmlChangeReporter$OutputChannel");
+    Constructor<?> ctor =
+        cls.getDeclaredConstructor(HtmlStreamEventReceiver.class);
+    ctor.setAccessible(true);
+    // Writes nothing: only the channel's own accounting is under test.
+    HtmlStreamEventReceiver nowhere = (HtmlStreamEventReceiver)
+        java.lang.reflect.Proxy.newProxyInstance(
+            HtmlStreamEventReceiver.class.getClassLoader(),
+            new Class<?>[] { HtmlStreamEventReceiver.class },
+            (proxy, method, args) -> null);
+    Object channel = ctor.newInstance(nowhere);
+    List<String> attrs = new ArrayList<>(Arrays.asList(pairs));
+    for (int i = 0; i < filler; ++i) {
+      attrs.add("filler" + i);
+      attrs.add("v");
+    }
+    Method expect = cls.getDeclaredMethod("expectAttributes", List.class);
+    expect.setAccessible(true);
+    expect.invoke(channel, attrs);
+    return channel;
+  }
+
+  /** Has the channel write a tag with the one attribute name. */
+  private static void emit(Object channel, String name) throws Exception {
+    Method openTag = channel.getClass().getDeclaredMethod(
+        "openTag", String.class, List.class);
+    openTag.setAccessible(true);
+    openTag.invoke(channel, "b", Arrays.asList(name, "x"));
+  }
+
+  private static void invoke(Object channel, String method, String name,
+      String value) throws Exception {
+    Method m = channel.getClass().getDeclaredMethod(
+        method, String.class, String.class);
+    m.setAccessible(true);
+    m.invoke(channel, name, value);
+  }
+
+  /** The discarded pairs other than the filler, as name=value. */
+  private static String discardedNames(Object channel, int filler)
+      throws Exception {
+    Method m = channel.getClass().getDeclaredMethod("discardedAttributes");
+    m.setAccessible(true);
+    String[] discarded = (String[]) m.invoke(channel);
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < discarded.length - filler * 2; i += 2) {
+      if (sb.length() != 0) { sb.append(' '); }
+      sb.append(discarded[i]).append('=').append(discarded[i + 1]);
+    }
+    return sb.toString();
   }
 
   /** Attributes the policy rejects and duplicates arrive in one report. */

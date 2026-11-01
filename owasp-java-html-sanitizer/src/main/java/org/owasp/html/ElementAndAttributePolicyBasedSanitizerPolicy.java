@@ -30,6 +30,8 @@ package org.owasp.html;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -1717,29 +1719,32 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       ElementAndAttributePolicies policies) {
     String adjustedElementName;
     if (policies != null) {
-      for (ListIterator<String> attrsIt = attrs.listIterator();
-           attrsIt.hasNext();) {
-        String name = attrsIt.next();
+      // Keep the pairs the policies allow by writing them back over the
+      // front of the list, behind the read, and truncating once.  Removing
+      // each rejected pair where it stands would shift the rest of an
+      // ArrayList, which a preprocessor can pass, and take time quadratic in
+      // the tag.  See removeDuplicateAttributes.
+      ListIterator<String> write = attrs.listIterator();
+      int nKept = 0;
+      for (Iterator<String> read = attrs.iterator(); read.hasNext();) {
+        String name = read.next();
+        String value = read.next();
         AttributePolicy attrPolicy
             = policies.attrPolicies.get(name);
-        if (attrPolicy == null) {
-          attrsIt.remove();
-          String value = attrsIt.next();
+        String adjustedValue = attrPolicy != null
+            ? attrPolicy.apply(elementName, name, value)
+            : null;
+        if (adjustedValue == null) {
           reportDiscardedAttribute(name, value);
-          attrsIt.remove();
         } else {
-          String value = attrsIt.next();
-          String adjustedValue = attrPolicy.apply(elementName, name, value);
-          if (adjustedValue == null) {
-            reportDiscardedAttribute(name, value);
-            attrsIt.remove();
-            attrsIt.previous();
-            attrsIt.remove();
-          } else {
-            attrsIt.set(adjustedValue);
-          }
+          write.next();
+          write.set(name);
+          write.next();
+          write.set(adjustedValue);
+          ++nKept;
         }
       }
+      truncatePairs(attrs, nKept);
 
       // Now that we know which attributes are allowed, make sure the names
       // are unique.
@@ -2078,51 +2083,75 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
    *   document.createTextNode(scriptElement.getAttribute('id')));
    * </script>}
    * Firefox, Safari and Chrome all show "first" so we eliminate from the right.
+   * <p>
+   * This runs in one pass, linear in the attributes, whatever kind of list
+   * {@code attrs} is.  It reads with one iterator, writes each kept pair
+   * back with a second that trails it, and truncates once at the end, so it
+   * never reads by index, which walks a {@link java.util.LinkedList} (the
+   * kind {@link HtmlSanitizer} passes), and never removes from the middle,
+   * which shifts an {@link java.util.ArrayList}.  Either made one tag with
+   * thousands of repeated names take time quadratic in the tag.
    */
   private static void removeDuplicateAttributes(List<String> attrs) {
     int firstLetterMask = 0;
-    int n = attrs.size();
-    // attrs.subList(0, k) contains the non-duplicate parts of attrs that
-    // have been processed thus far.
-    int k = 0;
-    attrLoop:
-    for (int i = 0; i < n; i += 2) {
-      String name = attrs.get(i);
+    // The names kept so far, made only once a name's first letter has been
+    // seen before.  Until then the mask is enough, and most tags never get
+    // that far.
+    @Nullable Set<String> keptNames = null;
+    // The first nKept name/value pairs of attrs are the non-duplicate
+    // attributes processed thus far.
+    int nKept = 0;
+    ListIterator<String> write = attrs.listIterator();
+    for (Iterator<String> read = attrs.iterator(); read.hasNext();) {
+      String name = read.next();
+      String value = read.next();
 
       if (name.length() == 0) {
-        continue attrLoop;
+        continue;
       }
 
+      boolean firstLetterSeen = true;
       int firstCharIndex = name.charAt(0) - 'a';
-      checkForDuplicate: {
-        // Don't be O(n**2) in the common case by checking whether the first
-        // letter has been seen on any other attribute.
-        if (0 <= firstCharIndex && firstCharIndex < 26) {
-          int firstCharBit = 1 << firstCharIndex;
-          if ((firstLetterMask & firstCharBit) == 0) {
-            firstLetterMask = firstLetterMask | firstCharBit;
-            break checkForDuplicate;
+      if (0 <= firstCharIndex && firstCharIndex < 26) {
+        int firstCharBit = 1 << firstCharIndex;
+        firstLetterSeen = (firstLetterMask & firstCharBit) != 0;
+        firstLetterMask |= firstCharBit;
+      }
+      if (firstLetterSeen) {
+        if (keptNames == null) {
+          keptNames = new HashSet<>();
+          // attrs alternates names and values, so take every other one;
+          // counting a value as a name would drop an attribute whose name
+          // matches an earlier value.
+          Iterator<String> kept = attrs.iterator();
+          for (int i = 0; i < nKept; ++i) {
+            keptNames.add(kept.next());
+            kept.next();
           }
         }
-        // Look for a duplicate.  attrs alternates names and values, so step
-        // by two to compare against names only; comparing against a value
-        // would drop an attribute whose name matches an earlier value.
-        for (int j = k - 2; j >= 0; j -= 2) {
-          if (attrs.get(j).equals(name)) {
-            continue attrLoop;
-          }
+        if (!keptNames.add(name)) {
+          continue;  // A duplicate.
         }
+      } else if (keptNames != null) {
+        keptNames.add(name);
       }
 
-      // Preserve the attribute.
-      if (k != i) {
-        attrs.set(k, name);
-        attrs.set(k + 1, attrs.get(i + 1));
-      }
-      k += 2;
+      // Preserve the attribute.  Setting is not a structural change, so the
+      // read iterator, which is ahead, stays valid.
+      write.next();
+      write.set(name);
+      write.next();
+      write.set(value);
+      ++nKept;
     }
-    if (k != n) {
-      attrs.subList(k, n).clear();
+    truncatePairs(attrs, nKept);
+  }
+
+  /** Drops all but the first nPairs name/value pairs of attrs. */
+  private static void truncatePairs(List<String> attrs, int nPairs) {
+    int n = attrs.size();
+    if (nPairs * 2 != n) {
+      attrs.subList(nPairs * 2, n).clear();
     }
   }
 }

@@ -1,6 +1,22 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * One tag carrying many attributes no longer takes time quadratic in
+      the tag.  The sanitizer keeps a tag's attributes in a linked list,
+      and the pass that drops repeated names read that list by index, so
+      it walked the list once per attribute: 700 KB of `href=x` on one tag
+      took over thirty seconds, under any policy that allows an attribute,
+      including `Sanitizers.LINKS`, in every release since 20151202.2.
+      Two more paths were quadratic in the same way.  With an
+      `HtmlChangeListener`, matching each rejected attribute to the input
+      for the report scanned the tag's attributes from the first, so
+      80,000 `href=x onclick=y` pairs took over ten seconds.  And when a
+      preprocessor passed the policy an `ArrayList`, removing each
+      rejected attribute where it stood shifted the rest of the list.
+      Each pass is now linear, and the output and reports are unchanged:
+      the first copy of each name is kept, as browsers do.  Reported by
+      Irhas Abdul Rosyid (@analisaperlengkapan).  GHSA-47x2-9gq9-jg3m.
   * Release 20261011.1
     * The jar passes a Java 8 build's bytecode check again.  Since
       20260921.1 bundled the shims into it, its root held two classes
