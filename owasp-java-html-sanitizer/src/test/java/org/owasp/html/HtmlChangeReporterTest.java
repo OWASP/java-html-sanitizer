@@ -140,6 +140,36 @@ class HtmlChangeReporterTest {
   }
 
   /**
+   * The index of rejected attributes is a hash map over values the author
+   * chose.  Strings made of {@code Aa} and {@code BB} in any order of one
+   * length share a hash code, so many such values fill one bucket, and an
+   * index keyed by name and value together, which a bucket cannot keep in
+   * order, searched that bucket from end to end on every rejection: 20,000
+   * of them took nine seconds.
+   */
+  @Test
+  void testRejectedAttributesWithCollidingValuesAreReportedInLinearTime() {
+    final int n = 60000;
+    StringBuilder in = new StringBuilder("<a href=x");
+    StringBuilder log = new StringBuilder("<a");
+    for (int i = 0; i < n; ++i) {
+      in.append(" onclick=");
+      for (int bit = 0; bit < 16; ++bit) {
+        in.append(((i >> bit) & 1) == 0 ? "Aa" : "BB");
+      }
+      log.append(" onclick");
+    }
+    in.append(">t</a>");
+    log.append("> ");
+    final String html = in.toString();
+    Result result = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> sanitize(Sanitizers.LINKS, html));
+
+    assertEquals("<a href=\"x\" rel=\"nofollow\">t</a>", result.html);
+    assertEquals(log.toString(), result.log);
+  }
+
+  /**
    * On a tag with many attributes the reporter finds the pair a rejection
    * refers to through an index rather than a scan.  The sanitizer always
    * reports rejections before the output tag accounts for its attributes,

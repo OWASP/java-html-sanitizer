@@ -688,8 +688,13 @@ public final class HtmlChangeReporter<T> {
      * each attribute a policy rejects, and that scan made a tag with many
      * rejected attributes take time quadratic in the tag.  Built on first
      * use, and null again whenever the pairs or their accounting change.
+     * <p>
+     * Keyed by name, then by value, rather than by a pair of the two: the
+     * values are the author's, who can choose many with one hash code, and
+     * a hash map keeps such a bucket ordered, and fast to search, only when
+     * its keys are {@link Comparable}, as strings are and lists are not.
      */
-    private @Nullable Map<List<String>, PairsWithOneNameAndValue>
+    private @Nullable Map<String, Map<String, PairsWithOneNameAndValue>>
         pairsByNameAndValue;
 
     /**
@@ -782,8 +787,8 @@ public final class HtmlChangeReporter<T> {
           if (pairsByNameAndValue != null) {
             // Pair i can be rejected again, so its group's cursor goes back
             // to it.
-            PairsWithOneNameAndValue group = pairsByNameAndValue.get(
-                Arrays.asList(name, expectedAttrs.get(i * 2 + 1)));
+            PairsWithOneNameAndValue group = pairsByNameAndValue.get(name)
+                .get(expectedAttrs.get(i * 2 + 1));
             int pos = Arrays.binarySearch(group.pairs, 0, group.size, i);
             group.cursor = Math.min(group.cursor, pos);
           }
@@ -815,18 +820,26 @@ public final class HtmlChangeReporter<T> {
       if (pairsByNameAndValue == null) {
         pairsByNameAndValue = new HashMap<>();
         for (int i = 0; i < n; ++i) {
-          List<String> key = Arrays.asList(
-              expectedAttrs.get(i * 2), expectedAttrs.get(i * 2 + 1));
-          PairsWithOneNameAndValue group = pairsByNameAndValue.get(key);
+          String pairName = expectedAttrs.get(i * 2);
+          String pairValue = expectedAttrs.get(i * 2 + 1);
+          Map<String, PairsWithOneNameAndValue> byValue =
+              pairsByNameAndValue.get(pairName);
+          if (byValue == null) {
+            byValue = new HashMap<>();
+            pairsByNameAndValue.put(pairName, byValue);
+          }
+          PairsWithOneNameAndValue group = byValue.get(pairValue);
           if (group == null) {
             group = new PairsWithOneNameAndValue();
-            pairsByNameAndValue.put(key, group);
+            byValue.put(pairValue, group);
           }
           group.add(i);
         }
       }
+      Map<String, PairsWithOneNameAndValue> byValue =
+          pairsByNameAndValue.get(name);
       PairsWithOneNameAndValue group =
-          pairsByNameAndValue.get(Arrays.asList(name, value));
+          byValue != null ? byValue.get(value) : null;
       if (group == null) { return; }
       // While the group exists, rejected marks are only added, and emitted
       // marks are only removed by attributeLeftOff, which moves the cursor
