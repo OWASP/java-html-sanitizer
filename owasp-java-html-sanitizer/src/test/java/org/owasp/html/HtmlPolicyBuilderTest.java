@@ -991,6 +991,50 @@ class HtmlPolicyBuilderTest {
   }
 
   /**
+   * A preprocessor can hand the policy an {@code ArrayList} of attributes
+   * rather than the sanitizer's linked list.  Removing each rejected or
+   * repeated attribute where it stood shifted the rest of that list, which
+   * was quadratic in the tag, with or without a change listener.
+   */
+  @Test
+  void testAttributesInAnArrayListAreFilteredInLinearTime() {
+    final PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("b")
+        .allowAttributes("title").globally()
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override
+          public void openTag(String elementName, List<String> attrs) {
+            underlying.openTag(elementName, new ArrayList<>(attrs));
+          }
+        })
+        .toFactory();
+    final String in = "<b " + repeat("title=x onclick=y ", 300000) + ">t</b>";
+    assertEquals(
+        "<b title=\"x\">t</b>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> policy.sanitize(in)));
+    final int[] reported = new int[1];
+    final HtmlChangeListener<Void> listener = new HtmlChangeListener<Void>() {
+      @Override
+      public void discardedTag(Void context, String elementName) {
+        reported[0] = -1;
+      }
+
+      @Override
+      public void discardedAttributes(
+          Void context, String tagName, String... attributeNames) {
+        reported[0] += attributeNames.length;
+      }
+    };
+    assertEquals(
+        "<b title=\"x\">t</b>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20),
+            () -> policy.sanitize(in, listener, null)));
+    assertEquals(599999, reported[0]);
+  }
+
+  /**
    * Checks duplicate removal against a plain model on many random tags:
    * the first copy of each allowed name is kept, in input order, and every
    * later copy is dropped.  The names share first letters, include names
