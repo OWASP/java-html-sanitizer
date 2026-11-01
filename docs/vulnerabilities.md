@@ -1,5 +1,6 @@
 # Known & public vulnerabilities in this project
 
+  * [GHSA-47x2-9gq9-jg3m](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-47x2-9gq9-jg3m) - 31 Oct. 2026 - Moderate severity; denial of service via a tag with many attributes, quadratic in the tag, under any policy that allows an attribute. Recommend upgrade to v20261031.1 or later.
   * [GHSA-x6fc-6qh4-g3wr](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-x6fc-6qh4-g3wr) - 24 Sep. 2026 - Moderate severity; denial of service via deeply nested CSS functions in style attributes, affects only policies that allow styling. Recommend upgrade to v20260924.1 or later.
   * [GHSA-6rfr-g8xv-xrp3](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-6rfr-g8xv-xrp3) - 22 Sep. 2026 - Low severity; affects only policies that allow URLs in styles. Recommend upgrade to v20260922.1 or later.
   * [GHSA-vqwm-jvq2-mfwc](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-vqwm-jvq2-mfwc) - 22 Sep. 2026 - Incomplete fix of CVE-2025-66021. Recommend upgrade to v20260921.1 or later.

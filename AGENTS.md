@@ -67,7 +67,7 @@ Use these as targets when touching parser, policy, or renderer code:
 - SVG and MathML namespace and case tricks
 - `javascript:`, `data:`, and scheme-relative URLs in allowed attributes
 - Entity and encoding edge cases: malformed entities, entities without semicolons, null bytes, mixed case, nested and unbalanced tags
-- Denial of service: unbounded recursion over nested CSS functions (GHSA-x6fc-6qh4-g3wr), quadratic tag-balancer paths and unbounded formatting reconstruction (release 20260921.1, #490)
+- Denial of service: unbounded recursion over nested CSS functions (GHSA-x6fc-6qh4-g3wr), quadratic passes over one tag carrying many attributes, with and without a change listener (GHSA-47x2-9gq9-jg3m), quadratic tag-balancer paths and unbounded formatting reconstruction (release 20260921.1, #490)
 - Full history: `docs/vulnerabilities.md`
 
 ## Keeping This File Current
