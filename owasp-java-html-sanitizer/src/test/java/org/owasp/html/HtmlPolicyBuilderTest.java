@@ -3434,10 +3434,6 @@ class HtmlPolicyBuilderTest {
     }
   }
 
-  /**
-   * The presentation attribute guard walks the value's CSS tokens once, so
-   * hundreds of thousands of URLs or nested functions take linear time.
-   */
   @Test
   void testSvgPresentationUrlsLoseTheSpacesAtTheirEnds() {
     HtmlPolicyBuilder relativeOnly = new HtmlPolicyBuilder()
@@ -3478,6 +3474,10 @@ class HtmlPolicyBuilderTest {
     }
   }
 
+  /**
+   * The presentation attribute guard walks the value's CSS tokens once, so
+   * hundreds of thousands of URLs or nested functions take linear time.
+   */
   @Test
   void testLongPresentationAttributeValuesAreLinear() {
     final int n = 200000;
