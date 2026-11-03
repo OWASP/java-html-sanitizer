@@ -28,8 +28,8 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
  * allowed.  CSS can also take a URL from a string inside a function, as
  * {@code image-set("x.png" 1x)} does, so a value that calls any function
  * outside {@link #ALLOWED_FUNCTIONS}, which compute colors, numbers, filter
- * effects, shapes and gradients, is dropped.  If a URL in the value is
- * rejected, the whole value is dropped.
+ * effects, shapes and gradients or read a custom property, is dropped.  If a
+ * URL in the value is rejected, the whole value is dropped.
  */
 @TCB
 final class PresentationAttributePolicy implements JoinableAttributePolicy {
@@ -48,11 +48,16 @@ final class PresentationAttributePolicy implements JoinableAttributePolicy {
         "color", "color-mix", "light-dark",
         // Math.
         "calc", "min", "max", "clamp",
+        // Custom properties, which only the page's own CSS can define: the
+        // style guard allows none.  Any url(...) or function in a fallback
+        // is vetted like the rest of the value.
+        "var",
         // Filter effects.
         "blur", "brightness", "contrast", "drop-shadow", "grayscale",
         "hue-rotate", "invert", "opacity", "saturate", "sepia",
         // Basic shapes.
-        "inset", "circle", "ellipse", "polygon", "path", "rect", "xywh",
+        "inset", "circle", "ellipse", "polygon", "path", "rect", "shape",
+        "xywh",
         // Gradients.
         "linear-gradient", "radial-gradient", "conic-gradient",
         "repeating-linear-gradient", "repeating-radial-gradient",

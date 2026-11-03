@@ -21,11 +21,11 @@ Most recent at top.
       `url('#gradient')`.  CSS can also take a URL from a string inside a
       function, as `image-set()` does, so a value that calls a function
       outside an allowlist of color, math, filter, shape and gradient
-      functions is dropped, as is a value with a token that no single
-      property value needs, such as `;`, `:` or a brace, or one with a
-      rejected URL.  As guarded attributes, the nine can no longer be the
-      target of an SVG animation, so a policy that animates `fill` or
-      `stroke` with `set` or `animate` loses that animation.  Policies
+      functions and `var()` is dropped, as is a value with a token that no
+      single property value needs, such as `;`, `:` or a brace, or one
+      with a rejected URL.  As guarded attributes, the nine can no longer
+      be the target of an SVG animation, so a policy that animates `fill`
+      or `stroke` with `set` or `animate` loses that animation.  Policies
       that allow none of them, including every policy in `Sanitizers`, are
       unaffected.  GHSA-76cc-622x-jwm4.
   * Release 20261103.1

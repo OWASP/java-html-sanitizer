@@ -3219,7 +3219,8 @@ class HtmlPolicyBuilderTest {
         "-webkit-image-set(url(c.png) 1x), auto",
         "src('https://attacker.example/c.png'), auto",
         "image(url(c.png)), auto",
-        "var(--x)",
+        "var(--x, url(https://attacker.example/x.svg#p))",
+        "var(--x, image-set('https://attacker.example/c.png' 1x)), auto",
         "env(x)",
         "attr(href)",
         "red; background: url(https://attacker.example/x)",
@@ -3267,6 +3268,18 @@ class HtmlPolicyBuilderTest {
               + " stroke=\"color-mix(in srgb, red, blue)\""
               + " clip-path=\"path('M 0 0 L 10 10')\""
               + " filter=\"blur(calc((1px + 2px) * 2))\"/></svg>"));
+
+    // Custom properties come only from the page's own CSS, and what a
+    // fallback holds is vetted like the rest of the value.
+    assertEquals(
+        "<svg><rect fill=\"var(--icon-color)\""
+        + " stroke=\"var(--icon-stroke, url(&#39;#g&#39;) red)\""
+        + " clip-path=\"shape(from 0 0, line to 10 10, close)\"></rect></svg>",
+        apply(relativeOnly,
+              "<svg><rect fill=\"var(--icon-color)\""
+              + " stroke=\"var(--icon-stroke, url(#g) red)\""
+              + " clip-path=\"shape(from 0 0, line to 10 10, close)\"/>"
+              + "</svg>"));
 
     // Other URLs need allowUrlsInStyles, as they do in style.
     String sameOrigin =
