@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261102.1
     * `xlink:href` now gets the URL protocol guard that `href`, `src` and
       the other URL attributes get.  A policy that allowed it on SVG
       elements, as SVG links need, passed any URL in it through unchecked,
