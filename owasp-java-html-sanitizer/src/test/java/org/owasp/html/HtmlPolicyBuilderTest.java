@@ -3463,6 +3463,8 @@ class HtmlPolicyBuilderTest {
         "url(' //attacker.example/x.svg#p')",
         "url(' https://attacker.example/x.svg#p ')",
         "url('\\9 https://attacker.example/x.svg#p')",
+        // A URL parser deletes the tab, so this is scheme-relative too.
+        "url('/\\9 /attacker.example/x.svg#p')",
         "url(' javascript:alert(1)')",
         "url('   ')",
     }) {

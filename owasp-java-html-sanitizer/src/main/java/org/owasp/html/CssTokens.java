@@ -58,8 +58,9 @@ import javax.annotation.Nullable;
  *     </table>
  *   </li>
  *   <li>All <code>url(&hellip;)</code> tokens are quoted, and their content
- *       is percent-encoded, without the spaces and control characters other
- *       than NUL at either end, which a URL parser would drop.
+ *       is percent-encoded, without what a URL parser would drop: the spaces
+ *       and control characters other than NUL at either end, and tabs and
+ *       newlines anywhere.
  *   <li>All keywords, identifiers, and hex literals are lower-case and have
  *       embedded escape sequences decoded, except that .</li>
  *   <li>All brackets nest properly.</li>
@@ -1340,10 +1341,11 @@ final class CssTokens implements Iterable<String> {
       }
       sb.append("('");
       // A URL parser drops the C0 controls and spaces at either end of a URL,
-      // so the browser loads url(' a.png ') as a.png.  Drop them here too,
-      // before encoding, so that the policy vets and the output names the
-      // URL the browser loads, not one beginning or ending in %20.  NUL is
-      // not among them: CSS reads it as U+FFFD, which a URL keeps.
+      // and tabs and newlines wherever they are, so the browser loads
+      // url(' a\9 .png ') as a.png.  Drop them here too, before encoding, so
+      // that the policy vets and the output names the URL the browser loads,
+      // not one with %20 or %09 in it.  NUL is not among them: CSS reads it
+      // as U+FFFD, which a URL keeps.
       boolean inValue = false;
       int endOfValue = sb.length();
       while (pos < cssLimit) {
@@ -1381,6 +1383,10 @@ final class CssTokens implements Iterable<String> {
         if (decoded == 0 || (0xd800 <= decoded && decoded <= 0xdfff)) {
           // CSS reads NUL and a surrogate as U+FFFD, raw or escaped.
           decoded = 0xfffd;
+        }
+        if (decoded == '\t' || decoded == '\n' || decoded == '\r') {
+          // A URL parser deletes tabs and newlines wherever they are.
+          continue;
         }
         boolean trimmable = decoded <= ' ';
         if (trimmable && !inValue) {

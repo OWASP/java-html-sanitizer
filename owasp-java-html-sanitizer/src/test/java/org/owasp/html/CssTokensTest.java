@@ -358,7 +358,8 @@ class CssTokensTest {
         "url('..'):URL",
         "url('foo'):URL", " ",
         "url('f%22/%28bar%27%5cbaz'):URL", " ",
-        "url('foo%20%0ab'):URL",
+        // A URL parser deletes the newline, \a, and keeps the space.
+        "url('foo%20b'):URL",
         "url('%c2%80%e1%88%b4%f0%90%90%82%ef%bf%bd'):URL"
         );
   }
@@ -392,6 +393,26 @@ class CssTokensTest {
         "url('a%20b'):URL", " ",
         "url('%c2%a0a%e3%80%80'):URL", " ",
         "url('%ef%bf%bda'):URL");
+  }
+
+  /**
+   * A URL parser deletes tabs and newlines wherever they are, so browsers
+   * load {@code url('/\9 /x')} as the scheme-relative {@code //x}.  The token
+   * used to keep them, percent-encoded, so the policy saw the relative
+   * {@code /%09/x}.  Other controls inside a URL are percent-encoded, as a
+   * URL parser encodes them.
+   */
+  @Test
+  void testUrlsLoseTheTabsAndNewlinesAUrlParserDeletes() {
+    assertTokens(
+        "url('a\\9 .png') url('/\\9 /x') url(a\\d\\a b) url('java\\9 script:x')"
+        + " url(\"a\tb\") url('a\\c b')",
+        "url('a.png'):URL", " ",
+        "url('//x'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('javascript:x'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('a%0cb'):URL");
   }
 
   /**
