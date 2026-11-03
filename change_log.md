@@ -2,17 +2,21 @@
 
 Most recent at top.
   * Next release
-    * A CSS `url(...)` now names its URL without the spaces and control
-      characters at either end, as browsers read it.  A URL parser drops
-      them, so `url(' a.png ')` loads `a.png`, but the sanitizer
-      percent-encoded them into the URL it vetted and emitted:
-      `url('%20a.png%20')` names another resource, and
-      `fill="url(' #g ')"` was dropped, because `%20#g%20` is not a
-      reference into the document.  A tab after `url(` also ended the URL,
-      and the value was dropped.  This affected `style` and the SVG
-      presentation attributes.  It was never unsafe: the output always
-      named the URL the policy had vetted.  Spaces inside a URL are still
-      percent-encoded.  Closes #529.
+    * The URL in a CSS `url(...)` is now read as browsers read it.  A URL
+      parser drops the spaces and control characters at either end of a
+      URL, and tabs and newlines anywhere in it, so `url(' a.png ')` and
+      `url('a\9 .png')` load `a.png`.  The sanitizer percent-encoded them
+      into the URL it vetted and emitted instead: `url('%20a.png%20')`
+      names another resource, and `fill="url(' #g ')"` was dropped,
+      because `%20#g%20` is not a reference into the document.  It now
+      drops them before vetting.  It also reads NUL as U+FFFD, as CSS
+      does, and a tab after `url(` as white-space.  In a quoted URL, an
+      escaped line break now continues the line, and an unescaped one
+      drops the URL, as a browser drops the declaration.  A string that
+      `style` takes as a URL is read the same way.  This affected `style`
+      and the SVG presentation attributes.  It was never unsafe: the
+      output always named the URL the policy had vetted.  Spaces inside a
+      URL are still percent-encoded.  Closes #529.
   * Release 20261103.2
     * `url(...)` in SVG presentation attributes is now vetted as it is in
       `style`.  `fill`, `stroke`, `filter`, `clip-path`, `mask`,
