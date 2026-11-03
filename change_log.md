@@ -1,6 +1,18 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * A CSS `url(...)` now names its URL without the spaces and control
+      characters at either end, as browsers read it.  A URL parser drops
+      them, so `url(' a.png ')` loads `a.png`, but the sanitizer
+      percent-encoded them into the URL it vetted and emitted:
+      `url('%20a.png%20')` names another resource, and
+      `fill="url(' #g ')"` was dropped, because `%20#g%20` is not a
+      reference into the document.  A tab after `url(` also ended the URL,
+      and the value was dropped.  This affected `style` and the SVG
+      presentation attributes.  It was never unsafe: the output always
+      named the URL the policy had vetted.  Spaces inside a URL are still
+      percent-encoded.  Closes #529.
   * Release 20261103.2
     * `url(...)` in SVG presentation attributes is now vetted as it is in
       `style`.  `fill`, `stroke`, `filter`, `clip-path`, `mask`,

@@ -138,9 +138,9 @@ final class StylingPolicy implements JoinableAttributePolicy {
         closeQuotedIdents();
         if (cssProperty != null) {
           if ((cssProperty.bits & CssSchema.BIT_URL) != 0) {
+            // CssTokens has dropped the spaces at either end of the URL.
             String urlContent = CssGrammar.cssContent(
-                Strings.stripHtmlSpaces(  // TODO: css spaces
-                    token.substring(4, token.length() - 1)));
+                token.substring(4, token.length() - 1));
             sanitizeAndAppendUrl(urlContent);
           }
         }

@@ -3439,6 +3439,46 @@ class HtmlPolicyBuilderTest {
    * hundreds of thousands of URLs or nested functions take linear time.
    */
   @Test
+  void testSvgPresentationUrlsLoseTheSpacesAtTheirEnds() {
+    HtmlPolicyBuilder relativeOnly = new HtmlPolicyBuilder()
+        .allowElements("svg", "rect")
+        .allowAttributes(PRESENTATION_URL_ATTRIBUTES).onElements("rect")
+        .allowOnlyRelativeUrls();
+    // Browsers drop the spaces at either end of a URL, so these refer into
+    // the document, as url(#p) does.  They used to become url('%20#p%20'),
+    // which is not a reference into the document, and were dropped.
+    for (String spaced : new String[] {
+        "url(' #p ')", "url(&quot;\t#p\\a &quot;)", "url(\t#p\t)",
+        "url(\\20 #p\\9)", "url('\\c #p')",
+    }) {
+      assertEquals(
+          "<svg><rect fill=\"url(&#39;#p&#39;)\"></rect></svg>",
+          apply(relativeOnly, "<svg><rect fill=\"" + spaced + "\"/></svg>"),
+          spaced);
+    }
+    // The URL policy sees the URL the browser would load.  It used to see a
+    // relative URL beginning with %20.
+    HtmlPolicyBuilder relativeStyleUrls = relativeOnly
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY);
+    assertEquals(
+        "<svg><rect fill=\"url(&#39;p.svg#p&#39;)\"></rect></svg>",
+        apply(relativeStyleUrls, "<svg><rect fill=\"url(' p.svg#p ')\"/></svg>"));
+    for (String hostile : new String[] {
+        "url(' //attacker.example/x.svg#p')",
+        "url(' https://attacker.example/x.svg#p ')",
+        "url('\\9 https://attacker.example/x.svg#p')",
+        "url(' javascript:alert(1)')",
+        "url('   ')",
+    }) {
+      assertEquals(
+          "<svg><rect></rect></svg>",
+          apply(relativeStyleUrls,
+                "<svg><rect fill=\"" + hostile + "\"/></svg>"),
+          hostile);
+    }
+  }
+
+  @Test
   void testLongPresentationAttributeValuesAreLinear() {
     final int n = 200000;
     final PolicyFactory policy = new HtmlPolicyBuilder()

@@ -363,6 +363,71 @@ class CssTokensTest {
         );
   }
 
+  /**
+   * A URL parser drops the C0 controls and spaces at either end of a URL, so
+   * browsers load {@code url(' a.png ')} as {@code a.png}, and CSS reads a
+   * tab after {@code url(} as white-space.  The token used to keep them,
+   * percent-encoded, as in {@code url('%20a.png%20')}, which names another
+   * URL, and to end at a tab after {@code url(}.
+   */
+  @Test
+  void testUrlsDropTheSpacesAUrlParserDrops() {
+    assertTokens(
+        "url(' #g ') url(\" a.png \") url('\\9 a.png\\a ') url(\\20 a.png)"
+        + " url(a.png\\20) url('\\1 a.png\\1f ') url(\ta.png\t)"
+        + " url(\t'a.png'\t) url(' ')",
+        "url('#g'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url(''):URL");
+    // A URL parser keeps spaces inside the URL, spaces outside ASCII, and
+    // NUL, which CSS reads as U+FFFD.
+    assertTokens(
+        "url(' a b ') url('\\a0 a\\3000') url('\\0 a')",
+        "url('a%20b'):URL", " ",
+        "url('%c2%a0a%e3%80%80'):URL", " ",
+        "url('%00a'):URL");
+  }
+
+  /**
+   * The spaces at the ends of a URL are dropped in one pass, however many
+   * there are and however many URLs carry them.
+   */
+  @Test
+  void testSpacesAroundUrlsAreDroppedInLinearTime() {
+    int n = 200000;
+    StringBuilder sb = new StringBuilder(8 * n);
+    sb.append("url('");
+    for (int i = 0; i < n; ++i) { sb.append(" \\9 "); }
+    sb.append('a');
+    for (int i = 0; i < n; ++i) { sb.append(" \\9 "); }
+    sb.append("')");
+    final String padded = sb.toString();
+    assertEquals(
+        "url('a')",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> CssTokens.lex(padded))
+        .normalizedCss);
+
+    sb.setLength(0);
+    StringBuilder expected = new StringBuilder(8 * n);
+    for (int i = 0; i < n; ++i) {
+      sb.append("url(\t' a '\t)");
+      expected.append("url('a')");
+    }
+    final String many = sb.toString();
+    assertEquals(
+        expected.toString(),
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> CssTokens.lex(many))
+        .normalizedCss);
+  }
+
   @Test
   void testFunctions() {
     assertTokens("( rgb(0,0,0) rgba(0,50%,0,100%)",

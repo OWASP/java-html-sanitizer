@@ -696,6 +696,27 @@ class StylingPolicyTest {
   }
 
   /**
+   * Browsers drop the spaces and control characters at either end of a URL,
+   * so the URL policy is given, and the output names, the URL without them.
+   * They used to reach both percent-encoded: {@code url('%20a.png%20')}.
+   */
+  @Test
+  void testCssUrlsLoseTheSpacesAtTheirEnds() {
+    String kept = "background-image:url('http://example.com/a.png#sanitized')";
+    assertSanitizedCss(
+        kept, "background-image: url(' http://example.com/a.png ')");
+    assertSanitizedCss(
+        kept, "background-image: url(\"\\9 http://example.com/a.png\\a \")");
+    assertSanitizedCss(
+        kept, "background-image: url(\\20 http://example.com/a.png\\20)");
+    assertSanitizedCss(
+        kept, "background-image: url(\thttp://example.com/a.png\t)");
+    // The policy sees the scheme the browser sees.
+    assertSanitizedCss(null, "background-image: url(' javascript:alert(1)')");
+    assertSanitizedCss(null, "background-image: url('\\9 javascript:x')");
+  }
+
+  /**
    * The grammar recurses once per function, so a declaration may nest
    * functions only so deep; one at the limit still parses as it always has.
    */

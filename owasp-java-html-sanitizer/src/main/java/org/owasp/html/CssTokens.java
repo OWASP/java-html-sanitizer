@@ -57,7 +57,9 @@ import javax.annotation.Nullable;
  *       <tr><td>all others</td>     <td>raw</td></tr>
  *     </table>
  *   </li>
- *   <li>All <code>url(&hellip;)</code> tokens are quoted.
+ *   <li>All <code>url(&hellip;)</code> tokens are quoted, and their content
+ *       is percent-encoded, without the spaces and control characters other
+ *       than NUL at either end, which a URL parser would drop.
  *   <li>All keywords, identifiers, and hex literals are lower-case and have
  *       embedded escape sequences decoded, except that .</li>
  *   <li>All brackets nest properly.</li>
@@ -1321,8 +1323,7 @@ final class CssTokens implements Iterable<String> {
       ++pos;
       // skip space.
       for (; pos < cssLimit; ++pos) {
-        char ch = css.charAt(pos);
-        if (ch != ' ' && !isLineTerminator(ch)) { break; }
+        if (!isCssWhitespace(css.charAt(pos))) { break; }
       }
       // Find the value.
       int delim;
@@ -1338,6 +1339,13 @@ final class CssTokens implements Iterable<String> {
         return false;
       }
       sb.append("('");
+      // A URL parser drops the C0 controls and spaces at either end of a URL,
+      // so the browser loads url(' a.png ') as a.png.  Drop them here too,
+      // before encoding, so that the policy vets and the output names the
+      // URL the browser loads, not one beginning or ending in %20.  NUL is
+      // not dropped: CSS reads it as U+FFFD, which a URL keeps.
+      boolean inValue = false;
+      int endOfValue = sb.length();
       while (pos < cssLimit) {
         int decoded = readCodepoint();
         if (delim != 0) {
@@ -1355,6 +1363,10 @@ final class CssTokens implements Iterable<String> {
           }
         } else {
           ++pos;
+        }
+        boolean trimmable = 0 < decoded && decoded <= ' ';
+        if (trimmable && !inValue) {
+          continue;
         }
         // Any character not in the RFC 3986 safe set is %-encoded.
         if (decoded < URL_SAFE.length && URL_SAFE[decoded]) {
@@ -1403,12 +1415,16 @@ final class CssTokens implements Iterable<String> {
             .append(HEX_DIGITS[(octet3 >>> 4) & 0xf])
             .append(HEX_DIGITS[(octet3 >>> 0) & 0xf]);
         }
+        if (!trimmable) {
+          inValue = true;
+          endOfValue = sb.length();
+        }
       }
+      sb.setLength(endOfValue);
 
       // skip space.
       for (; pos < cssLimit; ++pos) {
-        char ch = css.charAt(pos);
-        if (ch != ' ' && !isLineTerminator(ch)) { break; }
+        if (!isCssWhitespace(css.charAt(pos))) { break; }
       }
       if (pos < cssLimit && css.charAt(pos) == ')') {
         ++pos;
@@ -1462,6 +1478,11 @@ final class CssTokens implements Iterable<String> {
 
   private static boolean isLineTerminator(char ch) {
     return ch < 0x20 && 0 != (LINE_TERMINATOR_BITMASK & (1 << ch));
+  }
+
+  /** Space, tab or a line terminator: what CSS reads as white-space. */
+  private static boolean isCssWhitespace(char ch) {
+    return ch == ' ' || ch == '\t' || isLineTerminator(ch);
   }
 
   private static int[] expandIfNecessary(int[] arr, int limit, int needed) {

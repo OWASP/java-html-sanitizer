@@ -91,8 +91,9 @@ final class PresentationAttributePolicy implements JoinableAttributePolicy {
       afterUrl = false;
       switch (type) {
         case URL: {
-          String url = Strings.stripHtmlSpaces(CssGrammar.cssContent(
-              token.substring(4, token.length() - 1)));
+          // CssTokens has dropped the spaces at either end of the URL.
+          String url = CssGrammar.cssContent(
+              token.substring(4, token.length() - 1));
           String okUrl = vetUrl(url);
           if (okUrl == null) {
             return null;
