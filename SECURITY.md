@@ -6,7 +6,7 @@ Only the latest version is supported with updates.
 
 | Version    | Supported          |
 | ---------- | ------------------ |
-| 20261102.1 | :white_check_mark: |
+| 20261102.2 | :white_check_mark: |
 
 ## Scope
 

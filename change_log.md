@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261102.2
     * An SVG animation can no longer rewrite a URL attribute.  `set` and
       `animate` write the values in their `to`, `from`, `by` and `values`
       attributes into the attribute their `attributeName` names, on their
