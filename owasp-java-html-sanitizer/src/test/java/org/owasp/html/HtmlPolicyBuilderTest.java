@@ -2837,6 +2837,310 @@ class HtmlPolicyBuilderTest {
     }
   }
 
+  /**
+   * {@code imagesrcset} is the {@code srcset} of
+   * {@code <link rel=preload as=image>}: it has the same syntax, and
+   * browsers fetch its URLs as soon as the page loads.  It now gets the guard
+   * {@code srcset} gets.  It used to get none, so a policy that allowed it
+   * passed any URL in it through, whatever URL protocols it allowed.
+   */
+  @Test
+  void testImagesrcsetGetsTheSrcsetGuard() {
+    String dropped = "<link rel=\"preload\" as=\"image\" />";
+
+    // The default guard: no protocol was allowed.
+    for (String name : new String[] {
+        "imagesrcset", "srcset", "ImageSrcSet", "IMAGESRCSET",
+    }) {
+      assertEquals(
+          dropped,
+          apply(new HtmlPolicyBuilder()
+                .allowElements("link")
+                .allowAttributes("rel", "as", "srcset", name)
+                    .onElements("link"),
+                "<link rel=preload as=image " + name
+                + "=\"https://attacker.example/x.png\">"),
+          name);
+    }
+
+    HtmlPolicyBuilder https = new HtmlPolicyBuilder()
+        .allowElements("link")
+        .allowAttributes("rel", "as", "imagesrcset").onElements("link")
+        .allowUrlProtocols("https");
+    for (String hostile : new String[] {
+        "javascript:alert(1)",
+        "JavaScript:alert(1) 1x",
+        " javascript:alert(1) ",
+        "java&#x09;script:alert(1)",
+        "&#106;avascript:alert(1)",
+        "javascript&colon;alert(1)",
+        "data:image/svg+xml,<svg onload=alert(1)>",
+        "http://attacker.example/x.png 2x",
+        "//attacker.example/x.png",
+    }) {
+      assertEquals(
+          dropped,
+          apply(https,
+                "<link rel=preload as=image imagesrcset=\"" + hostile + "\">"),
+          hostile);
+    }
+    // Candidates the policy allows are kept, the others dropped.
+    assertEquals(
+        "<link rel=\"preload\" as=\"image\""
+        + " imagesrcset=\"https://example.com/a.png 2x\" />",
+        apply(https,
+              "<link rel=preload as=image imagesrcset=\""
+              + "javascript:alert(1) 1x, https://example.com/a.png 2x\">"));
+
+    // Relative URLs only.
+    HtmlPolicyBuilder relativeOnly = new HtmlPolicyBuilder()
+        .allowElements("link")
+        .allowAttributes("rel", "as", "imagesrcset").onElements("link")
+        .allowStandardUrlProtocols()
+        .allowOnlyRelativeUrls();
+    for (String hostile : new String[] {
+        "https://attacker.example/x.png",
+        "//attacker.example/x.png",
+        "\\\\attacker.example/x.png",
+        "/\\attacker.example/x.png",
+    }) {
+      assertEquals(
+          dropped,
+          apply(relativeOnly,
+                "<link rel=preload as=image imagesrcset=\"" + hostile + "\">"),
+          hostile);
+    }
+    assertEquals(
+        "<link rel=\"preload\" as=\"image\""
+        + " imagesrcset=\"/a.png 1x , b.png 2x\" />",
+        apply(relativeOnly,
+              "<link rel=preload as=image imagesrcset=\"/a.png 1x, b.png 2x\">"));
+
+    // Allowed globally, or under a matching policy.
+    String js =
+        "<link rel=preload as=image imagesrcset=\"javascript:alert(1)\">";
+    assertEquals(
+        dropped,
+        apply(new HtmlPolicyBuilder()
+              .allowElements("link")
+              .allowAttributes("rel", "as").onElements("link")
+              .allowAttributes("imagesrcset").globally()
+              .allowUrlProtocols("https"),
+              js));
+    assertEquals(
+        dropped,
+        apply(new HtmlPolicyBuilder()
+              .allowElements("link")
+              .allowAttributes("rel", "as").onElements("link")
+              .allowAttributes("imagesrcset")
+                  .matching(Pattern.compile(".*")).onElements("link")
+              .allowUrlProtocols("https"),
+              js));
+
+    // Joined with and(), the guards inside meet as they do on src: one that
+    // allowed no protocol yields, and relative-only holds.
+    PolicyFactory httpsFactory = https.toFactory();
+    PolicyFactory yielding = new HtmlPolicyBuilder()
+        .allowElements("link")
+        .allowAttributes("rel", "as", "imagesrcset").onElements("link")
+        .toFactory()
+        .and(httpsFactory);
+    String absolute = "<link rel=preload as=image"
+        + " imagesrcset=\"https://example.com/a.png 1x, javascript:alert(1) 2x\">";
+    assertEquals(
+        "<link rel=\"preload\" as=\"image\""
+        + " imagesrcset=\"https://example.com/a.png 1x\" />",
+        yielding.sanitize(absolute));
+    assertEquals(dropped, relativeOnly.toFactory().and(httpsFactory)
+                 .sanitize(absolute));
+  }
+
+  /**
+   * {@code ping}, on {@code <a>} and {@code <area>}, is a list of URLs
+   * separated by spaces, and the browser sends a POST request to each when
+   * the link is followed.  Each URL in it now gets the URL protocol guard,
+   * as does each in {@code attributionsrc}, another such list.  They used
+   * to get none, so a relative-only policy that allowed {@code ping} let a
+   * click send a request anywhere.
+   */
+  @Test
+  void testPingIsAListOfGuardedUrls() {
+    HtmlPolicyBuilder relativeOnly = new HtmlPolicyBuilder()
+        .allowElements("a", "img")
+        .allowAttributes("href", "ping").onElements("a")
+        .allowAttributes("src", "attributionsrc").onElements("img")
+        .allowStandardUrlProtocols()
+        .allowOnlyRelativeUrls();
+    assertEquals(
+        "<a href=\"/ok\">x</a>",
+        apply(relativeOnly,
+              "<a href=\"/ok\" ping=\"https://attacker.example/p\">x</a>"));
+    assertEquals(
+        "<img src=\"/i.png\" attributionsrc=\"/ok\" />",
+        apply(relativeOnly,
+              "<img src=\"/i.png\""
+              + " attributionsrc=\"https://attacker.example/a /ok\">"));
+
+    // Each URL is guarded on its own, wherever the browser splits the list.
+    for (String sep : new String[] {
+        " ", "\t", "\n", "\r", "\r\n  ", "&#9;", "&#10;", "&#13;", "&#32;",
+    }) {
+      assertEquals(
+          "<a href=\"/ok\" ping=\"/a /b\">x</a>",
+          apply(relativeOnly,
+                "<a href=\"/ok\" ping=\"" + sep + "/a" + sep
+                + "https://attacker.example/p" + sep + "//attacker.example/q"
+                + sep + "/b" + sep + "\">x</a>"),
+          sep);
+    }
+    // A form feed is not an XML character, so the sanitizer drops it from
+    // the value before the policy sees it, and it separates nothing: what
+    // is left is one relative URL, and the browser reads it the same way.
+    for (String formFeed : new String[] { "\f", "&#12;" }) {
+      assertEquals(
+          "<a href=\"/ok\" ping=\"/ahttps://attacker.example/p\">x</a>",
+          apply(relativeOnly,
+                "<a href=\"/ok\" ping=\"/a" + formFeed
+                + "https://attacker.example/p\">x</a>"),
+          formFeed);
+    }
+
+    HtmlPolicyBuilder https = new HtmlPolicyBuilder()
+        .allowElements("a")
+        .allowAttributes("href", "ping").onElements("a")
+        .allowUrlProtocols("https");
+    for (String hostile : new String[] {
+        "javascript:alert(1)",
+        "JavaScript:alert(1)",
+        " javascript:alert(1) ",
+        "&#106;avascript:alert(1)",
+        "javascript&colon;alert(1)",
+        "vbscript:msgbox(1)",
+        "data:text/plain,x",
+        "http://attacker.example/p",
+        "//attacker.example/p",
+        "\\\\attacker.example/p",
+        "javascript:alert(1) //attacker.example/p",
+    }) {
+      assertEquals(
+          "<a href=\"/ok\">x</a>",
+          apply(https, "<a href=\"/ok\" ping=\"" + hostile + "\">x</a>"),
+          hostile);
+    }
+    // A list with no URL in it comes out empty rather than dropped: an
+    // empty attributionsrc registers attribution with the element's own src
+    // or href, which its own guard has vetted.
+    for (String empty : new String[] { "", "   ", "\t\n" }) {
+      assertEquals(
+          "<a href=\"/ok\" ping=\"\">x</a>",
+          apply(https, "<a href=\"/ok\" ping=\"" + empty + "\">x</a>"),
+          empty);
+    }
+    assertEquals(
+        "<img src=\"/i.png\" attributionsrc=\"\" />",
+        apply(relativeOnly, "<img src=\"/i.png\" attributionsrc=\"\">"));
+    assertEquals(
+        "<img src=\"/i.png\" />",
+        apply(relativeOnly,
+              "<img src=\"/i.png\" attributionsrc=\""
+              + "https://attacker.example/a //attacker.example/b\">"));
+    // URLs the policy allows are kept, normalized as in href.
+    assertEquals(
+        "<a href=\"/ok\" ping=\"https://example.com/p /q%28x%29\">x</a>",
+        apply(https,
+              "<a href=\"/ok\" ping=\"https://example.com/p"
+              + " javascript:alert(1) /q(x)\">x</a>"));
+
+    // Allowed globally, or under a matching policy.
+    String js = "<a href=\"/ok\""
+        + " ping=\"javascript:alert(1) https://attacker.example/p\">x</a>";
+    assertEquals(
+        "<a href=\"/ok\">x</a>",
+        apply(new HtmlPolicyBuilder()
+              .allowElements("a")
+              .allowAttributes("href", "ping").globally(),
+              js));
+    assertEquals(
+        "<a href=\"/ok\">x</a>",
+        apply(new HtmlPolicyBuilder()
+              .allowElements("a")
+              .allowAttributes("href").onElements("a")
+              .allowAttributes("ping")
+                  .matching(Pattern.compile(".*")).onElements("a")
+              .allowOnlyRelativeUrls(),
+              js));
+
+    // Joined with and(), the guards inside meet as they do on href.
+    PolicyFactory httpsFactory = https.toFactory();
+    assertEquals(
+        "<a href=\"/ok\" ping=\"https://attacker.example/p\">x</a>",
+        new HtmlPolicyBuilder()
+            .allowElements("a")
+            .allowAttributes("href", "ping").onElements("a")
+            .toFactory()
+            .and(httpsFactory)
+            .sanitize(js));
+    assertEquals(
+        "<a href=\"/ok\">x</a>",
+        relativeOnly.toFactory().and(httpsFactory).sanitize(js));
+  }
+
+  /**
+   * An attribute with a URL guard cannot be the target of an SVG animation,
+   * which would write an unvetted value into it.  That now includes the URL
+   * lists {@code ping}, {@code attributionsrc} and {@code imagesrcset}.
+   */
+  @Test
+  void testSvgAnimationCannotTargetUrlLists() {
+    HtmlPolicyBuilder smil = new HtmlPolicyBuilder()
+        .allowElements("svg", "a", "set")
+        .allowAttributes("href").onElements("a")
+        .allowAttributes("ping", "attributionsrc", "imagesrcset").globally()
+        .allowAttributes("attributeName", "to").onElements("set")
+        .allowOnlyRelativeUrls();
+    for (String target : new String[] {
+        "ping", "attributionsrc", "imagesrcset", "PING",
+    }) {
+      assertEquals(
+          "<svg><a href=\"#\">"
+          + "<set to=\"https://attacker.example/p\"></set>x</a></svg>",
+          apply(smil,
+                "<svg><a href=\"#\"><set attributeName=\"" + target + "\""
+                + " to=\"https://attacker.example/p\"/>x</a></svg>"),
+          target);
+    }
+  }
+
+  /**
+   * The URL list guards walk the list once, so a list of hundreds of
+   * thousands of URLs, half of them rejected, takes time linear in it.
+   */
+  @Test
+  void testLongUrlListsAreLinear() {
+    final int n = 200000;
+    final PolicyFactory policy = new HtmlPolicyBuilder()
+        .allowElements("a", "link")
+        .allowAttributes("href", "ping").onElements("a")
+        .allowAttributes("rel", "as", "imagesrcset").onElements("link")
+        .allowUrlProtocols("https")
+        .toFactory();
+    final String pings =
+        "<a href=\"/ok\" ping=\"" + repeat("/a javascript:x ", n) + "\">t</a>";
+    String keptPings = repeat("/a ", n);
+    assertEquals(
+        "<a href=\"/ok\" ping=\""
+        + keptPings.substring(0, keptPings.length() - 1) + "\">t</a>",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> policy.sanitize(pings)));
+    final String srcset = "<link rel=preload as=image imagesrcset=\""
+        + repeat("/a 1x, javascript:x 2x, ", n) + "/b\">";
+    assertEquals(
+        "<link rel=\"preload\" as=\"image\" imagesrcset=\""
+        + repeat("/a 1x , ", n) + "/b\" />",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> policy.sanitize(srcset)));
+  }
+
   private static String repeat(String s, int n) {
     StringBuilder sb = new StringBuilder(s.length() * n);
     for (int i = 0; i < n; ++i) {

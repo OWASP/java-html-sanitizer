@@ -65,7 +65,7 @@ Use these as targets when touching parser, policy, or renderer code:
 - Raw-text and RCDATA content handling (`style`, `noscript`, and friends): CVE-2025-66021 (advisory GHSA-g9gq-3pfx-2gw2)
 - mXSS via serialize and re-parse differences
 - SVG and MathML namespace and case tricks
-- `javascript:`, `data:`, and scheme-relative URLs in allowed attributes, including namespaced URL attributes such as SVG `xlink:href` in any case (GHSA-643j-x48g-g86p), and SVG `set` and `animate`, whose `attributeName` makes them write their values into another attribute (GHSA-ppfr-7xq6-p6c2)
+- `javascript:`, `data:`, and scheme-relative URLs in allowed attributes, including namespaced URL attributes such as SVG `xlink:href` in any case (GHSA-643j-x48g-g86p), URL attributes under another name or holding a list of URLs, such as `imagesrcset` and `ping` (GHSA-x759-2xw8-gp4m), and SVG `set` and `animate`, whose `attributeName` makes them write their values into another attribute (GHSA-ppfr-7xq6-p6c2)
 - Entity and encoding edge cases: malformed entities, entities without semicolons, null bytes, mixed case, nested and unbalanced tags
 - Denial of service: unbounded recursion over nested CSS functions (GHSA-x6fc-6qh4-g3wr), quadratic passes over one tag carrying many attributes, with and without a change listener (GHSA-47x2-9gq9-jg3m), quadratic tag-balancer paths and unbounded formatting reconstruction (release 20260921.1, #490)
 - Full history: `docs/vulnerabilities.md`
