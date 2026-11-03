@@ -920,6 +920,12 @@ final class CssTokens implements Iterable<String> {
         }
         return hexValue;
       }
+      if (Character.isHighSurrogate(esc) && pos + 2 < cssLimit
+          && Character.isLowSurrogate(css.charAt(pos + 2))) {
+        // An escaped code point outside the BMP is two code units.
+        pos += 3;
+        return Character.toCodePoint(esc, css.charAt(pos - 1));
+      }
       pos += 2;
       return esc;
     }

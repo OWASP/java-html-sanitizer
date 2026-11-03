@@ -429,8 +429,17 @@ class CssTokensTest {
         "url('%ef%bf%bda'):URL", " ",
         "url('a%ef%bf%bd'):URL", " ",
         "url('%ef%bf%bd'):URL");
-    // A surrogate pair is one code point.
-    assertTokens("url('😀')", "url('%f0%9f%98%80'):URL");
+    // A surrogate pair is one code point, escaped or not.  An escaped one
+    // used to reach the URL as two lone surrogates, each read as U+FFFD.
+    assertTokens(
+        "url('😀') url('\\😀a') url(\\😀a)",
+        "url('%f0%9f%98%80'):URL", " ",
+        "url('%f0%9f%98%80a'):URL", " ",
+        "url('%f0%9f%98%80a'):URL");
+    assertTokens(
+        "'\\😀' a\\😀",
+        "'😀':STRING", " ",
+        "a😀:IDENT");
   }
 
   /**
