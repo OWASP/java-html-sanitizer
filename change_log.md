@@ -16,8 +16,8 @@ Most recent at top.
       `requireRelNofollowOnLinks()` and `target` add to an `href` link,
       which it was missing.  Policies that do not allow `xlink:href` in
       any spelling, including every policy in `Sanitizers`, are unaffected.
-      Reported independently by Irhas Abdul Rosyid (@analisaperlengkapan)
-      and by Milos.
+      Reported independently by Irhas Abdul Rosyid (@analisaperlengkapan),
+      and by @sysmustang and @cipa5.  GHSA-643j-x48g-g86p.
   * Release 20261031.1
     * One tag carrying many attributes no longer takes time quadratic in
       the tag.  The sanitizer keeps a tag's attributes in a linked list,
