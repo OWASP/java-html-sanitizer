@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -821,6 +822,9 @@ public class HtmlPolicyBuilder {
         "action", "archive", "background", "cite", "classid", "codebase", "data",
         "dsync", "formaction", "href", "icon", "longdesc", "manifest", "poster",
         "profile", "src", "usemap",
+        // SVG links: browsers follow xlink:href, the SVG 1.1 spelling of href,
+        // on a, use, image and the other elements that accept href.
+        "xlink:href",
     }) {
       builder.put(urlAttributeName, identityGuard);
     }
@@ -849,6 +853,18 @@ public class HtmlPolicyBuilder {
 
     });
     ATTRIBUTE_GUARDS = Collections.unmodifiableMap(builder);
+  }
+
+  /**
+   * The guard for an allowed attribute name, if it needs one.
+   * The lookup ignores case because
+   * {@link HtmlLexer#canonicalAttributeName} keeps the case of namespaced
+   * names, so a policy can allow {@code XLINK:HREF}, while browsers
+   * lower-case every attribute name and treat that as {@code xlink:href}.
+   */
+  private static @Nullable AttributeGuardMaker guardMakerFor(
+      String attributeName) {
+    return ATTRIBUTE_GUARDS.get(Strings.toLowerCase(attributeName));
   }
 
   /**
@@ -969,29 +985,28 @@ public class HtmlPolicyBuilder {
           ? UrlProtocolGuard.RELATIVE_ONLY
           : UrlProtocolGuard.forProtocols(allowedProtocols);
 
-      Set<String> toGuard = new HashSet<>(ATTRIBUTE_GUARDS.keySet());
       AttributeGuardIntermediates intermediates = new AttributeGuardIntermediates(
           urlAttributePolicy, this.styleUrlPolicy, this.stylingPolicySchema);
-      for (Map.Entry<String, AttributeGuardMaker> e : ATTRIBUTE_GUARDS.entrySet()) {
-        String attributeName = e.getKey();
-        if (globalAttrPolicies.containsKey(attributeName)) {
-          toGuard.remove(attributeName);
-          AttributePolicy guard = e.getValue().makeGuard(intermediates);
-          globalAttrPolicies.put(attributeName, AttributePolicy.Util.join(
-              guard, globalAttrPolicies.get(attributeName)));
+      for (Map.Entry<String, AttributePolicy> e
+           : globalAttrPolicies.entrySet()) {
+        AttributeGuardMaker guardMaker = guardMakerFor(e.getKey());
+        if (guardMaker != null) {
+          e.setValue(AttributePolicy.Util.join(
+              guardMaker.makeGuard(intermediates), e.getValue()));
         }
       }
       // Implement guards not implemented on global policies in the per-element
       // policy maps.
-      for (Map.Entry<String, Map<String, AttributePolicy>> e
-           : attrPolicies.entrySet()) {
-        Map<String, AttributePolicy> policies = e.getValue();
-        for (String attributeName : toGuard) {
-          if (policies.containsKey(attributeName)) {
-            AttributePolicy guard = ATTRIBUTE_GUARDS.get(attributeName)
-                .makeGuard(intermediates);
-            policies.put(attributeName, AttributePolicy.Util.join(
-                guard, policies.get(attributeName)));
+      for (Map<String, AttributePolicy> policies : attrPolicies.values()) {
+        for (Map.Entry<String, AttributePolicy> e : policies.entrySet()) {
+          String attributeName = e.getKey();
+          if (globalAttrPolicies.containsKey(attributeName)) {
+            continue;
+          }
+          AttributeGuardMaker guardMaker = guardMakerFor(attributeName);
+          if (guardMaker != null) {
+            e.setValue(AttributePolicy.Util.join(
+                guardMaker.makeGuard(intermediates), e.getValue()));
           }
         }
       }
@@ -1274,8 +1289,26 @@ public class HtmlPolicyBuilder {
       return -1;
     }
 
+    /**
+     * True if attrs has a URL that browsers follow when the element is
+     * clicked: {@code href}, or {@code xlink:href} on an SVG link, which
+     * keeps the case it was allowed in.
+     */
+    private static boolean hasLinkUrl(List<String> attrs) {
+      for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
+        String name = it.next();
+        if ("href".equals(name) || "xlink:href".equals(Strings.toLowerCase(name))) {
+          return true;
+        }
+        if (it.hasNext()) {
+          it.next();  // Skip the value.
+        }
+      }
+      return false;
+    }
+
     public String apply(String elementName, List<String> attrs) {
-      if (indexOfAttributeValue("href", attrs) >= 0) {
+      if (hasLinkUrl(attrs)) {
         // It's a link.
         boolean hasTarget = indexOfAttributeValue("target", attrs) >= 0;
         if (hasTarget || !extra.isEmpty()) {

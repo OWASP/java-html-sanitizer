@@ -1417,6 +1417,52 @@ class HtmlPolicyBuilderTest {
         and1.sanitize(link));
   }
 
+  /**
+   * An SVG link whose URL is in {@code xlink:href} is a link too, so it gets
+   * the rels that one in {@code href} gets, in any case the policy allowed
+   * the name in.
+   */
+  @Test
+  void testLinkRelsOnSvgXlinkHref() {
+    for (String name : new String[] { "xlink:href", "XLINK:HREF" }) {
+      PolicyFactory nofollow = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes("href", name, "target").onElements("a")
+          .allowUrlProtocols("https")
+          .requireRelNofollowOnLinks()
+          .toFactory();
+      PolicyFactory targetted = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes(name, "target").onElements("a")
+          .allowUrlProtocols("https")
+          .toFactory();
+      assertEquals(
+          "<svg><a " + name + "=\"https://example.com/\" target=\"_blank\""
+          + " rel=\"nofollow noopener noreferrer\">x</a>"
+          + "<a href=\"https://example.com/\" target=\"_blank\""
+          + " rel=\"nofollow noopener noreferrer\">y</a>"
+          + "<a " + name + "=\"https://example.com/\""
+          + " rel=\"nofollow\">z</a></svg>",
+          nofollow.sanitize(
+              "<svg><a " + name + "=\"https://example.com/\" target=_blank>x</a>"
+              + "<a href=\"https://example.com/\" target=_blank>y</a>"
+              + "<a " + name + "=\"https://example.com/\">z</a></svg>"),
+          name);
+      assertEquals(
+          "<svg><a " + name + "=\"https://example.com/\" target=\"_blank\""
+          + " rel=\"noopener noreferrer\">x</a></svg>",
+          targetted.sanitize(
+              "<svg><a " + name + "=\"https://example.com/\" target=_blank>x"
+              + "</a></svg>"),
+          name);
+      // An anchor with neither is not a link and gets no rel.
+      assertEquals(
+          "<svg><a target=\"_blank\">x</a></svg>",
+          nofollow.sanitize("<svg><a target=_blank>x</a></svg>"),
+          name);
+    }
+  }
+
   @Test
   void testLinkRelsWhenRelPresent() {
     PolicyFactory pf = new HtmlPolicyBuilder()
@@ -2393,6 +2439,193 @@ class HtmlPolicyBuilderTest {
           walk(v, path + "." + f.getName(), seen, found);
         }
       }
+    }
+  }
+
+  /**
+   * Browsers follow {@code xlink:href} on SVG links as they follow
+   * {@code href}, so it gets the same URL protocol guard: a policy that
+   * allows it under {@code allowUrlProtocols} drops a javascript: URL in it
+   * while keeping an allowed one.
+   */
+  @Test
+  void testXlinkHrefIsAUrlAttribute() {
+    HtmlPolicyBuilder svgLinks = new HtmlPolicyBuilder()
+        .allowElements("svg", "a", "use", "image", "rect")
+        .allowAttributes("xlink:href", "href").onElements("a", "use", "image")
+        .allowAttributes("width", "height").onElements("rect")
+        .allowUrlProtocols("http", "https");
+
+    assertEquals(
+        "<svg><rect width=\"300\" height=\"120\"></rect></svg>",
+        apply(svgLinks,
+              "<svg><a xlink:href=\"javascript:alert(1)\">"
+              + "<rect width=\"300\" height=\"120\"/></a></svg>"));
+    for (String hostile : new String[] {
+        "javascript:alert(1)",
+        "JavaScript:alert(1)",
+        " javascript:alert(1)",
+        "java&#x09;script:alert(1)",
+        "&#106;avascript:alert(1)",
+        "javascript&colon;alert(1)",
+        "vbscript:msgbox(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "data:image/svg+xml,<svg onload=alert(1)>",
+    }) {
+      assertEquals(
+          "<svg>x</svg>",
+          apply(svgLinks, "<svg><a xlink:href=\"" + hostile + "\">x</a></svg>"),
+          hostile);
+      assertEquals(
+          "<svg><use></use><image></image></svg>",
+          apply(svgLinks,
+                "<svg><use xlink:href=\"" + hostile + "\"/>"
+                + "<image xlink:href=\"" + hostile + "\"/></svg>"),
+          hostile);
+    }
+    assertEquals(
+        "<svg><a xlink:href=\"https://example.com/\">x</a></svg>",
+        apply(svgLinks,
+              "<svg><a xlink:href=\"https://example.com/\">x</a></svg>"));
+    assertEquals(
+        "<svg><a xlink:href=\"/x\">x</a>"
+        + "<use xlink:href=\"#icon\"></use>"
+        + "<image xlink:href=\"http://example.com/i.png\"></image></svg>",
+        apply(svgLinks,
+              "<svg><a xlink:href=\"/x\">x</a><use xlink:href=\"#icon\"/>"
+              + "<image xlink:href=\"http://example.com/i.png\"/></svg>"));
+  }
+
+  /**
+   * The guard on {@code xlink:href} is the one every URL attribute gets, so
+   * it also enforces the default guard, when no protocol is allowed, and
+   * {@code allowOnlyRelativeUrls}, and it holds when the attribute is allowed
+   * globally or under a matching policy.
+   */
+  @Test
+  void testXlinkHrefGetsEveryUrlGuard() {
+    String js = "<svg><a xlink:href=\"javascript:alert(1)\">x</a></svg>";
+    String schemeRelative =
+        "<svg><a xlink:href=\"//attacker.example/x\">x</a></svg>";
+    String relative = "<svg><a xlink:href=\"x/y\">x</a></svg>";
+
+    // The default guard: no protocol was allowed.
+    assertEquals(
+        "<svg>x</svg>",
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a")
+              .allowAttributes("xlink:href").onElements("a"),
+              js));
+    assertEquals(
+        relative,
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a")
+              .allowAttributes("xlink:href").onElements("a"),
+              relative));
+
+    // Relative URLs only.
+    HtmlPolicyBuilder relativeOnly = new HtmlPolicyBuilder()
+        .allowElements("svg", "a")
+        .allowAttributes("xlink:href").onElements("a")
+        .allowStandardUrlProtocols()
+        .allowOnlyRelativeUrls();
+    assertEquals("<svg>x</svg>", apply(relativeOnly, js));
+    assertEquals("<svg>x</svg>", apply(relativeOnly, schemeRelative));
+    assertEquals(
+        "<svg>x</svg>",
+        apply(relativeOnly,
+              "<svg><a xlink:href=\"https://example.com/\">x</a></svg>"));
+    assertEquals(relative, apply(relativeOnly, relative));
+
+    // Allowed globally.
+    HtmlPolicyBuilder global = new HtmlPolicyBuilder()
+        .allowElements("svg", "a")
+        .allowAttributes("xlink:href").globally()
+        .allowUrlProtocols("https");
+    assertEquals("<svg>x</svg>", apply(global, js));
+    assertEquals(
+        "<svg><a xlink:href=\"https://example.com/\">x</a></svg>",
+        apply(global,
+              "<svg><a xlink:href=\"https://example.com/\">x</a></svg>"));
+
+    // Allowed both globally and on the element: guarded either way.
+    assertEquals(
+        "<svg>x</svg>",
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a")
+              .allowAttributes("xlink:href").globally()
+              .allowAttributes("xlink:href").onElements("a")
+              .allowUrlProtocols("https"),
+              js));
+
+    // A matching policy does not displace the guard.
+    assertEquals(
+        "<svg>x</svg>",
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a")
+              .allowAttributes("xlink:href")
+                  .matching(Pattern.compile(".*")).onElements("a")
+              .allowUrlProtocols("https"),
+              js));
+
+    // Policies joined with and() keep it.
+    PolicyFactory joined = new HtmlPolicyBuilder()
+        .allowElements("svg", "a")
+        .allowAttributes("xlink:href").onElements("a")
+        .allowUrlProtocols("https")
+        .toFactory()
+        .and(new HtmlPolicyBuilder()
+             .allowElements("svg", "a", "rect")
+             .allowAttributes("href").onElements("a")
+             .allowUrlProtocols("http")
+             .toFactory());
+    assertEquals("<svg>x</svg>", joined.sanitize(js));
+    assertEquals(
+        "<svg><a xlink:href=\"https://example.com/\">x</a></svg>",
+        joined.sanitize(
+            "<svg><a xlink:href=\"https://example.com/\">x</a></svg>"));
+  }
+
+  /**
+   * Namespaced attribute names keep their case through the sanitizer, but a
+   * browser lower-cases every attribute name, so it treats
+   * {@code XLINK:HREF} as {@code xlink:href}.  A policy that allows the name
+   * in any case gets the URL guard for it.
+   */
+  @Test
+  void testUrlGuardIgnoresTheCaseOfNamespacedNames() {
+    for (String name : new String[] {
+        "XLINK:HREF", "xlink:HREF", "XLink:href", "xLiNk:HrEf",
+    }) {
+      HtmlPolicyBuilder onA = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes(name).onElements("a")
+          .allowUrlProtocols("https");
+      HtmlPolicyBuilder global = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes(name).globally()
+          .allowUrlProtocols("https");
+      HtmlPolicyBuilder relativeOnly = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes(name).onElements("a")
+          .allowStandardUrlProtocols()
+          .allowOnlyRelativeUrls();
+      for (HtmlPolicyBuilder b : Arrays.asList(onA, global, relativeOnly)) {
+        assertEquals(
+            "<svg>x</svg>",
+            apply(b, "<svg><a " + name + "=\"javascript:alert(1)\">x</a></svg>"),
+            name);
+      }
+      assertEquals(
+          "<svg>x</svg>",
+          apply(relativeOnly,
+                "<svg><a " + name + "=\"//attacker.example/\">x</a></svg>"),
+          name);
+      assertEquals(
+          "<svg><a " + name + "=\"https://example.com/\">x</a></svg>",
+          apply(onA,
+                "<svg><a " + name + "=\"https://example.com/\">x</a></svg>"),
+          name);
     }
   }
 
