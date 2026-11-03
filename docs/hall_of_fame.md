@@ -11,6 +11,7 @@ Most recent at top.
 
 | Researcher | Advisory | Finding | Fixed in |
 | ---------- | -------- | ------- | -------- |
+| Irhas Abdul Rosyid ([@analisaperlengkapan](https://github.com/analisaperlengkapan)); [@sysmustang](https://github.com/sysmustang) and [@cipa5](https://github.com/cipa5), independently | [GHSA-643j-x48g-g86p](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-643j-x48g-g86p) | XSS via `javascript:` URLs in SVG `xlink:href`, which the URL protocol guard did not cover | 20261102.1 |
 | Irhas Abdul Rosyid ([@analisaperlengkapan](https://github.com/analisaperlengkapan)) | [GHSA-47x2-9gq9-jg3m](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-47x2-9gq9-jg3m) | Denial of service via a tag with many repeated allowed attributes | 20261031.1 |
 | [@tndud042713](https://github.com/tndud042713) | [GHSA-6rfr-g8xv-xrp3](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-6rfr-g8xv-xrp3) | CSS property injection via a single-quote breakout in style URLs | 20260922.1 |
 | [@thientd](https://github.com/thientd) | [GHSA-vqwm-jvq2-mfwc](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-vqwm-jvq2-mfwc) | Incomplete fix of CVE-2025-66021 | 20260921.1 |
