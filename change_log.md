@@ -1,6 +1,20 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * An SVG animation can no longer rewrite a URL attribute.  `set` and
+      `animate` write the values in their `to`, `from` and `values`
+      attributes into the attribute their `attributeName` names, on their
+      parent or on the element their `href` targets, and the sanitizer
+      vetted those values only as plain strings.  So a policy that
+      allowed `attributeName` and `to` on `set` let
+      `<a href="#"><set attributeName="href" to="javascript:alert(1)"/>`
+      through, and Chrome runs the script when the link is clicked.
+      `attributeName` may now name only an attribute the policy allows
+      that needs no guard, so not `href`, `xlink:href`, the other URL
+      attributes, `style` or `srcset`; other values are dropped.  Policies
+      that do not allow `attributeName`, including every policy in
+      `Sanitizers`, are unaffected.  GHSA-ppfr-7xq6-p6c2.
   * Release 20261102.1
     * `xlink:href` now gets the URL protocol guard that `href`, `src` and
       the other URL attributes get.  A policy that allowed it on SVG

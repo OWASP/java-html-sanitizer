@@ -844,6 +844,23 @@ public class HtmlPolicyBuilder {
       }
 
     });
+    // An SVG animation (set, animate, ...) rewrites the attribute that its
+    // attributeName names, on its parent or on the element its href targets,
+    // with values from its to, from, by and values attributes, after the
+    // sanitizer has vetted them as plain strings.  So attributeName may name
+    // only an attribute that the policy allows, and not one whose values
+    // need a guard: <set attributeName="href" to="javascript:..."> turns a
+    // link into script that runs on click.
+    builder.put("attributename", new AttributeGuardMaker() {
+
+      @Override
+      AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
+        final Set<String> animatable = intermediates.animatableAttributeNames;
+        return (elementName, attributeName, value) ->
+            animatable.contains(value) ? value : null;
+      }
+
+    });
     builder.put("srcset", new AttributeGuardMaker() {
 
       @Override
@@ -985,8 +1002,24 @@ public class HtmlPolicyBuilder {
           ? UrlProtocolGuard.RELATIVE_ONLY
           : UrlProtocolGuard.forProtocols(allowedProtocols);
 
+      // The attributes an SVG animation may target: those allowed anywhere
+      // that need no guard.
+      Set<String> animatableAttributeNames = new HashSet<>();
+      for (String attributeName : globalAttrPolicies.keySet()) {
+        if (guardMakerFor(attributeName) == null) {
+          animatableAttributeNames.add(attributeName);
+        }
+      }
+      for (Map<String, AttributePolicy> policies : attrPolicies.values()) {
+        for (String attributeName : policies.keySet()) {
+          if (guardMakerFor(attributeName) == null) {
+            animatableAttributeNames.add(attributeName);
+          }
+        }
+      }
       AttributeGuardIntermediates intermediates = new AttributeGuardIntermediates(
-          urlAttributePolicy, this.styleUrlPolicy, this.stylingPolicySchema);
+          urlAttributePolicy, this.styleUrlPolicy, this.stylingPolicySchema,
+          j8().setCopyOf(animatableAttributeNames));
       for (Map.Entry<String, AttributePolicy> e
            : globalAttrPolicies.entrySet()) {
         AttributeGuardMaker guardMaker = guardMakerFor(e.getKey());
@@ -1423,13 +1456,20 @@ final class AttributeGuardIntermediates {
   final AttributePolicy urlAttributePolicy;
   final AttributePolicy styleUrlPolicy;
   final CssSchema cssSchema;
+  /**
+   * The names an SVG animation's attributeName may take: attributes the
+   * policy allows that need no guard.
+   */
+  final Set<String> animatableAttributeNames;
 
   AttributeGuardIntermediates(
       AttributePolicy urlAttributePolicy,
       AttributePolicy styleUrlPolicy,
-      CssSchema cssSchema) {
+      CssSchema cssSchema,
+      Set<String> animatableAttributeNames) {
     this.urlAttributePolicy = urlAttributePolicy;
     this.styleUrlPolicy = styleUrlPolicy;
     this.cssSchema = cssSchema;
+    this.animatableAttributeNames = animatableAttributeNames;
   }
 }
