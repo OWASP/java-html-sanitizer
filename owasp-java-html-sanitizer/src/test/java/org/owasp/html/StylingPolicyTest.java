@@ -714,6 +714,10 @@ class StylingPolicyTest {
     // The policy sees the scheme the browser sees.
     assertSanitizedCss(null, "background-image: url(' javascript:alert(1)')");
     assertSanitizedCss(null, "background-image: url('\\9 javascript:x')");
+    // An unescaped line terminator in a quoted URL makes a bad string, which
+    // a browser drops with the declaration.
+    assertSanitizedCss(
+        null, "background-image: url('http://example.com/a.png\n')");
   }
 
   /**

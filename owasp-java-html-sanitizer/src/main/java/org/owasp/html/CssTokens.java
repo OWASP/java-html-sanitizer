@@ -1353,6 +1353,12 @@ final class CssTokens implements Iterable<String> {
             ++pos;
             break;
           }
+          if (decoded < 0x20 && isLineTerminator((char) decoded)) {
+            // An unescaped line terminator makes a bad string, and a
+            // browser drops the declaration.  Drop the URL, as
+            // consumeString drops a bad string.
+            return false;
+          }
         } else if (decoded <= ' ' || decoded == ')') {
           break;
         }

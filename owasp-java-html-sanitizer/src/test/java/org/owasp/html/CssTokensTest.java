@@ -428,6 +428,21 @@ class CssTokensTest {
   }
 
   /**
+   * An unescaped line terminator in a quoted URL makes a bad string, and a
+   * browser drops the declaration, so the token is dropped as a bad string
+   * is.  Since URLs lost the controls at their ends, the token had become
+   * {@code url('a.png')}, which loads what the browser would not.
+   */
+  @Test
+  void testQuotedUrlsBrokenByALineTerminatorAreDropped() {
+    assertTokens("url('a.png\n')");
+    assertTokens("url(\"a.png\r\")");
+    assertTokens("url('a.png\f')");
+    // The rest is tokenized as it comes, as after a bad string.
+    assertTokens("url(\"a\nb\")", "b:IDENT");
+  }
+
+  /**
    * The spaces at the ends of a URL are dropped in one pass, however many
    * there are and however many URLs carry them.
    */
