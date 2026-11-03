@@ -914,7 +914,7 @@ final class CssTokens implements Iterable<String> {
           // so that code-point U+A followed by the letter 'b' can be rendered
           // as "\a b" since "\ab" specifies the single code-point U+AB.
           char next = css.charAt(pos);
-          if (next == ' ' || next == '\t' || isLineTerminator(next)) {
+          if (isCssWhitespace(next)) {
             ++pos;
           }
         }
