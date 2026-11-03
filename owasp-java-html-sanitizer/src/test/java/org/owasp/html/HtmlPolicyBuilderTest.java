@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -2640,7 +2641,7 @@ class HtmlPolicyBuilderTest {
   void testSvgAnimationCannotTargetGuardedAttributes() {
     HtmlPolicyBuilder smil = new HtmlPolicyBuilder()
         .allowElements("svg", "a", "rect", "set", "animate")
-        .allowAttributes("width", "height", "fill").globally()
+        .allowAttributes("width", "height", "fill", "src").globally()
         .allowAttributes("href", "xlink:href", "id", "style", "srcset")
             .onElements("a", "set", "animate")
         .allowAttributes("attributeName", "attributeType", "to", "from",
@@ -2738,7 +2739,7 @@ class HtmlPolicyBuilderTest {
     PolicyFactory joined = new HtmlPolicyBuilder()
         .allowElements("svg", "a", "set", "rect")
         .allowAttributes("attributeName", "to").onElements("set")
-        .allowAttributes("width").onElements("rect")
+        .allowAttributes("width").globally()
         .toFactory()
         .and(new HtmlPolicyBuilder()
              .allowElements("svg", "a")
@@ -2751,6 +2752,77 @@ class HtmlPolicyBuilderTest {
         + "</set></rect></svg>",
         joined.sanitize(
             "<svg><rect width=1><set attributeName=width to=2 /></rect></svg>"));
+  }
+
+  /**
+   * An animation can write any value into its target on any element, so it
+   * may target only an attribute the policy keeps whatever its value and on
+   * every element.
+   */
+  @Test
+  void testSvgAnimationTargetsOnlyUnconstrainedGlobalAttributes() {
+    String setsTo = "<svg><rect><set attributeName=\"%s\" to=\"v\"/></rect></svg>";
+    String kept =
+        "<svg><rect><set attributeName=\"%s\" to=\"v\"></set></rect></svg>";
+    String dropped = "<svg><rect><set to=\"v\"></set></rect></svg>";
+    Function<HtmlPolicyBuilder, HtmlPolicyBuilder> smil =
+        b -> b.allowElements("svg", "rect", "a", "form", "set")
+              .allowAttributes("attributeName", "to").onElements("set");
+
+    // Allowed globally with no constraint: animatable.
+    assertEquals(
+        String.format(kept, "class"),
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").globally()),
+              String.format(setsTo, "class")));
+    // Disallowed: not animatable, whether or not it was allowed before.
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .disallowAttributes("class").globally()),
+              String.format(setsTo, "class")));
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").globally()
+                         .disallowAttributes("class").onElements("a")),
+              String.format(setsTo, "class")));
+    // Constrained by value, globally or on one element: not animatable.
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class")
+                             .matching(Pattern.compile("user-[a-z]+"))
+                             .globally()),
+              String.format(setsTo, "class")));
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").globally()
+                         .allowAttributes("class")
+                             .matching(Pattern.compile("user-[a-z]+"))
+                             .onElements("a")),
+              String.format(setsTo, "class")));
+    // Allowed only on some elements: not animatable.
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").onElements("rect")),
+              String.format(setsTo, "class")));
+    // rel and target decide a link's rels as the sanitizer sees them.
+    for (String name : new String[] { "target", "rel" }) {
+      assertEquals(
+          "<svg><a href=\"https://example.com/\" rel=\"nofollow\">"
+          + "<set to=\"_blank\"></set>x</a></svg>",
+          apply(smil.apply(new HtmlPolicyBuilder()
+                           .allowAttributes("href").onElements("a")
+                           .allowAttributes(name).globally()
+                           .allowUrlProtocols("https")
+                           .requireRelNofollowOnLinks()),
+                "<svg><a href=\"https://example.com/\"><set attributeName=\""
+                + name + "\" to=\"_blank\"/>x</a></svg>"),
+          name);
+    }
   }
 
   private static String repeat(String s, int n) {

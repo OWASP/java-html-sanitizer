@@ -848,9 +848,9 @@ public class HtmlPolicyBuilder {
     // attributeName names, on its parent or on the element its href targets,
     // with values from its to, from, by and values attributes, after the
     // sanitizer has vetted them as plain strings.  So attributeName may name
-    // only an attribute that the policy allows, and not one whose values
-    // need a guard: <set attributeName="href" to="javascript:..."> turns a
-    // link into script that runs on click.
+    // only an attribute that the policy keeps whatever its value and on
+    // whatever element: <set attributeName="href" to="javascript:..."> turns
+    // a link into script that runs on click.
     builder.put("attributename", new AttributeGuardMaker() {
 
       @Override
@@ -1002,18 +1002,28 @@ public class HtmlPolicyBuilder {
           ? UrlProtocolGuard.RELATIVE_ONLY
           : UrlProtocolGuard.forProtocols(allowedProtocols);
 
-      // The attributes an SVG animation may target: those allowed anywhere
-      // that need no guard.
+      // The attributes an SVG animation may target.  An animation can write
+      // any value into its target on any element, so only an attribute that
+      // the policy would keep with any value on any element qualifies: one
+      // allowed globally with no value constraint, not narrowed or
+      // disallowed on any element, and needing no guard.  rel and target are
+      // left out because RelsOnLinksPolicy decides a link's rels from them as
+      // the sanitizer sees them.
       Set<String> animatableAttributeNames = new HashSet<>();
-      for (String attributeName : globalAttrPolicies.keySet()) {
-        if (guardMakerFor(attributeName) == null) {
+      for (Map.Entry<String, AttributePolicy> e
+           : globalAttrPolicies.entrySet()) {
+        String attributeName = e.getKey();
+        if (AttributePolicy.IDENTITY_ATTRIBUTE_POLICY.equals(e.getValue())
+            && guardMakerFor(attributeName) == null
+            && !"rel".equals(attributeName)
+            && !"target".equals(attributeName)) {
           animatableAttributeNames.add(attributeName);
         }
       }
       for (Map<String, AttributePolicy> policies : attrPolicies.values()) {
-        for (String attributeName : policies.keySet()) {
-          if (guardMakerFor(attributeName) == null) {
-            animatableAttributeNames.add(attributeName);
+        for (Map.Entry<String, AttributePolicy> e : policies.entrySet()) {
+          if (!AttributePolicy.IDENTITY_ATTRIBUTE_POLICY.equals(e.getValue())) {
+            animatableAttributeNames.remove(e.getKey());
           }
         }
       }
@@ -1458,7 +1468,7 @@ final class AttributeGuardIntermediates {
   final CssSchema cssSchema;
   /**
    * The names an SVG animation's attributeName may take: attributes the
-   * policy allows that need no guard.
+   * policy allows globally, whatever their value, on every element.
    */
   final Set<String> animatableAttributeNames;
 

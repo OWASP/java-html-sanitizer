@@ -10,11 +10,18 @@ Most recent at top.
       allowed `attributeName` and `to` on `set` let
       `<a href="#"><set attributeName="href" to="javascript:alert(1)"/>`
       through, and Chrome runs the script when the link is clicked.
-      `attributeName` may now name only an attribute the policy allows
-      that needs no guard, so not `href`, `xlink:href`, the other URL
-      attributes, `style` or `srcset`; other values are dropped.  Policies
-      that do not allow `attributeName`, including every policy in
-      `Sanitizers`, are unaffected.  GHSA-ppfr-7xq6-p6c2.
+      Since an animation can write any value into its target on any
+      element, `attributeName` may now name only an attribute the policy
+      keeps whatever its value and on every element: one allowed
+      `globally()` with no `matching` constraint, not disallowed or
+      narrowed on any element, needing no guard (so not `href`,
+      `xlink:href`, the other URL attributes, `style` or `srcset`), and not
+      `rel` or `target`, from which the sanitizer decides a link's rels.
+      Other values of `attributeName` are dropped, so a policy that
+      animates an attribute it allows only on some elements now has to
+      allow that attribute globally.  Policies that do not allow
+      `attributeName`, including every policy in `Sanitizers`, are
+      unaffected.  GHSA-ppfr-7xq6-p6c2.
   * Release 20261102.1
     * `xlink:href` now gets the URL protocol guard that `href`, `src` and
       the other URL attributes get.  A policy that allowed it on SVG
