@@ -3020,14 +3020,30 @@ class HtmlPolicyBuilderTest {
         "http://attacker.example/p",
         "//attacker.example/p",
         "\\\\attacker.example/p",
-        "",
-        "   ",
+        "javascript:alert(1) //attacker.example/p",
     }) {
       assertEquals(
           "<a href=\"/ok\">x</a>",
           apply(https, "<a href=\"/ok\" ping=\"" + hostile + "\">x</a>"),
           hostile);
     }
+    // A list with no URL in it comes out empty rather than dropped: an
+    // empty attributionsrc registers attribution with the element's own src
+    // or href, which its own guard has vetted.
+    for (String empty : new String[] { "", "   ", "\t\n" }) {
+      assertEquals(
+          "<a href=\"/ok\" ping=\"\">x</a>",
+          apply(https, "<a href=\"/ok\" ping=\"" + empty + "\">x</a>"),
+          empty);
+    }
+    assertEquals(
+        "<img src=\"/i.png\" attributionsrc=\"\" />",
+        apply(relativeOnly, "<img src=\"/i.png\" attributionsrc=\"\">"));
+    assertEquals(
+        "<img src=\"/i.png\" />",
+        apply(relativeOnly,
+              "<img src=\"/i.png\" attributionsrc=\""
+              + "https://attacker.example/a //attacker.example/b\">"));
     // URLs the policy allows are kept, normalized as in href.
     assertEquals(
         "<a href=\"/ok\" ping=\"https://example.com/p /q%28x%29\">x</a>",

@@ -12,9 +12,14 @@ Most recent at top.
       URL in `srcset` was dropped.  `ping`, a list of URLs on `a` and
       `area` that the browser sends a request to when the link is
       followed, was not guarded either.  `imagesrcset` now gets the
-      `srcset` guard, and `ping` and `attributionsrc`, another list of
-      URLs, get a guard that checks each URL in the list and drops those
-      the policy does not allow.  As guarded attributes, the three can no
+      `srcset` guard, so it is also parsed as `srcset` is: a value that
+      parser rejects, such as a candidate with two descriptors, is dropped,
+      and commas inside its URLs are percent-encoded.  `ping` and
+      `attributionsrc`, another list of URLs, get a guard that checks each
+      URL in the list and drops those the policy does not allow, and drops
+      the attribute when none is left.  A list with no URL in it is kept
+      empty, since an empty `attributionsrc` registers attribution with the
+      element's own `src` or `href`.  As guarded attributes, the three can no
       longer be the target of an SVG animation.  Policies that allow none
       of them, including every policy in `Sanitizers`, are unaffected.
       Reported by Irhas Abdul Rosyid (@analisaperlengkapan).

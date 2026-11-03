@@ -20,8 +20,11 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
  * <p>
  * The browser splits the value on ASCII whitespace, so this policy does too,
  * keeps each URL that the URL policy allows, as that policy rewrites it,
- * drops the others, and joins what is left with single spaces.  If no URL is
- * left, the attribute is dropped.
+ * drops the others, and joins what is left with single spaces.  If the list
+ * had URLs and none is left, the attribute is dropped.  A list with no URL at
+ * all comes out empty, since an empty {@code attributionsrc} has a meaning of
+ * its own: register attribution with the element's own {@code src} or
+ * {@code href}, which its own guard has vetted.
  */
 final class UrlListAttributePolicy implements JoinableAttributePolicy {
 
@@ -34,6 +37,7 @@ final class UrlListAttributePolicy implements JoinableAttributePolicy {
   public @Nullable String apply(
       String elementName, String attributeName, String value) {
     StringBuilder sb = new StringBuilder();
+    boolean sawUrl = false;
     int i = 0, n = value.length();
     while (i < n) {
       while (i < n && Strings.isHtmlSpace(value.charAt(i))) {
@@ -44,6 +48,7 @@ final class UrlListAttributePolicy implements JoinableAttributePolicy {
         ++i;
       }
       if (urlStart < i) {
+        sawUrl = true;
         String okUrl = urlPolicy.apply(
             elementName, attributeName, value.substring(urlStart, i));
         if (okUrl != null && !okUrl.isEmpty()) {
@@ -54,7 +59,7 @@ final class UrlListAttributePolicy implements JoinableAttributePolicy {
         }
       }
     }
-    return sb.length() != 0 ? sb.toString() : null;
+    return sb.length() != 0 || !sawUrl ? sb.toString() : null;
   }
 
   @Override
