@@ -413,6 +413,21 @@ class CssTokensTest {
   }
 
   /**
+   * A quoted URL is a string, where a backslash before a line terminator
+   * continues the line, so the browser loads {@code url('a\<LF>b')} as
+   * {@code ab}.  The token used to give up on the URL at the backslash.
+   */
+  @Test
+  void testQuotedUrlsContinueEscapedLines() {
+    assertTokens(
+        "url('a\\\nb') url(\"a\\\r\nb\") url('a\\\fb') url(' \\\n a ')",
+        "url('ab'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('a'):URL");
+  }
+
+  /**
    * The spaces at the ends of a URL are dropped in one pass, however many
    * there are and however many URLs carry them.
    */

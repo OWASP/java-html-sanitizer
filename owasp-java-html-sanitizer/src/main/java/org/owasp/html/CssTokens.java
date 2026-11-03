@@ -1357,6 +1357,14 @@ final class CssTokens implements Iterable<String> {
           break;
         }
         if (decoded == '\\') {
+          if (delim != 0 && pos + 1 < cssLimit
+              && isLineTerminator(css.charAt(pos + 1))) {
+            // A quoted URL is a string, where an escaped line terminator
+            // continues the line, as in consumeString.  \r\n is one.
+            pos += pos + 2 < cssLimit && css.charAt(pos + 1) == '\r'
+                && css.charAt(pos + 2) == '\n' ? 3 : 2;
+            continue;
+          }
           decoded = consumeAndDecodeEscapeSequence();
           if (decoded < 0) {
             return false;
