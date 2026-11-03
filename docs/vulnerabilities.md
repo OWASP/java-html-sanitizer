@@ -1,5 +1,6 @@
 # Known & public vulnerabilities in this project
 
+  * [GHSA-x759-2xw8-gp4m](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-x759-2xw8-gp4m) - 3 Nov. 2026 - Low severity; URL policy bypass via `imagesrcset` and `ping`, which the URL protocol guard did not cover, affects only policies that allow them. Recommend upgrade to v20261103.1 or later.
   * [GHSA-ppfr-7xq6-p6c2](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-ppfr-7xq6-p6c2) - 2 Nov. 2026 - Moderate severity; XSS via SVG `set` and `animate` rewriting `href`, affects only policies that allow `attributeName` on SVG animation elements. Recommend upgrade to v20261102.2 or later.
   * [GHSA-643j-x48g-g86p](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-643j-x48g-g86p) - 2 Nov. 2026 - Moderate severity; XSS via `javascript:` URLs in SVG `xlink:href`, affects only policies that allow `xlink:href`. Recommend upgrade to v20261102.1 or later.
   * [GHSA-47x2-9gq9-jg3m](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-47x2-9gq9-jg3m) - 31 Oct. 2026 - Moderate severity; denial of service via a tag with many attributes, quadratic in the tag, under any policy that allows an attribute. Recommend upgrade to v20261031.1 or later.
