@@ -26,6 +26,7 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
  * its own: register attribution with the element's own {@code src} or
  * {@code href}, which its own guard has vetted.
  */
+@TCB
 final class UrlListAttributePolicy implements JoinableAttributePolicy {
 
   private final AttributePolicy urlPolicy;
