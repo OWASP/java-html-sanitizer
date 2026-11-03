@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261103.1
     * `imagesrcset` and `ping` now get the URL protocol guard.
       `imagesrcset` is the `srcset` of `<link rel=preload as=image>`, with
       the same syntax, and browsers fetch its URLs as soon as the page
