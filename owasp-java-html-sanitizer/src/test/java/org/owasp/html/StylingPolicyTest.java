@@ -721,6 +721,46 @@ class StylingPolicyTest {
   }
 
   /**
+   * A string that a property takes as a URL becomes a {@code url(...)}, so
+   * its URL is read as the content of a {@code url(...)} is: as a URL parser
+   * reads it.  It used to keep its controls, percent-encoded, so a
+   * relative-only policy took {@code '\1 //attacker.example/x'} as the
+   * relative {@code %01//attacker.example/x}.
+   */
+  @Test
+  void testCssStringsUsedAsUrlsAreReadAsUrls() {
+    String kept = "background-image:url('http://example.com/a.png#sanitized')";
+    assertSanitizedCss(
+        kept, "background-image: '\\1 http://example.com/a.png\\1f '");
+    assertSanitizedCss(
+        kept, "background-image: 'http://example.com/a\\9 .pn\\a g'");
+    assertSanitizedCss(
+        "background-image:url('http://example.com/a%20�.png#sanitized')",
+        "background-image: 'http://example.com/a \\0 .png'");
+
+    PolicyFactory relativeOnly = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowStyling()
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowOnlyRelativeUrls()
+        .toFactory();
+    assertEquals(
+        "<div style=\"background-image:url(&#39;x.png&#39;)\">x</div>",
+        relativeOnly.sanitize(
+            "<div style=\"background-image: '\\1 x.png\\9 '\">x</div>"));
+    assertEquals(
+        "<div>x</div>",
+        relativeOnly.sanitize(
+            "<div style=\"background-image: '\\1 //attacker.example/x'\">"
+            + "x</div>"));
+    assertEquals(
+        "<div>x</div>",
+        relativeOnly.sanitize(
+            "<div style=\"background-image: '/\\9 /attacker.example/x'\">"
+            + "x</div>"));
+  }
+
+  /**
    * The grammar recurses once per function, so a declaration may nest
    * functions only so deep; one at the limit still parses as it always has.
    */

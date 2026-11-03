@@ -76,6 +76,36 @@ final class StylingPolicy implements JoinableAttributePolicy {
     }
   }
 
+  /**
+   * The URL a URL parser reads from the decoded content of a CSS string that
+   * becomes a {@code url(...)}, as {@link CssTokens} reads the content of a
+   * {@code url(...)}: NUL and surrogates read as U+FFFD, as CSS reads them,
+   * without the spaces and control characters at either end, and without
+   * tabs and newlines anywhere.
+   */
+  static String cssStringToUrl(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    int endOfValue = 0;
+    for (int i = 0, n = s.length(); i < n;) {
+      int cp = s.codePointAt(i);
+      i += Character.charCount(cp);
+      if (cp == 0 || (0xd800 <= cp && cp <= 0xdfff)) {
+        cp = 0xfffd;
+      }
+      if (cp == '\t' || cp == '\n' || cp == '\r') {
+        continue;
+      }
+      if (cp <= ' ') {
+        if (endOfValue != 0) { sb.append((char) cp); }
+        continue;
+      }
+      sb.appendCodePoint(cp);
+      endOfValue = sb.length();
+    }
+    sb.setLength(endOfValue);
+    return sb.toString();
+  }
+
   final CssSchema cssSchema;
   final Function<String, String> urlRewriter;
 
@@ -193,7 +223,7 @@ final class StylingPolicy implements JoinableAttributePolicy {
             emitToken(token);
           } else if (meaning == CssSchema.BIT_URL) {
             // convert to a URL token and hand-off to the appropriate method
-            sanitizeAndAppendUrl(CssGrammar.cssContent(token));
+            sanitizeAndAppendUrl(cssStringToUrl(CssGrammar.cssContent(token)));
           }
         }
         lastToken = token;
