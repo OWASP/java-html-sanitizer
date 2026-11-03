@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -2625,6 +2626,213 @@ class HtmlPolicyBuilderTest {
           "<svg><a " + name + "=\"https://example.com/\">x</a></svg>",
           apply(onA,
                 "<svg><a " + name + "=\"https://example.com/\">x</a></svg>"),
+          name);
+    }
+  }
+
+  /**
+   * An SVG animation rewrites the attribute its attributeName names with
+   * its to, from and values, after the sanitizer has vetted those as plain
+   * strings, so {@code <set attributeName="href" to="javascript:...">} turns
+   * a link into script that runs on click.  The name may only be one the
+   * policy allows and that needs no guard.
+   */
+  @Test
+  void testSvgAnimationCannotTargetGuardedAttributes() {
+    HtmlPolicyBuilder smil = new HtmlPolicyBuilder()
+        .allowElements("svg", "a", "rect", "set", "animate")
+        .allowAttributes("width", "height", "fill", "src").globally()
+        .allowAttributes("href", "xlink:href", "id", "style", "srcset")
+            .onElements("a", "set", "animate")
+        .allowAttributes("attributeName", "attributeType", "to", "from",
+                         "values", "dur")
+            .onElements("set", "animate")
+        .allowStyling()
+        .allowUrlProtocols("http", "https");
+    for (String target : new String[] {
+        "href", "xlink:href", "HREF", "XLINK:HREF", " href ", "style",
+        "srcset", "src", "attributeName", "onclick", "foo:href",
+    }) {
+      assertEquals(
+          "<svg><a href=\"#\"><set to=\"javascript:alert(1)\"></set>"
+          + "<rect width=\"1\"></rect></a></svg>",
+          apply(smil,
+                "<svg><a href=\"#\"><set attributeName=\"" + target + "\""
+                + " to=\"javascript:alert(1)\"/><rect width=1 /></a></svg>"),
+          target);
+      assertEquals(
+          "<svg><a href=\"#\"><animate values=\"javascript:alert(1)\""
+          + " from=\"javascript:alert(1)\"></animate></a></svg>",
+          apply(smil,
+                "<svg><a href=\"#\"><animate attributeName=\"" + target + "\""
+                + " values=\"javascript:alert(1)\""
+                + " from=\"javascript:alert(1)\"/></a></svg>"),
+          target);
+    }
+    // An animation can target a link elsewhere by its href.
+    assertEquals(
+        "<svg><a id=\"t\" href=\"#\">x</a>"
+        + "<set href=\"#t\" to=\"javascript:alert(1)\"></set></svg>",
+        apply(smil,
+              "<svg><a id=t href=\"#\">x</a>"
+              + "<set href=\"#t\" attributeName=\"href\""
+              + " to=\"javascript:alert(1)\"/></svg>"));
+
+    // Attributes the policy allows unguarded can still be animated.
+    String benign =
+        "<svg><rect width=\"10\" fill=\"red\">"
+        + "<animate attributeName=\"width\" from=\"10\" to=\"20\""
+        + " dur=\"1s\"></animate>"
+        + "<set attributeName=\"fill\" attributeType=\"XML\" to=\"blue\">"
+        + "</set></rect></svg>";
+    assertEquals(benign, apply(smil, benign));
+
+    // But not attributes the policy does not allow, here opacity.
+    assertEquals(
+        "<svg><rect><set to=\"0\"></set></rect></svg>",
+        apply(smil,
+              "<svg><rect><set attributeName=\"opacity\" to=\"0\"/>"
+              + "</rect></svg>"));
+  }
+
+  /**
+   * The guard on attributeName holds however the policy allows it, and
+   * reads every attribute allowed in the builder, but not ones only another
+   * policy joined with and() allows.
+   */
+  @Test
+  void testSvgAnimationTargetGuardIsAlwaysApplied() {
+    String hostile =
+        "<svg><a href=\"#\"><set attributeName=\"href\""
+        + " to=\"javascript:alert(1)\"/>x</a></svg>";
+    String safe =
+        "<svg><a href=\"#\"><set to=\"javascript:alert(1)\"></set>x</a></svg>";
+
+    // Globally, with no URL protocols allowed, and under a matching policy.
+    assertEquals(
+        safe,
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a", "set")
+              .allowAttributes("href").onElements("a")
+              .allowAttributes("attributeName", "to").globally()
+              .allowUrlProtocols("https"),
+              hostile));
+    assertEquals(
+        safe,
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a", "set")
+              .allowAttributes("href").onElements("a")
+              .allowAttributes("attributeName", "to").onElements("set"),
+              hostile));
+    assertEquals(
+        safe,
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "a", "set")
+              .allowAttributes("href").onElements("a")
+              .allowAttributes("attributeName")
+                  .matching(Pattern.compile(".*")).onElements("set")
+              .allowAttributes("to").onElements("set")
+              .allowUrlProtocols("https"),
+              hostile));
+
+    // Joined with a policy that allows href.
+    PolicyFactory joined = new HtmlPolicyBuilder()
+        .allowElements("svg", "a", "set", "rect")
+        .allowAttributes("attributeName", "to").onElements("set")
+        .allowAttributes("width").globally()
+        .toFactory()
+        .and(new HtmlPolicyBuilder()
+             .allowElements("svg", "a")
+             .allowAttributes("href").onElements("a")
+             .allowUrlProtocols("https")
+             .toFactory());
+    assertEquals(safe, joined.sanitize(hostile));
+    assertEquals(
+        "<svg><rect width=\"1\"><set attributeName=\"width\" to=\"2\">"
+        + "</set></rect></svg>",
+        joined.sanitize(
+            "<svg><rect width=1><set attributeName=width to=2 /></rect></svg>"));
+  }
+
+  /**
+   * An animation can write any value into its target on any element, so it
+   * may target only an attribute the policy keeps whatever its value and on
+   * every element.
+   */
+  @Test
+  void testSvgAnimationTargetsOnlyUnconstrainedGlobalAttributes() {
+    String setsTo = "<svg><rect><set attributeName=\"%s\" to=\"v\"/></rect></svg>";
+    String kept =
+        "<svg><rect><set attributeName=\"%s\" to=\"v\"></set></rect></svg>";
+    String dropped = "<svg><rect><set to=\"v\"></set></rect></svg>";
+    Function<HtmlPolicyBuilder, HtmlPolicyBuilder> smil =
+        b -> b.allowElements("svg", "rect", "a", "form", "set")
+              .allowAttributes("attributeName", "to").onElements("set");
+
+    // Allowed globally with no constraint: animatable.
+    assertEquals(
+        String.format(kept, "class"),
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").globally()),
+              String.format(setsTo, "class")));
+    // Allowing it twice, or with other animation elements, changes nothing.
+    assertEquals(
+        "<svg><rect><animateTransform attributeName=\"transform\" by=\"v\">"
+        + "</animateTransform></rect></svg>",
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowElements("animateTransform")
+                         .allowAttributes("attributeName", "by")
+                             .onElements("animateTransform")
+                         .allowAttributes("transform").globally()
+                         .allowAttributes("transform").globally()),
+              "<svg><rect><animateTransform attributeName=\"transform\""
+              + " by=\"v\"/></rect></svg>"));
+    // Disallowed: not animatable, whether or not it was allowed before.
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .disallowAttributes("class").globally()),
+              String.format(setsTo, "class")));
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").globally()
+                         .disallowAttributes("class").onElements("a")),
+              String.format(setsTo, "class")));
+    // Constrained by value, globally or on one element: not animatable.
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class")
+                             .matching(Pattern.compile("user-[a-z]+"))
+                             .globally()),
+              String.format(setsTo, "class")));
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").globally()
+                         .allowAttributes("class")
+                             .matching(Pattern.compile("user-[a-z]+"))
+                             .onElements("a")),
+              String.format(setsTo, "class")));
+    // Allowed only on some elements: not animatable.
+    assertEquals(
+        dropped,
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowAttributes("class").onElements("rect")),
+              String.format(setsTo, "class")));
+    // rel and target decide a link's rels as the sanitizer sees them.
+    for (String name : new String[] { "target", "rel" }) {
+      assertEquals(
+          "<svg><a href=\"https://example.com/\" rel=\"nofollow\">"
+          + "<set to=\"_blank\"></set>x</a></svg>",
+          apply(smil.apply(new HtmlPolicyBuilder()
+                           .allowAttributes("href").onElements("a")
+                           .allowAttributes(name).globally()
+                           .allowUrlProtocols("https")
+                           .requireRelNofollowOnLinks()),
+                "<svg><a href=\"https://example.com/\"><set attributeName=\""
+                + name + "\" to=\"_blank\"/>x</a></svg>"),
           name);
     }
   }
