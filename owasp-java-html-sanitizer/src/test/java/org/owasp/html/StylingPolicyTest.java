@@ -696,6 +696,71 @@ class StylingPolicyTest {
   }
 
   /**
+   * Browsers drop the spaces and control characters at either end of a URL,
+   * so the URL policy is given, and the output names, the URL without them.
+   * They used to reach both percent-encoded: {@code url('%20a.png%20')}.
+   */
+  @Test
+  void testCssUrlsLoseTheSpacesAtTheirEnds() {
+    String kept = "background-image:url('http://example.com/a.png#sanitized')";
+    assertSanitizedCss(
+        kept, "background-image: url(' http://example.com/a.png ')");
+    assertSanitizedCss(
+        kept, "background-image: url(\"\\9 http://example.com/a.png\\a \")");
+    assertSanitizedCss(
+        kept, "background-image: url(\\20 http://example.com/a.png\\20)");
+    assertSanitizedCss(
+        kept, "background-image: url(\thttp://example.com/a.png\t)");
+    // The policy sees the scheme the browser sees.
+    assertSanitizedCss(null, "background-image: url(' javascript:alert(1)')");
+    assertSanitizedCss(null, "background-image: url('\\9 javascript:x')");
+    // An unescaped line terminator in a quoted URL makes a bad string, which
+    // a browser drops with the declaration.
+    assertSanitizedCss(
+        null, "background-image: url('http://example.com/a.png\n')");
+  }
+
+  /**
+   * A string that a property takes as a URL becomes a {@code url(...)}, so
+   * its URL is read as the content of a {@code url(...)} is: as a URL parser
+   * reads it.  It used to keep its controls, percent-encoded, so a
+   * relative-only policy took {@code '\1 //attacker.example/x'} as the
+   * relative {@code %01//attacker.example/x}.
+   */
+  @Test
+  void testCssStringsUsedAsUrlsAreReadAsUrls() {
+    String kept = "background-image:url('http://example.com/a.png#sanitized')";
+    assertSanitizedCss(
+        kept, "background-image: '\\1 http://example.com/a.png\\1f '");
+    assertSanitizedCss(
+        kept, "background-image: 'http://example.com/a\\9 .pn\\a g'");
+    assertSanitizedCss(
+        "background-image:url('http://example.com/a%20�.png#sanitized')",
+        "background-image: 'http://example.com/a \\0 .png'");
+
+    PolicyFactory relativeOnly = new HtmlPolicyBuilder()
+        .allowElements("div")
+        .allowStyling()
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowOnlyRelativeUrls()
+        .toFactory();
+    assertEquals(
+        "<div style=\"background-image:url(&#39;x.png&#39;)\">x</div>",
+        relativeOnly.sanitize(
+            "<div style=\"background-image: '\\1 x.png\\9 '\">x</div>"));
+    assertEquals(
+        "<div>x</div>",
+        relativeOnly.sanitize(
+            "<div style=\"background-image: '\\1 //attacker.example/x'\">"
+            + "x</div>"));
+    assertEquals(
+        "<div>x</div>",
+        relativeOnly.sanitize(
+            "<div style=\"background-image: '/\\9 /attacker.example/x'\">"
+            + "x</div>"));
+  }
+
+  /**
    * The grammar recurses once per function, so a declaration may nest
    * functions only so deep; one at the limit still parses as it always has.
    */

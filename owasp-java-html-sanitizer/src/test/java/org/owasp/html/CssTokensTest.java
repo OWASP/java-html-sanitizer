@@ -358,9 +358,166 @@ class CssTokensTest {
         "url('..'):URL",
         "url('foo'):URL", " ",
         "url('f%22/%28bar%27%5cbaz'):URL", " ",
-        "url('foo%20%0ab'):URL",
+        // A URL parser deletes the newline, \a, and keeps the space.
+        "url('foo%20b'):URL",
         "url('%c2%80%e1%88%b4%f0%90%90%82%ef%bf%bd'):URL"
         );
+  }
+
+  /**
+   * A URL parser drops the C0 controls and spaces at either end of a URL, so
+   * browsers load {@code url(' a.png ')} as {@code a.png}, and CSS reads a
+   * tab after {@code url(} as white-space.  The token used to keep them,
+   * percent-encoded, as in {@code url('%20a.png%20')}, which names another
+   * URL, and to end at a tab after {@code url(}.
+   */
+  @Test
+  void testUrlsDropTheSpacesAUrlParserDrops() {
+    assertTokens(
+        "url(' #g ') url(\" a.png \") url('\\9 a.png\\a ') url(\\20 a.png)"
+        + " url(a.png\\20) url('\\1 a.png\\1f ') url(\ta.png\t)"
+        + " url(\t'a.png'\t) url(' ')",
+        "url('#g'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url('a.png'):URL", " ",
+        "url(''):URL");
+    // A URL parser keeps spaces inside the URL, spaces outside ASCII, and
+    // NUL, which CSS reads as U+FFFD.
+    assertTokens(
+        "url(' a b ') url('\\a0 a\\3000') url('\\0 a')",
+        "url('a%20b'):URL", " ",
+        "url('%c2%a0a%e3%80%80'):URL", " ",
+        "url('%ef%bf%bda'):URL");
+  }
+
+  /**
+   * A URL parser deletes tabs and newlines wherever they are, so browsers
+   * load {@code url('/\9 /x')} as the scheme-relative {@code //x}.  The token
+   * used to keep them, percent-encoded, so the policy saw the relative
+   * {@code /%09/x}.  Other controls inside a URL are percent-encoded, as a
+   * URL parser encodes them.
+   */
+  @Test
+  void testUrlsLoseTheTabsAndNewlinesAUrlParserDeletes() {
+    assertTokens(
+        "url('a\\9 .png') url('/\\9 /x') url(a\\d\\a b) url('java\\9 script:x')"
+        + " url(\"a\tb\") url('a\\c b')",
+        "url('a.png'):URL", " ",
+        "url('//x'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('javascript:x'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('a%0cb'):URL");
+  }
+
+  /**
+   * CSS reads NUL and a surrogate as U+FFFD, raw or escaped, so that is what
+   * the browser puts in the URL.  The token used to encode them as they
+   * were: {@code %00}, and three bytes of a surrogate, which is not UTF-8.
+   */
+  @Test
+  void testUrlsReadNulAndSurrogatesAsReplacementCharacters() {
+    assertTokens(
+        "url('\\0 a') url('a\u0000') url('\\d800 a') url('a\ud800') url('\\0')",
+        "url('%ef%bf%bda'):URL", " ",
+        "url('a%ef%bf%bd'):URL", " ",
+        "url('%ef%bf%bda'):URL", " ",
+        "url('a%ef%bf%bd'):URL", " ",
+        "url('%ef%bf%bd'):URL");
+    // A surrogate pair is one code point, escaped or not.  An escaped one
+    // used to reach the URL as two lone surrogates, each read as U+FFFD.
+    assertTokens(
+        "url('😀') url('\\😀a') url(\\😀a)",
+        "url('%f0%9f%98%80'):URL", " ",
+        "url('%f0%9f%98%80a'):URL", " ",
+        "url('%f0%9f%98%80a'):URL");
+    assertTokens(
+        "'\\😀' a\\😀",
+        "'😀':STRING", " ",
+        "a😀:IDENT");
+  }
+
+  /**
+   * A quoted URL is a string, where a backslash before a line terminator
+   * continues the line, so the browser loads {@code url('a\<LF>b')} as
+   * {@code ab}.  The token used to give up on the URL at the backslash.
+   */
+  @Test
+  void testQuotedUrlsContinueEscapedLines() {
+    assertTokens(
+        "url('a\\\nb') url(\"a\\\r\nb\") url('a\\\fb') url(' \\\n a ')",
+        "url('ab'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('ab'):URL", " ",
+        "url('a'):URL");
+  }
+
+  /**
+   * CSS reads {@code \r\n} as one line terminator, so after a hex escape it
+   * is the one white-space character the escape may end with.  The escape
+   * used to take the CR only, leaving an unescaped LF that made a bad string.
+   */
+  @Test
+  void testCrLfAfterAHexEscapeIsOneCharacter() {
+    assertTokens(
+        "url('a\\9\r\nb') url(\"a\\20\r\n\") 'a\\9\r\nb'",
+        "url('ab'):URL", " ",
+        "url('a'):URL", " ",
+        "'a\tb':STRING");
+  }
+
+  /**
+   * An unescaped line terminator in a quoted URL makes a bad string, and a
+   * browser drops the declaration, so the token is dropped as a bad string
+   * is.  Since URLs lost the controls at their ends, the token had become
+   * {@code url('a.png')}, which loads what the browser would not.
+   */
+  @Test
+  void testQuotedUrlsBrokenByALineTerminatorAreDropped() {
+    assertTokens("url('a.png\n')");
+    assertTokens("url(\"a.png\r\")");
+    assertTokens("url('a.png\f')");
+    // The rest is tokenized as it comes, as after a bad string.
+    assertTokens("url(\"a\nb\")", "b:IDENT");
+  }
+
+  /**
+   * The spaces at the ends of a URL are dropped in one pass, however many
+   * there are and however many URLs carry them.
+   */
+  @Test
+  void testSpacesAroundUrlsAreDroppedInLinearTime() {
+    int n = 200000;
+    StringBuilder sb = new StringBuilder(8 * n);
+    sb.append("url('");
+    for (int i = 0; i < n; ++i) { sb.append(" \\9 "); }
+    sb.append('a');
+    for (int i = 0; i < n; ++i) { sb.append(" \\9 "); }
+    sb.append("')");
+    final String padded = sb.toString();
+    assertEquals(
+        "url('a')",
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> CssTokens.lex(padded))
+        .normalizedCss);
+
+    sb.setLength(0);
+    StringBuilder expected = new StringBuilder(8 * n);
+    for (int i = 0; i < n; ++i) {
+      sb.append("url(\t' a '\t)");
+      expected.append("url('a')");
+    }
+    final String many = sb.toString();
+    assertEquals(
+        expected.toString(),
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(20), () -> CssTokens.lex(many))
+        .normalizedCss);
   }
 
   @Test

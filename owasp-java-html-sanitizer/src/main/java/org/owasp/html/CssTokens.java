@@ -57,7 +57,10 @@ import javax.annotation.Nullable;
  *       <tr><td>all others</td>     <td>raw</td></tr>
  *     </table>
  *   </li>
- *   <li>All <code>url(&hellip;)</code> tokens are quoted.
+ *   <li>All <code>url(&hellip;)</code> tokens are quoted, and their content
+ *       is percent-encoded, without what a URL parser would drop: the spaces
+ *       and control characters other than NUL at either end, and tabs and
+ *       newlines anywhere.
  *   <li>All keywords, identifiers, and hex literals are lower-case and have
  *       embedded escape sequences decoded, except that .</li>
  *   <li>All brackets nest properly.</li>
@@ -911,11 +914,21 @@ final class CssTokens implements Iterable<String> {
           // so that code-point U+A followed by the letter 'b' can be rendered
           // as "\a b" since "\ab" specifies the single code-point U+AB.
           char next = css.charAt(pos);
-          if (next == ' ' || next == '\t' || isLineTerminator(next)) {
+          if (isCssWhitespace(next)) {
             ++pos;
+            // CSS reads \r\n as one line terminator.
+            if (next == '\r' && pos < cssLimit && css.charAt(pos) == '\n') {
+              ++pos;
+            }
           }
         }
         return hexValue;
+      }
+      if (Character.isHighSurrogate(esc) && pos + 2 < cssLimit
+          && Character.isLowSurrogate(css.charAt(pos + 2))) {
+        // An escaped code point outside the BMP is two code units.
+        pos += 3;
+        return Character.toCodePoint(esc, css.charAt(pos - 1));
       }
       pos += 2;
       return esc;
@@ -1321,8 +1334,7 @@ final class CssTokens implements Iterable<String> {
       ++pos;
       // skip space.
       for (; pos < cssLimit; ++pos) {
-        char ch = css.charAt(pos);
-        if (ch != ' ' && !isLineTerminator(ch)) { break; }
+        if (!isCssWhitespace(css.charAt(pos))) { break; }
       }
       // Find the value.
       int delim;
@@ -1338,6 +1350,14 @@ final class CssTokens implements Iterable<String> {
         return false;
       }
       sb.append("('");
+      // A URL parser drops the C0 controls and spaces at either end of a URL,
+      // and tabs and newlines wherever they are, so the browser loads
+      // url(' a\9 .png ') as a.png.  Drop them here too, before encoding, so
+      // that the policy vets and the output names the URL the browser loads,
+      // not one with %20 or %09 in it.  NUL is not among them: CSS reads it
+      // as U+FFFD, which a URL keeps.
+      boolean inValue = false;
+      int endOfValue = sb.length();
       while (pos < cssLimit) {
         int decoded = readCodepoint();
         if (delim != 0) {
@@ -1345,16 +1365,42 @@ final class CssTokens implements Iterable<String> {
             ++pos;
             break;
           }
+          if (decoded < 0x20 && isLineTerminator((char) decoded)) {
+            // An unescaped line terminator makes a bad string, and a
+            // browser drops the declaration.  Drop the URL, as
+            // consumeString drops a bad string.
+            return false;
+          }
         } else if (decoded <= ' ' || decoded == ')') {
           break;
         }
         if (decoded == '\\') {
+          if (delim != 0 && pos + 1 < cssLimit
+              && isLineTerminator(css.charAt(pos + 1))) {
+            // A quoted URL is a string, where an escaped line terminator
+            // continues the line, as in consumeString.  \r\n is one.
+            pos += pos + 2 < cssLimit && css.charAt(pos + 1) == '\r'
+                && css.charAt(pos + 2) == '\n' ? 3 : 2;
+            continue;
+          }
           decoded = consumeAndDecodeEscapeSequence();
           if (decoded < 0) {
             return false;
           }
         } else {
           ++pos;
+        }
+        if (decoded == 0 || (0xd800 <= decoded && decoded <= 0xdfff)) {
+          // CSS reads NUL and a surrogate as U+FFFD, raw or escaped.
+          decoded = 0xfffd;
+        }
+        if (decoded == '\t' || decoded == '\n' || decoded == '\r') {
+          // A URL parser deletes tabs and newlines wherever they are.
+          continue;
+        }
+        boolean trimmable = decoded <= ' ';
+        if (trimmable && !inValue) {
+          continue;
         }
         // Any character not in the RFC 3986 safe set is %-encoded.
         if (decoded < URL_SAFE.length && URL_SAFE[decoded]) {
@@ -1403,12 +1449,16 @@ final class CssTokens implements Iterable<String> {
             .append(HEX_DIGITS[(octet3 >>> 4) & 0xf])
             .append(HEX_DIGITS[(octet3 >>> 0) & 0xf]);
         }
+        if (!trimmable) {
+          inValue = true;
+          endOfValue = sb.length();
+        }
       }
+      sb.setLength(endOfValue);
 
       // skip space.
       for (; pos < cssLimit; ++pos) {
-        char ch = css.charAt(pos);
-        if (ch != ' ' && !isLineTerminator(ch)) { break; }
+        if (!isCssWhitespace(css.charAt(pos))) { break; }
       }
       if (pos < cssLimit && css.charAt(pos) == ')') {
         ++pos;
@@ -1462,6 +1512,11 @@ final class CssTokens implements Iterable<String> {
 
   private static boolean isLineTerminator(char ch) {
     return ch < 0x20 && 0 != (LINE_TERMINATOR_BITMASK & (1 << ch));
+  }
+
+  /** Space, tab or a line terminator: what CSS reads as white-space. */
+  private static boolean isCssWhitespace(char ch) {
+    return ch == ' ' || ch == '\t' || isLineTerminator(ch);
   }
 
   private static int[] expandIfNecessary(int[] arr, int limit, int needed) {

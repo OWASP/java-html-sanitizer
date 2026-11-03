@@ -1,6 +1,23 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * The URL in a CSS `url(...)` is now read as browsers read it.  A URL
+      parser drops the spaces and control characters at either end of a
+      URL, and tabs and newlines anywhere in it, so `url(' a.png ')` and
+      `url('a\9 .png')` load `a.png`.  The sanitizer percent-encoded them
+      into the URL it vetted and emitted instead: `url('%20a.png%20')`
+      names another resource, and `fill="url(' #g ')"` was dropped,
+      because `%20#g%20` is not a reference into the document.  It now
+      drops them before vetting.  It also reads NUL as U+FFFD, as CSS
+      does, and a tab after `url(` as white-space.  In a quoted URL, an
+      escaped line break now continues the line.  An unescaped one makes a
+      bad string, which a browser drops with its whole declaration, so the
+      URL is dropped.  A string that
+      `style` takes as a URL is read the same way.  This affected `style`
+      and the SVG presentation attributes.  It was never unsafe: the
+      output always named the URL the policy had vetted.  Spaces inside a
+      URL are still percent-encoded.  Closes #529.
   * Release 20261103.2
     * `url(...)` in SVG presentation attributes is now vetted as it is in
       `style`.  `fill`, `stroke`, `filter`, `clip-path`, `mask`,
