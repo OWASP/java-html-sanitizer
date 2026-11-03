@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261103.2
     * `url(...)` in SVG presentation attributes is now vetted as it is in
       `style`.  `fill`, `stroke`, `filter`, `clip-path`, `mask`,
       `marker-start`, `marker-mid`, `marker-end` and `cursor` take a CSS
