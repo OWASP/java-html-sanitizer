@@ -1,6 +1,29 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * `url(...)` in SVG presentation attributes now has to pass the URL
+      protocol guard.  `fill`, `stroke`, `filter`, `clip-path`, `mask`,
+      `marker-start`, `marker-mid`, `marker-end` and `cursor` take a CSS
+      value that can name a resource with `url(...)`, and browsers fetch
+      it when the page loads, as they do a `url(...)` in `style`.  The
+      sanitizer gave them no guard, so a policy that allowed one of them
+      passed any URL in it through, whatever `allowUrlProtocols`,
+      `allowOnlyRelativeUrls()` or the default guard said:
+      `<rect fill="url(https://attacker.example/x.svg#p)">` made Chrome
+      fetch that URL under a relative-only policy.  Their values are now
+      tokenized as CSS, each `url(...)` in them must pass the guard that
+      `href` gets (so `url(#gradient)` is still allowed), and the value is
+      emitted in normalized form, for example `url('#gradient')`.  CSS can
+      also take a URL from a string inside a function, as `image-set()`
+      does, so a value that calls a function outside an allowlist of
+      color, math, filter, shape and gradient functions is dropped, as is
+      a value with a `;`, a brace or an at-keyword, or one with a rejected
+      URL.  As guarded attributes, the nine can no longer be the target of
+      an SVG animation, so a policy that animates `fill` or `stroke` with
+      `set` or `animate` loses that animation.  Policies that allow none of
+      them, including every policy in `Sanitizers`, are unaffected.
+      GHSA-76cc-622x-jwm4.
   * Release 20261103.1
     * `imagesrcset` and `ping` now get the URL protocol guard.
       `imagesrcset` is the `srcset` of `<link rel=preload as=image>`, with
