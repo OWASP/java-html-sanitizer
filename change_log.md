@@ -11,8 +11,9 @@ Most recent at top.
       because `%20#g%20` is not a reference into the document.  It now
       drops them before vetting.  It also reads NUL as U+FFFD, as CSS
       does, and a tab after `url(` as white-space.  In a quoted URL, an
-      escaped line break now continues the line, and an unescaped one
-      drops the URL, as a browser drops the declaration.  A string that
+      escaped line break now continues the line.  An unescaped one makes a
+      bad string, which a browser drops with its whole declaration, so the
+      URL is dropped.  A string that
       `style` takes as a URL is read the same way.  This affected `style`
       and the SVG presentation attributes.  It was never unsafe: the
       output always named the URL the policy had vetted.  Spaces inside a
