@@ -1417,6 +1417,52 @@ class HtmlPolicyBuilderTest {
         and1.sanitize(link));
   }
 
+  /**
+   * An SVG link whose URL is in {@code xlink:href} is a link too, so it gets
+   * the rels that one in {@code href} gets, in any case the policy allowed
+   * the name in.
+   */
+  @Test
+  void testLinkRelsOnSvgXlinkHref() {
+    for (String name : new String[] { "xlink:href", "XLINK:HREF" }) {
+      PolicyFactory nofollow = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes("href", name, "target").onElements("a")
+          .allowUrlProtocols("https")
+          .requireRelNofollowOnLinks()
+          .toFactory();
+      PolicyFactory targetted = new HtmlPolicyBuilder()
+          .allowElements("svg", "a")
+          .allowAttributes(name, "target").onElements("a")
+          .allowUrlProtocols("https")
+          .toFactory();
+      assertEquals(
+          "<svg><a " + name + "=\"https://example.com/\" target=\"_blank\""
+          + " rel=\"nofollow noopener noreferrer\">x</a>"
+          + "<a href=\"https://example.com/\" target=\"_blank\""
+          + " rel=\"nofollow noopener noreferrer\">y</a>"
+          + "<a " + name + "=\"https://example.com/\""
+          + " rel=\"nofollow\">z</a></svg>",
+          nofollow.sanitize(
+              "<svg><a " + name + "=\"https://example.com/\" target=_blank>x</a>"
+              + "<a href=\"https://example.com/\" target=_blank>y</a>"
+              + "<a " + name + "=\"https://example.com/\">z</a></svg>"),
+          name);
+      assertEquals(
+          "<svg><a " + name + "=\"https://example.com/\" target=\"_blank\""
+          + " rel=\"noopener noreferrer\">x</a></svg>",
+          targetted.sanitize(
+              "<svg><a " + name + "=\"https://example.com/\" target=_blank>x"
+              + "</a></svg>"),
+          name);
+      // An anchor with neither is not a link and gets no rel.
+      assertEquals(
+          "<svg><a target=\"_blank\">x</a></svg>",
+          nofollow.sanitize("<svg><a target=_blank>x</a></svg>"),
+          name);
+    }
+  }
+
   @Test
   void testLinkRelsWhenRelPresent() {
     PolicyFactory pf = new HtmlPolicyBuilder()

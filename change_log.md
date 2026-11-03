@@ -11,8 +11,11 @@ Most recent at top.
       `href` was dropped.  The guard also now matches an allowed attribute
       name in any case: the sanitizer keeps the case of namespaced names,
       so a policy that allowed `XLINK:HREF` emitted it unguarded, and
-      browsers lower-case it to `xlink:href`.  Policies that allow neither
-      spelling, including every policy in `Sanitizers`, are unaffected.
+      browsers lower-case it to `xlink:href`.  An SVG link whose URL is in
+      `xlink:href` now also gets the `rel` values that
+      `requireRelNofollowOnLinks()` and `target` add to an `href` link,
+      which it was missing.  Policies that do not allow `xlink:href` in
+      any spelling, including every policy in `Sanitizers`, are unaffected.
       Reported independently by Irhas Abdul Rosyid (@analisaperlengkapan)
       and by Milos.
   * Release 20261031.1

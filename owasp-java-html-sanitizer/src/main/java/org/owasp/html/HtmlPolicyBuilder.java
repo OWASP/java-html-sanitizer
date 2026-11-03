@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1288,8 +1289,26 @@ public class HtmlPolicyBuilder {
       return -1;
     }
 
+    /**
+     * True if attrs has a URL that browsers follow when the element is
+     * clicked: {@code href}, or {@code xlink:href} on an SVG link, which
+     * keeps the case it was allowed in.
+     */
+    private static boolean hasLinkUrl(List<String> attrs) {
+      for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
+        String name = it.next();
+        if ("href".equals(name) || "xlink:href".equals(Strings.toLowerCase(name))) {
+          return true;
+        }
+        if (it.hasNext()) {
+          it.next();  // Skip the value.
+        }
+      }
+      return false;
+    }
+
     public String apply(String elementName, List<String> attrs) {
-      if (indexOfAttributeValue("href", attrs) >= 0) {
+      if (hasLinkUrl(attrs)) {
         // It's a link.
         boolean hasTarget = indexOfAttributeValue("target", attrs) >= 0;
         if (hasTarget || !extra.isEmpty()) {
