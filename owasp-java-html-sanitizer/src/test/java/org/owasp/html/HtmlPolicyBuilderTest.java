@@ -2775,6 +2775,18 @@ class HtmlPolicyBuilderTest {
         apply(smil.apply(new HtmlPolicyBuilder()
                          .allowAttributes("class").globally()),
               String.format(setsTo, "class")));
+    // Allowing it twice, or with other animation elements, changes nothing.
+    assertEquals(
+        "<svg><rect><animateTransform attributeName=\"transform\" by=\"v\">"
+        + "</animateTransform></rect></svg>",
+        apply(smil.apply(new HtmlPolicyBuilder()
+                         .allowElements("animateTransform")
+                         .allowAttributes("attributeName", "by")
+                             .onElements("animateTransform")
+                         .allowAttributes("transform").globally()
+                         .allowAttributes("transform").globally()),
+              "<svg><rect><animateTransform attributeName=\"transform\""
+              + " by=\"v\"/></rect></svg>"));
     // Disallowed: not animatable, whether or not it was allowed before.
     assertEquals(
         dropped,

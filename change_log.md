@@ -3,7 +3,7 @@
 Most recent at top.
   * Next release
     * An SVG animation can no longer rewrite a URL attribute.  `set` and
-      `animate` write the values in their `to`, `from` and `values`
+      `animate` write the values in their `to`, `from`, `by` and `values`
       attributes into the attribute their `attributeName` names, on their
       parent or on the element their `href` targets, and the sanitizer
       vetted those values only as plain strings.  So a policy that
@@ -19,7 +19,9 @@ Most recent at top.
       `rel` or `target`, from which the sanitizer decides a link's rels.
       Other values of `attributeName` are dropped, so a policy that
       animates an attribute it allows only on some elements now has to
-      allow that attribute globally.  Policies that do not allow
+      allow that attribute globally.  The same holds for a CSS property
+      animated with `attributeType="CSS"`: its name has to be allowed as
+      an attribute.  Policies that do not allow
       `attributeName`, including every policy in `Sanitizers`, are
       unaffected.  GHSA-ppfr-7xq6-p6c2.
   * Release 20261102.1
