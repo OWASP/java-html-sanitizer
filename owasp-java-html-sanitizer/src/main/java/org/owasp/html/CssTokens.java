@@ -916,6 +916,10 @@ final class CssTokens implements Iterable<String> {
           char next = css.charAt(pos);
           if (isCssWhitespace(next)) {
             ++pos;
+            // CSS reads \r\n as one line terminator.
+            if (next == '\r' && pos < cssLimit && css.charAt(pos) == '\n') {
+              ++pos;
+            }
           }
         }
         return hexValue;

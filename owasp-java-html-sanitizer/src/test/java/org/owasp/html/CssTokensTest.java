@@ -458,6 +458,20 @@ class CssTokensTest {
   }
 
   /**
+   * CSS reads {@code \r\n} as one line terminator, so after a hex escape it
+   * is the one white-space character the escape may end with.  The escape
+   * used to take the CR only, leaving an unescaped LF that made a bad string.
+   */
+  @Test
+  void testCrLfAfterAHexEscapeIsOneCharacter() {
+    assertTokens(
+        "url('a\\9\r\nb') url(\"a\\20\r\n\") 'a\\9\r\nb'",
+        "url('ab'):URL", " ",
+        "url('a'):URL", " ",
+        "'a\tb':STRING");
+  }
+
+  /**
    * An unescaped line terminator in a quoted URL makes a bad string, and a
    * browser drops the declaration, so the token is dropped as a bad string
    * is.  Since URLs lost the controls at their ends, the token had become
