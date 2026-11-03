@@ -1,6 +1,20 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * `xlink:href` now gets the URL protocol guard that `href`, `src` and
+      the other URL attributes get.  A policy that allowed it on SVG
+      elements, as SVG links need, passed any URL in it through unchecked,
+      so `<svg><a xlink:href="javascript:alert(1)">` reached the browser
+      and ran when clicked, despite `allowUrlProtocols("http", "https")`,
+      `allowOnlyRelativeUrls()` or the default guard, while the same URL in
+      `href` was dropped.  The guard also now matches an allowed attribute
+      name in any case: the sanitizer keeps the case of namespaced names,
+      so a policy that allowed `XLINK:HREF` emitted it unguarded, and
+      browsers lower-case it to `xlink:href`.  Policies that allow neither
+      spelling, including every policy in `Sanitizers`, are unaffected.
+      Reported independently by Irhas Abdul Rosyid (@analisaperlengkapan)
+      and by Milos.
   * Release 20261031.1
     * One tag carrying many attributes no longer takes time quadratic in
       the tag.  The sanitizer keeps a tag's attributes in a linked list,
