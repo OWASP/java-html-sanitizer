@@ -55,7 +55,26 @@ final class StylingPolicy implements JoinableAttributePolicy {
    * original 1024 predates the widespread use of {@code data:} URLs for
    * images, which is what made the cap visible.  See #187.
    */
-  private static final int MAX_CSS_URL_LENGTH = 2048;
+  static final int MAX_CSS_URL_LENGTH = 2048;
+
+  /**
+   * Appends a URL that a URL policy returned as the content of a
+   * {@code url('...')}.  The policy may return characters that end or escape
+   * the CSS string, so they are percent-encoded after it has run, before the
+   * caller adds the delimiters.
+   */
+  static void appendCssUrlContent(String url, StringBuilder out) {
+    for (int i = 0, n = url.length(); i < n; ++i) {
+      char ch = url.charAt(i);
+      if (ch == '\'' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
+        out.append('%')
+            .append(HEX_DIGITS.charAt(ch >> 4))
+            .append(HEX_DIGITS.charAt(ch & 0xf));
+      } else {
+        out.append(ch);
+      }
+    }
+  }
 
   final CssSchema cssSchema;
   final Function<String, String> urlRewriter;
@@ -108,24 +127,9 @@ final class StylingPolicy implements JoinableAttributePolicy {
           if (rewrittenUrl != null && !rewrittenUrl.isEmpty()) {
             if (hasTokens) { sanitizedCss.append(' '); }
             sanitizedCss.append("url('");
-            appendCssUrlContent(rewrittenUrl);
+            appendCssUrlContent(rewrittenUrl, sanitizedCss);
             sanitizedCss.append("')");
             hasTokens = true;
-          }
-        }
-      }
-
-      private void appendCssUrlContent(String url) {
-        // The URL rewriter may return characters that end or escape the CSS
-        // string.  Encode them after rewriting, before adding the delimiters.
-        for (int i = 0, n = url.length(); i < n; ++i) {
-          char ch = url.charAt(i);
-          if (ch == '\'' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
-            sanitizedCss.append('%')
-                .append(HEX_DIGITS.charAt(ch >> 4))
-                .append(HEX_DIGITS.charAt(ch & 0xf));
-          } else {
-            sanitizedCss.append(ch);
           }
         }
       }

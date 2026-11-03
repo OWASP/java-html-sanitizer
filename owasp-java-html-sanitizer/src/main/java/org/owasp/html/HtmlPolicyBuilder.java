@@ -888,13 +888,15 @@ public class HtmlPolicyBuilder {
     builder.put("attributionsrc", urlListGuard);
     // SVG presentation attributes whose CSS value can name a resource with
     // url(...).  Browsers fetch it when the page loads, as they do a url(...)
-    // in a style attribute, so each URL has to pass the URL guard.
+    // in a style attribute, so each URL has to pass what one in style does.
     AttributeGuardMaker presentationGuard = new AttributeGuardMaker() {
 
       @Override
       AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
         return new PresentationAttributePolicy(
-            intermediates.urlAttributePolicy);
+            AttributePolicy.Util.join(
+                intermediates.styleUrlPolicy,
+                intermediates.urlAttributePolicy));
       }
 
     };

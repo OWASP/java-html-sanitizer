@@ -3159,9 +3159,12 @@ class HtmlPolicyBuilderTest {
   /**
    * SVG presentation attributes such as {@code fill} take CSS that can name
    * a resource with {@code url(...)}, and browsers fetch it when the page
-   * loads.  Each URL in them now has to pass the URL protocol guard, as one
-   * in {@code href} does.  They used to get no guard, so a relative-only
-   * policy that allowed {@code fill} let a page load anything.
+   * loads.  Each URL in them now has to pass what a URL in {@code style}
+   * does: {@code allowUrlsInStyles}, which rejects every URL by default, and
+   * the URL protocol guard.  A reference into the same document, such as
+   * {@code url(#gradient)}, loads nothing and is always kept.  They used to
+   * get no guard, so a relative-only policy that allowed {@code fill} let a
+   * page load anything.
    */
   @Test
   void testSvgPresentationAttributesGuardTheirUrls() {
@@ -3222,6 +3225,15 @@ class HtmlPolicyBuilderTest {
         "red; background: url(https://attacker.example/x)",
         "red { x }",
         "@import 'https://attacker.example/x'",
+        // Only the kinds of token a property value needs.
+        "red:blue",
+        "red [a]",
+        "a |= b",
+        "U+0-7F",
+        // The tokenizer repairs these into url(...) and another token, but
+        // the browser loads nothing for them.
+        "url(a red)",
+        "url(&quot;x&quot; red)",
     }) {
       assertEquals(
           "<svg><rect></rect></svg>",
@@ -3238,28 +3250,72 @@ class HtmlPolicyBuilderTest {
         + " filter=\"drop-shadow(1px 1px 2px red) blur(2px)\""
         + " clip-path=\"circle(50% at 50% 50%)\" mask=\"url(&#39;#m&#39;)\""
         + " marker-start=\"none\""
-        + " cursor=\"url(&#39;c.png&#39;) 4 4, auto\"></rect></svg>",
+        + " cursor=\"url(&#39;#c&#39;) 4 4, auto\"></rect></svg>",
         apply(relativeOnly,
               "<svg><rect fill=\"url(#grad) red\" stroke=\"#FF0000\""
               + " filter=\"drop-shadow(1px 1px 2px red) blur(2px)\""
               + " clip-path=\"circle(50% at 50% 50%)\" mask=\"url(#m)\""
-              + " marker-start=\"none\" cursor=\"url(c.png) 4 4, auto\"/>"
+              + " marker-start=\"none\" cursor=\"url(#c) 4 4, auto\"/>"
               + "</svg>"));
     assertEquals(
         "<svg><rect fill=\"rgb(255 0 0 / 50%)\""
         + " stroke=\"color-mix(in srgb, red, blue)\""
         + " clip-path=\"path(&#39;M 0 0 L 10 10&#39;)\""
-        + " mask=\"url(&#39;a%20b%28c%29.svg#m&#39;)\"></rect></svg>",
+        + " filter=\"blur(calc((1px &#43; 2px) * 2))\"></rect></svg>",
         apply(relativeOnly,
               "<svg><rect fill=\"rgb(255 0 0 / 50%)\""
               + " stroke=\"color-mix(in srgb, red, blue)\""
               + " clip-path=\"path('M 0 0 L 10 10')\""
-              + " mask=\"url('a b(c).svg#m')\"/></svg>"));
+              + " filter=\"blur(calc((1px + 2px) * 2))\"/></svg>"));
 
-    // Absolute URLs with an allowed protocol are kept.
+    // Other URLs need allowUrlsInStyles, as they do in style.
+    String sameOrigin =
+        "<svg><rect cursor=\"url(c.png) 4 4, auto\""
+        + " mask=\"url('a b(c).svg#m')\"/></svg>";
+    assertEquals("<svg><rect></rect></svg>", apply(relativeOnly, sameOrigin));
+    HtmlPolicyBuilder relativeStyleUrls = new HtmlPolicyBuilder()
+        .allowElements("svg", "rect")
+        .allowAttributes(PRESENTATION_URL_ATTRIBUTES).onElements("rect")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
+        .allowOnlyRelativeUrls();
+    assertEquals(
+        "<svg><rect cursor=\"url(&#39;c.png&#39;) 4 4, auto\""
+        + " mask=\"url(&#39;a%20b%28c%29.svg#m&#39;)\"></rect></svg>",
+        apply(relativeStyleUrls, sameOrigin));
+    assertEquals(
+        "<svg><rect></rect></svg>",
+        apply(relativeStyleUrls,
+              "<svg><rect fill=\"url(https://attacker.example/x.svg#p)\"/>"
+              + "</svg>"));
+    // The policy given to allowUrlsInStyles sees each URL, as it does in
+    // style, and the protocol guard vets what it returns.
+    assertEquals(
+        "<svg><rect fill=\"url(&#39;/proxy?u&#61;"
+        + "https://example.com/p.svg#p&#39;)\"></rect></svg>",
+        apply(new HtmlPolicyBuilder()
+              .allowElements("svg", "rect")
+              .allowAttributes("fill").onElements("rect")
+              .allowUrlsInStyles(
+                  (e, a, url) ->
+                      url.startsWith("https:") ? "/proxy?u=" + url : null)
+              .allowOnlyRelativeUrls(),
+              "<svg><rect fill=\"url(https://example.com/p.svg#p)\"/></svg>"));
+    // URLs as long as those style drops are dropped, but for references
+    // into the document.
+    String longUrl = repeat("a", 3000);
+    assertEquals(
+        "<svg><rect></rect></svg>",
+        apply(relativeStyleUrls,
+              "<svg><rect fill=\"url(" + longUrl + ")\"/></svg>"));
+    assertEquals(
+        "<svg><rect fill=\"url(&#39;#ok&#39;)\"></rect></svg>",
+        apply(relativeStyleUrls, "<svg><rect fill=\"url(#ok)\"/></svg>"));
+
+    // Absolute URLs need an allowed protocol too.
     HtmlPolicyBuilder https = new HtmlPolicyBuilder()
         .allowElements("svg", "rect")
         .allowAttributes("fill").onElements("rect")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
         .allowUrlProtocols("https");
     assertEquals(
         "<svg><rect fill=\"url(&#39;https://example.com/p.svg#p&#39;)\">"
@@ -3307,20 +3363,30 @@ class HtmlPolicyBuilderTest {
               "<svg><rect FILL=\"url(https://attacker.example/x.svg#p)\"/>"
               + "</svg>"));
 
-    // Joined with and(): the default guard yields, relative-only holds.
+    // Joined with and(): the default protocol guard yields, relative-only
+    // holds, and so does a factory that allows no URLs in styles, as it does
+    // for style.
     PolicyFactory httpsFills = new HtmlPolicyBuilder()
         .allowElements("svg", "rect")
         .allowAttributes("fill").onElements("rect")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
         .allowUrlProtocols("https")
         .toFactory();
     PolicyFactory defaultFills = new HtmlPolicyBuilder()
         .allowElements("svg", "rect")
         .allowAttributes("fill").onElements("rect")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
         .toFactory();
     PolicyFactory relativeFills = new HtmlPolicyBuilder()
         .allowElements("svg", "rect")
         .allowAttributes("fill").onElements("rect")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
         .allowOnlyRelativeUrls()
+        .toFactory();
+    PolicyFactory noStyleUrlFills = new HtmlPolicyBuilder()
+        .allowElements("svg", "rect")
+        .allowAttributes("fill").onElements("rect")
+        .allowUrlProtocols("https")
         .toFactory();
     String https =
         "<svg><rect fill=\"url(https://example.com/p.svg#p)\"/></svg>";
@@ -3330,6 +3396,8 @@ class HtmlPolicyBuilderTest {
     assertEquals(kept, httpsFills.and(defaultFills).sanitize(https));
     assertEquals(dropped, relativeFills.and(httpsFills).sanitize(https));
     assertEquals(dropped, httpsFills.and(relativeFills).sanitize(https));
+    assertEquals(dropped, httpsFills.and(noStyleUrlFills).sanitize(https));
+    assertEquals(dropped, noStyleUrlFills.and(httpsFills).sanitize(https));
     assertEquals(
         dropped,
         defaultFills.and(httpsFills).sanitize(
@@ -3363,6 +3431,7 @@ class HtmlPolicyBuilderTest {
     final PolicyFactory policy = new HtmlPolicyBuilder()
         .allowElements("svg", "rect")
         .allowAttributes("cursor", "fill").onElements("rect")
+        .allowUrlsInStyles(AttributePolicy.IDENTITY_ATTRIBUTE_POLICY)
         .allowOnlyRelativeUrls()
         .toFactory();
     final String cursors = "<svg><rect cursor=\""

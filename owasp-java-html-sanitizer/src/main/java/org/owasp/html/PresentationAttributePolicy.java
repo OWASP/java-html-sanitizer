@@ -17,16 +17,19 @@ import org.owasp.html.AttributePolicy.JoinableAttributePolicy;
  * {@code clip-path}, whose value is CSS that can name a resource with
  * {@code url(...)}.  Browsers fetch that resource when the page loads, as they
  * do one named in a {@code style} attribute, so each URL in the value has to
- * pass the URL policy, as a URL in {@code href} does.
+ * pass the policy a URL in {@code style} has to pass: the one given to
+ * {@link HtmlPolicyBuilder#allowUrlsInStyles}, then the URL protocol guard.
+ * A reference to an element in the same document, such as
+ * {@code url(#gradient)}, loads nothing and is always allowed.
  * <p>
  * The value is tokenized as CSS, which decodes escapes, so every spelling of
  * {@code url(} is seen, and the result is emitted in the normalized form that
- * was vetted.  CSS can also take a URL from a string inside a function, as
+ * was vetted.  Only the kinds of token a single property value needs are
+ * allowed.  CSS can also take a URL from a string inside a function, as
  * {@code image-set("x.png" 1x)} does, so a value that calls any function
  * outside {@link #ALLOWED_FUNCTIONS}, which compute colors, numbers, filter
- * effects and shapes, is dropped.  So is a value with a {@code ;}, a brace or
- * an at-keyword, none of which belongs in a single property value.  If a URL
- * in the value is rejected, the whole value is dropped.
+ * effects, shapes and gradients, is dropped.  If a URL in the value is
+ * rejected, the whole value is dropped.
  */
 @TCB
 final class PresentationAttributePolicy implements JoinableAttributePolicy {
@@ -57,8 +60,6 @@ final class PresentationAttributePolicy implements JoinableAttributePolicy {
     ALLOWED_FUNCTIONS = Collections.unmodifiableSet(names);
   }
 
-  private static final String HEX_DIGITS = "0123456789abcdef";
-
   private final AttributePolicy urlPolicy;
 
   PresentationAttributePolicy(AttributePolicy urlPolicy) {
@@ -69,19 +70,32 @@ final class PresentationAttributePolicy implements JoinableAttributePolicy {
       String elementName, String attributeName, String value) {
     CssTokens tokens = CssTokens.lex(value);
     StringBuilder sb = new StringBuilder(tokens.normalizedCss.length());
-    for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();) {
+    boolean afterUrl = false;
+    for (CssTokens.TokenIterator it = tokens.iterator(); it.hasNext();
+         it.advance()) {
       String token = it.token();
-      switch (it.type()) {
+      CssTokens.TokenType type = it.type();
+      // The tokenizer repairs a url( that the browser rejects, such as
+      // url(a b), into a url(...) followed directly by another token.  The
+      // browser would load nothing for the input, so emit nothing it would.
+      if (afterUrl && type != CssTokens.TokenType.WHITESPACE
+          && type != CssTokens.TokenType.COMMA
+          && type != CssTokens.TokenType.RIGHT_PAREN) {
+        return null;
+      }
+      afterUrl = false;
+      switch (type) {
         case URL: {
-          String url = CssGrammar.cssContent(
-              Strings.stripHtmlSpaces(token.substring(4, token.length() - 1)));
-          String okUrl = urlPolicy.apply(elementName, attributeName, url);
-          if (okUrl == null || okUrl.isEmpty()) {
+          String url = Strings.stripHtmlSpaces(CssGrammar.cssContent(
+              token.substring(4, token.length() - 1)));
+          String okUrl = vetUrl(url);
+          if (okUrl == null) {
             return null;
           }
           sb.append("url('");
-          appendCssUrlContent(okUrl, sb);
+          StylingPolicy.appendCssUrlContent(okUrl, sb);
           sb.append("')");
+          afterUrl = true;
           break;
         }
         case FUNCTION: {
@@ -93,32 +107,32 @@ final class PresentationAttributePolicy implements JoinableAttributePolicy {
           sb.append(token);
           break;
         }
-        case AT: case SEMICOLON: case LEFT_CURLY: case RIGHT_CURLY:
-          return null;
-        default:
+        case IDENT: case HASH_ID: case HASH_UNRESTRICTED: case STRING:
+        case NUMBER: case PERCENTAGE: case DIMENSION: case BAD_DIMENSION:
+        case DELIM: case COMMA: case WHITESPACE:
+        case LEFT_PAREN: case RIGHT_PAREN:
           sb.append(token);
           break;
+        default:
+          return null;
       }
-      it.advance();
     }
     return sb.toString();
   }
 
   /**
-   * Appends a URL inside {@code url('...')}, percent-encoding what would end
-   * or escape the CSS string, as {@link StylingPolicy} does.
+   * The URL to emit for one in the value, or null to drop the value.
    */
-  private static void appendCssUrlContent(String url, StringBuilder sb) {
-    for (int i = 0, n = url.length(); i < n; ++i) {
-      char ch = url.charAt(i);
-      if (ch == '\'' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
-        sb.append('%')
-            .append(HEX_DIGITS.charAt(ch >> 4))
-            .append(HEX_DIGITS.charAt(ch & 0xf));
-      } else {
-        sb.append(ch);
-      }
+  private @Nullable String vetUrl(String url) {
+    if (url.isEmpty() || url.length() >= StylingPolicy.MAX_CSS_URL_LENGTH) {
+      return null;
     }
+    if (url.charAt(0) == '#') {
+      // A reference to an element in this document, whatever the base URL.
+      return FilterUrlByProtocolAttributePolicy.normalizeUri(url);
+    }
+    String okUrl = urlPolicy.apply("img", "src", url);
+    return okUrl == null || okUrl.isEmpty() ? null : okUrl;
   }
 
   @Override
