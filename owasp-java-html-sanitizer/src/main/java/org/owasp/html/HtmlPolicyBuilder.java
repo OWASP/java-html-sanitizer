@@ -861,14 +861,31 @@ public class HtmlPolicyBuilder {
       }
 
     });
-    builder.put("srcset", new AttributeGuardMaker() {
+    // imagesrcset is the srcset of <link rel=preload as=image>, with the same
+    // syntax, and browsers fetch its URLs as they do those in srcset.
+    AttributeGuardMaker srcsetGuard = new AttributeGuardMaker() {
 
       @Override
       AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
         return new SrcsetAttributePolicy(intermediates.urlAttributePolicy);
       }
 
-    });
+    };
+    builder.put("srcset", srcsetGuard);
+    builder.put("imagesrcset", srcsetGuard);
+    // Lists of URLs separated by spaces.  Browsers send a request to each URL
+    // in ping when a link is followed, and to each in attributionsrc for
+    // attribution reporting.
+    AttributeGuardMaker urlListGuard = new AttributeGuardMaker() {
+
+      @Override
+      AttributePolicy makeGuard(AttributeGuardIntermediates intermediates) {
+        return new UrlListAttributePolicy(intermediates.urlAttributePolicy);
+      }
+
+    };
+    builder.put("ping", urlListGuard);
+    builder.put("attributionsrc", urlListGuard);
     ATTRIBUTE_GUARDS = Collections.unmodifiableMap(builder);
   }
 

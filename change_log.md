@@ -1,6 +1,24 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * `imagesrcset` and `ping` now get the URL protocol guard.
+      `imagesrcset` is the `srcset` of `<link rel=preload as=image>`, with
+      the same syntax, and browsers fetch its URLs as soon as the page
+      loads, but the guard that checks each URL in `srcset` was registered
+      under `srcset` only.  So a policy that allowed `imagesrcset` passed
+      any URL in it through, whatever `allowUrlProtocols`,
+      `allowOnlyRelativeUrls()` or the default guard said, while the same
+      URL in `srcset` was dropped.  `ping`, a list of URLs on `a` and
+      `area` that the browser sends a request to when the link is
+      followed, was not guarded either.  `imagesrcset` now gets the
+      `srcset` guard, and `ping` and `attributionsrc`, another list of
+      URLs, get a guard that checks each URL in the list and drops those
+      the policy does not allow.  As guarded attributes, the three can no
+      longer be the target of an SVG animation.  Policies that allow none
+      of them, including every policy in `Sanitizers`, are unaffected.
+      Reported by Irhas Abdul Rosyid (@analisaperlengkapan).
+      GHSA-x759-2xw8-gp4m.
   * Release 20261102.2
     * An SVG animation can no longer rewrite a URL attribute.  `set` and
       `animate` write the values in their `to`, `from`, `by` and `values`
