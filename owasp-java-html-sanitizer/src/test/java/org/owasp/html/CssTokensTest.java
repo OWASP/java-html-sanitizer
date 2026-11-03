@@ -391,7 +391,25 @@ class CssTokensTest {
         "url(' a b ') url('\\a0 a\\3000') url('\\0 a')",
         "url('a%20b'):URL", " ",
         "url('%c2%a0a%e3%80%80'):URL", " ",
-        "url('%00a'):URL");
+        "url('%ef%bf%bda'):URL");
+  }
+
+  /**
+   * CSS reads NUL and a surrogate as U+FFFD, raw or escaped, so that is what
+   * the browser puts in the URL.  The token used to encode them as they
+   * were: {@code %00}, and three bytes of a surrogate, which is not UTF-8.
+   */
+  @Test
+  void testUrlsReadNulAndSurrogatesAsReplacementCharacters() {
+    assertTokens(
+        "url('\\0 a') url('a\u0000') url('\\d800 a') url('a\ud800') url('\\0')",
+        "url('%ef%bf%bda'):URL", " ",
+        "url('a%ef%bf%bd'):URL", " ",
+        "url('%ef%bf%bda'):URL", " ",
+        "url('a%ef%bf%bd'):URL", " ",
+        "url('%ef%bf%bd'):URL");
+    // A surrogate pair is one code point.
+    assertTokens("url('😀')", "url('%f0%9f%98%80'):URL");
   }
 
   /**

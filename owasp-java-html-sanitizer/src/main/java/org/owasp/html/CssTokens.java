@@ -1343,7 +1343,7 @@ final class CssTokens implements Iterable<String> {
       // so the browser loads url(' a.png ') as a.png.  Drop them here too,
       // before encoding, so that the policy vets and the output names the
       // URL the browser loads, not one beginning or ending in %20.  NUL is
-      // not dropped: CSS reads it as U+FFFD, which a URL keeps.
+      // not among them: CSS reads it as U+FFFD, which a URL keeps.
       boolean inValue = false;
       int endOfValue = sb.length();
       while (pos < cssLimit) {
@@ -1364,7 +1364,11 @@ final class CssTokens implements Iterable<String> {
         } else {
           ++pos;
         }
-        boolean trimmable = 0 < decoded && decoded <= ' ';
+        if (decoded == 0 || (0xd800 <= decoded && decoded <= 0xdfff)) {
+          // CSS reads NUL and a surrogate as U+FFFD, raw or escaped.
+          decoded = 0xfffd;
+        }
+        boolean trimmable = decoded <= ' ';
         if (trimmable && !inValue) {
           continue;
         }
