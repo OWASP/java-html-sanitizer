@@ -72,12 +72,13 @@ import static org.owasp.shim.Java8Shim.j8;
  *
  * <h3>Embedded Content</h3>
  * <p>
- * Embedded URLs are filtered by
- * {@link HtmlPolicyBuilder#allowUrlProtocols protocol}.
- * There is a {@link HtmlPolicyBuilder#allowStandardUrlProtocols canned policy}
- * so you can easily white-list widely used policies that don't violate the
- * current pages origin.  See "Customization" below for ways to do further
- * filtering.  If you allow links it might be worthwhile to
+ * Recognized URL attributes are filtered by
+ * {@link HtmlPolicyBuilder#allowUrlProtocols protocol}.  This does not inspect
+ * nested documents or browser directives; see the security note on
+ * {@link #allowAttributes}.
+ * {@link HtmlPolicyBuilder#allowStandardUrlProtocols} allows widely used URL
+ * protocols.  See "Customization" below for ways to do further filtering.
+ * If you allow links it might be worthwhile to
  * {@link HtmlPolicyBuilder#requireRelNofollowOnLinks() require}
  * {@code rel=nofollow}.
  * </p>
@@ -430,8 +431,11 @@ public class HtmlPolicyBuilder {
    * guard}.</li>
    * </ul>
    * Policy authors must leave these attributes disallowed or supply policies
-   * that vet their active content for the intended use.  The prepackaged
-   * policies in {@link Sanitizers} do not allow these attributes.
+   * that vet their active content for the intended use.  Use an
+   * {@link ElementPolicy} for checks that depend on multiple attributes,
+   * such as {@code http-equiv} together with {@code content}.
+   * The prepackaged policies in {@link Sanitizers} do not allow these
+   * attributes.
    */
   public AttributeBuilder allowAttributes(String... attributeNames) {
     List<String> builder = new ArrayList<>();
