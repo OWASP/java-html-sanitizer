@@ -2,6 +2,10 @@
 
 Most recent at top.
   * Next release
+    * Clarify that explicitly allowed event handlers, iframe `srcdoc`, and
+      meta `http-equiv`/`content` can carry active content that policy authors
+      must vet.  Correct `HtmlPolicyBuilder`'s claim that it removes all embedded
+      JavaScript.  Sanitization behavior is unchanged.  Closes #525.
     * The URL in a CSS `url(...)` is now read as browsers read it.  A URL
       parser drops the spaces and control characters at either end of a
       URL, and tabs and newlines anywhere in it, so `url(' a.png ')` and

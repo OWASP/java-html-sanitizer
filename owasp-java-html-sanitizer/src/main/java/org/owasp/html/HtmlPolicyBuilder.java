@@ -72,20 +72,22 @@ import static org.owasp.shim.Java8Shim.j8;
  *
  * <h3>Embedded Content</h3>
  * <p>
- * Embedded URLs are filtered by
- * {@link HtmlPolicyBuilder#allowUrlProtocols protocol}.
- * There is a {@link HtmlPolicyBuilder#allowStandardUrlProtocols canned policy}
- * so you can easily white-list widely used policies that don't violate the
- * current pages origin.  See "Customization" below for ways to do further
- * filtering.  If you allow links it might be worthwhile to
+ * Recognized URL attributes are filtered by
+ * {@link HtmlPolicyBuilder#allowUrlProtocols protocol}.  This does not inspect
+ * nested documents or browser directives; see the security note on
+ * {@link #allowAttributes}.
+ * {@link HtmlPolicyBuilder#allowStandardUrlProtocols} allows widely used URL
+ * protocols.  See "Customization" below for ways to do further filtering.
+ * If you allow links it might be worthwhile to
  * {@link HtmlPolicyBuilder#requireRelNofollowOnLinks() require}
  * {@code rel=nofollow}.
  * </p>
  * <p>
- * This class simply throws out all embedded JS.
- * Use a custom element or attribute policy to allow through
- * signed or otherwise known-safe code.
- * Check out the Caja project if you need a way to contain third-party JS.
+ * This class does not sanitize JavaScript.  Script elements and event handler
+ * attributes are disallowed by default, but a policy can explicitly allow them.
+ * Policy authors are responsible for vetting any script or other active content
+ * they allow.  See the security notes on {@link #allowAttributes} and
+ * {@link #allowTextIn}.
  * </p>
  * <p>
  * This class does not attempt to faithfully parse and sanitize CSS.
@@ -413,6 +415,27 @@ public class HtmlPolicyBuilder {
   /**
    * Returns an object that lets you associate policies with the given
    * attributes, and allow them globally or on specific elements.
+   * <p>
+   * <b>Security note:</b> allowing an attribute does not make its value safe
+   * for every use a browser makes of it.  In particular:
+   * <ul>
+   * <li>Event handler attributes ({@code on*}, such as {@code onclick})
+   * contain JavaScript that the browser can execute; it is not vetted.</li>
+   * <li>{@code srcdoc} on {@code iframe} contains a nested HTML document.
+   * Its value is not recursively sanitized.  Escaping it for the outer
+   * attribute does not stop the browser from parsing that document and
+   * executing scripts in it.</li>
+   * <li>{@code http-equiv} and {@code content} on {@code meta} can specify
+   * browser directives.  For example, {@code refresh} can navigate the page;
+   * its URL is not checked by the {@link #allowUrlProtocols URL protocol
+   * guard}.</li>
+   * </ul>
+   * Policy authors must leave these attributes disallowed or supply policies
+   * that vet their active content for the intended use.  Use an
+   * {@link ElementPolicy} for checks that depend on multiple attributes,
+   * such as {@code http-equiv} together with {@code content}.
+   * The prepackaged policies in {@link Sanitizers} do not allow these
+   * attributes.
    */
   public AttributeBuilder allowAttributes(String... attributeNames) {
     List<String> builder = new ArrayList<>();
