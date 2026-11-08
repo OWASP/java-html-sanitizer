@@ -1,0 +1,32 @@
+name: Repair release tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of the published release to repair'
+        required: true
+        type: string
+      commit:
+        description: 'Exact release commit (40-character SHA)'
+        required: true
+        type: string
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Sign and replace lightweight tag
+        env:
+          VERSION: ${{ inputs.version }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: scripts/sign-release-tag.sh "release-$VERSION" "$RELEASE_COMMIT" repair
