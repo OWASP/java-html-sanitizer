@@ -130,7 +130,7 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
           break;
         default:
           if (ch <= 0x20 || Encoding.isPossiblyElidedCodeunit(ch)) {
-            return normalizeUriFrom(s, i, false);
+            return normalizeUriFrom(s, i, colonsIrrelevant);
           }
           break;
       }

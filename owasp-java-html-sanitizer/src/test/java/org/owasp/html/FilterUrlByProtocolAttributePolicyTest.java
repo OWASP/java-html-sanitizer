@@ -156,13 +156,13 @@ class FilterUrlByProtocolAttributePolicyTest {
       { "\u0080", "%c2%80" },
       { "\u0085", "%c2%85" },
       { "\u009f", "%c2%9f" },
-      { "﷐", "%ef%b7%90" },
-      { "￾", "%ef%bf%be" },
-      { "￿", "%ef%bf%bf" },
+      { "\ufdd0", "%ef%b7%90" },
+      { "\ufffe", "%ef%bf%be" },
+      { "\uffff", "%ef%bf%bf" },
       { "\ud800", "%ef%bf%bd" },
       { "\udc00", "%ef%bf%bd" },
-      { "🿾", "%f0%9f%bf%be" },
-      { "􏿿", "%f4%8f%bf%bf" },
+      { "\ud83f\udffe", "%f0%9f%bf%be" },
+      { "\udbff\udfff", "%f4%8f%bf%bf" },
   };
 
   @Test
@@ -205,10 +205,47 @@ class FilterUrlByProtocolAttributePolicyTest {
     assertEquals("/%ef%bf%bd%ef%bf%bd/" + TARGET,
         UrlProtocolGuard.RELATIVE_ONLY.apply("img", "src", "/\udc00\ud800/" + TARGET));
     // A well-formed supplementary character is not elided, so it stays.
-    String emoji = "/😀/" + TARGET;
+    String emoji = "/\ud83d\ude00/" + TARGET;
     assertEquals(emoji, UrlProtocolGuard.RELATIVE_ONLY.apply("img", "src", emoji));
     assertEquals(markup("img", "/&#x1f600;/" + TARGET),
         eventOutput(policy, "img", emoji));
+  }
+
+  @Test
+  void testElidedCodeUnitsCannotCreateAnAuthorityInAUrlList() {
+    for (String[] tagAndAttr : new String[][] {
+        { "img", "srcset" }, { "link", "imagesrcset" },
+    }) {
+      String element = tagAndAttr[0], attr = tagAndAttr[1];
+      PolicyFactory policy = new HtmlPolicyBuilder().allowElements(element)
+          .allowAttributes(attr).onElements(element).allowOnlyRelativeUrls()
+          .toFactory();
+      for (String[] e : new String[][] { { "\0", "%00" }, { "\u0085", "%c2%85" } }) {
+        for (String pair : SLASH_PAIRS) {
+          String list = "a.png 1x, " + e[0] + pair + TARGET + " 2x";
+          StringBuilder out = new StringBuilder();
+          HtmlSanitizer.Policy receiver = policy.apply(
+              HtmlStreamRenderer.create(out, Handler.DO_NOTHING));
+          receiver.openDocument();
+          receiver.openTag(element, new ArrayList<>(Arrays.asList(attr, list)));
+          receiver.closeTag(element);
+          receiver.closeDocument();
+          assertEquals("<" + element + " " + attr + "=\"a.png 1x , " + e[1]
+              + pair + TARGET + " 2x\" />", out.toString());
+        }
+      }
+    }
+  }
+
+  @Test
+  void testSupplementaryCharacterAfterSchemeColonPreservesColonLikeCharacters() {
+    AttributePolicy web = new FilterUrlByProtocolAttributePolicy(
+        Collections.singleton("https"));
+    for (String colonLike : new String[] { "\u0589", "\u05c3", "\u2236", "\uff1a" }) {
+      String url = "https:\ud83d\ude00" + colonLike + "resource";
+      assertEquals(url, FilterUrlByProtocolAttributePolicy.normalizeUri(url));
+      assertEquals(url, web.apply("img", "src", url));
+    }
   }
 
   @Test

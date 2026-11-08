@@ -3,9 +3,10 @@
 Most recent at top.
   * Next release
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
-      in URL attributes instead of letting normalization or the renderer drop
-      them, so dropping one cannot create an authority after relative-URL
-      validation.
+      in event-stream, preprocessor- or policy-supplied URL attribute values,
+      so dropping one cannot create an authority after relative-URL validation.
+      NUL is now `%00` instead of being silently deleted.  Parsed HTML already
+      had these code units removed while decoding, before URL validation.
     * Clarify that explicitly allowed event handlers, iframe `srcdoc`, and
       meta `http-equiv`/`content` can carry active content that policy authors
       must vet.  Correct `HtmlPolicyBuilder`'s claim that it removes all embedded
