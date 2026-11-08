@@ -106,6 +106,13 @@ jobs:
         id: build
         run: ./mvnw -ntp -B -Ppublication
 
+      - name: Sign release tag
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: scripts/sign-release-tag.sh "release-$VERSION" "$(git rev-parse HEAD)"
+
       - name: Release
         env:
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

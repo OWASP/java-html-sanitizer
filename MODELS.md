@@ -117,3 +117,7 @@ Report actual checks and review coverage, unresolved findings, and compatibility
 impact. Record user-visible changes under `Next release` in `change_log.md`.
 Follow the README contribution process and AGENTS.md release restrictions;
 model recommendations do not replace required human approvals.
+For releases, verify the published tag resolves to the release commit and is
+an annotated PGP-signed tag (`git cat-file -t` and `git tag -v`). JReleaser's
+GitHub `sign` option signs commits, not tags; check the actual remote tag type
+and signature after publication.

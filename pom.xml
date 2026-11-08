@@ -362,8 +362,8 @@ application while protecting against XSS.
                   <github>
                     <tagName>release-{{projectVersion}}</tagName>
                     <releaseName>Release {{projectVersion}}</releaseName>
-                    <!-- Annotated, PGP-signed tags, as every pre-JReleaser release had. -->
-                    <sign>true</sign>
+                    <!-- The release workflow creates and pushes a signed tag. -->
+                    <skipTag>true</skipTag>
                     <changelog>
                       <formatted>ALWAYS</formatted>
                       <skipMergeCommits>true</skipMergeCommits>
