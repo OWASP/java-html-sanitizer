@@ -108,6 +108,7 @@ jobs:
 
       - name: Sign release tag
         env:
+          EXPECTED_GPG_FINGERPRINT: F6109A4F3F5616E1A7A62099E02DB03BAF6C438C
           GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
