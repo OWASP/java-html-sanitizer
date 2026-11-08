@@ -1,0 +1,63 @@
+name: Verify release signing
+
+# Exercises the release signing path with the repository's release key
+# without publishing anything: the tag is created and deleted on the runner,
+# and JReleaser deploys in dry-run mode with placeholder Central credentials.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_GPG_FINGERPRINT: F6109A4F3F5616E1A7A62099E02DB03BAF6C438C
+  # Never released; the runner's copy of the POMs is set to it so the
+  # staging repository looks like a release, and nothing is pushed.
+  VERSION: 20000101.0
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 11
+          cache: maven
+
+      - name: Set placeholder release version
+        run: ./mvnw -ntp -B versions:set -DgenerateBackupPoms=false -DnewVersion="$VERSION"
+
+      - name: Build staged artifacts
+        run: ./mvnw -ntp -B -Ppublication
+
+      - name: Check signed tag without publishing it
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: scripts/sign-release-tag.sh "release-$VERSION" "$(git rev-parse HEAD)" verify
+
+      - name: Sign artifacts with JReleaser in dry-run mode
+        env:
+          JRELEASER_DRY_RUN: 'true'
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: dry-run-only
+          JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: dry-run-only
+          JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+        run: ./mvnw -ntp -B -N -Ppublication -Djreleaser.dry.run=true jreleaser:deploy
+
+      - name: Check artifact signatures
+        env:
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+        run: scripts/verify-artifact-signatures.sh target/staging-deploy
