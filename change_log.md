@@ -6,6 +6,10 @@ Most recent at top.
       meta `http-equiv`/`content` can carry active content that policy authors
       must vet.  Correct `HtmlPolicyBuilder`'s claim that it removes all embedded
       JavaScript.  Sanitization behavior is unchanged.  Closes #525.
+    * Keep `image` only in known foreign content.  Outside it, browsers build
+      an `<image>` start tag as the HTML `img` element, so allowing SVG
+      `image` no longer lets an `img` through.  Explicit element policies that
+      rename `image` to `img`, and real SVG images, are unchanged.
     * The URL in a CSS `url(...)` is now read as browsers read it.  A URL
       parser drops the spaces and control characters at either end of a
       URL, and tabs and newlines anywhere in it, so `url(' a.png ')` and

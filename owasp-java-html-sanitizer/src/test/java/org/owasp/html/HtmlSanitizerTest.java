@@ -54,6 +54,159 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class HtmlSanitizerTest {
 
+  private static HtmlPolicyBuilder imagePolicyBuilder() {
+    return new HtmlPolicyBuilder()
+        .allowElements("svg", "image", "rect", "desc", "title",
+            "foreignObject", "math", "mi", "mo", "mn", "ms", "mtext",
+            "annotation-xml", "mglyph", "g", "template")
+        .allowAttributes("href", "xlink:href", "src", "encoding").globally()
+        .allowUrlProtocols("http", "https");
+  }
+
+  @Test
+  void testImageAliasRequiresForeignOutputContext() throws Exception {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    for (String input : new String[] {
+        "<image>", "<IMAGE src=https://attacker.example/xss.js>",
+        "<svg><desc><image src=https://attacker.example/xss.js></desc></svg>",
+        "<svg><title><image></title></svg>",
+        "<svg><foreignObject><image></foreignObject></svg>",
+        "<math><mi><image></mi><mo><image></mo><mn><image></mn>"
+            + "<ms><image></ms><mtext><image></mtext></math>",
+        "<math><annotation-xml encoding=text/html><image></annotation-xml></math>",
+        "<math><annotation-xml encoding=application/xhtml+xml>"
+            + "<image></annotation-xml></math>",
+        "<template><image></template>",
+        "<svg><foreignObject><template><image></template></foreignObject></svg>"
+    }) {
+      String out = p.sanitize(input);
+      assertFalse(out.contains("<image"), input + " -> " + out);
+      assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"), out);
+    }
+    assertEquals("", p.sanitize("<image>"));
+    assertEquals("", p.sanitize("<image src=https://attacker.example/xss.js>"));
+
+    // The policy as reported: SVG image allowed, HTML img never named.
+    PolicyFactory reported = new HtmlPolicyBuilder()
+        .allowElements("svg", "image", "rect", "desc", "title")
+        .allowAttributes("href", "xlink:href", "src").globally()
+        .allowUrlProtocols("http", "https")
+        .toFactory();
+    assertEquals("", reported.sanitize(
+        "<image src=\"https://attacker.example/xss.js\">"));
+    assertEquals("", reported.sanitize("<image>"));
+    assertEquals("<svg><image href=\"https://example.com/a.png\"></image></svg>",
+        reported.sanitize("<svg><image href=\"https://example.com/a.png\"></image></svg>"));
+
+    // Allowing img does not lend its identity to image's broader attributes.
+    PolicyFactory separate = new HtmlPolicyBuilder().allowElements("image", "img")
+        .allowWithoutAttributes("img")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory();
+    assertEquals("<img />", separate.sanitize(
+        "<image src=https://attacker.example/xss.js><img src=https://example.com/x>"));
+  }
+
+  @Test
+  void testRealForeignImagesRemainSupported() throws Exception {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    String svg = "<svg><image href=\"https://example.com/a.png\""
+        + " xlink:href=\"https://example.com/b.png\"></image></svg>";
+    assertEquals(svg, p.sanitize(svg));
+    for (String input : new String[] {
+        svg, "<svg><g><image></image></g></svg>",
+        "<svg><desc><svg><image></image></svg></desc></svg>",
+        "<svg><foreignObject><svg><image></image></svg></foreignObject></svg>",
+        "<math><mtext><svg><image></image></svg></mtext></math>",
+        "<math><mi><mglyph><image></image></mglyph></mi></math>",
+        "<math><annotation-xml><image></image></annotation-xml></math>"
+    }) {
+      assertForeignInOutput(p, input, Arrays.asList("image"));
+      assertFalse(parseAsBrowserWithNamespaces(p.sanitize(input)).contains("<img"));
+    }
+    // A URL guard still applies to genuine SVG images.
+    assertEquals("<svg><image></image></svg>",
+        p.sanitize("<svg><image href='javascript:alert(1)'></image></svg>"));
+  }
+
+  @Test
+  void testImageUsesRetainedAndRenamedRoots() throws Exception {
+    PolicyFactory dropped = new HtmlPolicyBuilder().allowElements("image")
+        .allowAttributes("src").globally().allowUrlProtocols("https").toFactory();
+    assertEquals("", dropped.sanitize("<svg><image src=https://example.com/x></svg>"));
+    assertEquals("", dropped.sanitize("<math><image></math>"));
+    PolicyFactory renamed = imagePolicyBuilder()
+        .allowElements((name, attrs) -> "image", "custom")
+        .allowElements((name, attrs) -> "div", "svg")
+        .toFactory();
+    String out = renamed.sanitize("<custom></custom><svg><image></image></svg>");
+    assertFalse(out.contains("<image"), out);
+    assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"), out);
+    PolicyFactory introduced = imagePolicyBuilder()
+        .allowElements((name, attrs) -> "IMAGE", "custom").toFactory();
+    assertEquals("", introduced.sanitize("<custom></custom>"));
+    assertForeignInOutput(introduced,
+        "<svg><custom></custom></svg>", Arrays.asList("image"));
+  }
+
+  @Test
+  void testImageDirectEventsAndPreprocessor() throws Exception {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    for (String parent : new String[] { "", "svg", "desc", "mi", "unknown" }) {
+      StringBuilder out = new StringBuilder();
+      HtmlSanitizer.Policy events = p.apply(
+          HtmlStreamRenderer.create(out, Handler.DO_NOTHING));
+      events.openDocument();
+      if ("desc".equals(parent)) {
+        events.openTag("svg", new ArrayList<String>());
+      } else if ("mi".equals(parent)) {
+        events.openTag("math", new ArrayList<String>());
+      }
+      if (!parent.isEmpty()) { events.openTag(parent, new ArrayList<String>()); }
+      events.openTag("image", new ArrayList<>(Arrays.asList(
+          "src", "https://attacker.example/xss.js")));
+      events.closeTag("image");
+      events.closeDocument();
+      assertEquals("svg".equals(parent), out.toString().contains("<image"), parent);
+      assertFalse(parseAsBrowserWithNamespaces(out.toString()).contains("<img"));
+    }
+    PolicyFactory injected = imagePolicyBuilder()
+        .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+          @Override public void text(String text) {
+            underlying.openTag("image", new ArrayList<>(Arrays.asList(
+                "src", "https://attacker.example/xss.js")));
+            underlying.closeTag("image");
+          }
+        }).toFactory();
+    assertEquals("", injected.sanitize("inject"));
+    assertForeignInOutput(injected, "<svg>inject</svg>", Arrays.asList("image"));
+  }
+
+  @Test
+  void testImageUnknownAndHostileContextsAreBounded() {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    assertTimeoutPreemptively(Duration.ofSeconds(20), () -> {
+      // Unknown tags are not limited by the input balancer's nesting cap.
+      // Each image decision must be constant time even above this long stack.
+      StringBuilder input = new StringBuilder();
+      for (int i = 0; i < 100000; ++i) { input.append("<unknown><image>"); }
+      assertEquals("", p.sanitize(input.toString()));
+      StringBuilder out = new StringBuilder();
+      HtmlSanitizer.Policy events = p.apply(
+          HtmlStreamRenderer.create(out, Handler.DO_NOTHING));
+      events.openDocument();
+      events.openTag("svg", new ArrayList<String>());
+      // Direct events can exceed the bounded foreign-context tracker.
+      for (int i = 0; i < 300; ++i) { events.openTag("g", new ArrayList<String>()); }
+      for (int i = 0; i < 100000; ++i) {
+        events.openTag("image", new ArrayList<String>());
+        events.closeTag("image");
+      }
+      events.closeDocument();
+      assertFalse(out.toString().contains("<image"));
+    });
+  }
+
   private static String nest(String inner, int depth) {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < depth; ++i) { sb.append("<div>"); }

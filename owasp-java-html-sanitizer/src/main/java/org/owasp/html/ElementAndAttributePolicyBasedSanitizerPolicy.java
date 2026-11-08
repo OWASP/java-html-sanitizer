@@ -1439,6 +1439,21 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
       adjustedElementName = applyPolicies(elementName, attrs, policies);
       skippedLastTagAsAttributeless = false;
     }
+    // HTML tree construction treats image as img, so an image policy alone
+    // cannot authorize that spelling outside known foreign content.  Judge
+    // the final policy name against the emitted context: input roots may
+    // have been dropped, and an ElementPolicy can introduce this alias too.
+    // Explicit policies that rename image to img retain their usual behavior.
+    // Unknown contexts fail closed; the bounded tracker returns false there.
+    if ("image".equals(adjustedElementName)) {
+      HtmlSanitizer.ForeignContentContext templateContext =
+          currentOutputTemplateForeignContent();
+      HtmlSanitizer.ForeignContentContext context = templateContext != null
+          ? templateContext : outputForeignContent;
+      if (!context.startTagUsesForeignContentRules(adjustedElementName, attrs)) {
+        adjustedElementName = null;
+      }
+    }
     reopenedTableWasRenamed = mode == OpenTagMode.REOPENED_TABLE
         && adjustedElementName != null
         && !"table".equals(adjustedElementName);
