@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261107.1
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
       in event-stream, preprocessor- or policy-supplied URL attribute values,
       so dropping one cannot create an authority after relative-URL validation.
