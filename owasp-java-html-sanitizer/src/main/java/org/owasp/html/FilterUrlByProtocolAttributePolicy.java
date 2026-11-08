@@ -27,6 +27,7 @@
 
 package org.owasp.html;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -103,7 +104,10 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
     return protocols.contains("http") && protocols.contains("https");
   }
 
-  /** Percent encodes anything that looks like a colon, or a parenthesis. */
+  /**
+   * Percent encodes anything that looks like a colon, or a parenthesis, and
+   * any character the renderer would drop.
+   */
   static String normalizeUri(String s) {
     int n = s.length();
     boolean colonsIrrelevant = false;
@@ -125,8 +129,8 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
           }
           break;
         default:
-          if (ch <= 0x20) {
-            return normalizeUriFrom(s, i, false);
+          if (ch <= 0x20 || Encoding.isPossiblyElidedCodeunit(ch)) {
+            return normalizeUriFrom(s, i, colonsIrrelevant);
           }
           break;
       }
@@ -142,13 +146,32 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
     for (int i = start; i < n; ++i) {
       char ch = s.charAt(i);
       String repl = null;
+      int end = i + 1;
       switch (ch) {
         case '(': repl = "%28"; break;
         case ')': repl = "%29"; break;
         case '{': repl = "%7b"; break;
         case '}': repl = "%7d"; break;
         default:
-          if (ch >= 0x100 && !colonsIrrelevant) {
+          if (ch <= 0x20) {
+            repl = CONTROL_REPL[ch];
+          } else if (Encoding.isPossiblyElidedCodeunit(ch)) {
+            // The renderer would drop this and join the text on either side
+            // into syntax, such as an authority, that was never validated.
+            int cp = ch;
+            if (Character.isHighSurrogate(ch) && end < n
+                && Character.isLowSurrogate(s.charAt(end))) {
+              cp = Character.toCodePoint(ch, s.charAt(end));
+              ++end;
+              if (!Encoding.isNoncharacter(cp)) {
+                i = end - 1;  // The renderer keeps a well-formed pair.
+                break;
+              }
+            } else if (Character.isSurrogate(ch)) {
+              cp = 0xfffd;  // A lone surrogate has no UTF-8 encoding.
+            }
+            repl = percentEncodeUtf8(cp);
+          } else if (ch >= 0x100 && !colonsIrrelevant) {
             // Other colon like characters.
             // TODO: do we need to encode non-colon characters if we're
             // not dealing with URLs that haven't been copy/pasted into
@@ -160,17 +183,27 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
               case '\u2236': repl = "%e2%88%b6"; break;
               case '\uff1a': repl = "%ef%bc%9a"; break;
             }
-          } else if (ch <= 0x20) {
-            repl = CONTROL_REPL[ch];
           }
           break;
       }
       if (repl != null) {
         sb.append(s, pos, i).append(repl);
-        pos = i + 1;
+        pos = end;
+        i = end - 1;
       }
     }
     return sb.append(s, pos, n).toString();
+  }
+
+  private static String percentEncodeUtf8(int codepoint) {
+    byte[] bytes = new String(Character.toChars(codepoint))
+        .getBytes(StandardCharsets.UTF_8);
+    StringBuilder sb = new StringBuilder(bytes.length * 3);
+    for (byte b : bytes) {
+      sb.append('%').append(Character.forDigit((b >> 4) & 0xf, 16))
+          .append(Character.forDigit(b & 0xf, 16));
+    }
+    return sb.toString();
   }
 
   @Override
@@ -184,9 +217,9 @@ public class FilterUrlByProtocolAttributePolicy implements AttributePolicy {
     return protocols.hashCode();
   }
 
-  /** Replacements for control characters. */
-  private static String[] CONTROL_REPL = {
-      "",    "%01", "%02", "%03", "%04", "%05", "%06", "%07",
+  /** Replacements must not delete characters and join URL syntax after validation. */
+  private static final String[] CONTROL_REPL = {
+      "%00", "%01", "%02", "%03", "%04", "%05", "%06", "%07",
       "%08", "%09", "%0a", "%0b", "%0c", "%0d", "%0e", "%0f",
       "%10", "%11", "%12", "%13", "%14", "%15", "%16", "%17",
       "%18", "%19", "%1a", "%1b", "%1c", "%1d", "%1e", "%1f",
