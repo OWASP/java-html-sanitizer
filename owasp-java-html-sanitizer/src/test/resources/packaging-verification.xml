@@ -6,6 +6,12 @@
       <location>target/classes/META-INF/MANIFEST.MF</location>
       <contains>Export-Package: org.owasp.html</contains>
     </file>
+    <!-- The OSGi identity predates the move to org.owasp coordinates and
+         must not follow them.  See issue #531. -->
+    <file>
+      <location>target/classes/META-INF/MANIFEST.MF</location>
+      <contains>Bundle-SymbolicName: com.googlecode.owasp-java-html-sanitizer</contains>
+    </file>
     <!-- The JPMS module descriptor is compiled for Java 9 into the
          versioned directory of the multi-release jar, and Java 9 and later
          look there only when the manifest says Multi-Release.  Without

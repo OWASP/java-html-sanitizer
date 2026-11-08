@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause -->
+<!-- Published with every release at the coordinates used before issue #531,
+     so that builds and dependency update tools that still name them are
+     pointed at the same version under org.owasp.  It carries no code and no
+     dependencies.  The relocation leaves the version out, so it always
+     points at the release it is published with. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.owasp</groupId>
+    <artifactId>java-html-sanitizer-parent</artifactId>
+    <version>20000101-SNAPSHOT</version>
+  </parent>
+
+  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+  <artifactId>owasp-java-html-sanitizer</artifactId>
+  <packaging>pom</packaging>
+
+  <name>OWASP Java HTML Sanitizer (relocated)</name>
+  <description>
+    Relocation to org.owasp:java-html-sanitizer.  Releases from this version
+    on are published only under the new coordinates.
+  </description>
+  <url>https://github.com/OWASP/java-html-sanitizer</url>
+
+  <distributionManagement>
+    <relocation>
+      <groupId>org.owasp</groupId>
+      <artifactId>java-html-sanitizer</artifactId>
+      <message>The OWASP Java HTML Sanitizer is now published as org.owasp:java-html-sanitizer. See https://github.com/OWASP/java-html-sanitizer/blob/main/docs/maven.md</message>
+    </relocation>
+  </distributionManagement>
+</project>

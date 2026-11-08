@@ -2,8 +2,11 @@
 
 # Core Library Module
 
-This module builds the published
-`com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer` artifact.
+This module builds the published `org.owasp:java-html-sanitizer` artifact.
+Releases before issue #531 were published as
+`com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer`, where
+the [relocation module](../legacy-relocation/pom.xml) now publishes a POM with
+each release that points to the new coordinates.
 It combines HTML parsing, tag balancing, allowlist policy enforcement, and
 rendering to produce sanitized HTML.  See the
 [getting-started guide](../docs/getting_started.md) for using the public API.

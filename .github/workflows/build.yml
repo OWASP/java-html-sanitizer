@@ -61,7 +61,7 @@ jobs:
 
       - name: Run the Java 8 consumer check on Java 8
         run: |
-          set -- owasp-java-html-sanitizer/target/owasp-java-html-sanitizer-*.jar
+          set -- owasp-java-html-sanitizer/target/java-html-sanitizer-*.jar
           if [ $# -ne 1 ] || [ ! -f "$1" ]; then
             echo "::error::expected one packaged jar, found: $*"
             exit 1

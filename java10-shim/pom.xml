@@ -1,10 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>java10-shim</artifactId>
+  <artifactId>java-html-sanitizer-java10-shim</artifactId>
   <packaging>jar</packaging>
   <parent>
-    <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-    <artifactId>parent</artifactId>
+    <groupId>org.owasp</groupId>
+    <artifactId>java-html-sanitizer-parent</artifactId>
     <version>20000101-SNAPSHOT</version>
   </parent>
 
@@ -59,8 +59,8 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-      <artifactId>java8-shim</artifactId>
+      <groupId>org.owasp</groupId>
+      <artifactId>java-html-sanitizer-java8-shim</artifactId>
     </dependency>
   </dependencies>
 </project>
