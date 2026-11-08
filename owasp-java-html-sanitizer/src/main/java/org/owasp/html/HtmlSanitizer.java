@@ -1173,7 +1173,13 @@ public final class HtmlSanitizer {
     for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
       String name = it.next();
       String value = it.hasNext() ? it.next() : "";
-      if ("encoding".equals(name)) {
+      // An ElementPolicy can add attributes after the attribute policies, in
+      // any case.  The renderer lower-cases the name, as browsers do, and a
+      // browser reads the first, so match the name the renderer will emit.
+      if ("encoding".equals(HtmlLexer.canonicalAttributeName(name))) {
+        // Event-stream callers and preprocessors can supply code units that
+        // the renderer elides.  Judge the value the browser will receive.
+        value = Encoding.stripBannedCodeunits(value);
         return asciiEqualsIgnoreCase("text/html", value)
             || asciiEqualsIgnoreCase("application/xhtml+xml", value);
       }

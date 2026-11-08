@@ -147,6 +147,10 @@ class HtmlSanitizerTest {
     assertEquals("", introduced.sanitize("<custom></custom>"));
     assertForeignInOutput(introduced,
         "<svg><custom></custom></svg>", Arrays.asList("image"));
+    PolicyFactory renamedToImg = new HtmlPolicyBuilder()
+        .allowElements((name, attrs) -> "img", "image")
+        .allowWithoutAttributes("image").toFactory();
+    assertEquals("<img />", renamedToImg.sanitize("<image>"));
   }
 
   @Test
@@ -180,6 +184,112 @@ class HtmlSanitizerTest {
         }).toFactory();
     assertEquals("", injected.sanitize("inject"));
     assertForeignInOutput(injected, "<svg>inject</svg>", Arrays.asList("image"));
+  }
+
+  @Test
+  void testAnnotationXmlEncodingUsesRenderedValue() throws Exception {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    for (String encoding : new String[] { "text/html", "ApPlIcAtIoN/XhTmL+xMl" }) {
+      for (String elided : new String[] {
+          "\u0000", "\u0001", "\u007f", "\u0085", "\u009f",
+          "\ufdd0", "\ufffe", "\uffff", "\ud83f\udffe", "\udbff\udfff",
+          "\ud800", "\udc00"
+      }) {
+        String value = encoding.substring(0, 2) + elided + encoding.substring(2);
+        String expected = "<math><annotation-xml encoding=\""
+            + encoding.replace("+", "&#43;")
+            + "\"></annotation-xml></math>";
+        StringBuilder out = new StringBuilder();
+        HtmlSanitizer.Policy events = p.apply(
+            HtmlStreamRenderer.create(out, Handler.DO_NOTHING));
+        events.openDocument();
+        emitAnnotationXmlImage(events, value);
+        events.closeDocument();
+        assertFalse(parseAsBrowserWithNamespaces(out.toString()).contains("<img"),
+            "direct events: " + out);
+        assertEquals(expected, out.toString());
+
+        // Inject after tokenization, which would already strip these code units.
+        PolicyFactory injected = imagePolicyBuilder()
+            .withPreprocessor(r -> new HtmlStreamEventReceiverWrapper(r) {
+              @Override public void text(String text) {
+                emitAnnotationXmlImage(underlying, value);
+              }
+            }).toFactory();
+        String preprocessed = injected.sanitize("inject");
+        assertFalse(parseAsBrowserWithNamespaces(preprocessed).contains("<img"),
+            "preprocessor: " + preprocessed);
+        assertEquals(expected, preprocessed);
+      }
+    }
+  }
+
+  @Test
+  void testAnnotationXmlEncodingNameMatchesInAnyCase() throws Exception {
+    // An ElementPolicy runs after the attribute policies and the duplicate
+    // check, so it can add an encoding attribute under any case, even ahead
+    // of an allowed one.  Browsers lower-case the name and keep the first.
+    for (String name : new String[] { "ENCODING", "Encoding", "eNcOdInG" }) {
+      PolicyFactory p = imagePolicyBuilder()
+          .allowElements((elementName, attrs) -> {
+            attrs.add(0, "text/html");
+            attrs.add(0, name);
+            return elementName;
+          }, "annotation-xml")
+          .toFactory();
+      for (String input : new String[] {
+          "<math><annotation-xml><image src=https://attacker.example/xss.js>"
+              + "</image></annotation-xml></math>",
+          "<math><annotation-xml encoding=text/plain>"
+              + "<image src=https://attacker.example/xss.js>"
+              + "</image></annotation-xml></math>"
+      }) {
+        String out = p.sanitize(input);
+        assertFalse(out.contains("<image"), name + ": " + out);
+        assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"),
+            name + ": " + out);
+      }
+    }
+  }
+
+  private static void emitAnnotationXmlImage(
+      HtmlStreamEventReceiver events, String encoding) {
+    events.openTag("math", new ArrayList<String>());
+    events.openTag("annotation-xml", new ArrayList<>(Arrays.asList(
+        "encoding", encoding)));
+    events.openTag("image", new ArrayList<>(Arrays.asList(
+        "src", "https://attacker.example/xss.js")));
+    events.closeTag("image");
+    events.closeTag("annotation-xml");
+    events.closeTag("math");
+  }
+
+  @Test
+  void testNonHtmlAnnotationXmlEncodingKeepsForeignImage() throws Exception {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    for (String encoding : new String[] {
+        "text/plain", "text/\thtml", "text/\ud83d\ude00html"
+    }) {
+      StringBuilder out = new StringBuilder();
+      HtmlSanitizer.Policy events = p.apply(
+          HtmlStreamRenderer.create(out, Handler.DO_NOTHING));
+      events.openDocument();
+      emitAnnotationXmlImage(events, encoding);
+      events.closeDocument();
+      String tree = parseAsBrowserWithNamespaces(out.toString());
+      assertTrue(tree.contains("<math:image"), tree);
+      assertFalse(tree.contains("<img"), tree);
+    }
+  }
+
+  @Test
+  void testUnknownOutputContextDoesNotRecoverAtNewSvgRoot() throws Exception {
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    String svg = "<svg><image></image></svg>";
+    assertEquals(svg, p.sanitize(svg));
+    String out = p.sanitize("<template></template>" + svg);
+    assertEquals("<template></template><svg></svg>", out);
+    assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"), out);
   }
 
   @Test

@@ -1445,6 +1445,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     // have been dropped, and an ElementPolicy can introduce this alias too.
     // Explicit policies that rename image to img retain their usual behavior.
     // Unknown contexts fail closed; the bounded tracker returns false there.
+    // Once unknown (e.g. after a retained template), even a new svg root
+    // cannot establish a known context, so its image elements are dropped too.
     if ("image".equals(adjustedElementName)) {
       HtmlSanitizer.ForeignContentContext templateContext =
           currentOutputTemplateForeignContent();

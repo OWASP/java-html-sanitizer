@@ -9,7 +9,13 @@ Most recent at top.
     * Keep `image` only in known foreign content.  Outside it, browsers build
       an `<image>` start tag as the HTML `img` element, so allowing SVG
       `image` no longer lets an `img` through.  Explicit element policies that
-      rename `image` to `img`, and real SVG images, are unchanged.
+      rename `image` to `img` are unchanged.  SVG images remain supported in
+      known foreign content; once output context is unknown (for example,
+      after a retained `template`), later `image` elements are dropped even
+      inside a new `svg` root.  MathML `annotation-xml` integration points
+      are judged by the `encoding` attribute as rendered: its name in any
+      case and its value after renderer elision, including attributes
+      supplied by element policies, event-stream callers and preprocessors.
     * The URL in a CSS `url(...)` is now read as browsers read it.  A URL
       parser drops the spaces and control characters at either end of a
       URL, and tabs and newlines anywhere in it, so `url(' a.png ')` and
