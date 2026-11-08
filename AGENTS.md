@@ -52,6 +52,7 @@ Hard rules. Never violate them, never refactor around them.
 - Match the surrounding code: 2-space indentation, no tabs, and the same header on every new file, including `SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause`.
 - Record user-visible changes as a bullet under the `* Next release` heading at the top of `change_log.md`. The release workflow turns that heading into the release entry; do not add release headings or edit released entries.
 - Releases are maintainer-driven. Do not modify the project version in any `pom.xml`, `SECURITY.md`, `docs/vulnerabilities.md`, `docs/maven.md`, `.github/workflows/release.yml`, or the JReleaser configuration in the parent `pom.xml`.
+- In workflow YAML, quote every version and other value that must stay a string. Unquoted, `20000101.0` is a number and reaches the shell as `20000101`.
 
 ## Vulnerability Handling
 

@@ -14,7 +14,7 @@ env:
   EXPECTED_GPG_FINGERPRINT: F6109A4F3F5616E1A7A62099E02DB03BAF6C438C
   # Never released; the runner's copy of the POMs is set to it so the
   # staging repository looks like a release, and nothing is pushed.
-  VERSION: 20000101.0
+  VERSION: '20000101.0'
 
 jobs:
   verify:
