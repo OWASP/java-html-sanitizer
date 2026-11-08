@@ -50,6 +50,14 @@ if [[ ! $fingerprint =~ ^[0-9A-F]{40}$ ]]; then
   echo 'Expected exactly one release signing key' >&2
   exit 1
 fi
+uid=$(gpg --batch --with-colons --list-secret-keys |
+  awk -F: '$1 == "uid" { print $10; exit }')
+if [[ ! $uid =~ ^(.+)\ \<([^\<\>]+)\>$ ]]; then
+  echo 'Release signing key needs a name and email address' >&2
+  exit 1
+fi
+tagger_name=${BASH_REMATCH[1]}
+tagger_email=${BASH_REMATCH[2]}
 
 cat > "$signing_home/gpg-for-git" <<'EOF'
 #!/usr/bin/env bash
@@ -60,7 +68,8 @@ chmod 700 "$signing_home/gpg-for-git"
 if [[ $mode == repair ]]; then
   git tag -d "$tag"
 fi
-git -c "gpg.program=$signing_home/gpg-for-git" tag -s -u "$fingerprint" \
+GIT_COMMITTER_NAME=$tagger_name GIT_COMMITTER_EMAIL=$tagger_email \
+  git -c "gpg.program=$signing_home/gpg-for-git" tag -s -u "$fingerprint" \
   -m "Release ${tag#release-}" "$tag" "$commit"
 git tag -v "$tag"
 if [[ $(git rev-parse "$tag^{commit}") != "$commit" ]]; then
