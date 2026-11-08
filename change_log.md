@@ -16,6 +16,8 @@ Most recent at top.
       are judged by the `encoding` attribute as rendered: its name in any
       case and its value after renderer elision, including attributes
       supplied by element policies, event-stream callers and preprocessors.
+      Foreign-content breakouts from `font` likewise recognize attribute
+      names in any case after element policies run.
     * The URL in a CSS `url(...)` is now read as browsers read it.  A URL
       parser drops the spaces and control characters at either end of a
       URL, and tabs and newlines anywhere in it, so `url(' a.png ')` and

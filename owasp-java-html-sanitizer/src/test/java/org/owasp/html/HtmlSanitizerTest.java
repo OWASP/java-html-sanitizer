@@ -252,6 +252,25 @@ class HtmlSanitizerTest {
     }
   }
 
+  @Test
+  void testFontBreakoutAttributeNameMatchesInAnyCase() throws Exception {
+    for (String name : new String[] { "COLOR", "Face", "SIZE" }) {
+      PolicyFactory p = imagePolicyBuilder()
+          .allowElements((elementName, attrs) -> {
+            attrs.add(name);
+            attrs.add("red");
+            return elementName;
+          }, "font")
+          .allowElements("font")
+          .toFactory();
+      String out = p.sanitize("<svg><font><image src=https://example.com/x>"
+          + "</image></font></svg>");
+      assertFalse(out.contains("<image"), name + ": " + out);
+      assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"),
+          name + ": " + out);
+    }
+  }
+
   private static void emitAnnotationXmlImage(
       HtmlStreamEventReceiver events, String encoding) {
     events.openTag("math", new ArrayList<String>());

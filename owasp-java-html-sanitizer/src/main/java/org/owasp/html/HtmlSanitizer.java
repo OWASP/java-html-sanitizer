@@ -1202,8 +1202,10 @@ public final class HtmlSanitizer {
       for (Iterator<String> it = attrs.iterator(); it.hasNext();) {
         String name = it.next();
         if (it.hasNext()) { it.next(); }
-        if ("color".equals(name) || "face".equals(name)
-            || "size".equals(name)) {
+        // ElementPolicy may add mixed-case names; the renderer lower-cases them.
+        String renderedName = HtmlLexer.canonicalAttributeName(name);
+        if ("color".equals(renderedName) || "face".equals(renderedName)
+            || "size".equals(renderedName)) {
           return true;
         }
       }
