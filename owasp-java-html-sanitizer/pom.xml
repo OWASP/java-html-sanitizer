@@ -1,10 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>owasp-java-html-sanitizer</artifactId>
+  <artifactId>java-html-sanitizer</artifactId>
   <packaging>bundle</packaging>
   <parent>
-    <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-    <artifactId>parent</artifactId>
+    <groupId>org.owasp</groupId>
+    <artifactId>java-html-sanitizer-parent</artifactId>
     <version>20000101-SNAPSHOT</version>
   </parent>
 
@@ -119,6 +119,12 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
+            <!-- bnd derives the default symbolic name from the Maven
+                 coordinates.  Releases before the move to org.owasp had
+                 com.googlecode.owasp-java-html-sanitizer, and keeping it
+                 lets OSGi containers treat new releases as upgrades of the
+                 same bundle.  See issue #531. -->
+            <Bundle-SymbolicName>com.googlecode.owasp-java-html-sanitizer</Bundle-SymbolicName>
             <Export-Package>org.owasp.html</Export-Package>
             <!-- The java8-shim and java10-shim classes are inlined into this
                  JAR by the shade plugin below, which runs after bnd has
@@ -190,8 +196,8 @@
                    multiple JARs. See https://github.com/OWASP/java-html-sanitizer/issues/341 -->
               <artifactSet>
                 <includes>
-                  <include>com.googlecode.owasp-java-html-sanitizer:java8-shim</include>
-                  <include>com.googlecode.owasp-java-html-sanitizer:java10-shim</include>
+                  <include>org.owasp:java-html-sanitizer-java8-shim</include>
+                  <include>org.owasp:java-html-sanitizer-java10-shim</include>
                 </includes>
               </artifactSet>
               <filters>
@@ -199,8 +205,13 @@
                   <artifact>*:*</artifact>
                   <excludes>
                     <!-- Exclude shim Maven metadata to avoid duplicate
-                         pom.properties / pom.xml entries in the JAR -->
-                    <exclude>META-INF/maven/com.googlecode.owasp-java-html-sanitizer/java*/**</exclude>
+                         pom.properties / pom.xml entries in the JAR.  Name
+                         the shim directories in full: a looser pattern such
+                         as java*/** also matches java-html-sanitizer/ and
+                         strips this artifact's own metadata, which
+                         dependency scanners use to identify the JAR. -->
+                    <exclude>META-INF/maven/org.owasp/java-html-sanitizer-java8-shim/**</exclude>
+                    <exclude>META-INF/maven/org.owasp/java-html-sanitizer-java10-shim/**</exclude>
                   </excludes>
                 </filter>
                 <!-- java10-shim is compiled for Java 10.  Take only the copy
@@ -213,7 +224,7 @@
                      a change to the shim's release moves the class instead
                      of silently dropping it.  See issue #515. -->
                 <filter>
-                  <artifact>com.googlecode.owasp-java-html-sanitizer:java10-shim</artifact>
+                  <artifact>org.owasp:java-html-sanitizer-java10-shim</artifact>
                   <includes>
                     <include>META-INF/versions/**</include>
                   </includes>
@@ -338,13 +349,13 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-      <artifactId>java8-shim</artifactId>
+      <groupId>org.owasp</groupId>
+      <artifactId>java-html-sanitizer-java8-shim</artifactId>
       <optional>true</optional>
     </dependency>
     <dependency>
-      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-      <artifactId>java10-shim</artifactId>
+      <groupId>org.owasp</groupId>
+      <artifactId>java-html-sanitizer-java10-shim</artifactId>
       <optional>true</optional>
     </dependency>
     <dependency>

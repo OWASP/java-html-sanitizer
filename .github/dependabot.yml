@@ -30,3 +30,4 @@ updates:
     open-pull-requests-limit: 0
     ignore:
       - dependency-name: "com.googlecode.owasp-java-html-sanitizer:*"
+      - dependency-name: "org.owasp:java-html-sanitizer*"

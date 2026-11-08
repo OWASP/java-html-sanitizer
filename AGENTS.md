@@ -4,7 +4,7 @@ Guidance for AI-assisted work in this repository. This is a security-critical li
 
 ## Project
 
-OWASP Java HTML Sanitizer (`com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer`). Takes attacker-controlled HTML and produces HTML that is safe to embed in a web page. Allowlist policies are built with `HtmlPolicyBuilder` and compiled into thread-safe `PolicyFactory` instances.
+OWASP Java HTML Sanitizer (`org.owasp:java-html-sanitizer`; releases before issue #531 were `com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer`, where `legacy-relocation/` now publishes a relocation POM with each release). Takes attacker-controlled HTML and produces HTML that is safe to embed in a web page. Allowlist policies are built with `HtmlPolicyBuilder` and compiled into thread-safe `PolicyFactory` instances.
 
 This is a multi-module Maven build:
 

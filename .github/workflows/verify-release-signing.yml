@@ -39,6 +39,9 @@ jobs:
       - name: Build staged artifacts
         run: ./mvnw -ntp -B -Ppublication
 
+      - name: Check staged release
+        run: scripts/check-staged-release.sh target/staging-deploy "$VERSION"
+
       - name: Check signed tag without publishing it
         env:
           GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
@@ -53,9 +56,9 @@ jobs:
           JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: dry-run-only
           JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: dry-run-only
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
-        run: ./mvnw -ntp -B -N -Ppublication -Djreleaser.dry.run=true jreleaser:deploy
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+        run: scripts/with-release-key.sh ./mvnw -ntp -B -N -Ppublication -Djreleaser.dry.run=true jreleaser:deploy
 
       - name: Check artifact signatures
         env:

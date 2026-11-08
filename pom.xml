@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-  <artifactId>parent</artifactId>
+  <groupId>org.owasp</groupId>
+  <artifactId>java-html-sanitizer-parent</artifactId>
   <version>20000101-SNAPSHOT</version>
 
   <packaging>pom</packaging>
@@ -12,6 +12,7 @@
     <module>owasp-java-html-sanitizer</module>
     <module>examples</module>
     <module>empiricism</module>
+    <module>legacy-relocation</module>
   </modules>
 
   <name>OWASP Java HTML Sanitizer Project Parent</name>
@@ -262,13 +263,13 @@ application while protecting against XSS.
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-        <artifactId>java8-shim</artifactId>
+        <groupId>org.owasp</groupId>
+        <artifactId>java-html-sanitizer-java8-shim</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
-        <artifactId>java10-shim</artifactId>
+        <groupId>org.owasp</groupId>
+        <artifactId>java-html-sanitizer-java10-shim</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -380,9 +381,20 @@ application while protecting against XSS.
                   </github>
                 </release>
                 <signing>
+                  <!-- JReleaser's built-in signer always hashes with SHA-1,
+                       which current OpenPGP verifiers reject.  Sign with gpg
+                       instead; scripts/with-release-key.sh puts the release
+                       key in a temporary keyring and names it. -->
                   <pgp>
                     <active>ALWAYS</active>
                     <armored>true</armored>
+                    <mode>COMMAND</mode>
+                    <command>
+                      <args>
+                        <arg>--digest-algo</arg>
+                        <arg>SHA512</arg>
+                      </args>
+                    </command>
                   </pgp>
                 </signing>
                 <deploy>
