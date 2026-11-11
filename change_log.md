@@ -1,6 +1,47 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * The renderer writes `xmp`, `listing` and `plaintext` as `pre`, and a
+      browser ends SVG and MathML content at `pre` although not at `xmp` or
+      `plaintext`.  The sanitizer tracked the output context under the name
+      the policy gave, so after an `xmp` or `plaintext` inside `svg` or
+      `math`, written so or produced by an element policy, it still took the
+      output for foreign content, and kept a following `image` that the
+      browser then built as an HTML `img`.  This bypassed the `image` check
+      added in 20261107.1 in policies that allow `svg` or `math`, `image`,
+      and `xmp` or `plaintext`, but not `img`.  With the library's renderer,
+      the output context now follows the name the renderer writes.  A
+      postprocessor or receiver that does not extend
+      `HtmlStreamEventReceiverWrapper` still gets the policy's name; since
+      it may pass that on to the renderer, an `xmp` or `plaintext` that
+      would be SVG or MathML under its own name now makes the output
+      context unknown for it, and later `image` elements are dropped.
+      Reported by Irhas Abdul Rosyid (@analisaperlengkapan).
+    * A `template` written where the output context was already unknown,
+      for example after an earlier `template`, started a known context of
+      its own.  Inside `math` a browser makes it a MathML template, so an
+      `svg` in it is MathML and its `mtext` a text integration point, where
+      `image` builds an HTML `img`; the sanitizer took that `image` for SVG
+      and kept it.  Such a template's content now starts unknown, so
+      `image` elements in it are dropped, including SVG images in a
+      `template` that follows another.
+    * A browser reads the content of an HTML `title`, `textarea`,
+      `noscript` (with scripting on), `noembed` or `noframes` as text up to
+      the first end tag of the same name, in any case and whatever element
+      wrote it.  An element of that name kept inside one, such as an SVG
+      `noscript` in `<noscript><svg><noscript></noscript>`, ended it early,
+      and what followed reached the browser as HTML while the sanitizer
+      still took it for SVG, so an `image` there became an HTML `img`.  An
+      element of such a name is now dropped inside an open one.
+    * A `caption`, `col`, `colgroup`, `tbody`, `thead`, `tfoot`, `tr`,
+      `td` or `th` start tag that comes before any other start tag in a
+      `template`'s content switches a browser to a table mode there, where `math` and `svg` are ignored or
+      placed elsewhere.  The sanitizer took the content for body, so an
+      `image` in a nested `template` or after a `desc` there was kept and
+      built as an HTML `img` in the template's content.  Such a tag in a
+      template now makes the output context unknown, and later `image`
+      elements in that template are dropped.
   * Release 20261107.1
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
       in event-stream, preprocessor- or policy-supplied URL attribute values,

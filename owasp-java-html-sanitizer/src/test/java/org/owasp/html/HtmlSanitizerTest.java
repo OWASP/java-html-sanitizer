@@ -271,6 +271,390 @@ class HtmlSanitizerTest {
     }
   }
 
+  /**
+   * The renderer writes xmp, listing and plaintext as pre, which ends SVG and
+   * MathML content in a browser although xmp and plaintext do not.  The
+   * output context has to follow the name written, or an image start after
+   * one is kept as SVG and built as an HTML img.
+   */
+  @Test
+  void testRenamedRawTextElementEndsForeignContent() throws Exception {
+    String hostile = "https://attacker.example/xss.js";
+    PolicyFactory[] policies = {
+        // The report's policy: xmp allowed, pre and img not.
+        new HtmlPolicyBuilder()
+            .allowElements("svg", "image", "xmp")
+            .allowAttributes("src").onElements("image")
+            .allowUrlProtocols("https").toFactory(),
+        imagePolicyBuilder()
+            .allowElements("xmp", "listing", "plaintext").toFactory(),
+        imagePolicyBuilder()
+            .allowElements("xmp", "listing", "plaintext", "pre")
+            .allowAttributes("id").globally().toFactory(),
+        // A policy can introduce the name too.
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "xmp", "rect").toFactory(),
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "XMP", "rect").toFactory(),
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "plaintext", "rect").toFactory(),
+        // A void element renamed to xmp is opened and closed at once.
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "xmp", "br").toFactory(),
+        // A library decorator keeps the renderer visible.
+        imagePolicyBuilder().allowElements("xmp", "listing", "plaintext")
+            .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) { })
+            .toFactory(),
+        // A postprocessor that passes every event on unchanged hides the
+        // renderer behind a receiver the library cannot see through.
+        imagePolicyBuilder().allowElements("xmp", "listing", "plaintext")
+            .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory(),
+        new HtmlPolicyBuilder()
+            .allowElements("svg", "image", "xmp")
+            .allowAttributes("src").onElements("image")
+            .allowUrlProtocols("https")
+            .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory(),
+    };
+    String image = "<image src=" + hostile + "></image>";
+    String[] inputs = {
+        "<svg><xmp></xmp>" + image + "</svg>",
+        "<svg><br>" + image + "</svg>",
+        "<svg><xmp/>" + image + "</svg>",
+        "<svg><XMP></XMP>" + image + "</svg>",
+        "<svg><g><xmp></xmp><image id=x src=" + hostile + "></image></g></svg>",
+        "<math><xmp></xmp>" + image + "</math>",
+        "<math><mi><xmp></xmp>" + image + "</mi></math>",
+        "<svg><desc><svg><xmp></xmp>" + image + "</svg></desc></svg>",
+        "<svg><listing></listing>" + image + "</svg>",
+        "<svg><plaintext></plaintext>" + image + "</svg>",
+        "<svg><rect></rect>" + image + "</svg>",
+        "<svg><rect/>" + image + "</svg>",
+    };
+    for (int i = 0; i < policies.length; ++i) {
+      for (String input : inputs) {
+        String out = policies[i].sanitize(input);
+        // A change listener puts the library's reporter in the pipeline.
+        assertEquals(out, policies[i].sanitize(
+            input, new HtmlChangeListener<Void>() {
+              @Override public void discardedTag(
+                  Void context, String elementName) { }
+              @Override public void discardedAttributes(
+                  Void context, String tagName, String... attributeNames) { }
+            }, null), "listener, policy " + i + ": " + input);
+        String tree = parseAsBrowserWithNamespaces(out);
+        assertFalse(tree.contains("<img"),
+            "policy " + i + ": " + input + "\n" + out + "\n" + tree);
+        // Each image the policy kept is one a browser builds as SVG.  Where
+        // the policy drops the breakout element, the image is still SVG.
+        assertEquals(count(out, "<image"),
+            count(tree, "<svg:image") + count(tree, "<math:image"),
+            "policy " + i + ": " + input + "\n" + out + "\n" + tree);
+      }
+    }
+
+    // Events from a caller reach the same tracker, whether the policy writes
+    // to the renderer or to a receiver that forwards to it.
+    for (boolean forwarded : new boolean[] { false, true }) {
+      StringBuilder direct = new StringBuilder();
+      HtmlStreamEventReceiver renderer =
+          HtmlStreamRenderer.create(direct, Handler.DO_NOTHING);
+      HtmlSanitizer.Policy events = policies[0].apply(
+          forwarded ? forwardTo(renderer) : renderer);
+      events.openDocument();
+      events.openTag("svg", new ArrayList<String>());
+      events.openTag("xmp", new ArrayList<String>());
+      events.closeTag("xmp");
+      events.openTag("image", new ArrayList<>(Arrays.asList("src", hostile)));
+      events.closeTag("image");
+      events.closeTag("svg");
+      events.closeDocument();
+      String out = direct.toString();
+      assertFalse(out.contains("<image"), forwarded + ": " + out);
+      assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"),
+          forwarded + ": " + out);
+    }
+  }
+
+  /**
+   * After a retained template the output context is unknown, and an unknown
+   * context judges a template start as HTML.  Inside math it is a MathML
+   * template, so an svg in it is MathML and its mtext a text integration
+   * point, where image builds img.  The template's own context used to
+   * start known, as under a known HTML parent, and took that image for SVG.
+   */
+  @Test
+  void testTemplateUnderUnknownContextIsNotKnownForeignContent()
+      throws Exception {
+    String image = "<image src=https://attacker.example/xss.js>";
+    List<PolicyFactory> policies = new ArrayList<>();
+    for (String point : new String[] {
+        "mtext", "mi", "mo", "mn", "ms", "annotation-xml"
+    }) {
+      HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+          .allowElements("svg", "math", "template", "image", "xmp", point)
+          .allowAttributes("src").onElements("image")
+          .allowAttributes("encoding").onElements("annotation-xml")
+          .allowUrlProtocols("https");
+      policies.add(b.toFactory());
+      policies.add(b.withPostprocessor(HtmlSanitizerTest::forwardTo)
+          .toFactory());
+    }
+    for (PolicyFactory p : policies) {
+      for (String point : new String[] {
+          "mtext", "mi", "mo", "mn", "ms",
+          "annotation-xml encoding=text/html"
+      }) {
+        for (String unknown : new String[] {
+            "<template></template>", "<svg><xmp></xmp>"
+        }) {
+          String input = unknown + "<math><template><svg><" + point + ">"
+              + image;
+          String out = p.sanitize(input);
+          String tree = parseAsBrowserWithNamespaces(out);
+          assertFalse(tree.contains("<img"), input + "\n" + out + "\n" + tree);
+          assertEquals(count(out, "<image"),
+              count(tree, "<svg:image") + count(tree, "<math:image"),
+              input + "\n" + out + "\n" + tree);
+        }
+      }
+    }
+
+    // Under a known parent a template still starts a known context, and an
+    // svg image in it is kept.  After an earlier template it is dropped, as
+    // an svg image after a retained template is.
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    String svgImage = "<svg><image href=\"https://example.com/a.png\"></image></svg>";
+    assertEquals("<template>" + svgImage + "</template>",
+        p.sanitize("<template>" + svgImage + "</template>"));
+    assertEquals("<template></template><template><svg></svg></template>",
+        p.sanitize("<template></template><template>" + svgImage + "</template>"));
+  }
+
+  /**
+   * Each retained template pushes an output context, and each xmp inside svg
+   * for a receiver the library cannot see through asks the context about
+   * two names.  Neither may cost more than a constant per tag.
+   */
+  @Test
+  void testLongRunOfTemplatesAndRenamedRawTextIsLinear() {
+    PolicyFactory p = imagePolicyBuilder().allowElements("xmp", "noscript")
+        .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory();
+    int n = 50_000;
+    StringBuilder html = new StringBuilder("<template></template>");
+    for (int i = 0; i < n; ++i) {
+      html.append("<math><template><svg><mtext><image src=https://e.example/>")
+          .append("</image></mtext></svg></template></math>")
+          .append("<svg><xmp></xmp><image></image></svg>")
+          .append("<noscript><svg><noscript></noscript></svg></noscript>")
+          .append("<template><col><math><template><image></image></template>")
+          .append("</math></template>");
+    }
+    String input = html.toString();
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(input));
+    assertFalse(out.contains("<image"));
+    assertTrue(out.length() < 2 * input.length());
+  }
+
+  /**
+   * A browser reads the content of an HTML title, textarea, noscript (with
+   * scripting on), noembed or noframes as text up to the first end tag of
+   * the same name, in any case and whatever element wrote it.  An element of
+   * that name kept inside one, say an svg noscript, ended it early, and what
+   * followed reached the browser as HTML while the sanitizer still took it
+   * for SVG, so an image there became img.
+   */
+  @Test
+  void testTextContentElementIsNotNestedInItself() throws Exception {
+    String image = "<image src=https://attacker.example/xss.js>";
+    // As written, through noscript, which the lexer reads as markup.
+    PolicyFactory noscript = new HtmlPolicyBuilder()
+        .allowElements("noscript", "svg", "math", "image")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory();
+    for (String input : new String[] {
+        "<noscript><svg><noscript></noscript>" + image,
+        "<noscript><svg><NOSCRIPT></NOSCRIPT>" + image,
+        "<noscript><svg><noscript/>" + image,
+        "<noscript><math><noscript></noscript>" + image,
+        "<noscript><noscript></noscript><svg>" + image,
+    }) {
+      String out = noscript.sanitize(input);
+      assertNoTextContentElementInItself(out, input);
+      assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"), out);
+    }
+    // Through names an element policy gives, including SVG textArea, whose
+    // end tag a browser matches against textarea.
+    for (String name : new String[] {
+        "title", "textarea", "noembed", "noframes", "noscript"
+    }) {
+      PolicyFactory renamed = new HtmlPolicyBuilder()
+          .allowElements("svg", "math", "g", "image", "textArea", name)
+          .allowElements((n, attrs) -> name, "g")
+          .allowAttributes("src").onElements("image")
+          .allowUrlProtocols("https").toFactory();
+      for (String input : new String[] {
+          "<g><math><g></g>" + image + "</image></math></g>",
+          "<g><svg><g></g>" + image + "</image></svg></g>",
+          "<g><svg><textArea></textArea>" + image + "</image></svg></g>",
+      }) {
+        String out = renamed.sanitize(input);
+        assertNoTextContentElementInItself(out, name + ": " + input);
+        assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"),
+            name + ": " + out);
+      }
+    }
+    // From an event-stream caller, which can give a title children.
+    StringBuilder direct = new StringBuilder();
+    HtmlSanitizer.Policy events = new HtmlPolicyBuilder()
+        .allowElements("title", "math", "image")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory()
+        .apply(HtmlStreamRenderer.create(direct, Handler.DO_NOTHING));
+    events.openDocument();
+    events.openTag("title", new ArrayList<String>());
+    events.openTag("math", new ArrayList<String>());
+    events.openTag("title", new ArrayList<String>());
+    events.closeTag("title");
+    events.openTag("image", new ArrayList<>(Arrays.asList(
+        "src", "https://attacker.example/xss.js")));
+    events.closeTag("image");
+    events.closeTag("math");
+    events.closeTag("title");
+    events.closeDocument();
+    assertNoTextContentElementInItself(direct.toString(), "events");
+    assertFalse(parseAsBrowserWithNamespaces(direct.toString())
+        .contains("<img"), direct.toString());
+
+    // Outside one, and in sequence, they are kept as before.
+    assertEquals("<noscript><p>x</p></noscript><noscript>y</noscript>",
+        new HtmlPolicyBuilder().allowElements("noscript", "p")
+            .allowTextIn("noscript").toFactory()
+            .sanitize("<noscript><p>x</p></noscript><noscript>y</noscript>"));
+    assertEquals("<svg><noscript></noscript></svg>",
+        noscript.sanitize("<svg><noscript></noscript></svg>"));
+  }
+
+  /**
+   * Fails if, in the output, an element a browser reads as text holds a
+   * start tag of its own name, in any case, before its end tag.
+   */
+  private static void assertNoTextContentElementInItself(
+      String out, String message) {
+    String lower = Strings.toLowerCase(out);
+    for (String name : new String[] {
+        "title", "textarea", "noscript", "noembed", "noframes"
+    }) {
+      int start = lower.indexOf("<" + name);
+      while (start >= 0) {
+        int end = lower.indexOf("</" + name, start);
+        int nested = lower.indexOf("<" + name, start + 1);
+        assertFalse(nested >= 0 && (end < 0 || nested < end),
+            name + " in " + name + ": " + message + "\n" + out);
+        start = end < 0 ? -1 : lower.indexOf("<" + name, end);
+      }
+    }
+  }
+
+  /**
+   * The first table-structure start tag in HTML template contents switches
+   * the template to a table mode, where math and svg are ignored or put
+   * elsewhere.  The sanitizer modeled the contents as in body, so a template
+   * or desc there let an image through that a browser builds as img, as
+   * Chrome does for caption or colgroup followed by svg, desc and colgroup,
+   * and for col followed by math and template.  The other shapes here pin the
+   * fail-closed rule: any such tag makes the template's context unknown.
+   */
+  @Test
+  void testTableModeInTemplateIsNotKnownForeignContent() throws Exception {
+    String image = "<image src=https://attacker.example/xss.js>";
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("template", "math", "svg", "desc", "mtext", "image",
+            "caption", "col", "colgroup", "tbody", "thead", "tfoot", "tr",
+            "td", "th")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory();
+    for (String part : new String[] {
+        "caption", "col", "colgroup", "tbody", "thead", "tfoot", "tr", "td",
+        "th"
+    }) {
+      for (String rest : new String[] {
+          "<math><template>" + image,
+          "<svg><desc><colgroup></colgroup></desc>" + image,
+          "<math><mtext></mtext>" + image,
+      }) {
+        String input = "<template><" + part + ">" + rest;
+        String out = p.sanitize(input);
+        assertFalse(out.contains("<image"), input + "\n" + out);
+      }
+    }
+    // Contents that start in body keep a known context.
+    String svgImage = "<svg><image src=\"https://example.com/a.png\"></image></svg>";
+    assertEquals("<template>" + svgImage + "</template>",
+        p.sanitize("<template>" + svgImage + "</template>"));
+  }
+
+  /** A receiver that passes every event on, and that the library cannot see through. */
+  private static HtmlStreamEventReceiver forwardTo(
+      final HtmlStreamEventReceiver sink) {
+    return new HtmlStreamEventReceiver() {
+      @Override public void openDocument() { sink.openDocument(); }
+      @Override public void closeDocument() { sink.closeDocument(); }
+      @Override public void openTag(String name, List<String> attrs) {
+        sink.openTag(name, attrs);
+      }
+      @Override public void closeTag(String name) { sink.closeTag(name); }
+      @Override public void text(String text) { sink.text(text); }
+    };
+  }
+
+  @Test
+  void testForeignImageAroundRenamedRawTextElementIsKept() throws Exception {
+    PolicyFactory p = imagePolicyBuilder()
+        .allowElements("xmp", "listing", "plaintext", "pre").toFactory();
+    String image = "<image src=\"https://example.com/a.png\"></image>";
+    // Before the breakout, and inside a new root after it, an image is SVG.
+    String out = p.sanitize("<svg>" + image + "<xmp>x</xmp>"
+        + "<svg>" + image + "</svg></svg>");
+    assertEquals(
+        "<svg>" + image + "</svg><pre>x</pre><svg>" + image + "</svg>", out);
+    assertForeignInOutput(p, "<svg>" + image + "<xmp></xmp></svg>",
+        Arrays.asList("image"));
+    // Outside foreign content nothing changes: xmp is still written as pre.
+    assertEquals("<pre>&lt;b&gt;</pre>", p.sanitize("<xmp><b></xmp>"));
+  }
+
+  @Test
+  void testCustomReceiverStillGetsThePolicyName() {
+    // Only the library's renderer renames xmp; another receiver gets the
+    // name the policy gave.  Whether it writes that name, which inside svg a
+    // browser keeps as SVG, or passes it on to the renderer, which writes
+    // pre, is unknown, so no image after it is trusted as SVG, even in a new
+    // svg root, as after a retained template.  Before it nothing changes.
+    PolicyFactory p = imagePolicyBuilder().allowElements("xmp").toFactory();
+    List<String> opened = new ArrayList<>();
+    HtmlSanitizer.sanitize(
+        "<svg><image></image><xmp></xmp><image></image></svg>"
+        + "<xmp></xmp><svg><image></image></svg>",
+        p.apply(new HtmlStreamEventReceiver() {
+          @Override public void openDocument() { }
+          @Override public void closeDocument() { }
+          @Override public void openTag(String name, List<String> attrs) {
+            opened.add(name);
+          }
+          @Override public void closeTag(String name) { }
+          @Override public void text(String text) { }
+        }));
+    assertEquals(
+        Arrays.asList("svg", "image", "xmp", "xmp", "svg"), opened);
+  }
+
+  private static int count(String s, String sub) {
+    int n = 0;
+    for (int i = s.indexOf(sub); i >= 0; i = s.indexOf(sub, i + 1)) { ++n; }
+    return n;
+  }
+
   private static void emitAnnotationXmlImage(
       HtmlStreamEventReceiver events, String encoding) {
     events.openTag("math", new ArrayList<String>());
@@ -3919,18 +4303,25 @@ class HtmlSanitizerTest {
         .allowElements(names).allowWithoutAttributes(names)
         .allowTextIn("noscript").toFactory();
     // A browser drops the raw td and tr, which are outside any table, so the
-    // output is compared with its own reparse only.
+    // output is compared with its own reparse only.  The svg noscript is
+    // dropped, not kept: with scripting on, a browser reads the outer
+    // noscript as text up to the first </noscript>, which would be the inner
+    // one's (see testTextContentElementIsNotNestedInItself).  Its logical
+    // entry is still what the foreign end tag closes.
     assertRoundTripAndBalanced(
         p, "<noscript><td><svg><noscript></svg><tr>",
-        "<noscript><table><tbody><tr><td><svg><noscript></noscript></svg>"
+        "<noscript><table><tbody><tr><td><svg></svg>"
         + "</td></tr><tr></tr></tbody></table></noscript>");
 
     // Content after the foreign close belongs to the outer noscript, and its
     // end tag still finds that element.
     String input = "<noscript><svg><noscript></svg>x</noscript>y";
-    String expected = "<noscript><svg><noscript></noscript></svg>x</noscript>y";
+    String expected = "<noscript><svg></svg>x</noscript>y";
     assertRoundTripAndBalanced(p, input, expected);
-    assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
+    // The browser tree differs from the input's by the dropped svg noscript
+    // alone, and x stays in the outer noscript.
+    assertEquals(parseAsBrowser(input).replace("    <noscript>\n", ""),
+        parseAsBrowser(expected));
   }
 
   /** A wrapper the policy already closed cannot alias an older wrapper. */
