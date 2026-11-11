@@ -1,6 +1,16 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
+  * Next release
+    * The renderer writes `xmp`, `listing` and `plaintext` as `pre`, and a
+      browser ends SVG and MathML content at `pre` although not at `xmp` or
+      `plaintext`.  The sanitizer tracked the output context under the name
+      the policy gave, so after an `xmp` inside `svg` it still took the
+      output for SVG, and kept a following `image` that the browser then
+      built as an HTML `img`.  This bypassed the `image` check added in
+      20261107.1 in policies that allow `svg`, `image` and `xmp` but not
+      `img`.  The output context now follows the name the renderer writes.
+      Reported by Irhas Abdul Rosyid (@analisaperlengkapan).
   * Release 20261107.1
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
       in event-stream, preprocessor- or policy-supplied URL attribute values,

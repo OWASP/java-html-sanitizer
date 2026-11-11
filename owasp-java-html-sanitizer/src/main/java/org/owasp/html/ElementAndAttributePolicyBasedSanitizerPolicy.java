@@ -1769,8 +1769,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
       adjustedElementName = policies.elPolicy.apply(elementName, attrs);
       if (adjustedElementName != null) {
-        adjustedElementName =
-            HtmlLexer.canonicalElementName(adjustedElementName);
+        // Judge the element under the name the output will carry.  The
+        // library's renderer writes xmp, listing and plaintext as pre, and
+        // pre, unlike xmp and plaintext, ends SVG and MathML content in a
+        // browser.  Tracking the policy's name instead left the output
+        // context in foreign content after the browser had left it, so an
+        // image start there was kept as SVG and built as an HTML img.
+        adjustedElementName = outIsLibraryRenderer
+            ? HtmlStreamRenderer.safeName(adjustedElementName)
+            : HtmlLexer.canonicalElementName(adjustedElementName);
       }
     } else {
       adjustedElementName = null;

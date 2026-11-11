@@ -271,6 +271,120 @@ class HtmlSanitizerTest {
     }
   }
 
+  /**
+   * The renderer writes xmp, listing and plaintext as pre, which ends SVG and
+   * MathML content in a browser although xmp and plaintext do not.  The
+   * output context has to follow the name written, or an image start after
+   * one is kept as SVG and built as an HTML img.
+   */
+  @Test
+  void testRenamedRawTextElementEndsForeignContent() throws Exception {
+    String hostile = "https://attacker.example/xss.js";
+    PolicyFactory[] policies = {
+        // The report's policy: xmp allowed, pre and img not.
+        new HtmlPolicyBuilder()
+            .allowElements("svg", "image", "xmp")
+            .allowAttributes("src").onElements("image")
+            .allowUrlProtocols("https").toFactory(),
+        imagePolicyBuilder()
+            .allowElements("xmp", "listing", "plaintext").toFactory(),
+        imagePolicyBuilder()
+            .allowElements("xmp", "listing", "plaintext", "pre")
+            .allowAttributes("id").globally().toFactory(),
+        // A policy can introduce the name too.
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "xmp", "rect").toFactory(),
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "XMP", "rect").toFactory(),
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "plaintext", "rect").toFactory(),
+    };
+    String image = "<image src=" + hostile + "></image>";
+    String[] inputs = {
+        "<svg><xmp></xmp>" + image + "</svg>",
+        "<svg><xmp/>" + image + "</svg>",
+        "<svg><XMP></XMP>" + image + "</svg>",
+        "<svg><g><xmp></xmp><image id=x src=" + hostile + "></image></g></svg>",
+        "<math><xmp></xmp>" + image + "</math>",
+        "<math><mi><xmp></xmp>" + image + "</mi></math>",
+        "<svg><desc><svg><xmp></xmp>" + image + "</svg></desc></svg>",
+        "<svg><listing></listing>" + image + "</svg>",
+        "<svg><plaintext></plaintext>" + image + "</svg>",
+        "<svg><rect></rect>" + image + "</svg>",
+        "<svg><rect/>" + image + "</svg>",
+    };
+    for (int i = 0; i < policies.length; ++i) {
+      for (String input : inputs) {
+        String out = policies[i].sanitize(input);
+        String tree = parseAsBrowserWithNamespaces(out);
+        assertFalse(tree.contains("<img"),
+            "policy " + i + ": " + input + "\n" + out + "\n" + tree);
+        // Each image the policy kept is one a browser builds as SVG.  Where
+        // the policy drops the breakout element, the image is still SVG.
+        assertEquals(count(out, "<image"),
+            count(tree, "<svg:image") + count(tree, "<math:image"),
+            "policy " + i + ": " + input + "\n" + out + "\n" + tree);
+      }
+    }
+
+    // Events from a caller or a preprocessor reach the same tracker.
+    StringBuilder direct = new StringBuilder();
+    HtmlSanitizer.Policy events = policies[0].apply(
+        HtmlStreamRenderer.create(direct, Handler.DO_NOTHING));
+    events.openDocument();
+    events.openTag("svg", new ArrayList<String>());
+    events.openTag("xmp", new ArrayList<String>());
+    events.closeTag("xmp");
+    events.openTag("image", new ArrayList<>(Arrays.asList("src", hostile)));
+    events.closeTag("image");
+    events.closeTag("svg");
+    events.closeDocument();
+    assertFalse(direct.toString().contains("<image"), direct.toString());
+    assertFalse(parseAsBrowserWithNamespaces(direct.toString()).contains("<img"),
+        direct.toString());
+  }
+
+  @Test
+  void testForeignImageAroundRenamedRawTextElementIsKept() throws Exception {
+    PolicyFactory p = imagePolicyBuilder()
+        .allowElements("xmp", "listing", "plaintext", "pre").toFactory();
+    String image = "<image src=\"https://example.com/a.png\"></image>";
+    // Before the breakout, and inside a new root after it, an image is SVG.
+    String out = p.sanitize("<svg>" + image + "<xmp>x</xmp>"
+        + "<svg>" + image + "</svg></svg>");
+    assertEquals(
+        "<svg>" + image + "</svg><pre>x</pre><svg>" + image + "</svg>", out);
+    assertForeignInOutput(p, "<svg>" + image + "<xmp></xmp></svg>",
+        Arrays.asList("image"));
+    // Outside foreign content nothing changes: xmp is still written as pre.
+    assertEquals("<pre>&lt;b&gt;</pre>", p.sanitize("<xmp><b></xmp>"));
+  }
+
+  @Test
+  void testCustomReceiverStillGetsThePolicyName() {
+    // Only the library's renderer renames xmp; another receiver writes the
+    // name it is given, which inside svg a browser keeps as SVG.
+    PolicyFactory p = imagePolicyBuilder().allowElements("xmp").toFactory();
+    List<String> opened = new ArrayList<>();
+    HtmlSanitizer.sanitize("<svg><xmp></xmp></svg>",
+        p.apply(new HtmlStreamEventReceiver() {
+          @Override public void openDocument() { }
+          @Override public void closeDocument() { }
+          @Override public void openTag(String name, List<String> attrs) {
+            opened.add(name);
+          }
+          @Override public void closeTag(String name) { }
+          @Override public void text(String text) { }
+        }));
+    assertEquals(Arrays.asList("svg", "xmp"), opened);
+  }
+
+  private static int count(String s, String sub) {
+    int n = 0;
+    for (int i = s.indexOf(sub); i >= 0; i = s.indexOf(sub, i + 1)) { ++n; }
+    return n;
+  }
+
   private static void emitAnnotationXmlImage(
       HtmlStreamEventReceiver events, String encoding) {
     events.openTag("math", new ArrayList<String>());
