@@ -119,7 +119,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /** Browser tree-construction context for the tags actually emitted. */
   private HtmlSanitizer.ForeignContentContext outputForeignContent
       = new HtmlSanitizer.ForeignContentContext();
-  /** Exact contexts inside retained, emitted HTML template elements. */
+  /**
+   * Contexts inside retained, emitted HTML template elements: exact, or
+   * unknown from the start where the template's parent context was unknown.
+   */
   private final List<HtmlSanitizer.ForeignContentContext>
       outputTemplateForeignContents = new ArrayList<>();
   /** Output depth at each corresponding retained HTML template start. */
@@ -806,8 +809,9 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     // A template judged HTML only because its parent's context is unknown
     // may be an SVG or MathML template in the browser, whose content is not
     // parsed from an HTML root.  Its content starts unknown too, or an svg
-    // root in it would make an image there look like SVG while a browser,
-    // under a MathML template, puts it in a text integration point as img.
+    // root in it would make an image there look like SVG, while under a
+    // MathML template a browser makes that svg MathML, and an image in an
+    // mtext or other text integration point in it an HTML img.
     if (parentUnknown) { context.forget(); }
     outputTemplateForeignContents.add(context);
     outputTemplateForeignContentDepths.add(outputNestingDepth);

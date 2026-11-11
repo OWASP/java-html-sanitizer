@@ -430,6 +430,29 @@ class HtmlSanitizerTest {
         p.sanitize("<template></template><template>" + svgImage + "</template>"));
   }
 
+  /**
+   * Each retained template pushes an output context, and each xmp inside svg
+   * for a receiver the library cannot see through asks the context about
+   * two names.  Neither may cost more than a constant per tag.
+   */
+  @Test
+  void testLongRunOfTemplatesAndRenamedRawTextIsLinear() {
+    PolicyFactory p = imagePolicyBuilder().allowElements("xmp")
+        .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory();
+    int n = 50_000;
+    StringBuilder html = new StringBuilder("<template></template>");
+    for (int i = 0; i < n; ++i) {
+      html.append("<math><template><svg><mtext><image src=https://e.example/>")
+          .append("</image></mtext></svg></template></math>")
+          .append("<svg><xmp></xmp><image></image></svg>");
+    }
+    String input = html.toString();
+    String out = assertTimeoutPreemptively(
+        Duration.ofSeconds(20), () -> p.sanitize(input));
+    assertFalse(out.contains("<image"));
+    assertTrue(out.length() < 2 * input.length());
+  }
+
   /** A receiver that passes every event on, and that the library cannot see through. */
   private static HtmlStreamEventReceiver forwardTo(
       final HtmlStreamEventReceiver sink) {
