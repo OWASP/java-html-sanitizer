@@ -766,9 +766,25 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   private void processOutputStartTag(
       String elementName, List<String> attrs, boolean selfClosing) {
-    outputForeignContent.processStartTag(elementName, attrs, selfClosing);
     HtmlSanitizer.ForeignContentContext templateContext =
         currentOutputTemplateForeignContent();
+    if (!outIsLibraryRenderer) {
+      // A receiver the library cannot see through may write the name as it
+      // is, or pass it on to the library's renderer, which writes xmp and
+      // plaintext as pre.  Inside svg or math a browser keeps the one as
+      // SVG or MathML and leaves foreign content at the other, so where the
+      // two differ the output context is not known after it.
+      String rendered = HtmlStreamRenderer.safeName(elementName);
+      if (!rendered.equals(elementName)) {
+        outputForeignContent.forgetIfNamespaceDependsOnName(
+            elementName, rendered, attrs);
+        if (templateContext != null) {
+          templateContext.forgetIfNamespaceDependsOnName(
+              elementName, rendered, attrs);
+        }
+      }
+    }
+    outputForeignContent.processStartTag(elementName, attrs, selfClosing);
     if (templateContext != null) {
       templateContext.processStartTag(elementName, attrs, selfClosing);
     }

@@ -298,6 +298,15 @@ class HtmlSanitizerTest {
             .allowElements((name, attrs) -> "XMP", "rect").toFactory(),
         imagePolicyBuilder()
             .allowElements((name, attrs) -> "plaintext", "rect").toFactory(),
+        // A postprocessor that passes every event on unchanged hides the
+        // renderer behind a receiver the library cannot see through.
+        imagePolicyBuilder().allowElements("xmp", "listing", "plaintext")
+            .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory(),
+        new HtmlPolicyBuilder()
+            .allowElements("svg", "image", "xmp")
+            .allowAttributes("src").onElements("image")
+            .allowUrlProtocols("https")
+            .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory(),
     };
     String image = "<image src=" + hostile + "></image>";
     String[] inputs = {
@@ -327,21 +336,41 @@ class HtmlSanitizerTest {
       }
     }
 
-    // Events from a caller or a preprocessor reach the same tracker.
-    StringBuilder direct = new StringBuilder();
-    HtmlSanitizer.Policy events = policies[0].apply(
-        HtmlStreamRenderer.create(direct, Handler.DO_NOTHING));
-    events.openDocument();
-    events.openTag("svg", new ArrayList<String>());
-    events.openTag("xmp", new ArrayList<String>());
-    events.closeTag("xmp");
-    events.openTag("image", new ArrayList<>(Arrays.asList("src", hostile)));
-    events.closeTag("image");
-    events.closeTag("svg");
-    events.closeDocument();
-    assertFalse(direct.toString().contains("<image"), direct.toString());
-    assertFalse(parseAsBrowserWithNamespaces(direct.toString()).contains("<img"),
-        direct.toString());
+    // Events from a caller reach the same tracker, whether the policy writes
+    // to the renderer or to a receiver that forwards to it.
+    for (boolean forwarded : new boolean[] { false, true }) {
+      StringBuilder direct = new StringBuilder();
+      HtmlStreamEventReceiver renderer =
+          HtmlStreamRenderer.create(direct, Handler.DO_NOTHING);
+      HtmlSanitizer.Policy events = policies[0].apply(
+          forwarded ? forwardTo(renderer) : renderer);
+      events.openDocument();
+      events.openTag("svg", new ArrayList<String>());
+      events.openTag("xmp", new ArrayList<String>());
+      events.closeTag("xmp");
+      events.openTag("image", new ArrayList<>(Arrays.asList("src", hostile)));
+      events.closeTag("image");
+      events.closeTag("svg");
+      events.closeDocument();
+      String out = direct.toString();
+      assertFalse(out.contains("<image"), forwarded + ": " + out);
+      assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"),
+          forwarded + ": " + out);
+    }
+  }
+
+  /** A receiver that passes every event on, and that the library cannot see through. */
+  private static HtmlStreamEventReceiver forwardTo(
+      final HtmlStreamEventReceiver sink) {
+    return new HtmlStreamEventReceiver() {
+      @Override public void openDocument() { sink.openDocument(); }
+      @Override public void closeDocument() { sink.closeDocument(); }
+      @Override public void openTag(String name, List<String> attrs) {
+        sink.openTag(name, attrs);
+      }
+      @Override public void closeTag(String name) { sink.closeTag(name); }
+      @Override public void text(String text) { sink.text(text); }
+    };
   }
 
   @Test
@@ -362,11 +391,16 @@ class HtmlSanitizerTest {
 
   @Test
   void testCustomReceiverStillGetsThePolicyName() {
-    // Only the library's renderer renames xmp; another receiver writes the
-    // name it is given, which inside svg a browser keeps as SVG.
+    // Only the library's renderer renames xmp; another receiver gets the
+    // name the policy gave.  Whether it writes that name, which inside svg a
+    // browser keeps as SVG, or passes it on to the renderer, which writes
+    // pre, is unknown, so no image after it is trusted as SVG, even in a new
+    // svg root, as after a retained template.  Before it nothing changes.
     PolicyFactory p = imagePolicyBuilder().allowElements("xmp").toFactory();
     List<String> opened = new ArrayList<>();
-    HtmlSanitizer.sanitize("<svg><xmp></xmp></svg>",
+    HtmlSanitizer.sanitize(
+        "<svg><image></image><xmp></xmp><image></image></svg>"
+        + "<xmp></xmp><svg><image></image></svg>",
         p.apply(new HtmlStreamEventReceiver() {
           @Override public void openDocument() { }
           @Override public void closeDocument() { }
@@ -376,7 +410,8 @@ class HtmlSanitizerTest {
           @Override public void closeTag(String name) { }
           @Override public void text(String text) { }
         }));
-    assertEquals(Arrays.asList("svg", "xmp"), opened);
+    assertEquals(
+        Arrays.asList("svg", "image", "xmp", "xmp", "svg"), opened);
   }
 
   private static int count(String s, String sub) {

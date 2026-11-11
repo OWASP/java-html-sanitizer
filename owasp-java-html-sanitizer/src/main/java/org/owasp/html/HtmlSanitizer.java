@@ -474,6 +474,21 @@ public final class HtmlSanitizer {
       return false;
     }
 
+    /**
+     * Gives up the context when a start tag that may reach the browser under
+     * either of two names would be inserted as SVG or MathML under one and as
+     * HTML under the other, as xmp and the pre a renderer may write for it
+     * are inside an svg.  Call before {@link #processStartTag}.
+     */
+    void forgetIfNamespaceDependsOnName(
+        String elementName, String otherName, List<String> attrs) {
+      if (!unknown
+          && startTagUsesForeignContentRules(elementName, attrs)
+             != startTagUsesForeignContentRules(otherName, attrs)) {
+        becomeUnknown();
+      }
+    }
+
     /** Records an HTML end tag known to be ignored without changing context. */
     void ignoreEndTagUnderHtmlRules() {
       lastTagUsedForeignContentRules = false;

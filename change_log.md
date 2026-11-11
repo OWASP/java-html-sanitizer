@@ -10,6 +10,11 @@ Most recent at top.
       built as an HTML `img`.  This bypassed the `image` check added in
       20261107.1 in policies that allow `svg`, `image` and `xmp` but not
       `img`.  The output context now follows the name the renderer writes.
+      A receiver the library cannot see through, such as a postprocessor,
+      still gets the policy's name; since it may pass that on to the
+      renderer, an `xmp` or `plaintext` inside SVG or MathML now makes the
+      output context unknown for it, and later `image` elements are dropped
+      as they are after a retained `template`.
       Reported by Irhas Abdul Rosyid (@analisaperlengkapan).
   * Release 20261107.1
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
