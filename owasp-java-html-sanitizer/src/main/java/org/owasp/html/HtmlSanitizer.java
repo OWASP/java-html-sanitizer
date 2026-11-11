@@ -278,6 +278,11 @@ public final class HtmlSanitizer {
       return unknown;
     }
 
+    /** Gives up the context, as reaching an unmodeled one does. */
+    void forget() {
+      if (!unknown) { becomeUnknown(); }
+    }
+
     /** Records a form pointer whose target may be outside the tracked region. */
     void markFormElementPointerSet() {
       formElementPointerSet = true;

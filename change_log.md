@@ -9,15 +9,23 @@ Most recent at top.
       `math`, written so or produced by an element policy, it still took the
       output for foreign content, and kept a following `image` that the
       browser then built as an HTML `img`.  This bypassed the `image` check
-      added in 20261107.1 in policies that allow `image` and one of those
-      elements but not `img`.  With the library's renderer, the output
-      context now follows the name the renderer writes.
-      A receiver the library cannot see through, such as a postprocessor,
-      still gets the policy's name; since it may pass that on to the
-      renderer, an `xmp` or `plaintext` inside SVG or MathML now makes the
-      output context unknown for it, and later `image` elements are dropped
-      as they are after a retained `template`.
+      added in 20261107.1 in policies that allow `svg` or `math`, `image`,
+      and `xmp` or `plaintext`, but not `img`.  With the library's renderer,
+      the output context now follows the name the renderer writes.  A
+      postprocessor or receiver that does not extend
+      `HtmlStreamEventReceiverWrapper` still gets the policy's name; since
+      it may pass that on to the renderer, an `xmp` or `plaintext` that
+      would be SVG or MathML under its own name now makes the output
+      context unknown for it, and later `image` elements are dropped.
       Reported by Irhas Abdul Rosyid (@analisaperlengkapan).
+    * A `template` written where the output context was already unknown,
+      for example after an earlier `template`, started a known context of
+      its own.  Inside `math` a browser makes it a MathML template, so an
+      `svg` in it is MathML and its `mtext` a text integration point, where
+      `image` builds an HTML `img`; the sanitizer took that `image` for SVG
+      and kept it.  Such a template's content now starts unknown, so
+      `image` elements in it are dropped, including SVG images in a
+      `template` that follows another.
   * Release 20261107.1
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
       in event-stream, preprocessor- or policy-supplied URL attribute values,

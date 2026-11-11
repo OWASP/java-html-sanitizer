@@ -375,6 +375,61 @@ class HtmlSanitizerTest {
     }
   }
 
+  /**
+   * After a retained template the output context is unknown, and an unknown
+   * context judges a template start as HTML.  Inside math it is a MathML
+   * template, so an svg in it is MathML and its mtext a text integration
+   * point, where image builds img.  The template's own context used to
+   * start known, as under a known HTML parent, and took that image for SVG.
+   */
+  @Test
+  void testTemplateUnderUnknownContextIsNotKnownForeignContent()
+      throws Exception {
+    String image = "<image src=https://attacker.example/xss.js>";
+    List<PolicyFactory> policies = new ArrayList<>();
+    for (String point : new String[] {
+        "mtext", "mi", "mo", "mn", "ms", "annotation-xml"
+    }) {
+      HtmlPolicyBuilder b = new HtmlPolicyBuilder()
+          .allowElements("svg", "math", "template", "image", "xmp", point)
+          .allowAttributes("src").onElements("image")
+          .allowAttributes("encoding").onElements("annotation-xml")
+          .allowUrlProtocols("https");
+      policies.add(b.toFactory());
+      policies.add(b.withPostprocessor(HtmlSanitizerTest::forwardTo)
+          .toFactory());
+    }
+    for (PolicyFactory p : policies) {
+      for (String point : new String[] {
+          "mtext", "mi", "mo", "mn", "ms",
+          "annotation-xml encoding=text/html"
+      }) {
+        for (String unknown : new String[] {
+            "<template></template>", "<svg><xmp></xmp>"
+        }) {
+          String input = unknown + "<math><template><svg><" + point + ">"
+              + image;
+          String out = p.sanitize(input);
+          String tree = parseAsBrowserWithNamespaces(out);
+          assertFalse(tree.contains("<img"), input + "\n" + out + "\n" + tree);
+          assertEquals(count(out, "<image"),
+              count(tree, "<svg:image") + count(tree, "<math:image"),
+              input + "\n" + out + "\n" + tree);
+        }
+      }
+    }
+
+    // Under a known parent a template still starts a known context, and an
+    // svg image in it is kept.  After an earlier template it is dropped, as
+    // an svg image after a retained template is.
+    PolicyFactory p = imagePolicyBuilder().toFactory();
+    String svgImage = "<svg><image href=\"https://example.com/a.png\"></image></svg>";
+    assertEquals("<template>" + svgImage + "</template>",
+        p.sanitize("<template>" + svgImage + "</template>"));
+    assertEquals("<template></template><template><svg></svg></template>",
+        p.sanitize("<template></template><template>" + svgImage + "</template>"));
+  }
+
   /** A receiver that passes every event on, and that the library cannot see through. */
   private static HtmlStreamEventReceiver forwardTo(
       final HtmlStreamEventReceiver sink) {

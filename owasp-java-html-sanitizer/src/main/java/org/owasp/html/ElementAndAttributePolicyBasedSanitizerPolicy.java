@@ -800,9 +800,16 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
   }
 
-  private void pushOutputTemplateForeignContent() {
-    outputTemplateForeignContents.add(
-        new HtmlSanitizer.ForeignContentContext());
+  private void pushOutputTemplateForeignContent(boolean parentUnknown) {
+    HtmlSanitizer.ForeignContentContext context =
+        new HtmlSanitizer.ForeignContentContext();
+    // A template judged HTML only because its parent's context is unknown
+    // may be an SVG or MathML template in the browser, whose content is not
+    // parsed from an HTML root.  Its content starts unknown too, or an svg
+    // root in it would make an image there look like SVG while a browser,
+    // under a MathML template, puts it in a text integration point as img.
+    if (parentUnknown) { context.forget(); }
+    outputTemplateForeignContents.add(context);
     outputTemplateForeignContentDepths.add(outputNestingDepth);
   }
 
@@ -1946,6 +1953,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
                adjustedElementName);
     boolean opensHtmlTemplate = opensHtmlOutputTemplate(
         elementName, adjustedElementName, attrs);
+    HtmlSanitizer.ForeignContentContext templateParent =
+        currentOutputTemplateForeignContent();
+    boolean templateParentUnknown = opensHtmlTemplate
+        && (templateParent != null
+            ? templateParent : outputForeignContent).isUnknown();
     if (opensHtmlTemplate) {
       // Preserve the legacy conservative tracker at the template boundary,
       // while freezing any parent template context for later restoration.
@@ -1967,7 +1979,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     ++outputNestingDepth;
     outputContainerElementName = adjustedElementName;
     if (opensHtmlTemplate) {
-      pushOutputTemplateForeignContent();
+      pushOutputTemplateForeignContent(templateParentUnknown);
     }
     if ("form".equals(adjustedElementName)
         && !outputElementForLastOpenTagUsedForeignContentRules
