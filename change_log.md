@@ -1,7 +1,7 @@
 # OWASP Java HTML Sanitizer Change Log
 
 Most recent at top.
-  * Next release
+  * Release 20261110.1
     * The renderer writes `xmp`, `listing` and `plaintext` as `pre`, and a
       browser ends SVG and MathML content at `pre` although not at `xmp` or
       `plaintext`.  The sanitizer tracked the output context under the name
