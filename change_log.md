@@ -26,6 +26,22 @@ Most recent at top.
       and kept it.  Such a template's content now starts unknown, so
       `image` elements in it are dropped, including SVG images in a
       `template` that follows another.
+    * A browser reads the content of an HTML `title`, `textarea`,
+      `noscript` (with scripting on), `noembed` or `noframes` as text up to
+      the first end tag of the same name, in any case and whatever element
+      wrote it.  An element of that name kept inside one, such as an SVG
+      `noscript` in `<noscript><svg><noscript></noscript>`, ended it early,
+      and what followed reached the browser as HTML while the sanitizer
+      still took it for SVG, so an `image` there became an HTML `img`.  An
+      element of such a name is now dropped inside an open one.
+    * The first `caption`, `col`, `colgroup`, `tbody`, `thead`, `tfoot`,
+      `tr`, `td` or `th` start tag in a `template`'s content switches a
+      browser to a table mode there, where `math` and `svg` are ignored or
+      placed elsewhere.  The sanitizer took the content for body, so an
+      `image` in a nested `template` or after a `desc` there was kept and
+      built as an HTML `img` in the template's content.  Such a tag in a
+      template now makes the output context unknown, and later `image`
+      elements in that template are dropped.
   * Release 20261107.1
     * Percent-encode NUL, DEL, C1 controls, noncharacters and lone surrogates
       in event-stream, preprocessor- or policy-supplied URL attribute values,

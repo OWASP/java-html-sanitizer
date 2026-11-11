@@ -437,20 +437,156 @@ class HtmlSanitizerTest {
    */
   @Test
   void testLongRunOfTemplatesAndRenamedRawTextIsLinear() {
-    PolicyFactory p = imagePolicyBuilder().allowElements("xmp")
+    PolicyFactory p = imagePolicyBuilder().allowElements("xmp", "noscript")
         .withPostprocessor(HtmlSanitizerTest::forwardTo).toFactory();
     int n = 50_000;
     StringBuilder html = new StringBuilder("<template></template>");
     for (int i = 0; i < n; ++i) {
       html.append("<math><template><svg><mtext><image src=https://e.example/>")
           .append("</image></mtext></svg></template></math>")
-          .append("<svg><xmp></xmp><image></image></svg>");
+          .append("<svg><xmp></xmp><image></image></svg>")
+          .append("<noscript><svg><noscript></noscript></svg></noscript>");
     }
     String input = html.toString();
     String out = assertTimeoutPreemptively(
         Duration.ofSeconds(20), () -> p.sanitize(input));
     assertFalse(out.contains("<image"));
     assertTrue(out.length() < 2 * input.length());
+  }
+
+  /**
+   * A browser reads the content of an HTML title, textarea, noscript (with
+   * scripting on), noembed or noframes as text up to the first end tag of
+   * the same name, in any case and whatever element wrote it.  An element of
+   * that name kept inside one, say an svg noscript, ended it early, and what
+   * followed reached the browser as HTML while the sanitizer still took it
+   * for SVG, so an image there became img.
+   */
+  @Test
+  void testTextContentElementIsNotNestedInItself() throws Exception {
+    String image = "<image src=https://attacker.example/xss.js>";
+    // As written, through noscript, which the lexer reads as markup.
+    PolicyFactory noscript = new HtmlPolicyBuilder()
+        .allowElements("noscript", "svg", "math", "image")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory();
+    for (String input : new String[] {
+        "<noscript><svg><noscript></noscript>" + image,
+        "<noscript><svg><NOSCRIPT></NOSCRIPT>" + image,
+        "<noscript><svg><noscript/>" + image,
+        "<noscript><math><noscript></noscript>" + image,
+        "<noscript><noscript></noscript><svg>" + image,
+    }) {
+      String out = noscript.sanitize(input);
+      assertNoTextContentElementInItself(out, input);
+      assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"), out);
+    }
+    // Through names an element policy gives, including SVG textArea, whose
+    // end tag a browser matches against textarea.
+    for (String name : new String[] {
+        "title", "textarea", "noembed", "noframes", "noscript"
+    }) {
+      PolicyFactory renamed = new HtmlPolicyBuilder()
+          .allowElements("svg", "math", "g", "image", "textArea", name)
+          .allowElements((n, attrs) -> name, "g")
+          .allowAttributes("src").onElements("image")
+          .allowUrlProtocols("https").toFactory();
+      for (String input : new String[] {
+          "<g><math><g></g>" + image + "</image></math></g>",
+          "<g><svg><g></g>" + image + "</image></svg></g>",
+          "<g><svg><textArea></textArea>" + image + "</image></svg></g>",
+      }) {
+        String out = renamed.sanitize(input);
+        assertNoTextContentElementInItself(out, name + ": " + input);
+        assertFalse(parseAsBrowserWithNamespaces(out).contains("<img"),
+            name + ": " + out);
+      }
+    }
+    // From an event-stream caller, which can give a title children.
+    StringBuilder direct = new StringBuilder();
+    HtmlSanitizer.Policy events = new HtmlPolicyBuilder()
+        .allowElements("title", "math", "image")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory()
+        .apply(HtmlStreamRenderer.create(direct, Handler.DO_NOTHING));
+    events.openDocument();
+    events.openTag("title", new ArrayList<String>());
+    events.openTag("math", new ArrayList<String>());
+    events.openTag("title", new ArrayList<String>());
+    events.closeTag("title");
+    events.openTag("image", new ArrayList<>(Arrays.asList(
+        "src", "https://attacker.example/xss.js")));
+    events.closeTag("image");
+    events.closeTag("math");
+    events.closeTag("title");
+    events.closeDocument();
+    assertNoTextContentElementInItself(direct.toString(), "events");
+    assertFalse(parseAsBrowserWithNamespaces(direct.toString())
+        .contains("<img"), direct.toString());
+
+    // Outside one, and in sequence, they are kept as before.
+    assertEquals("<noscript><p>x</p></noscript><noscript>y</noscript>",
+        new HtmlPolicyBuilder().allowElements("noscript", "p")
+            .allowTextIn("noscript").toFactory()
+            .sanitize("<noscript><p>x</p></noscript><noscript>y</noscript>"));
+    assertEquals("<svg><noscript></noscript></svg>",
+        noscript.sanitize("<svg><noscript></noscript></svg>"));
+  }
+
+  /**
+   * Fails if, in the output, an element a browser reads as text holds a
+   * start tag of its own name, in any case, before its end tag.
+   */
+  private static void assertNoTextContentElementInItself(
+      String out, String message) {
+    String lower = Strings.toLowerCase(out);
+    for (String name : new String[] {
+        "title", "textarea", "noscript", "noembed", "noframes"
+    }) {
+      int start = lower.indexOf("<" + name);
+      while (start >= 0) {
+        int end = lower.indexOf("</" + name, start);
+        int nested = lower.indexOf("<" + name, start + 1);
+        assertFalse(nested >= 0 && (end < 0 || nested < end),
+            name + " in " + name + ": " + message + "\n" + out);
+        start = end < 0 ? -1 : lower.indexOf("<" + name, end);
+      }
+    }
+  }
+
+  /**
+   * The first table-structure start tag in HTML template contents switches
+   * the template to a table mode, where math and svg are ignored or put
+   * elsewhere.  The sanitizer modeled the contents as in body, so a template
+   * or desc there let an image through that a browser builds as img.
+   */
+  @Test
+  void testTableModeInTemplateIsNotKnownForeignContent() throws Exception {
+    String image = "<image src=https://attacker.example/xss.js>";
+    PolicyFactory p = new HtmlPolicyBuilder()
+        .allowElements("template", "math", "svg", "desc", "mtext", "image",
+            "caption", "col", "colgroup", "tbody", "thead", "tfoot", "tr",
+            "td", "th")
+        .allowAttributes("src").onElements("image")
+        .allowUrlProtocols("https").toFactory();
+    for (String part : new String[] {
+        "caption", "col", "colgroup", "tbody", "thead", "tfoot", "tr", "td",
+        "th"
+    }) {
+      for (String rest : new String[] {
+          "<math><template>" + image,
+          "<svg><desc><colgroup></colgroup></desc>" + image,
+          "<math><mtext></mtext>" + image,
+      }) {
+        String input = "<template><" + part + ">" + rest;
+        String out = p.sanitize(input);
+        assertFalse(out.contains("<image"), input + "\n" + out);
+      }
+    }
+    // Contents that start in body keep a known context.
+    String svgImage = "<svg><image src=\"https://example.com/a.png\"></image></svg>";
+    assertEquals("<template>" + svgImage + "</template>",
+        p.sanitize("<template>" + svgImage + "</template>"));
   }
 
   /** A receiver that passes every event on, and that the library cannot see through. */
@@ -4162,18 +4298,25 @@ class HtmlSanitizerTest {
         .allowElements(names).allowWithoutAttributes(names)
         .allowTextIn("noscript").toFactory();
     // A browser drops the raw td and tr, which are outside any table, so the
-    // output is compared with its own reparse only.
+    // output is compared with its own reparse only.  The svg noscript is
+    // dropped, not kept: with scripting on, a browser reads the outer
+    // noscript as text up to the first </noscript>, which would be the inner
+    // one's (see testTextContentElementIsNotNestedInItself).  Its logical
+    // entry is still what the foreign end tag closes.
     assertRoundTripAndBalanced(
         p, "<noscript><td><svg><noscript></svg><tr>",
-        "<noscript><table><tbody><tr><td><svg><noscript></noscript></svg>"
+        "<noscript><table><tbody><tr><td><svg></svg>"
         + "</td></tr><tr></tr></tbody></table></noscript>");
 
     // Content after the foreign close belongs to the outer noscript, and its
     // end tag still finds that element.
     String input = "<noscript><svg><noscript></svg>x</noscript>y";
-    String expected = "<noscript><svg><noscript></noscript></svg>x</noscript>y";
+    String expected = "<noscript><svg></svg>x</noscript>y";
     assertRoundTripAndBalanced(p, input, expected);
-    assertEquals(parseAsBrowser(input), parseAsBrowser(expected));
+    // The browser tree differs from the input's by the dropped svg noscript
+    // alone, and x stays in the outer noscript.
+    assertEquals(parseAsBrowser(input).replace("    <noscript>\n", ""),
+        parseAsBrowser(expected));
   }
 
   /** A wrapper the policy already closed cannot alias an older wrapper. */

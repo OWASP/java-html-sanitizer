@@ -174,6 +174,22 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private final BitSet inForeignContentBeforeOpen = new BitSet();
   /** Whether each emitted, stacked output element is in SVG or MathML. */
   private final BitSet outputElementInForeignContent = new BitSet();
+  /**
+   * HTML elements whose content a browser reads as text up to the first end
+   * tag of the same name, in any case: the raw-text and RCDATA elements, and
+   * noscript, noembed and noframes, which the sanitizer reads as markup but
+   * a browser does not when scripting is on.
+   */
+  private static final String[] TEXT_CONTENT_ELEMENT_NAMES = {
+    "iframe", "noembed", "noframes", "noscript", "plaintext", "script",
+    "style", "textarea", "title", "xmp",
+  };
+  /**
+   * How many of each of {@link #TEXT_CONTENT_ELEMENT_NAMES} are open in the
+   * output as HTML elements.
+   */
+  private final int[] openTextContentElements =
+      new int[TEXT_CONTENT_ELEMENT_NAMES.length];
   /** The same for {@link #keptCdataElementName}; entries may be null. */
   private final List<String> keptCdataNameBeforeOpen = new ArrayList<>();
   /**
@@ -263,6 +279,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     keptCdataElementName = null;
     inForeignContent = false;
     outputForeignContent = new HtmlSanitizer.ForeignContentContext();
+    Arrays.fill(openTextContentElements, 0);
     outputTemplateForeignContents.clear();
     outputTemplateForeignContentDepths.clear();
     literalTextTail = "";
@@ -805,7 +822,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   private void pushOutputTemplateForeignContent(boolean parentUnknown) {
     HtmlSanitizer.ForeignContentContext context =
-        new HtmlSanitizer.ForeignContentContext();
+        new HtmlSanitizer.ForeignContentContext(true);
     // A template judged HTML only because its parent's context is unknown
     // may be an SVG or MathML template in the browser, whose content is not
     // parsed from an HTML root.  Its content starts unknown too, or an svg
@@ -1484,6 +1501,17 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         adjustedElementName = null;
       }
     }
+    // Inside an HTML title, noscript or other element whose content a
+    // browser reads as text, the end tag of an element of the same name, in
+    // any namespace, ends that text early.  What followed would reach the
+    // browser as markup in a context other than the one modeled here, such
+    // as HTML where an image inside an svg was kept as SVG.
+    if (adjustedElementName != null) {
+      int textContent = textContentElementIndex(adjustedElementName);
+      if (textContent >= 0 && openTextContentElements[textContent] != 0) {
+        adjustedElementName = null;
+      }
+    }
     reopenedTableWasRenamed = mode == OpenTagMode.REOPENED_TABLE
         && adjustedElementName != null
         && !"table".equals(adjustedElementName);
@@ -1974,6 +2002,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputElementInForeignContent.set(
         openElementStack.size() / 2 - 1,
         outputElementForLastOpenTagUsedForeignContentRules);
+    if (!outputElementForLastOpenTagUsedForeignContentRules) {
+      int textContent = textContentElementIndex(adjustedElementName);
+      if (textContent >= 0) { ++openTextContentElements[textContent]; }
+    }
     if (isFormScopeOutputBoundary(
             adjustedElementName,
             outputElementForLastOpenTagUsedForeignContentRules)) {
@@ -1992,10 +2024,30 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
   }
 
+  /**
+   * The index in {@link #TEXT_CONTENT_ELEMENT_NAMES} of the name as a browser
+   * matches an end tag, ignoring ASCII case, or -1.
+   */
+  private static int textContentElementIndex(String elementName) {
+    int n = elementName.length();
+    if (n < 3 || n > 9) { return -1; }
+    String lower = Strings.toLowerCase(elementName);
+    for (int i = 0; i < TEXT_CONTENT_ELEMENT_NAMES.length; ++i) {
+      if (TEXT_CONTENT_ELEMENT_NAMES[i].equals(lower)) { return i; }
+    }
+    return -1;
+  }
+
   /** Writes an end tag and keeps the modeled output form pointer in sync. */
   private void closeOutputElement(String adjustedElementName, int stackIndex) {
     boolean elementIsForeign =
         outputElementInForeignContent.get(stackIndex / 2);
+    if (!elementIsForeign) {
+      int textContent = textContentElementIndex(adjustedElementName);
+      if (textContent >= 0 && openTextContentElements[textContent] != 0) {
+        --openTextContentElements[textContent];
+      }
+    }
     boolean closesHtmlTemplate = closesActiveHtmlOutputTemplate(
         adjustedElementName, elementIsForeign);
     if (closesHtmlTemplate) {

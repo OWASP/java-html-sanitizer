@@ -255,6 +255,20 @@ public final class HtmlSanitizer {
     /** Match the sanitizer's output nesting limit without growing unchecked. */
     private static final int MAX_DEPTH = 256;
 
+    /**
+     * True for the contents of an HTML template, where a browser starts in
+     * the "in template" insertion mode rather than in body.
+     */
+    private final boolean templateContents;
+
+    ForeignContentContext() {
+      this(false);
+    }
+
+    ForeignContentContext(boolean templateContents) {
+      this.templateContents = templateContents;
+    }
+
     /** Elements from the first open foreign root through the current node. */
     private final List<OpenElement> openElements = new ArrayList<>();
 
@@ -698,6 +712,17 @@ public final class HtmlSanitizer {
         // fail closed for the rest.
         becomeUnknown();
         return selfClosing && isForeignContentRoot(elementName);
+      }
+
+      if (templateContents
+          && htmlInsertionMode == HtmlInsertionMode.IN_BODY
+          && TABLE_STRUCTURE_START_TAG_NAMES.contains(elementName)) {
+        // In body a browser ignores these, but in template contents one can
+        // switch the template to a table, column group, body or row mode,
+        // where tags such as svg or math are ignored or foster-parented
+        // instead of opening foreign content.  That is not modeled here.
+        becomeUnknown();
+        return false;
       }
 
       Namespace namespace;
