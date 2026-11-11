@@ -298,6 +298,13 @@ class HtmlSanitizerTest {
             .allowElements((name, attrs) -> "XMP", "rect").toFactory(),
         imagePolicyBuilder()
             .allowElements((name, attrs) -> "plaintext", "rect").toFactory(),
+        // A void element renamed to xmp is opened and closed at once.
+        imagePolicyBuilder()
+            .allowElements((name, attrs) -> "xmp", "br").toFactory(),
+        // A library decorator keeps the renderer visible.
+        imagePolicyBuilder().allowElements("xmp", "listing", "plaintext")
+            .withPostprocessor(r -> new HtmlStreamEventReceiverWrapper(r) { })
+            .toFactory(),
         // A postprocessor that passes every event on unchanged hides the
         // renderer behind a receiver the library cannot see through.
         imagePolicyBuilder().allowElements("xmp", "listing", "plaintext")
@@ -311,6 +318,7 @@ class HtmlSanitizerTest {
     String image = "<image src=" + hostile + "></image>";
     String[] inputs = {
         "<svg><xmp></xmp>" + image + "</svg>",
+        "<svg><br>" + image + "</svg>",
         "<svg><xmp/>" + image + "</svg>",
         "<svg><XMP></XMP>" + image + "</svg>",
         "<svg><g><xmp></xmp><image id=x src=" + hostile + "></image></g></svg>",
@@ -325,6 +333,14 @@ class HtmlSanitizerTest {
     for (int i = 0; i < policies.length; ++i) {
       for (String input : inputs) {
         String out = policies[i].sanitize(input);
+        // A change listener puts the library's reporter in the pipeline.
+        assertEquals(out, policies[i].sanitize(
+            input, new HtmlChangeListener<Void>() {
+              @Override public void discardedTag(
+                  Void context, String elementName) { }
+              @Override public void discardedAttributes(
+                  Void context, String tagName, String... attributeNames) { }
+            }, null), "listener, policy " + i + ": " + input);
         String tree = parseAsBrowserWithNamespaces(out);
         assertFalse(tree.contains("<img"),
             "policy " + i + ": " + input + "\n" + out + "\n" + tree);

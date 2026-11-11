@@ -5,11 +5,13 @@ Most recent at top.
     * The renderer writes `xmp`, `listing` and `plaintext` as `pre`, and a
       browser ends SVG and MathML content at `pre` although not at `xmp` or
       `plaintext`.  The sanitizer tracked the output context under the name
-      the policy gave, so after an `xmp` inside `svg` it still took the
-      output for SVG, and kept a following `image` that the browser then
-      built as an HTML `img`.  This bypassed the `image` check added in
-      20261107.1 in policies that allow `svg`, `image` and `xmp` but not
-      `img`.  The output context now follows the name the renderer writes.
+      the policy gave, so after an `xmp` or `plaintext` inside `svg` or
+      `math`, written so or produced by an element policy, it still took the
+      output for foreign content, and kept a following `image` that the
+      browser then built as an HTML `img`.  This bypassed the `image` check
+      added in 20261107.1 in policies that allow `image` and one of those
+      elements but not `img`.  With the library's renderer, the output
+      context now follows the name the renderer writes.
       A receiver the library cannot see through, such as a postprocessor,
       still gets the policy's name; since it may pass that on to the
       renderer, an `xmp` or `plaintext` inside SVG or MathML now makes the

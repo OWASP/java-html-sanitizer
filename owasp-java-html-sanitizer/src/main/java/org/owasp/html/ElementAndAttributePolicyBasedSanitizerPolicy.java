@@ -176,7 +176,8 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /**
    * True if {@link #out} is the library's own renderer, possibly behind
    * {@link HtmlStreamEventReceiverWrapper} decorators, so that what it escapes
-   * is known.  See {@link #isLiteralContentElement}.
+   * and the names it writes are known.  See {@link #isLiteralContentElement},
+   * {@link #applyPolicies} and {@link #processOutputStartTag}.
    */
   private final boolean outIsLibraryRenderer;
 
