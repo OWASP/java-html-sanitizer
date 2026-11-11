@@ -176,9 +176,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private final BitSet outputElementInForeignContent = new BitSet();
   /**
    * HTML elements whose content a browser reads as text up to the first end
-   * tag of the same name, in any case: the raw-text and RCDATA elements, and
-   * noscript, noembed and noframes, which the sanitizer reads as markup but
-   * a browser does not when scripting is on.
+   * tag of the same name, in any case: the raw-text and RCDATA elements,
+   * noembed and noframes, which the sanitizer reads as markup but a browser
+   * reads as text, and noscript, which a browser reads as text when
+   * scripting is on.
    */
   private static final String[] TEXT_CONTENT_ELEMENT_NAMES = {
     "iframe", "noembed", "noframes", "noscript", "plaintext", "script",

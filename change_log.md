@@ -34,9 +34,9 @@ Most recent at top.
       and what followed reached the browser as HTML while the sanitizer
       still took it for SVG, so an `image` there became an HTML `img`.  An
       element of such a name is now dropped inside an open one.
-    * The first `caption`, `col`, `colgroup`, `tbody`, `thead`, `tfoot`,
-      `tr`, `td` or `th` start tag in a `template`'s content switches a
-      browser to a table mode there, where `math` and `svg` are ignored or
+    * A `caption`, `col`, `colgroup`, `tbody`, `thead`, `tfoot`, `tr`,
+      `td` or `th` start tag that comes before any other start tag in a
+      `template`'s content switches a browser to a table mode there, where `math` and `svg` are ignored or
       placed elsewhere.  The sanitizer took the content for body, so an
       `image` in a nested `template` or after a `desc` there was kept and
       built as an HTML `img` in the template's content.  Such a tag in a

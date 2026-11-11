@@ -718,7 +718,8 @@ public final class HtmlSanitizer {
           && htmlInsertionMode == HtmlInsertionMode.IN_BODY
           && TABLE_STRUCTURE_START_TAG_NAMES.contains(elementName)) {
         // In body a browser ignores these, but in template contents one can
-        // switch the template to a table, column group, body or row mode,
+        // switch the template to a table, column group, table body or row
+        // mode,
         // where tags such as svg or math are ignored or foster-parented
         // instead of opening foreign content.  That is not modeled here.
         becomeUnknown();

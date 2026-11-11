@@ -445,7 +445,9 @@ class HtmlSanitizerTest {
       html.append("<math><template><svg><mtext><image src=https://e.example/>")
           .append("</image></mtext></svg></template></math>")
           .append("<svg><xmp></xmp><image></image></svg>")
-          .append("<noscript><svg><noscript></noscript></svg></noscript>");
+          .append("<noscript><svg><noscript></noscript></svg></noscript>")
+          .append("<template><col><math><template><image></image></template>")
+          .append("</math></template>");
     }
     String input = html.toString();
     String out = assertTimeoutPreemptively(
@@ -558,7 +560,10 @@ class HtmlSanitizerTest {
    * The first table-structure start tag in HTML template contents switches
    * the template to a table mode, where math and svg are ignored or put
    * elsewhere.  The sanitizer modeled the contents as in body, so a template
-   * or desc there let an image through that a browser builds as img.
+   * or desc there let an image through that a browser builds as img, as
+   * Chrome does for caption or colgroup followed by svg, desc and colgroup,
+   * and for col followed by math and template.  The other shapes here pin the
+   * fail-closed rule: any such tag makes the template's context unknown.
    */
   @Test
   void testTableModeInTemplateIsNotKnownForeignContent() throws Exception {
