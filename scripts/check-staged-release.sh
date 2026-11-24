@@ -22,8 +22,9 @@ expected=$(printf '%s\n' "$library.jar" "$library.pom" "$library-javadoc.jar" \
   "$library-sources.jar" "$parent.pom" "$legacy.pom" | sort)
 # A checksum or signature counts as the file it belongs to, so one that sits
 # beside no expected component is reported instead of being uploaded.  The
-# repository metadata is the only thing JReleaser leaves out of the bundle.
-actual=$(cd "$repository" && find . -type f ! -name 'maven-metadata.xml*' |
+# repository metadata is the only thing JReleaser leaves out of the bundle,
+# and it follows symbolic links, so they are listed too.
+actual=$(cd "$repository" && find . ! -type d ! -name 'maven-metadata.xml*' |
   sed -E 's#^\./##; s#(\.asc)?(\.(md5|sha1|sha256|sha512))?$##' | sort -u)
 if [[ $actual != "$expected" ]]; then
   echo 'Staged artifacts differ from the expected release components:' >&2
@@ -56,15 +57,19 @@ fi
 # so a dependency in its POM that is neither test nor provided scope would
 # reach every consumer, and one on a shim would not resolve.
 pom=$(tr -d ' \n\r\t' < "$repository/$library.pom")
+# The count below takes every dependency outside <build> as one a consumer
+# gets.  A profile or dependency management would put others among them,
+# and the POM has neither, so refuse one that does rather than misread it.
+if [[ $pom == *'<profiles>'* || $pom == *'<dependencyManagement>'* ]]; then
+  echo 'Library POM has profiles or dependency management, which this check does not read' >&2
+  exit 1
+fi
 if [[ $pom == *'<build>'* ]]; then
   pom=${pom%%<build>*}${pom##*</build>}
 fi
-dependencies=${pom#*<dependencies>}
-dependencies=${dependencies%%</dependencies>*}
-declared=$({ grep -o '<dependency>' <<<"$dependencies" || true; } | wc -l | tr -d ' ')
-scoped=$({ grep -o -E '<scope>(test|provided)</scope>' <<<"$dependencies" || true; } | wc -l | tr -d ' ')
-if [[ $pom != *'<dependencies>'* || $pom == *'<dependencyManagement>'* ||
-      $declared -eq 0 || $declared -ne $scoped ]]; then
+declared=$({ grep -o '<dependency>' <<<"$pom" || true; } | wc -l | tr -d ' ')
+scoped=$({ grep -o -E '<scope>(test|provided)</scope>' <<<"$pom" || true; } | wc -l | tr -d ' ')
+if [[ $declared -eq 0 || $declared -ne $scoped ]]; then
   echo "Library POM must declare only test and provided dependencies: $declared declared, $scoped so scoped" >&2
   exit 1
 fi
