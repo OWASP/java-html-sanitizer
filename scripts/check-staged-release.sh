@@ -20,14 +20,22 @@ parent=org/owasp/html-sanitizer/html-sanitizer-parent/$version/html-sanitizer-pa
 legacy=com/googlecode/owasp-java-html-sanitizer/owasp-java-html-sanitizer/$version/owasp-java-html-sanitizer-$version
 expected=$(printf '%s\n' "$library.jar" "$library.pom" "$library-javadoc.jar" \
   "$library-sources.jar" "$parent.pom" "$legacy.pom" | sort)
-actual=$(cd "$repository" && find . -type f ! -name '*.md5' ! -name '*.sha1' \
-  ! -name '*.sha256' ! -name '*.sha512' ! -name '*.asc' ! -name 'maven-metadata*' |
-  sed 's#^\./##' | sort)
+# A checksum or signature counts as the file it belongs to, so one that sits
+# beside no expected component is reported instead of being uploaded.  The
+# repository metadata is the only thing JReleaser leaves out of the bundle.
+actual=$(cd "$repository" && find . -type f ! -name 'maven-metadata.xml*' |
+  sed -E 's#^\./##; s#(\.asc)?(\.(md5|sha1|sha256|sha512))?$##' | sort -u)
 if [[ $actual != "$expected" ]]; then
   echo 'Staged artifacts differ from the expected release components:' >&2
   diff <(echo "$expected") <(echo "$actual") >&2 || true
   exit 1
 fi
+while IFS= read -r component; do
+  if [[ ! -f $repository/$component ]]; then
+    echo "Staged release lacks $component" >&2
+    exit 1
+  fi
+done <<<"$expected"
 
 relocation=$(tr -d ' \n\r\t' < "$repository/$legacy.pom")
 for element in '<relocation><groupId>org.owasp.html-sanitizer</groupId><artifactId>html-sanitizer</artifactId>' \
@@ -41,6 +49,23 @@ target=${relocation#*<relocation>}
 target=${target%%</relocation>*}
 if [[ $relocation == *'<dependencies>'* || $target == *'<version>'* ]]; then
   echo 'Relocation POM must have no dependencies and no pinned target version' >&2
+  exit 1
+fi
+
+# The library has no runtime dependencies and the shims are not published,
+# so a dependency in its POM that is neither test nor provided scope would
+# reach every consumer, and one on a shim would not resolve.
+pom=$(tr -d ' \n\r\t' < "$repository/$library.pom")
+if [[ $pom == *'<build>'* ]]; then
+  pom=${pom%%<build>*}${pom##*</build>}
+fi
+dependencies=${pom#*<dependencies>}
+dependencies=${dependencies%%</dependencies>*}
+declared=$(grep -o '<dependency>' <<<"$dependencies" | wc -l | tr -d ' ')
+scoped=$(grep -o -E '<scope>(test|provided)</scope>' <<<"$dependencies" | wc -l | tr -d ' ')
+if [[ $pom != *'<dependencies>'* || $pom == *'<dependencyManagement>'* ||
+      $declared -eq 0 || $declared -ne $scoped ]]; then
+  echo "Library POM must declare only test and provided dependencies: $declared declared, $scoped so scoped" >&2
   exit 1
 fi
 
