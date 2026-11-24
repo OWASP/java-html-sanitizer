@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.owasp</groupId>
-  <artifactId>java-html-sanitizer-parent</artifactId>
+  <groupId>org.owasp.html-sanitizer</groupId>
+  <artifactId>html-sanitizer-parent</artifactId>
   <version>20000101-SNAPSHOT</version>
 
   <packaging>pom</packaging>
@@ -263,13 +263,13 @@ application while protecting against XSS.
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>org.owasp</groupId>
-        <artifactId>java-html-sanitizer-java8-shim</artifactId>
+        <groupId>org.owasp.html-sanitizer</groupId>
+        <artifactId>html-sanitizer-java8-shim</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.owasp</groupId>
-        <artifactId>java-html-sanitizer-java10-shim</artifactId>
+        <groupId>org.owasp.html-sanitizer</groupId>
+        <artifactId>html-sanitizer-java10-shim</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

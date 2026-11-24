@@ -6,8 +6,9 @@
       <location>target/classes/META-INF/MANIFEST.MF</location>
       <contains>Export-Package: org.owasp.html</contains>
     </file>
-    <!-- The OSGi identity predates the move to org.owasp coordinates and
-         must not follow them.  See issue #531. -->
+    <!-- The OSGi identity predates the move to the
+         org.owasp.html-sanitizer coordinates and must not follow them.
+         See issue #531. -->
     <file>
       <location>target/classes/META-INF/MANIFEST.MF</location>
       <contains>Bundle-SymbolicName: com.googlecode.owasp-java-html-sanitizer</contains>

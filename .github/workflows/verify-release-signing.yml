@@ -7,7 +7,7 @@ name: Verify release signing
 # With central_upload, the bundle JReleaser built is also uploaded to Maven
 # Central with the real publishing token, validated there, and dropped.  That
 # is the only way to learn before a release whether the token may deploy
-# both org.owasp and the relocation POM's namespace.  The upload is never
+# both the new namespace and the relocation POM's.  The upload is never
 # published.
 
 on:

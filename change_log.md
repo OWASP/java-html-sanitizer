@@ -2,7 +2,8 @@
 
 Most recent at top.
   * Next release
-    * Published as `org.owasp:java-html-sanitizer`.  The previous coordinates,
+    * Published as `org.owasp.html-sanitizer:html-sanitizer`.  The
+      previous coordinates,
       `com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer`,
       get a relocation POM with each release that points to the new ones;
       releases already published there are unchanged.  Java packages, the
