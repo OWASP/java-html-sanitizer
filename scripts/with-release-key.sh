@@ -41,4 +41,6 @@ fi
 
 export JRELEASER_GPG_HOMEDIR=$signing_home
 export JRELEASER_GPG_KEYNAME=$fingerprint
+# The key is in the keyring now; the command has no use for the armored copy.
+unset GPG_SECRET_KEY GPG_PUBLIC_KEY
 "$@"
