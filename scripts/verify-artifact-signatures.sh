@@ -40,10 +40,13 @@ while IFS= read -r -d '' artifact; do
     echo "Missing signature for ${artifact#"$repository"/}" >&2
     exit 1
   fi
-  signer=$(gpg --batch --status-fd 1 --verify "$artifact.asc" "$artifact" 2>/dev/null |
-    awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print $NF; exit }') || true
-  if [[ $signer != "$EXPECTED_GPG_FINGERPRINT" ]]; then
-    echo "Bad or unexpected signature on ${artifact#"$repository"/}" >&2
+  status=$(gpg --batch --status-fd 1 --verify "$artifact.asc" "$artifact" 2>/dev/null) || true
+  # VALIDSIG ends with the primary key fingerprint; its eighth field is the
+  # hash algorithm, which must be SHA-256 (8), SHA-384 (9) or SHA-512 (10).
+  read -r signer digest < <(awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" { print $NF, $10; exit }' <<<"$status") || true
+  if [[ ${signer:-} != "$EXPECTED_GPG_FINGERPRINT" || ! ${digest:-} =~ ^(8|9|10)$ ]]; then
+    echo "Bad, weak or unexpected signature on ${artifact#"$repository"/}:" >&2
+    grep '^\[GNUPG:\] \(VALIDSIG\|BADSIG\|ERRSIG\|FAILURE\|NO_PUBKEY\|ERROR\)' <<<"$status" >&2 || true
     exit 1
   fi
   echo "Verified ${artifact#"$repository"/}"

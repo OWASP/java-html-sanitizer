@@ -3,9 +3,20 @@ name: Verify release signing
 # Exercises the release signing path with the repository's release key
 # without publishing anything: the tag is created and deleted on the runner,
 # and JReleaser deploys in dry-run mode with placeholder Central credentials.
+#
+# With central_upload, the bundle JReleaser built is also uploaded to Maven
+# Central with the real publishing token, validated there, and dropped.  That
+# is the only way to learn before a release whether the token may deploy
+# both the new namespace and the relocation POM's.  The upload is never
+# published.
 
 on:
   workflow_dispatch:
+    inputs:
+      central_upload:
+        description: 'Also have Maven Central validate the placeholder bundle, then drop it (never published)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,6 +50,9 @@ jobs:
       - name: Build staged artifacts
         run: ./mvnw -ntp -B -Ppublication
 
+      - name: Check staged release
+        run: scripts/check-staged-release.sh target/staging-deploy "$VERSION"
+
       - name: Check signed tag without publishing it
         env:
           GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
@@ -53,11 +67,24 @@ jobs:
           JRELEASER_MAVENCENTRAL_SONATYPE_USERNAME: dry-run-only
           JRELEASER_MAVENCENTRAL_SONATYPE_PASSWORD: dry-run-only
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
-        run: ./mvnw -ntp -B -N -Ppublication -Djreleaser.dry.run=true jreleaser:deploy
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+        run: scripts/with-release-key.sh ./mvnw -ntp -B -N -Ppublication -Djreleaser.dry.run=true jreleaser:deploy
 
       - name: Check artifact signatures
         env:
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
         run: scripts/verify-artifact-signatures.sh target/staging-deploy
+
+      - name: Have Maven Central validate the bundle, then drop it
+        if: ${{ inputs.central_upload }}
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: |
+          set -- target/jreleaser/deploy/mavenCentral/sonatype/*-bundle.zip
+          if [ $# -ne 1 ] || [ ! -f "$1" ]; then
+            echo "::error::expected one deployment bundle, found: $*"
+            exit 1
+          fi
+          scripts/validate-central-bundle.sh "$1"
