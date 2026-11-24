@@ -1,6 +1,6 @@
 # OWASP Java HTML Sanitizer
 
-[![Build](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/2602/badge)](https://www.bestpractices.dev/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer.svg)](https://search.maven.org/artifact/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer)
+[![Build](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml/badge.svg)](https://github.com/OWASP/java-html-sanitizer/actions/workflows/build.yml) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/2602/badge)](https://www.bestpractices.dev/projects/2602) [![Maven Central](https://img.shields.io/maven-central/v/org.owasp.html-sanitizer/html-sanitizer.svg)](https://central.sonatype.com/artifact/org.owasp.html-sanitizer/html-sanitizer)
 
 
 A fast and easy to configure HTML Sanitizer written in Java which lets
@@ -60,7 +60,7 @@ with `-pl`, also use `-am` so Maven builds the modules it depends on.
 ## Prepackaged Policies
 
 You can use
-[prepackaged policies](https://www.javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/Sanitizers.html):
+[prepackaged policies](https://www.javadoc.io/doc/org.owasp.html-sanitizer/html-sanitizer/latest/org/owasp/html/Sanitizers.html):
 
 ```Java
 PolicyFactory policy = Sanitizers.FORMATTING.and(Sanitizers.LINKS);
@@ -72,7 +72,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 The
 [tests](https://github.com/OWASP/java-html-sanitizer/blob/main/owasp-java-html-sanitizer/src/test/java/org/owasp/html/HtmlPolicyBuilderTest.java)
 show how to configure your own
-[policy](https://www.javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlPolicyBuilder.html):
+[policy](https://www.javadoc.io/doc/org.owasp.html-sanitizer/html-sanitizer/latest/org/owasp/html/HtmlPolicyBuilder.html):
 
 ```Java
 PolicyFactory policy = new HtmlPolicyBuilder()
@@ -87,7 +87,7 @@ String safeHTML = policy.sanitize(untrustedHTML);
 ## Custom Policies
 
 You can write
-[custom policies](https://www.javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/ElementPolicy.html)
+[custom policies](https://www.javadoc.io/doc/org.owasp.html-sanitizer/html-sanitizer/latest/org/owasp/html/ElementPolicy.html)
 to do things like changing `h1`s to `div`s with a certain class:
 
 ```Java
@@ -110,7 +110,7 @@ need to be explicitly whitelisted using the `allowWithoutAttributes()`
 method if you want them to be allowed through the filter when these
 elements do not include any attributes.
 
-[Attribute policies](https://www.javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
+[Attribute policies](https://www.javadoc.io/doc/org.owasp.html-sanitizer/html-sanitizer/latest/org/owasp/html/AttributePolicy.html) allow running custom code too.  Adding an attribute policy will not water down any default policy like `style` or URL attribute checks.
 
 ```Java
 PolicyFactory myPolicy = new HtmlPolicyBuilder()
@@ -179,7 +179,7 @@ of the output.
 
 ## Telemetry
 
-When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://www.javadoc.io/doc/com.googlecode.owasp-java-html-sanitizer/owasp-java-html-sanitizer/latest/org/owasp/html/HtmlChangeListener.html).
+When a policy rejects an element or attribute it notifies an [HtmlChangeListener](https://www.javadoc.io/doc/org.owasp.html-sanitizer/html-sanitizer/latest/org/owasp/html/HtmlChangeListener.html).
 
 You can use this to keep track of policy violation trends and find out when someone
 is making an effort to breach your security.

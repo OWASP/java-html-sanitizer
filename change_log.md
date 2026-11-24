@@ -8,9 +8,11 @@ Most recent at top.
       get a relocation POM with each release that points to the new ones;
       releases already published there are unchanged.  Java packages, the
       JPMS module name and the OSGi bundle symbolic name are unchanged.
-      Replace the old coordinates with the new ones: a dependency that still
-      names an older release under the old coordinates puts a second copy of
-      the library on the class path.  See issue #531.
+      Replace the old coordinates with the new ones.  If another dependency
+      still brings in an older release under the old coordinates, the build
+      resolves both JARs and the older one can be the one that loads: manage
+      the old coordinates to the new version, or exclude them.
+      `docs/maven.md` has the steps.  See issue #531.
     * Release artifacts and tags are signed with the project release key,
       fingerprint `F6109A4F3F5616E1A7A62099E02DB03BAF6C438C`, and artifact
       signatures use SHA-512 instead of SHA-1.
