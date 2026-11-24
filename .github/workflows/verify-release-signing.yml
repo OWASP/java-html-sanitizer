@@ -3,9 +3,20 @@ name: Verify release signing
 # Exercises the release signing path with the repository's release key
 # without publishing anything: the tag is created and deleted on the runner,
 # and JReleaser deploys in dry-run mode with placeholder Central credentials.
+#
+# With central_upload, the bundle JReleaser built is also uploaded to Maven
+# Central with the real publishing token, validated there, and dropped.  That
+# is the only way to learn before a release whether the token may deploy
+# both org.owasp and the relocation POM's namespace.  The upload is never
+# published.
 
 on:
   workflow_dispatch:
+    inputs:
+      central_upload:
+        description: 'Also have Maven Central validate the placeholder bundle, then drop it (never published)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,3 +75,16 @@ jobs:
         env:
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
         run: scripts/verify-artifact-signatures.sh target/staging-deploy
+
+      - name: Have Maven Central validate the bundle, then drop it
+        if: ${{ inputs.central_upload }}
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: |
+          set -- target/jreleaser/deploy/mavenCentral/sonatype/*-bundle.zip
+          if [ $# -ne 1 ] || [ ! -f "$1" ]; then
+            echo "::error::expected one deployment bundle, found: $*"
+            exit 1
+          fi
+          scripts/validate-central-bundle.sh "$1"
