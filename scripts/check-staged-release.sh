@@ -36,7 +36,9 @@ for element in '<relocation><groupId>org.owasp</groupId><artifactId>java-html-sa
     exit 1
   fi
 done
-if [[ $relocation == *'<dependencies>'* || $relocation == *'<relocation><version>'* ]]; then
+target=${relocation#*<relocation>}
+target=${target%%</relocation>*}
+if [[ $relocation == *'<dependencies>'* || $target == *'<version>'* ]]; then
   echo 'Relocation POM must have no dependencies and no pinned target version' >&2
   exit 1
 fi
