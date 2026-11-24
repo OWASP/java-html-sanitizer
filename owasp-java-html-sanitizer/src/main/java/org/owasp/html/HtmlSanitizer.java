@@ -255,6 +255,20 @@ public final class HtmlSanitizer {
     /** Match the sanitizer's output nesting limit without growing unchecked. */
     private static final int MAX_DEPTH = 256;
 
+    /**
+     * True for the contents of an HTML template, where a browser starts in
+     * the "in template" insertion mode rather than in body.
+     */
+    private final boolean templateContents;
+
+    ForeignContentContext() {
+      this(false);
+    }
+
+    ForeignContentContext(boolean templateContents) {
+      this.templateContents = templateContents;
+    }
+
     /** Elements from the first open foreign root through the current node. */
     private final List<OpenElement> openElements = new ArrayList<>();
 
@@ -276,6 +290,11 @@ public final class HtmlSanitizer {
      */
     boolean isUnknown() {
       return unknown;
+    }
+
+    /** Gives up the context, as reaching an unmodeled one does. */
+    void forget() {
+      if (!unknown) { becomeUnknown(); }
     }
 
     /** Records a form pointer whose target may be outside the tracked region. */
@@ -472,6 +491,21 @@ public final class HtmlSanitizer {
         if (asciiEqualsIgnoreCase(open.elementName, elementName)) { return true; }
       }
       return false;
+    }
+
+    /**
+     * Gives up the context when a start tag that may reach the browser under
+     * either of two names would be inserted as SVG or MathML under one and as
+     * HTML under the other, as xmp and the pre a renderer may write for it
+     * are inside an svg.  Call before {@link #processStartTag}.
+     */
+    void forgetIfNamespaceDependsOnName(
+        String elementName, String otherName, List<String> attrs) {
+      if (!unknown
+          && startTagUsesForeignContentRules(elementName, attrs)
+             != startTagUsesForeignContentRules(otherName, attrs)) {
+        becomeUnknown();
+      }
     }
 
     /** Records an HTML end tag known to be ignored without changing context. */
@@ -678,6 +712,18 @@ public final class HtmlSanitizer {
         // fail closed for the rest.
         becomeUnknown();
         return selfClosing && isForeignContentRoot(elementName);
+      }
+
+      if (templateContents
+          && htmlInsertionMode == HtmlInsertionMode.IN_BODY
+          && TABLE_STRUCTURE_START_TAG_NAMES.contains(elementName)) {
+        // In body a browser ignores these, but in template contents one can
+        // switch the template to a table, column group, table body or row
+        // mode,
+        // where tags such as svg or math are ignored or foster-parented
+        // instead of opening foreign content.  That is not modeled here.
+        becomeUnknown();
+        return false;
       }
 
       Namespace namespace;

@@ -119,7 +119,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   /** Browser tree-construction context for the tags actually emitted. */
   private HtmlSanitizer.ForeignContentContext outputForeignContent
       = new HtmlSanitizer.ForeignContentContext();
-  /** Exact contexts inside retained, emitted HTML template elements. */
+  /**
+   * Contexts inside retained, emitted HTML template elements: exact, or
+   * unknown from the start where the template's parent context was unknown.
+   */
   private final List<HtmlSanitizer.ForeignContentContext>
       outputTemplateForeignContents = new ArrayList<>();
   /** Output depth at each corresponding retained HTML template start. */
@@ -171,12 +174,30 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
   private final BitSet inForeignContentBeforeOpen = new BitSet();
   /** Whether each emitted, stacked output element is in SVG or MathML. */
   private final BitSet outputElementInForeignContent = new BitSet();
+  /**
+   * HTML elements whose content a browser reads as text up to the first end
+   * tag of the same name, in any case: the raw-text and RCDATA elements,
+   * noembed and noframes, which the sanitizer reads as markup but a browser
+   * reads as text, and noscript, which a browser reads as text when
+   * scripting is on.
+   */
+  private static final String[] TEXT_CONTENT_ELEMENT_NAMES = {
+    "iframe", "noembed", "noframes", "noscript", "plaintext", "script",
+    "style", "textarea", "title", "xmp",
+  };
+  /**
+   * How many of each of {@link #TEXT_CONTENT_ELEMENT_NAMES} are open in the
+   * output as HTML elements.
+   */
+  private final int[] openTextContentElements =
+      new int[TEXT_CONTENT_ELEMENT_NAMES.length];
   /** The same for {@link #keptCdataElementName}; entries may be null. */
   private final List<String> keptCdataNameBeforeOpen = new ArrayList<>();
   /**
    * True if {@link #out} is the library's own renderer, possibly behind
    * {@link HtmlStreamEventReceiverWrapper} decorators, so that what it escapes
-   * is known.  See {@link #isLiteralContentElement}.
+   * and the names it writes are known.  See {@link #isLiteralContentElement},
+   * {@link #applyPolicies} and {@link #processOutputStartTag}.
    */
   private final boolean outIsLibraryRenderer;
 
@@ -259,6 +280,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     keptCdataElementName = null;
     inForeignContent = false;
     outputForeignContent = new HtmlSanitizer.ForeignContentContext();
+    Arrays.fill(openTextContentElements, 0);
     outputTemplateForeignContents.clear();
     outputTemplateForeignContentDepths.clear();
     literalTextTail = "";
@@ -766,9 +788,25 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
   private void processOutputStartTag(
       String elementName, List<String> attrs, boolean selfClosing) {
-    outputForeignContent.processStartTag(elementName, attrs, selfClosing);
     HtmlSanitizer.ForeignContentContext templateContext =
         currentOutputTemplateForeignContent();
+    if (!outIsLibraryRenderer) {
+      // A receiver the library cannot see through may write the name as it
+      // is, or pass it on to the library's renderer, which writes xmp and
+      // plaintext as pre.  Inside svg or math a browser keeps the one as
+      // SVG or MathML and leaves foreign content at the other, so where the
+      // two differ the output context is not known after it.
+      String rendered = HtmlStreamRenderer.safeName(elementName);
+      if (!rendered.equals(elementName)) {
+        outputForeignContent.forgetIfNamespaceDependsOnName(
+            elementName, rendered, attrs);
+        if (templateContext != null) {
+          templateContext.forgetIfNamespaceDependsOnName(
+              elementName, rendered, attrs);
+        }
+      }
+    }
+    outputForeignContent.processStartTag(elementName, attrs, selfClosing);
     if (templateContext != null) {
       templateContext.processStartTag(elementName, attrs, selfClosing);
     }
@@ -783,9 +821,17 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
   }
 
-  private void pushOutputTemplateForeignContent() {
-    outputTemplateForeignContents.add(
-        new HtmlSanitizer.ForeignContentContext());
+  private void pushOutputTemplateForeignContent(boolean parentUnknown) {
+    HtmlSanitizer.ForeignContentContext context =
+        new HtmlSanitizer.ForeignContentContext(true);
+    // A template judged HTML only because its parent's context is unknown
+    // may be an SVG or MathML template in the browser, whose content is not
+    // parsed from an HTML root.  Its content starts unknown too, or an svg
+    // root in it would make an image there look like SVG, while under a
+    // MathML template a browser makes that svg MathML, and an image in an
+    // mtext or other text integration point in it an HTML img.
+    if (parentUnknown) { context.forget(); }
+    outputTemplateForeignContents.add(context);
     outputTemplateForeignContentDepths.add(outputNestingDepth);
   }
 
@@ -1456,6 +1502,17 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
         adjustedElementName = null;
       }
     }
+    // Inside an HTML title, noscript or other element whose content a
+    // browser reads as text, the end tag of an element of the same name, in
+    // any namespace, ends that text early.  What followed would reach the
+    // browser as markup in a context other than the one modeled here, such
+    // as HTML where an image inside an svg was kept as SVG.
+    if (adjustedElementName != null) {
+      int textContent = textContentElementIndex(adjustedElementName);
+      if (textContent >= 0 && openTextContentElements[textContent] != 0) {
+        adjustedElementName = null;
+      }
+    }
     reopenedTableWasRenamed = mode == OpenTagMode.REOPENED_TABLE
         && adjustedElementName != null
         && !"table".equals(adjustedElementName);
@@ -1769,8 +1826,15 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
 
       adjustedElementName = policies.elPolicy.apply(elementName, attrs);
       if (adjustedElementName != null) {
-        adjustedElementName =
-            HtmlLexer.canonicalElementName(adjustedElementName);
+        // Judge the element under the name the output will carry.  The
+        // library's renderer writes xmp, listing and plaintext as pre, and
+        // pre, unlike xmp and plaintext, ends SVG and MathML content in a
+        // browser.  Tracking the policy's name instead left the output
+        // context in foreign content after the browser had left it, so an
+        // image start there was kept as SVG and built as an HTML img.
+        adjustedElementName = outIsLibraryRenderer
+            ? HtmlStreamRenderer.safeName(adjustedElementName)
+            : HtmlLexer.canonicalElementName(adjustedElementName);
       }
     } else {
       adjustedElementName = null;
@@ -1922,6 +1986,11 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
                adjustedElementName);
     boolean opensHtmlTemplate = opensHtmlOutputTemplate(
         elementName, adjustedElementName, attrs);
+    HtmlSanitizer.ForeignContentContext templateParent =
+        currentOutputTemplateForeignContent();
+    boolean templateParentUnknown = opensHtmlTemplate
+        && (templateParent != null
+            ? templateParent : outputForeignContent).isUnknown();
     if (opensHtmlTemplate) {
       // Preserve the legacy conservative tracker at the template boundary,
       // while freezing any parent template context for later restoration.
@@ -1934,6 +2003,10 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     outputElementInForeignContent.set(
         openElementStack.size() / 2 - 1,
         outputElementForLastOpenTagUsedForeignContentRules);
+    if (!outputElementForLastOpenTagUsedForeignContentRules) {
+      int textContent = textContentElementIndex(adjustedElementName);
+      if (textContent >= 0) { ++openTextContentElements[textContent]; }
+    }
     if (isFormScopeOutputBoundary(
             adjustedElementName,
             outputElementForLastOpenTagUsedForeignContentRules)) {
@@ -1943,7 +2016,7 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     ++outputNestingDepth;
     outputContainerElementName = adjustedElementName;
     if (opensHtmlTemplate) {
-      pushOutputTemplateForeignContent();
+      pushOutputTemplateForeignContent(templateParentUnknown);
     }
     if ("form".equals(adjustedElementName)
         && !outputElementForLastOpenTagUsedForeignContentRules
@@ -1952,10 +2025,30 @@ class ElementAndAttributePolicyBasedSanitizerPolicy
     }
   }
 
+  /**
+   * The index in {@link #TEXT_CONTENT_ELEMENT_NAMES} of the name as a browser
+   * matches an end tag, ignoring ASCII case, or -1.
+   */
+  private static int textContentElementIndex(String elementName) {
+    int n = elementName.length();
+    if (n < 3 || n > 9) { return -1; }
+    String lower = Strings.toLowerCase(elementName);
+    for (int i = 0; i < TEXT_CONTENT_ELEMENT_NAMES.length; ++i) {
+      if (TEXT_CONTENT_ELEMENT_NAMES[i].equals(lower)) { return i; }
+    }
+    return -1;
+  }
+
   /** Writes an end tag and keeps the modeled output form pointer in sync. */
   private void closeOutputElement(String adjustedElementName, int stackIndex) {
     boolean elementIsForeign =
         outputElementInForeignContent.get(stackIndex / 2);
+    if (!elementIsForeign) {
+      int textContent = textContentElementIndex(adjustedElementName);
+      if (textContent >= 0 && openTextContentElements[textContent] != 0) {
+        --openTextContentElements[textContent];
+      }
+    }
     boolean closesHtmlTemplate = closesActiveHtmlOutputTemplate(
         adjustedElementName, elementIsForeign);
     if (closesHtmlTemplate) {

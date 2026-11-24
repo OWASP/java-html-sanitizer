@@ -11,6 +11,7 @@ Most recent at top.
 
 | Researcher | Advisory or fix | Finding | Fixed in |
 | ---------- | -------- | ------- | -------- |
+| Irhas Abdul Rosyid ([@analisaperlengkapan](https://github.com/analisaperlengkapan)) | [PR #541](https://github.com/OWASP/java-html-sanitizer/pull/541) | `xmp`, written as `pre`, ended SVG content in the browser but not in the sanitizer, so `image` became `img` | 20261110.1 |
 | Irhas Abdul Rosyid ([@analisaperlengkapan](https://github.com/analisaperlengkapan)) | [PR #534](https://github.com/OWASP/java-html-sanitizer/pull/534) | HTML `<image>` interpreted as `img` outside foreign content | 20261107.1 |
 | Irhas Abdul Rosyid ([@analisaperlengkapan](https://github.com/analisaperlengkapan)) | [PR #533](https://github.com/OWASP/java-html-sanitizer/pull/533) | Renderer-elided URL characters could create an authority after validation | 20261107.1 |
 | Irhas Abdul Rosyid ([@analisaperlengkapan](https://github.com/analisaperlengkapan)) | [GHSA-x759-2xw8-gp4m](https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-x759-2xw8-gp4m) | URL policy bypass via `imagesrcset`, which the `srcset` guard did not cover | 20261103.1 |
