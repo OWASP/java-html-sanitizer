@@ -100,8 +100,10 @@ mvn dependency:tree -Dincludes=com.googlecode.owasp-java-html-sanitizer
 gradle dependencyInsight --dependency owasp-java-html-sanitizer
 ```
 
-If the old coordinates show up, do one of these.  Each leaves a single JAR,
-the new one.
+If either shows the old coordinates at 20261110.1 or earlier, do one of
+these.  Each leaves a single JAR, the new one.  The old coordinates at a
+later version are only the relocation, which Gradle still lists, and are
+harmless.
 
 Maven, manage the old coordinates to a relocated version, the one you use
 under the new coordinates:
