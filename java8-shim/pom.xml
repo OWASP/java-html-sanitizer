@@ -12,7 +12,7 @@
   <url>https://github.com/OWASP/java-html-sanitizer</url>
 
   <properties>
-    <!-- Bundled into owasp-java-html-sanitizer.jar; not published on its own. -->
+    <!-- Bundled into the library JAR; not published on its own. -->
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
   <description>
