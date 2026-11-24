@@ -47,6 +47,11 @@ call() {
 
 # JReleaser asks Central whether each POM's coordinates are already
 # published before it uploads, so ask the same question with the same token.
+poms=$(unzip -Z1 "$bundle" | grep '\.pom$') || true
+if [[ -z $poms ]]; then
+  echo "Deployment bundle $bundle cannot be read or holds no POM" >&2
+  exit 1
+fi
 while IFS= read -r pom; do
   artifact_version=${pom%/*}
   artifact_path=${artifact_version%/*}
@@ -56,16 +61,18 @@ while IFS= read -r pom; do
   version=${artifact_version##*/}
   published=$(call --get --data-urlencode "namespace=$namespace" --data-urlencode "name=$name" \
     --data-urlencode "version=$version" "$api/published")
-  if [[ $(jq -r '.published' <<<"$published") != false ]]; then
+  if ! jq -e '.published == false' <<<"$published" > /dev/null 2>&1; then
     echo "Central does not report $namespace:$name:$version as unpublished: $published" >&2
     exit 1
   fi
   echo "Not yet published, as expected: $namespace:$name:$version"
-done < <(unzip -Z1 "$bundle" | grep '\.pom$')
+done <<<"$poms"
 
-uploaded=$(call --request POST --form "bundle=@$bundle" \
-  "$api/upload?name=validation-only-DO-NOT-PUBLISH&publishingType=USER_MANAGED")
-if [[ ! $uploaded =~ ^[0-9a-f-]{36}$ ]]; then
+# If the request fails part-way, Central may still have taken the bundle.
+if ! uploaded=$(call --request POST --form "bundle=@$bundle" \
+      "$api/upload?name=validation-only-DO-NOT-PUBLISH&publishingType=USER_MANAGED") ||
+    [[ ! $uploaded =~ ^[0-9a-f-]{36}$ ]]; then
+  echo "::warning::The upload may have left a deployment; look at $portal and drop it without publishing" >&2
   echo 'Central did not return a deployment identifier' >&2
   exit 1
 fi
@@ -76,20 +83,23 @@ state=PENDING
 status=
 failures=0
 for _ in $(seq 60); do
-  if status=$(call --request POST "$api/status?id=$deployment"); then
+  # An answer that is not JSON counts as no answer.
+  if status=$(call --request POST "$api/status?id=$deployment") &&
+      parsed=$(jq -r '.deploymentState // "UNKNOWN"' <<<"$status" 2> /dev/null); then
     failures=0
-    state=$(jq -r '.deploymentState // "UNKNOWN"' <<<"$status")
+    state=$parsed
     if [[ $state != PENDING && $state != VALIDATING ]]; then
       break
     fi
   elif ((++failures >= 3)); then
-    echo 'Central did not answer three status requests in a row' >&2
+    printf '%s\n' "$status" >&2
+    echo 'Central gave no usable answer to three status requests in a row' >&2
     exit 1
   fi
   sleep "$poll_seconds"
 done
 echo "Deployment state: $state"
-jq '{deploymentState, purls, errors}' <<<"$status"
+jq '{deploymentState, purls, errors}' <<<"$status" 2> /dev/null || printf '%s\n' "$status"
 
 # Central drops only deployments that have finished validating.  One that
 # is left behind stays unpublished, and the exit handler says so.
