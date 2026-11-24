@@ -61,8 +61,8 @@ if [[ $pom == *'<build>'* ]]; then
 fi
 dependencies=${pom#*<dependencies>}
 dependencies=${dependencies%%</dependencies>*}
-declared=$(grep -o '<dependency>' <<<"$dependencies" | wc -l | tr -d ' ')
-scoped=$(grep -o -E '<scope>(test|provided)</scope>' <<<"$dependencies" | wc -l | tr -d ' ')
+declared=$({ grep -o '<dependency>' <<<"$dependencies" || true; } | wc -l | tr -d ' ')
+scoped=$({ grep -o -E '<scope>(test|provided)</scope>' <<<"$dependencies" || true; } | wc -l | tr -d ' ')
 if [[ $pom != *'<dependencies>'* || $pom == *'<dependencyManagement>'* ||
       $declared -eq 0 || $declared -ne $scoped ]]; then
   echo "Library POM must declare only test and provided dependencies: $declared declared, $scoped so scoped" >&2
